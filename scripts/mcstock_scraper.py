@@ -69,6 +69,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
@@ -78,6 +79,10 @@ LOGIN_URL = f"{BASE_URL}/wp-login.php"
 REPORT_URL = f"{BASE_URL}/latest-report/"
 DATETIME_STR = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 DATE_STR = datetime.now().strftime('%Y-%m-%d')
+
+# Project paths (script is in scripts/ directory)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -106,7 +111,7 @@ def get_credentials() -> Tuple[str, str]:
 
     if not username or not password:
         # Try loading from .env file
-        env_path = Path('/Users/mintmrlion/.openclaw/workspaces/trader/.env')
+        env_path = PROJECT_ROOT / '.env'
         if env_path.exists():
             with open(env_path) as f:
                 for line in f:
@@ -229,6 +234,7 @@ def extract_tickers(html: str) -> List[Dict]:
     """
     Extract trade ideas from report HTML.
 
+    Looks for tickers under "THIS WEEKS READY LIST" and "WATCH LIST" sections.
     Returns list of dicts with ticker info.
     """
     logger = logging.getLogger(__name__)
@@ -236,58 +242,84 @@ def extract_tickers(html: str) -> List[Dict]:
 
     soup = BeautifulSoup(html, 'html.parser')
     ideas = []
+    tickers_found = set()
+    ticker_contexts = {}
 
     # Remove script and style elements
     for script in soup(["script", "style"]):
         script.decompose()
 
-    # Get text content
-    text = soup.get_text(separator='\n')
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    # Common false positives to filter out
+    false_positives = {
+        'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'USD', 'CEO', 'CFO',
+        'BOOK', 'POINT', 'TODAY', 'UNITS', 'LIST', 'WATCH', 'THIS',
+        'WEEKS', 'READY', 'WEEK', 'DAYS', 'DAY', 'STOCK', 'STOCKS',
+        'BUY', 'SELL', 'HOLD', 'ADD', 'NEW', 'OLD', 'LAST', 'FIRST',
+        'FROM', 'WITH', 'HAVE', 'HAS', 'HAD', 'WAS', 'WERE', 'BEEN',
+        'WILL', 'WOULD', 'COULD', 'SHOULD', 'MAY', 'MIGHT', 'MUST',
+        'CAN', 'CANT', 'DONT', 'WONT', 'SHOULDNT', 'ISNT', 'ARENT',
+        'VERY', 'JUST', 'NOW', 'THEN', 'THAN', 'ONLY', 'EVEN', 'ALSO',
+        'BACK', 'AFTER', 'BEFORE', 'OVER', 'UNDER', 'INTO', 'THROUGH',
+        'DURING', 'ABOUT', 'SINCE', 'UNTIL', 'WHILE', 'WHERE', 'WHEN',
+        'THAT', 'THIS', 'THESE', 'THOSE', 'THEY', 'THEM', 'THEIR',
+        'SHE', 'HER', 'HERS', 'HE', 'HIM', 'HIS', 'IT', 'ITS',
+        'WE', 'US', 'OUR', 'OURS', 'YOU', 'YOUR', 'YOURS',
+        'ALL', 'ANY', 'BOTH', 'EACH', 'FEW', 'MORE', 'MOST', 'OTHER',
+        'SOME', 'SUCH', 'NO', 'NOR', 'NOT', 'SO', 'TOO', 'VERY',
+        'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'
+    }
 
-    # Patterns to match ticker mentions
-    # Common patterns in MC reports: "$AAPL", "AAPL", "(AAPL)", etc.
-    ticker_patterns = [
-        r'\$([A-Z]{1,5})\b',  # $AAPL
-        r'\b([A-Z]{2,5})\s+(?:\(|at\s+\$)',  # AAPL (context)
-        r'(?:buy|add|position)\s+([A-Z]{2,5})\b',  # buy AAPL
-        r'(?:watching|watch)\s+([A-Z]{2,5})\b',  # watching AAPL
-    ]
+    def is_valid_ticker(ticker: str) -> bool:
+        """Check if a string looks like a valid ticker symbol."""
+        if not ticker or len(ticker) < 2 or len(ticker) > 5:
+            return False
+        if not ticker.isalpha():
+            return False
+        if ticker.upper() in false_positives:
+            return False
+        return True
 
-    tickers_found = set()
-    ticker_contexts = {}
+    def extract_from_section(section_header: str, end_headers: list, list_type: str = 'ready'):
+        """Extract tickers from a specific section."""
+        collecting = False
 
-    for line in lines:
-        for pattern in ticker_patterns:
-            matches = re.findall(pattern, line, re.IGNORECASE)
-            for ticker in matches:
-                ticker = ticker.upper()
-                # Filter out common false positives
-                if ticker in ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'USD', 'CEO', 'CFO']:
-                    continue
-                if len(ticker) < 2 or len(ticker) > 5:
-                    continue
+        for element in soup.find_all(['p', 'strong', 'b', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            text = element.get_text(strip=True).upper()
 
-                tickers_found.add(ticker)
-                if ticker not in ticker_contexts:
-                    ticker_contexts[ticker] = []
-                ticker_contexts[ticker].append(line[:150])  # Store context
+            # Start collecting when we see the start header
+            if section_header in text:
+                collecting = True
+                logger.debug(f"Found start header: {text[:50]}")
+                continue
 
-    # Try to find tables with stock data
-    tables = soup.find_all('table')
-    for table in tables:
-        rows = table.find_all('tr')
-        for row in rows:
-            cells = row.find_all(['td', 'th'])
-            if len(cells) >= 2:
-                # First cell often contains ticker
-                first_cell = cells[0].get_text(strip=True)
-                if re.match(r'^[A-Z]{1,5}$', first_cell):
-                    ticker = first_cell.upper()
-                    tickers_found.add(ticker)
-                    if ticker not in ticker_contexts:
-                        ticker_contexts[ticker] = []
-                    ticker_contexts[ticker].append(row.get_text(separator=' ', strip=True)[:150])
+            # Stop when we see an end header
+            if collecting and any(end in text for end in end_headers):
+                logger.debug(f"Found end header: {text[:50]}")
+                break
+
+            # Process p tags while collecting - pattern: TICKER    $PRICE
+            if collecting and element.name == 'p':
+                line = element.get_text(strip=True)
+                # Pattern: TICKER followed by price like $XX.XX
+                # Example: "ACLS        $96.78" or "AROC        $34.77"
+                match = re.match(r'^([A-Z]{1,5})\s+\$([\d\.]+)', line)
+                if match:
+                    ticker = match.group(1)
+                    price = match.group(2)
+                    if is_valid_ticker(ticker):
+                        tickers_found.add(ticker)
+                        if ticker not in ticker_contexts:
+                            ticker_contexts[ticker] = []
+                        ticker_contexts[ticker].append(f"{list_type}: {ticker} @ ${price}")
+                        logger.debug(f"Found ticker: {ticker} @ ${price}")
+
+    # Extract from "THIS WEEKS READY LIST" section (ends at "WATCH LIST")
+    extract_from_section("THIS WEEKS READY LIST", ["WATCH LIST"], "ready")
+
+    # Extract from "WATCH LIST" section (ends at common section markers)
+    watch_endings = ["MORNING POST", "PARADE VIDEO", "TUESDAY", "WEDNESDAY",
+                     "THURSDAY", "FRIDAY", "CHARTS", "DATA COURTESY"]
+    extract_from_section("WATCH LIST", watch_endings, "watch")
 
     logger.info(f"🎯 Found {len(tickers_found)} potential tickers")
 
@@ -428,7 +460,7 @@ def save_to_csv(ideas: List[Dict], output_path: Optional[str] = None) -> Path:
     if output_path:
         path = Path(output_path)
     else:
-        path = Path(f'/Users/mintmrlion/.openclaw/workspaces/trader/scans/mcstock_ideas_{DATE_STR}.csv')
+        path = PROJECT_ROOT / f'scans/mcstock_ideas_{DATE_STR}.csv'
 
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -448,13 +480,14 @@ def populate_watchlist(ideas: List[Dict]) -> None:
     logger = logging.getLogger(__name__)
 
     # Save to temp CSV first
-    temp_path = Path(f'/Users/mintmrlion/.openclaw/workspaces/trader/scans/temp_mcstock_{DATETIME_STR}.csv')
+    temp_path = PROJECT_ROOT / f'scans/temp_mcstock_{DATETIME_STR}.csv'
     save_to_csv(ideas, str(temp_path))
 
     # Import and call watchlist_manager
     import subprocess
+    watchlist_script = PROJECT_ROOT / 'scripts/watchlist_manager.py'
     result = subprocess.run(
-        ['python3', '/Users/mintmrlion/.openclaw/workspaces/trader/scripts/watchlist_manager.py', 'populate', str(temp_path)],
+        ['python3', str(watchlist_script), 'populate', str(temp_path)],
         capture_output=True,
         text=True
     )
@@ -547,7 +580,6 @@ def main():
 
         # Validate tickers (unless skipped)
         if not args.skip_validation:
-            import pandas as pd  # Required by validate_tickers
             ideas = validate_tickers(ideas)
 
         if not ideas:
