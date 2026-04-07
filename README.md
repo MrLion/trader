@@ -32,8 +32,7 @@ CLAUDE.md         - Development operations guide
 | `watchlist_manager.py` | Add, remove, list watchlist items |
 | `sector_scan.py` | Daily sector ETF performance ranking |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates |
-| `premarket_report.py` | Generate pre-market briefing |
-| `premarket_report_comprehensive.py` | Extended version with breadth data + HTML reports |
+| `premarket_report.py` | Generate pre-market briefing (console or HTML) |
 | `postmarket_report.py` | Post-market analysis and trade logging |
 | `midday_scan.py` | Intraday scan for leading stocks |
 | `mcstock_scraper.py` | Scrape trade ideas from MC Stock Charts |
@@ -68,8 +67,8 @@ python3 scripts/premarket_report.py
 python3 scripts/postmarket_report.py
 
 # Reports (HTML output)
-python3 scripts/premarket_report_comprehensive.py --html
-python3 scripts/premarket_report_comprehensive.py --html --output /path/to/custom.html
+python3 scripts/premarket_report.py --html
+python3 scripts/premarket_report.py --html --output /path/to/custom.html
 python3 scripts/postmarket_report.py --html
 python3 scripts/postmarket_report.py --html --output reports/eod_$(date +%Y%m%d_%H%M).html
 
@@ -92,16 +91,16 @@ python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 
 Both pre-market and post-market reports now support console and HTML output with dark theme styling.
 
-### Pre-Market Report (Comprehensive)
+### Pre-Market Report
 ```bash
 # Console output
-python3 scripts/premarket_report_comprehensive.py
+python3 scripts/premarket_report.py
 
 # HTML report with dark theme
-python3 scripts/premarket_report_comprehensive.py --html
+python3 scripts/premarket_report.py --html
 
 # Custom output path
-python3 scripts/premarket_report_comprehensive.py --html --output reports/premarket_$(date +%Y%m%d).html
+python3 scripts/premarket_report.py --html --output reports/premarket_$(date +%Y%m%d).html
 ```
 
 **Features:**

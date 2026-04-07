@@ -17,8 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - Comprehensive Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
     - Stage 2 RS Screen: `python3 scripts/stage2_rs_screen.py`
 - **Reports:**
-    - Pre-market: `python3 scripts/premarket_report.py` (various versions available in `scripts/`)
-    - Post-market: `python3 scripts/postmarket_report.py`
+    - Pre-market: `python3 scripts/premarket_report.py` (add `--html` for HTML output)
+    - Post-market: `python3 scripts/postmarket_report.py` (add `--html` for HTML output)
 
 ### External Communications
 - **Telegram Posting:** Use `openclaw message send --channel telegram --account trader --target [ID] --message "[TEXT]"`

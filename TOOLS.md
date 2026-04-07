@@ -373,7 +373,7 @@ python3 scripts/midday_scan.py --min-dollar-vol 50000000
 
 ## 📊 Comprehensive Pre-Market Report
 
-**Script:** `scripts/premarket_report_comprehensive.py`
+**Script:** `scripts/premarket_report.py`
 
 **Purpose:** Generate a complete pre-market briefing with futures, indices, regime assessment, economic calendar, sector leaders, and watchlist rankings.
 
@@ -381,13 +381,13 @@ python3 scripts/midday_scan.py --min-dollar-vol 50000000
 
 ```bash
 # Console output (default)
-python3 scripts/premarket_report_comprehensive.py
+python3 scripts/premarket_report.py
 
 # Generate HTML report (saved to reports/)
-python3 scripts/premarket_report_comprehensive.py --html
+python3 scripts/premarket_report.py --html
 
 # Custom output path
-python3 scripts/premarket_report_comprehensive.py --html --output ~/Desktop/premarket.html
+python3 scripts/premarket_report.py --html --output ~/Desktop/premarket.html
 ```
 
 ### Output Format
@@ -509,7 +509,7 @@ Generate and deliver in one command:
 
 ```bash
 # Generate HTML report and deliver to Telegram
-python3 scripts/premarket_report_comprehensive.py --html && \
+python3 scripts/premarket_report.py --html && \
 python3 scripts/deliver_report.py \
   --file reports/premarket_report_$(date +%Y-%m-%d).html \
   --caption "🌅 Pre-Market Report — $(date +%Y-%m-%d)"
