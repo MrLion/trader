@@ -1,0 +1,49 @@
+{
+  "universe_filters": {
+    "min_price": 10,
+    "min_ad_dollar_volume": 20000000,
+    "min_market_cap": 1000000000,
+    "exchanges": ["NYSE", "NASDAQ"]
+  },
+  "stage_2_criteria": {
+    "above_150_sma": true,
+    "above_200_sma": true,
+    "sma_150_above_200": true,
+    "sma_200_slope_positive_month": true,
+    "pct_above_52w_low_min": 25,
+    "pct_below_52w_high_max": 25
+  },
+  "rs_criteria": {
+    "rank_in_top_pct": 20,
+    "rs_line_near_high": true
+  },
+  "volume_criteria": {
+    "accumulation_days_10d_min": 2,
+    "accumulation_volume_multiplier": 1.5,
+    "contraction_volume_vs_50d_avg": "below"
+  },
+  "setup_specifics": {
+    "vcp": {
+      "contractions_min": 3,
+      "volume_decline_each": true,
+      "range_contraction_each": true,
+      "max_base_depth_pct": 25
+    },
+    "pullback_to_ma": {
+      "ma_types": ["10_EMA", "21_EMA"],
+      "max_pullback_days": 5,
+      "volume_on_pullback": "declining"
+    },
+    "flat_base": {
+      "max_base_depth_pct": 15,
+      "min_consolidation_weeks": 3,
+      "max_consolidation_weeks": 7,
+      "volume_dry_up": true
+    },
+    "peg": {
+      "gap_pct_min": 5,
+      "volume_multiplier_min": 3,
+      "constructive_follow_through_days": 3
+    }
+  }
+}

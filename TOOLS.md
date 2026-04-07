@@ -1,0 +1,381 @@
+# TOOLS.md - Local Notes
+
+Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+
+## 📈 yfinance - Market Data
+
+**Installed:** v1.2.0 (system Python 3.14)
+**Usage:** `import yfinance as yf`
+
+### Quick Examples
+
+```python
+import yfinance as yf
+
+# Get ticker object
+ticker = yf.Ticker("AAPL")
+
+# Historical data (1 month daily)
+data = ticker.history(period="1mo")
+
+# Historical data (custom range)
+data = ticker.history(start="2024-01-01", end="2024-12-31", interval="1d")
+# Intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+
+# Current price
+price = ticker.info['currentPrice']
+
+# Key stats
+market_cap = ticker.info['marketCap']
+pe_ratio = ticker.info['trailingPE']
+dividend_yield = ticker.info['dividendYield']
+eps = ticker.info['trailingEps']
+
+# Financials
+income_stmt = ticker.financials  # Income statement
+balance_sheet = ticker.balance_sheet
+cash_flow = ticker.cashflow
+
+# Analyst recommendations
+recs = ticker.recommendations
+
+# Options chain
+options = ticker.options  # List of expiration dates
+call_options = ticker.option_chain('2025-01-17').calls
+put_options = ticker.option_chain('2025-01-17').puts
+```
+
+### Common Tickers
+
+**Tech:** AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA  
+**Indices:** ^GSPC (S&P 500), ^DJI (Dow), ^IXIC (NASDAQ), ^VIX (Volatility)  
+**ETFs:** SPY, QQQ, VOO, VTI, ARKK  
+**Crypto:** BTC-USD, ETH-USD, SOL-USD  
+**Forex:** EURUSD=X, GBPUSD=X, JPY=X
+**Commodities:** CL=F (WTI Crude Oil), GC=F (Gold)
+
+### Pre-Market Standard Checklist
+
+Every session, pull:
+1. **Index Futures:** ES=F (S&P), NQ=F (NASDAQ), RTY=F (Russell)
+2. **Volatility:** ^VIX
+3. **Commodities:** CL=F (Oil)
+4. **Crypto:** BTC-USD, ETH-USD
+5. **Spot Indices:** SPY, QQQ — check vs 20/50 SMA  
+
+### Data Columns Returned
+
+```python
+df = ticker.history(period="1mo")
+df.columns
+# Index(['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'], dtype='object')
+```
+
+### Useful Patterns
+
+```python
+# Multiple tickers at once
+tickers = yf.Tickers("AAPL MSFT GOOGL")
+aapl_data = tickers.tickers['AAPL'].history(period="1mo")
+
+# Download many tickers into one DataFrame
+data = yf.download(["AAPL", "MSFT", "GOOGL"], period="1mo")
+
+# Earnings calendar
+earnings = ticker.earnings_dates
+
+# Institutional holders
+holders = ticker.institutional_holders
+
+# Major holders breakdown
+major = ticker.major_holders  # [insiders_percent, institutions_percent, ...]
+```
+
+### Notes
+
+- Data is cached locally (clear with `yf.clear_cache()`)
+- Rate limited by Yahoo Finance (~2000 requests/hour)
+- Pre/post market data: `ticker.history(period="1d", interval="1m", include_prepost=True)`
+- Some info fields may be None if not available
+
+---
+
+## 📋 Watchlist Manager
+
+**Script:** `scripts/watchlist_manager.py`  
+**Data file:** `data/watchlist.csv`
+
+### Commands
+
+```bash
+# Populate from scan results (auto-tier: B for Stage 4 + strong RS, else C)
+python3 scripts/watchlist_manager.py populate /path/to/scan.csv
+
+# Manual add a stock
+python3 scripts/watchlist_manager.py add TICKER [TIER] [NOTES]
+# Example: python3 scripts/watchlist_manager.py add AAPL B "Pullback to 21 EMA"
+
+# Promote/demote tier
+python3 scripts/watchlist_manager.py promote TICKER NEW_TIER
+# Example: python3 scripts/watchlist_manager.py promote HAL A
+
+# Remove from watchlist
+python3 scripts/watchlist_manager.py remove TICKER
+
+# List all (or filter by tier)
+python3 scripts/watchlist_manager.py list
+python3 scripts/watchlist_manager.py list A
+```
+
+### Tier System
+
+| Tier | Definition | Max | When to Promote |
+|------|-----------|-----|-----------------|
+| **A — Actionable** | Mature setup, pivot defined | 5 | Pattern ready, entry trigger set |
+| **B — Developing** | Base forming but not ready | 10 | Clear VCP or MA pullback |
+| **C — On Radar** | Strong RS, early stage | 15 | Stage 2+ confirmed, watching |
+
+### Auto-Tier Logic
+
+- **Stage 4 + 6M return >50%** → Tier B
+- **Stage 3 with strong RS** → Tier C
+- **Manual override** available via `add` command
+
+### Watchlist Schema
+
+```
+Ticker, Tier, Stage, RS_Rank, Base_Count, Pattern_Type, 
+Pivot_Price, Stop_Level, Target_1, Target_2, R_Ratio,
+Avg_Volume_50d, Market_Cap, Sector, Industry, Notes,
+Added_Date, Promoted_Date, Alert_Set
+```
+
+---
+
+## 🔬 Stock Analysis Tool
+
+**Script:** `scripts/analyze_ticker.py`
+
+**Purpose:** Generate detailed technical analysis for any ticker in standard format
+
+**Usage:**
+```bash
+python3 scripts/analyze_ticker.py TICKER
+# Example: python3 scripts/analyze_ticker.py AAPL
+```
+
+**Features:**
+- Pulls company info (name, sector, industry)
+- Calculates returns (1M, 3M, 6M)
+- Stage 2 score (4 criteria)
+- Entry/stop/risk calculation using 2 ATR
+- Uses manual pivot price from watchlist if available
+
+**Output Format:**
+```
+TICKER (Company Name) — $PRICE
+
+| Metric | Value |
+|:-------|:------|
+| Company | ... |
+| Sector | ... |
+| Industry | ... |
+| 1M Return | +X% |
+| 3M Return | +X% |
+| 6M Return | +X% |
+| Stage 2 Score | X/4 🟢 |
+| From 52W High | X% |
+| Above All MAs | ✓ ✓ ✓ ✓ 20/50/150/200 |
+
+---
+
+ENTRY SETUP
+
+| Level | Price |
+|:------|:------|
+| Entry | $X.XX (break above $X.XX) |
+| Stop | $X.XX (2 ATR / below support) |
+| Risk | X.X% |
+
+Assessment:
+- **Momentum** — ...
+- **Stage 2** — ...
+- **Distance from highs** — ...
+- **Risk level** — ...
+
+Verdict: [TIER]
+```
+
+---
+
+## 📊 Watchlist Analysis Tool
+
+**Script:** `scripts/analyze_watchlist.py`
+
+**Purpose:** Analyze entire watchlist and rank stocks by entry favorability
+
+**Usage:**
+```bash
+python3 scripts/analyze_watchlist.py
+```
+
+**Scoring System (Max: 100 points):**
+
+| Component | Criteria | Points |
+|-----------|----------|--------|
+| **Stage 2 Score** | 4/4 🟢 | +30 |
+| | 3/4 🟢 | +20 |
+| | 2/4 🟡 | +10 |
+| **Risk %** | < 10% | +30 |
+| | < 15% | +20 |
+| | < 20% | +10 |
+| **Distance to Pivot** | < 3% | +25 |
+| | < 5% | +15 |
+| | < 10% | +5 |
+| **6M Momentum** | > 50% | +15 |
+| | > 25% | +10 |
+
+**Tier Thresholds:**
+- **Tier 1 (≥60 pts):** Best entry setups — ready now
+- **Tier 2 (40-59 pts):** Good setups — wait for better entry
+- **Tier 3 (<40 pts):** Monitor only — too far or too wide
+
+**Output:**
+- Ranked table by entry score (descending)
+- Tier 1 / Tier 2 / Tier 3 sections
+- Summary count
+- Top 3 recommendations
+
+**When to Run:**
+- Weekly: After populating new watchlist
+- Daily: Pre-market to identify ready setups
+- After adding new stocks to watchlist
+
+**Action Rules:**
+- Tier 1 + within 2% + risk <10% = Ready for immediate entry
+- Tier 1 + 2-5% from pivot = Set price alert at pivot
+- Tier 2 = Wait for pullback or base formation
+- Tier 3 = Remove or monitor only
+
+---
+
+### Posting Reports with HTML Attachment
+
+**For EOD/Pre-market reports:** Attach the HTML file alongside the text summary.
+
+```bash
+# Post EOD report with HTML attachment to your DM
+openclaw message send --channel telegram --account trader --target 47258942 \
+  --message "📊 EOD Report — April 6, 2026\n\nRegime: Neutral with bearish tilt\nA-Tier: TSEM, DOCN, LITE, CIEN\n\nFull report attached." \
+  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/EOD_Report_2026-04-06.html \
+  --force-document
+```
+
+**Note:** Use `--force-document` for HTML files so Telegram doesn't try to preview them as images.
+
+---
+
+## 📬 Telegram Posting
+
+**Bot:** @tradermintbot  
+**Account ID:** `trader`  
+**Status:** ✅ Admin in channel + member in discussion group
+
+### Destinations
+
+| Target | Chat ID | Use Case |
+|--------|---------|----------|
+| **Trading Sandbox** | `-4872065090` | Main trading channel for reports and analysis |
+| **Channel** | `-1002556195363` | Дневник трейдера (legacy) |
+| **Discussion Group** | `-1002652699578` | Posts forward to channel automatically |
+
+### How to Post
+
+**Use the `openclaw message send` command via `exec` tool:**
+
+```bash
+# Post to channel (direct)
+openclaw message send --channel telegram --account trader --target -1002556195363 --message "Your analysis here"
+
+# Post to discussion group (forwards to channel)
+openclaw message send --channel telegram --account trader --target -1002652699578 --message "Your analysis here"
+
+# With media (chart/screenshot from workspace)
+openclaw message send --channel telegram --account trader --target -1002556195363 --media /Users/mintmrlion/.openclaw/workspaces/trader/chart.png --force-document
+```
+
+### When to Post
+
+**Good reasons:**
+- Daily market summary (pre-market or EOD)
+- Significant price movements (>5% in major holdings)
+- Earnings surprises
+- Technical breakouts/breakdowns
+- Sector rotation alerts
+- Economic data releases (CPI, jobs, Fed decisions)
+
+**Don't post:**
+- Every single analysis (use DM for detailed back-and-forth)
+- Speculative/unconfirmed rumors
+- Overly frequent updates (max 3-5 posts/day)
+
+### Post Templates
+
+**Pre-Market Summary:**
+```
+🌅 Pre-Market Update
+
+Indices:
+• S&P 500 (ES=F): +0.3%
+• NASDAQ (NQ=F): +0.5%
+• VIX: 14.2 (-2%)
+
+Movers:
+• NVDA +2.1% (earnings beat)
+• TSLA -1.4% (delivery miss)
+
+Oil (CL=F): $78.45 (+0.8%)
+Gold (GC=F): $2,034 (-0.2%)
+BTC: $67,890 (+1.2%)
+
+Key events today: CPI data @ 8:30 AM ET
+```
+
+**Stock Analysis:**
+```
+📊 $AAPL Analysis
+
+Current: $178.45 (+1.2%)
+
+Technical:
+• Above 20-day SMA ($175)
+• RSI: 58 (neutral)
+• Support: $172, Resistance: $182
+
+Fundamentals:
+• P/E: 29.4
+• Market Cap: $2.8T
+• Next earnings: Apr 25
+
+Verdict: HOLD — waiting for breakout above $182
+```
+
+**Alert:**
+```
+🚨 $NVDA Alert
+
+Breaking above resistance at $485
+Volume: 2.3x average
+Target: $500
+Stop: $475
+
+Position: Watching for confirmation
+```
+
+### Notes
+
+- Always use `--account trader` flag (not default)
+- Channel posts are permanent and visible to all subscribers
+- Discussion group posts show comment count on channel
+- Images must be in workspace directory (`~/.openclaw/workspaces/trader/`)
+- Use `--force-document` for charts to prevent compression

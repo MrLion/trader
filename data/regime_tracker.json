@@ -1,0 +1,25 @@
+{
+  "last_updated": "2026-04-05",
+  "current_regime": "TBD",
+  "regime_history": [],
+  "signals": {
+    "spy_vs_50sma": "TBD",
+    "pct_stocks_above_20sma": "TBD",
+    "pct_stocks_above_50sma": "TBD",
+    "new_highs_new_lows_10d": "TBD",
+    "vix_level": "TBD",
+    "advance_decline_line": "TBD"
+  },
+  "breadth_readings": {
+    "nyse_adv_dec_ratio": "TBD",
+    "new_52w_highs": "TBD",
+    "new_52w_lows": "TBD",
+    "pct_sp500_above_20sma": "TBD",
+    "pct_sp500_above_50sma": "TBD",
+    "pct_sp500_above_200sma": "TBD",
+    "up_volume_vs_down_volume": "TBD"
+  },
+  "macro_events_this_week": [],
+  "earnings_this_week": [],
+  "notes": "Initializing regime tracker. Need to pull current market data."
+}
