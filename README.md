@@ -76,12 +76,28 @@ python3 scripts/postmarket_report.py
 - Market cap >= $1B
 - NYSE/NASDAQ only
 
-### Watchlist Tiers
+### Watchlist Tiers (Manual Classification)
 | Tier | Description | Max | Criteria |
 |------|-------------|-----|----------|
 | A | Actionable | 5 | Mature setup, pivot defined, entry within 1-3 days |
 | B | Developing | 10 | Constructive base forming, not at buy point yet |
 | C | Radar | 15 | Strong RS, interesting story, early stage |
+
+### Entry Score Tiers (Automated by `analyze_watchlist.py`)
+Calculated using scoring formulae (max 100 pts):
+
+| Component | Max Points | Criteria |
+|-----------|------------|----------|
+| Stage 2 Score | 30 pts | ≥4/4 = +30, ≥3/4 = +20, ≥2/4 = +10, <2 = +0 |
+| Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, ≥20% = +0 |
+| Proximity | 25 pts | <3% = +25, <5% = +15, <10% = +5, ≥10% = +0 |
+| Momentum | 15 pts | 6M return >50% = +15, >25% = +10, ≤25% = +0 |
+
+| Tier | Score | Meaning |
+|------|-------|---------|
+| 🟢 Tier 1 | ≥ 60 pts | Best entry setups — ready now |
+| 🟡 Tier 2 | 40-59 pts | Good setups — wait for better entry |
+| 🔴 Tier 3 | < 40 pts | Monitor only — too far or too wide |
 
 ### Entry Protocol
 1. **Trigger**: Price breaks above pivot (within 1-2% of buy point)
