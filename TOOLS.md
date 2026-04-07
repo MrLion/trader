@@ -287,7 +287,7 @@ openclaw message send --channel telegram --account trader --target 47258942 \
 
 ### Features
 
-- **Curated universe** — 60+ liquid tickers across leading sectors
+- **Ticker sources** — Watchlist or custom file (no hardcoded universe)
 - **Stage 2 scoring** — 0-4 score based on technical criteria
 - **Entry calculations** — Breakout levels and 2 ATR stops
 - **Dynamic sectors** — Load today's leading sectors from scan
@@ -297,26 +297,26 @@ openclaw message send --channel telegram --account trader --target 47258942 \
 ### Usage
 
 ```bash
-# Basic scan (full universe)
-python3 scripts/midday_scan.py
-
-# Include your watchlist
+# Scan watchlist (required: use --include-watchlist or --tickers-file)
 python3 scripts/midday_scan.py --include-watchlist
 
-# Focus only on today's leading sectors
-python3 scripts/midday_scan.py --leading-sectors-only
+# Scan custom ticker list from file
+python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt
+
+# Combine watchlist with file
+python3 scripts/midday_scan.py --include-watchlist --tickers-file data/extra_tickers.txt
 
 # Generate HTML report
-python3 scripts/midday_scan.py --html
+python3 scripts/midday_scan.py --include-watchlist --html
 
 # Custom dollar volume filter (e.g., 50M+)
-python3 scripts/midday_scan.py --min-dollar-vol 50000000
+python3 scripts/midday_scan.py --include-watchlist --min-dollar-vol 50000000
 
 # Custom Stage 2 minimum (e.g., only score 4)
-python3 scripts/midday_scan.py --stage2-min 4
+python3 scripts/midday_scan.py --include-watchlist --stage2-min 4
 
 # Custom output paths
-python3 scripts/midday_scan.py --output /path/to/output.csv --html-output /path/to/output.html
+python3 scripts/midday_scan.py --include-watchlist --output /path/to/output.csv --html-output /path/to/output.html
 ```
 
 ### CLI Options
@@ -326,7 +326,7 @@ python3 scripts/midday_scan.py --output /path/to/output.csv --html-output /path/
 | `--min-dollar-vol` | Minimum dollar volume filter | 20,000,000 |
 | `--entry-score-min` | Minimum entry score to include | 0 |
 | `--include-watchlist` | Add watchlist.csv tickers | False |
-| `--leading-sectors-only` | Scan only today's leading sectors | False |
+| `--tickers-file` | Load tickers from file (one per line) | None |
 | `--output` | Custom CSV output path | scans/leading_stocks_YYYY-MM-DD.csv |
 | `--html` | Generate HTML report | False |
 | `--html-output` | Custom HTML output path | reports/midday_scan_YYYY-MM-DD.html |
@@ -354,9 +354,9 @@ CVX    | Chevron Corp            | $155.30 | 6M:  +8.3% | From High: 5.1%
 
 ### Common Workflows
 
-**Midday check after sector rotation:**
+**Quick scan with file:**
 ```bash
-python3 scripts/midday_scan.py --leading-sectors-only --html
+python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt --html
 ```
 
 **Full scan including your watchlist:**

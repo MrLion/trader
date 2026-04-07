@@ -57,11 +57,10 @@ python3 scripts/sector_scan.py
 python3 scripts/sector_scan_comprehensive.py
 python3 scripts/stage2_rs_screen.py
 
-# Midday scan
-python3 scripts/midday_scan.py
+# Midday scan (requires --include-watchlist or --tickers-file)
 python3 scripts/midday_scan.py --include-watchlist
-python3 scripts/midday_scan.py --leading-sectors-only
-python3 scripts/midday_scan.py --html
+python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt
+python3 scripts/midday_scan.py --include-watchlist --html
 
 # Reports (console output)
 python3 scripts/premarket_report.py

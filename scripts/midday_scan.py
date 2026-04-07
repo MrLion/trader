@@ -1,33 +1,16 @@
 #!/usr/bin/env python3
 """Mid-day Stage 2 scan with entry setup calculations.
 
-Enhanced version with:
-- CLI arguments for customization
-- Dynamic sector loading from today's scan
-- Watchlist integration
-- Optional HTML output
+Loads tickers from watchlist or custom file - no hardcoded universe.
 """
 
 import argparse
+import csv
 import yfinance as yf
 import pandas as pd
 import html
 from datetime import datetime
 from pathlib import Path
-
-# Base universe - liquid names by sector
-BASE_UNIVERSE = {
-    'Energy': ['XOM', 'CVX', 'COP', 'TTE', 'BP', 'SLB', 'HAL', 'OXY', 'DVN', 'FANG',
-              'MPC', 'VLO', 'PSX', 'PBF', 'XLE', 'USO', 'XOP'],
-    'Materials': ['FCX', 'ALB', 'VALE', 'SCCO', 'DOW', 'RIO', 'BHP', 'NEM', 'GOLD',
-                   'MT', 'STLD', 'NUE', 'PAAS', 'WPM', 'RGLD', 'KGC', 'AEM'],
-    'Biotech': ['MRK', 'BMY', 'GILD', 'REGN', 'AMGN', 'JNJ', 'GSK', 'AZN', 'NVS',
-                'ARWR', 'APLS', 'RCUS', 'ACLX', 'GH', 'MDGL', 'NTRA'],
-    'Industrials': ['CAT', 'FDX', 'MTZ', 'PWR', 'CW', 'LMT', 'RTX', 'NOC', 'HII', 'CSX',
-                    'EME', 'FIX', 'UPS', 'UNP', 'CP', 'CNI', 'EXPD'],
-    'Utilities': ['NEE', 'DUK', 'SO', 'AEP', 'SRE', 'ETR', 'ED', 'EXC', 'WEC', 'XEL',
-                  'BWXT', 'SEDG']
-}
 
 
 def load_watchlist_tickers():
@@ -37,7 +20,6 @@ def load_watchlist_tickers():
     if watchlist_path.exists():
         try:
             with open(watchlist_path, 'r') as f:
-                import csv
                 reader = csv.DictReader(f)
                 for row in reader:
                     tickers.append(row['Ticker'])
@@ -46,44 +28,31 @@ def load_watchlist_tickers():
     return tickers
 
 
-def load_today_leading_sectors():
-    """Load today's leading sectors from sector scan"""
-    today = datetime.now().strftime('%Y-%m-%d')
-    scan_file = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/scans/{today}_sector_scan.csv")
+def load_tickers_from_file(filepath):
+    """Load tickers from a CSV or text file (one ticker per line)"""
+    tickers = []
+    path = Path(filepath)
+    if not path.exists():
+        return tickers
 
-    leading_sectors = []
-    if scan_file.exists():
-        try:
-            with open(scan_file, 'r') as f:
-                import csv
+    try:
+        # Try CSV first
+        with open(path, 'r') as f:
+            if filepath.endswith('.csv'):
                 reader = csv.reader(f)
                 for row in reader:
-                    if row and row[0] == 'leading_sectors' and len(row) > 1:
-                        leading_sectors = [s.strip() for s in row[1].split('|') if s.strip()]
-                        break
-        except Exception:
-            pass
+                    if row and row[0] and not row[0].startswith('#'):
+                        tickers.append(row[0].strip().upper())
+            else:
+                # Plain text file
+                for line in f:
+                    ticker = line.strip().upper()
+                    if ticker and not ticker.startswith('#'):
+                        tickers.append(ticker)
+    except Exception:
+        pass
 
-    return leading_sectors
-
-
-def get_sector_tickers(sectors, base_universe):
-    """Get tickers for given sectors from base universe"""
-    tickers = []
-    sector_map = {
-        'XLE': 'Energy', 'XLB': 'Materials', 'XBI': 'Biotech',
-        'XLI': 'Industrials', 'XLU': 'Utilities', 'XLY': 'Consumer Disc',
-        'XLK': 'Technology', 'XLF': 'Financials', 'XLV': 'Health Care',
-        'XLP': 'Staples', 'XLC': 'Comm Services'
-    }
-
-    for sector in sectors:
-        # Map ETF ticker to sector name
-        sector_name = sector_map.get(sector, sector)
-        if sector_name in base_universe:
-            tickers.extend(base_universe[sector_name])
-
-    return list(set(tickers))  # Remove duplicates
+    return tickers
 
 
 def get_stage2_score(df):
@@ -173,7 +142,6 @@ def calculate_setup(df):
 
     recent_low = df['Low'].tail(10).min()
     recent_high = df['High'].tail(5).max()
-    sma20 = df['Close'].rolling(20).mean().iloc[-1]
 
     stop = max(recent_low, current - 2 * atr)
     risk = (current - stop) / current * 100
@@ -183,8 +151,7 @@ def calculate_setup(df):
         'atr': round(atr, 2),
         'entry_breakout': round(recent_high + 0.01, 2),
         'stop': round(stop, 2),
-        'risk_pct': round(risk, 2),
-        'sma20': round(sma20, 2)
+        'risk_pct': round(risk, 2)
     }
 
 
@@ -415,20 +382,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  # Basic scan
-  python3 midday_scan.py
-
-  # Include watchlist tickers
+  # Scan your watchlist
   python3 midday_scan.py --include-watchlist
 
-  # Focus on today's leading sectors only
-  python3 midday_scan.py --leading-sectors-only
+  # Scan custom tickers file (one ticker per line)
+  python3 midday_scan.py --tickers-file my_tickers.txt
 
-  # Generate HTML report
-  python3 midday_scan.py --html
+  # Generate HTML report from watchlist
+  python3 midday_scan.py --include-watchlist --html
 
   # Custom dollar volume filter
-  python3 midday_scan.py --min-dollar-vol 50000000
+  python3 midday_scan.py --include-watchlist --min-dollar-vol 50000000
+
+Note: You must specify a ticker source (--include-watchlist or --tickers-file)
         '''
     )
 
@@ -438,8 +404,8 @@ Examples:
                        help='Minimum entry score to include (default: 0)')
     parser.add_argument('--include-watchlist', action='store_true',
                        help='Include watchlist.csv tickers in scan')
-    parser.add_argument('--leading-sectors-only', action='store_true',
-                       help='Scan only today\'s leading sectors')
+    parser.add_argument('--tickers-file', type=str, default=None,
+                       help='Path to file with tickers (one per line or CSV)')
     parser.add_argument('--output', type=str, default=None,
                        help='Custom output path for CSV (default: scans/leading_stocks_YYYY-MM-DD.csv)')
     parser.add_argument('--html', action='store_true',
@@ -452,31 +418,28 @@ Examples:
     scan_time = datetime.now().strftime('%Y-%m-%d %H:%M')
     print(f"🎯 MID-DAY SCAN — {scan_time}\n")
 
-    # Build ticker universe
+    # Build ticker universe from specified sources
     tickers = []
 
-    if args.leading_sectors_only:
-        # Load from today's sector scan
-        leading_sectors = load_today_leading_sectors()
-        if leading_sectors:
-            tickers = get_sector_tickers(leading_sectors, BASE_UNIVERSE)
-            print(f"📊 Scanning leading sectors: {', '.join(leading_sectors)}\n")
-        else:
-            print("⚠️ No leading sectors found in today's scan, using base universe\n")
-            for sector_tickers in BASE_UNIVERSE.values():
-                tickers.extend(sector_tickers)
-    else:
-        # Use full base universe
-        for sector_tickers in BASE_UNIVERSE.values():
-            tickers.extend(sector_tickers)
+    if args.tickers_file:
+        file_tickers = load_tickers_from_file(args.tickers_file)
+        tickers.extend(file_tickers)
+        print(f"📄 Loaded {len(file_tickers)} tickers from {args.tickers_file}\n")
 
-    # Add watchlist if requested
     if args.include_watchlist:
         watchlist_tickers = load_watchlist_tickers()
         tickers.extend(watchlist_tickers)
-        print(f"📋 Added {len(watchlist_tickers)} tickers from watchlist\n")
+        print(f"📋 Loaded {len(watchlist_tickers)} tickers from watchlist\n")
 
     tickers = list(set(tickers))  # Remove duplicates
+
+    if not tickers:
+        print("❌ No tickers to scan. Use --include-watchlist or --tickers-file")
+        print("   Examples:")
+        print("   python3 midday_scan.py --include-watchlist")
+        print("   python3 midday_scan.py --tickers-file my_tickers.txt")
+        return
+
     print(f"🔍 Scanning {len(tickers)} tickers...\n")
 
     results = []
@@ -491,6 +454,9 @@ Examples:
                 continue
 
             stage2_score = get_stage2_score(df)
+            if stage2_score < 2:  # Minimum Stage 2 score of 2
+                continue
+
             setup = calculate_setup(df)
             if not setup:
                 continue
@@ -547,7 +513,7 @@ Examples:
                 '$Vol_M': round(dollar_vol / 1_000_000, 1)
             })
 
-        except Exception as e:
+        except Exception:
             continue
 
     # Sort by Entry Score (descending)
