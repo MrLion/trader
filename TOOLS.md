@@ -338,6 +338,57 @@ openclaw message send --channel telegram --account trader --target -4872065090 \
 
 ---
 
+## 🚀 Report Delivery
+
+**Script:** `scripts/deliver_report.py`
+
+**Purpose:** Direct delivery of HTML reports to Telegram Trading Sandbox without requiring OpenClaw CLI.
+
+### Why Use This?
+
+- **No dependencies** — bypasses OpenClaw CLI requirements
+- **Direct Bot API** — uses Telegram's official `sendDocument` endpoint
+- **Simple & fast** — single purpose script for automated workflows
+
+### Usage
+
+```bash
+# Basic delivery
+python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html
+
+# With caption
+python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html \
+  --caption "🌅 Morning briefing"
+```
+
+### Configuration
+
+The script has hardcoded credentials for the Trading Sandbox:
+
+- **Target:** `Trading Sandbox` (`-4872065090`)
+- **Bot:** `@tradermintbot`
+
+**To modify target:** Edit `CHAT_ID` constant in the script.
+
+### Common Workflow
+
+Generate and deliver in one command:
+
+```bash
+# Generate HTML report and deliver to Telegram
+python3 scripts/premarket_report_comprehensive.py --html && \
+python3 scripts/deliver_report.py \
+  --file reports/premarket_report_$(date +%Y-%m-%d).html \
+  --caption "🌅 Pre-Market Report — $(date +%Y-%m-%d)"
+```
+
+### Output
+
+- ✅ Success: `Report successfully delivered to Trading Sandbox.`
+- ❌ Failure: Error message with details
+
+---
+
 ## 📬 Telegram Posting
 
 **Bot:** @tradermintbot  

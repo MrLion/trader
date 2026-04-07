@@ -36,6 +36,7 @@ CLAUDE.md         - Development operations guide
 | `premarket_report_comprehensive.py` | Extended version with breadth data + HTML reports |
 | `postmarket_report.py` | Post-market analysis and trade logging |
 | `midday_scan.py` | Intraday scan for leading stocks |
+| `deliver_report.py` | Deliver HTML reports via Telegram Bot API |
 
 ## Common Commands
 
@@ -63,6 +64,9 @@ python3 scripts/postmarket_report.py
 # Reports (HTML output)
 python3 scripts/premarket_report_comprehensive.py --html
 python3 scripts/premarket_report_comprehensive.py --html --output /path/to/custom.html
+
+# Deliver reports via Telegram
+python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html --caption "Morning briefing"
 ```
 
 ## Trading Framework
