@@ -547,6 +547,95 @@ The script provides clear error messages:
 
 ---
 
+## 🔗 MC Stock Charts Scraper
+
+**Script:** `scripts/mcstock_scraper.py`
+
+**Purpose:** Scrape trade ideas from mcstockcharts.com/latest-report/ and output CSV compatible with watchlist_manager.py.
+
+### Setup
+
+**1. Install dependencies:**
+```bash
+pip install requests beautifulsoup4
+```
+
+**2. Configure credentials** (one of):
+- Environment variables: `MCSTOCK_USER`, `MCSTOCK_PASS`
+- Or copy `.env.example` to `.env` and fill in
+
+### Usage
+
+```bash
+# Basic scrape (today's report)
+python3 scripts/mcstock_scraper.py
+
+# Scrape specific date
+python3 scripts/mcstock_scraper.py --date 2026-04-06
+
+# Custom output path
+python3 scripts/mcstock_scraper.py --output data/mc_ideas.csv
+
+# Populate watchlist directly
+python3 scripts/mcstock_scraper.py --populate-watchlist
+
+# Preview without saving
+python3 scripts/mcstock_scraper.py --dry-run
+
+# Skip YF validation (faster)
+python3 scripts/mcstock_scraper.py --skip-validation
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--date` | Specific date (YYYY-MM-DD) | Latest report |
+| `--output` | Custom CSV output path | scans/mcstock_ideas_YYYY-MM-DD.csv |
+| `--populate-watchlist` | Auto-populate watchlist | False |
+| `--skip-validation` | Skip Yahoo Finance validation | False |
+| `--dry-run` | Preview without saving | False |
+| `--verbose`, `-v` | Debug logging | False |
+
+### Workflow
+
+```bash
+# 1. Scrape ideas
+python3 scripts/mcstock_scraper.py
+
+# 2. Populate watchlist
+python3 scripts/watchlist_manager.py populate scans/mcstock_ideas_2026-04-07.csv
+
+# 3. Analyze
+python3 scripts/analyze_watchlist.py
+```
+
+Or combine steps 1-2:
+```bash
+python3 scripts/mcstock_scraper.py --populate-watchlist
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Auth failed (check credentials) |
+| 2 | Report not found |
+| 3 | Network error |
+| 4 | Parse error |
+| 5 | Config error (missing credentials) |
+
+### Output Format
+
+CSV with columns compatible with `watchlist_manager.py populate`:
+- `Ticker`, `Name`, `Sector`, `Industry`
+- `Stage2`, `6M_%`, `3M_%`, `1M_%`
+- `Entry_Breakout`, `Stop`, `Risk_%`
+- `$Vol_M`, `Source_Note`
+
+---
+
 ## 📬 Telegram Posting
 
 **Bot:** @tradermintbot  

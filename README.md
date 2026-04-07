@@ -36,6 +36,7 @@ CLAUDE.md         - Development operations guide
 | `premarket_report_comprehensive.py` | Extended version with breadth data + HTML reports |
 | `postmarket_report.py` | Post-market analysis and trade logging |
 | `midday_scan.py` | Intraday scan for leading stocks |
+| `mcstock_scraper.py` | Scrape trade ideas from MC Stock Charts |
 | `deliver_report.py` | Deliver HTML reports via Telegram Bot API |
 
 ## Common Commands
@@ -78,6 +79,11 @@ python3 scripts/deliver_report.py --file report.html --dry-run --verbose
 
 # Deliver to different chat
 python3 scripts/deliver_report.py --file report.html --chat-id -1001234567890
+
+# Scrape MC Stock Charts ideas
+python3 scripts/mcstock_scraper.py
+python3 scripts/mcstock_scraper.py --populate-watchlist
+python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 ```
 
 ## Trading Framework

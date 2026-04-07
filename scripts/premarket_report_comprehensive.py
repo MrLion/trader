@@ -990,7 +990,8 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     # OUTPUT
     if output_format == 'html':
         if not output_path:
-            output_path = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_{report_date}.html")
+            datetime_str = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+            output_path = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_{datetime_str}.html")
         else:
             output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)

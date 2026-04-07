@@ -558,6 +558,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
     # Save to CSV
     df_out = pd.DataFrame(results)
     date_str = datetime.now().strftime('%Y-%m-%d')
+    datetime_str = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
     if args.output:
         output_path = Path(args.output)
@@ -573,7 +574,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
         if args.html_output:
             html_path = Path(args.html_output)
         else:
-            html_path = Path(f'/Users/mintmrlion/.openclaw/workspaces/trader/reports/midday_scan_{date_str}.html')
+            html_path = Path(f'/Users/mintmrlion/.openclaw/workspaces/trader/reports/midday_scan_{datetime_str}.html')
 
         html_path.parent.mkdir(parents=True, exist_ok=True)
         generate_html_report(results, html_path, scan_time)
