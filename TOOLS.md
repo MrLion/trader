@@ -279,6 +279,65 @@ openclaw message send --channel telegram --account trader --target 47258942 \
 
 ---
 
+## 📊 Comprehensive Pre-Market Report
+
+**Script:** `scripts/premarket_report_comprehensive.py`
+
+**Purpose:** Generate a complete pre-market briefing with futures, indices, regime assessment, economic calendar, sector leaders, and watchlist rankings.
+
+### Usage
+
+```bash
+# Console output (default)
+python3 scripts/premarket_report_comprehensive.py
+
+# Generate HTML report (saved to reports/)
+python3 scripts/premarket_report_comprehensive.py --html
+
+# Custom output path
+python3 scripts/premarket_report_comprehensive.py --html --output ~/Desktop/premarket.html
+```
+
+### Output Format
+
+**Console Mode:** Plain text with emoji indicators
+
+**HTML Mode:** Self-contained HTML file with:
+- Dark theme with visual regime badge
+- Futures grid with color-coded changes
+- Regime assessment with progress bar
+- Economic calendar with impact indicators
+- Watchlist table with tier badges and ready setups highlighted
+- Key levels dashboard
+- Responsive layout (mobile-friendly)
+
+### HTML Report Features
+
+| Section | Description |
+|---------|-------------|
+| **Overnight Futures** | ES, NQ, RTY, YM, CL, GC with change indicators |
+| **VIX** | Current level with risk classification |
+| **Regime Assessment** | 4-signal checklist with visual progress bar |
+| **Economic Calendar** | US events with impact indicators (🔴 high, 🟡 medium) |
+| **Major Indices** | SPY, QQQ, IWM vs 20/50/200 MAs |
+| **Sector Leaders** | Top 20 ETFs ranked by overall performance |
+| **Watchlist** | All stocks sorted by entry score, tier badges |
+| **Ready Setups** | Auto-highlighted Tier 1 within 3% of pivot |
+| **Action Items** | Interactive checklist for the trading day |
+
+### Telegram Integration
+
+Post the HTML report with a summary:
+
+```bash
+openclaw message send --channel telegram --account trader --target -4872065090 \
+  --message "🌅 Pre-Market Report — $(date +%Y-%m-%d)\n\nRegime: 🔴 Bear (0/4 signals)\nTier 1 Ready: NVDA, TSLA\n\nFull report attached." \
+  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_$(date +%Y-%m-%d).html \
+  --force-document
+```
+
+---
+
 ## 📬 Telegram Posting
 
 **Bot:** @tradermintbot  

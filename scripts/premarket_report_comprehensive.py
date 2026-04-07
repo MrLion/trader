@@ -6,10 +6,496 @@ Reads from scans/YYYY-MM-DD_sector_scan.csv (comprehensive format)
 
 import yfinance as yf
 import csv
+import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 import re
 import pandas as pd
+import html
+
+def generate_html_report(report_data, output_path):
+    """Generate standalone HTML report with embedded CSS"""
+
+    # HTML escape helper
+    def esc(text):
+        return html.escape(str(text)) if text else ""
+
+    # Color helpers
+    def get_change_color(change):
+        return "#4ade80" if change > 0 else "#f87171" if change < 0 else "#9ca3af"
+
+    def get_regime_class(regime):
+        return "bull" if "BULL" in regime else "bear" if "BEAR" in regime else "neutral"
+
+    def get_tier_class(tier):
+        return f"tier-{tier}"
+
+    futures_html = ""
+    for f in report_data.get('futures', []):
+        color = get_change_color(f.get('change', 0))
+        futures_html += f'''
+        <div class="metric-card">
+            <div class="metric-symbol">{esc(f.get('symbol', ''))}</div>
+            <div class="metric-value">${f.get('price', 0):,.2f}</div>
+            <div class="metric-change" style="color: {color}">
+                {f.get('arrow', '')} {f.get('change', 0):+.2f} ({f.get('pct', 0):+.2f}%)
+            </div>
+        </div>
+        '''
+
+    # VIX card
+    vix = report_data.get('vix', {})
+    vix_level_class = "low" if vix.get('level', '').startswith('Low') else "elevated" if vix.get('level', '').startswith('Elevated') else "high"
+    vix_html = f'''
+    <div class="metric-card vix vix-{vix_level_class}">
+        <div class="metric-symbol">VIX</div>
+        <div class="metric-value">{vix.get('price', 0):.2f}</div>
+        <div class="metric-change" style="color: {get_change_color(vix.get('change', 0))}">
+            {vix.get('change', 0):+.2f}
+        </div>
+        <div class="vix-level">{esc(vix.get('level', ''))}</div>
+    </div>
+    '''
+
+    # Crypto section
+    crypto = report_data.get('crypto', {})
+    crypto_html = ""
+    if crypto.get('btc_price'):
+        btc_color = get_change_color(crypto.get('btc_change', 0))
+        eth_color = get_change_color(crypto.get('eth_change', 0))
+        crypto_html = f'''
+        <div class="crypto-row">
+            <span class="crypto-label">BTC</span>
+            <span class="crypto-price">${crypto.get('btc_price', 0):,.0f}</span>
+            <span class="crypto-change" style="color: {btc_color}">{crypto.get('btc_pct', 0):+.2f}%</span>
+            <span class="crypto-divider">|</span>
+            <span class="crypto-label">ETH</span>
+            <span class="crypto-price">${crypto.get('eth_price', 0):,.0f}</span>
+            <span class="crypto-change" style="color: {eth_color}">{crypto.get('eth_pct', 0):+.2f}%</span>
+        </div>
+        '''
+
+    # Regime signals
+    regime_signals_html = ""
+    for sig_name, sig_status in report_data.get('regime_signals', []):
+        status_class = "pass" if sig_status else "fail"
+        status_icon = "✓" if sig_status else "✗"
+        regime_signals_html += f'<div class="signal {status_class}"><span class="signal-icon">{status_icon}</span> {esc(sig_name)}</div>\n'
+
+    # Economic events
+    econ = report_data.get('economic', {})
+    events_html = ""
+    if econ.get('events'):
+        risk_class = "high" if econ.get('risk_level') == '🔴' else "medium" if econ.get('risk_level') == '🟡' else "low"
+        for event in econ.get('events', []):
+            impact_class = "high" if event.get('impact') == '🔴' else "medium" if event.get('impact') == '🟡' else "low"
+            events_html += f'''
+            <div class="event-item">
+                <span class="event-time">{esc(event.get('time', ''))}</span>
+                <span class="event-impact impact-{impact_class}">{esc(event.get('impact', ''))}</span>
+                <span class="event-name">{esc(event.get('event', ''))}</span>
+            </div>
+            '''
+        econ_html = f'''
+        <div class="section">
+            <h2>Economic Calendar</h2>
+            <div class="risk-badge risk-{risk_class}">{econ.get('risk_level', '🟢')} {esc(econ.get('advice', ''))}</div>
+            <div class="events-list">{events_html}</div>
+        </div>
+        '''
+    else:
+        econ_html = '''
+        <div class="section">
+            <h2>Economic Calendar</h2>
+            <div class="risk-badge risk-low">🟢 Clear day, trade normally</div>
+        </div>
+        '''
+
+    # Indices
+    indices_html = ""
+    for idx in report_data.get('indices', []):
+        s20_class = "pass" if idx.get('above_20') else "fail"
+        s50_class = "pass" if idx.get('above_50') else "fail"
+        s200_class = "pass" if idx.get('above_200') else "fail"
+        indices_html += f'''
+        <tr>
+            <td class="ticker">{esc(idx.get('ticker', ''))}</td>
+            <td class="price">${idx.get('close', 0):,.2f}</td>
+            <td class="signal {s20_class}">{'✓' if idx.get('above_20') else '✗'} 20MA</td>
+            <td class="signal {s50_class}">{'✓' if idx.get('above_50') else '✗'} 50MA</td>
+            <td class="signal {s200_class}">{'✓' if idx.get('above_200') else '✗'} 200MA</td>
+        </tr>
+        '''
+
+    # Sector leaders
+    sector_rows = ""
+    for row in report_data.get('sector_leaders', [])[:20]:
+        sector_rows += f'''
+        <tr>
+            <td>{row.get('overall_rank', 0)}</td>
+            <td class="ticker">{esc(row.get('ticker', ''))}</td>
+            <td>{esc(row.get('name', '')[:22])}</td>
+            <td class="{'positive' if row.get('ret_1w', 0) > 0 else 'negative'}">{row.get('ret_1w', 0):+.1f}%</td>
+            <td class="{'positive' if row.get('ret_1m', 0) > 0 else 'negative'}">{row.get('ret_1m', 0):+.1f}%</td>
+            <td class="{'positive' if row.get('ret_3m', 0) > 0 else 'negative'}">{row.get('ret_3m', 0):+.1f}%</td>
+            <td class="{'positive' if row.get('ret_6m', 0) > 0 else 'negative'}">{row.get('ret_6m', 0):+.1f}%</td>
+            <td class="stage2-score">{row.get('stage2_score', 0)}</td>
+        </tr>
+        '''
+
+    # Watchlist
+    watchlist_rows = ""
+    for stock in report_data.get('watchlist', []):
+        dist_class = "ready" if abs(stock.get('dist_to_pivot', 99)) < 3 else "close" if abs(stock.get('dist_to_pivot', 99)) < 5 else ""
+        dist_sign = '+' if stock.get('dist_to_pivot', 0) > 0 else ''
+        watchlist_rows += f'''
+        <tr>
+            <td class="ticker">{esc(stock.get('ticker', ''))}</td>
+            <td class="tier {get_tier_class(stock.get('tier', '3'))}">T{esc(stock.get('tier', ''))}</td>
+            <td class="score">{stock.get('entry_score', 0)}</td>
+            <td class="price">${stock.get('current', 0):.2f}</td>
+            <td class="pivot">${stock.get('pivot', 0):.2f}</td>
+            <td class="dist {dist_class}">{dist_sign}{stock.get('dist_to_pivot', 0):.1f}%</td>
+            <td class="risk">{stock.get('risk_pct', 0):.1f}%</td>
+            <td class="stage2">{stock.get('stage2', 0)}/4</td>
+            <td class="momentum">{stock.get('ret_6m', 0):.1f}%</td>
+            <td class="sector">{esc(stock.get('sector', ''))}</td>
+        </tr>
+        '''
+
+    ready_tickers = report_data.get('ready_tickers', [])
+    ready_html = f"<div class='ready-banner'>✅ Tier 1 Ready: {', '.join(ready_tickers)}</div>" if ready_tickers else ""
+
+    # Action items
+    action_items = report_data.get('action_items', [])
+    action_html = ""
+    for item in action_items:
+        checked = "checked" if item.get('checked') else ""
+        action_html += f'<div class="action-item"><input type="checkbox" {checked} disabled> {esc(item.get('text', ''))}</div>\n'
+
+    # Key levels
+    levels = report_data.get('key_levels', {})
+
+    html_content = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Market Report — {esc(report_data.get('date', ''))}</title>
+    <style>
+        :root {{
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --accent-yellow: #facc15;
+            --border-color: #475569;
+        }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 20px;
+        }}
+        .container {{ max-width: 1400px; margin: 0 auto; }}
+        header {{
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 30px;
+        }}
+        h1 {{ font-size: 2rem; margin-bottom: 10px; }}
+        .date {{ color: var(--text-secondary); font-size: 1.1rem; }}
+        .regime-badge {{
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+        }}
+        .regime-badge.bull {{ background: rgba(74, 222, 128, 0.2); color: var(--accent-green); }}
+        .regime-badge.neutral {{ background: rgba(250, 204, 21, 0.2); color: var(--accent-yellow); }}
+        .regime-badge.bear {{ background: rgba(248, 113, 113, 0.2); color: var(--accent-red); }}
+
+        .section {{
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }}
+        h2 {{
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }}
+        .metric-card {{
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }}
+        .metric-symbol {{ font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 5px; }}
+        .metric-value {{ font-size: 1.4rem; font-weight: bold; margin-bottom: 5px; }}
+        .metric-change {{ font-size: 0.95rem; font-weight: 500; }}
+        .vix-level {{ font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }}
+
+        .crypto-row {{
+            background: var(--bg-tertiary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .crypto-label {{ color: var(--text-secondary); font-size: 0.9rem; }}
+        .crypto-price {{ font-weight: bold; }}
+        .crypto-divider {{ color: var(--border-color); margin: 0 5px; }}
+
+        .signals-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }}
+        .signal {{
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }}
+        .signal.pass {{ background: rgba(74, 222, 128, 0.1); color: var(--accent-green); }}
+        .signal.fail {{ background: rgba(248, 113, 113, 0.1); color: var(--accent-red); }}
+        .signal-icon {{ font-weight: bold; margin-right: 8px; }}
+
+        .progress-bar {{
+            background: var(--bg-tertiary);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }}
+        .progress-fill {{
+            height: 100%;
+            background: var(--accent-green);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }}
+
+        .risk-badge {{
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }}
+        .risk-high {{ background: rgba(248, 113, 113, 0.2); color: var(--accent-red); }}
+        .risk-medium {{ background: rgba(250, 204, 21, 0.2); color: var(--accent-yellow); }}
+        .risk-low {{ background: rgba(74, 222, 128, 0.2); color: var(--accent-green); }}
+
+        .events-list {{ display: flex; flex-direction: column; gap: 10px; }}
+        .event-item {{
+            background: var(--bg-tertiary);
+            padding: 12px 15px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }}
+        .event-time {{ color: var(--text-secondary); font-family: monospace; min-width: 80px; }}
+        .event-impact {{ font-size: 1.2rem; }}
+
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        th {{
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        tr:hover {{ background: rgba(255,255,255,0.03); }}
+        .ticker {{ font-weight: bold; font-family: monospace; }}
+        .positive {{ color: var(--accent-green); }}
+        .negative {{ color: var(--accent-red); }}
+
+        .tier-1 {{ color: var(--accent-green); }}
+        .tier-2 {{ color: var(--accent-yellow); }}
+        .tier-3 {{ color: var(--accent-red); }}
+        .dist.ready {{ color: var(--accent-green); font-weight: bold; }}
+        .dist.close {{ color: var(--accent-yellow); }}
+
+        .ready-banner {{
+            background: rgba(74, 222, 128, 0.15);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }}
+
+        .action-item {{
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .action-item:last-child {{ border-bottom: none; }}
+        input[type="checkbox"] {{
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent-green);
+        }}
+
+        .key-levels {{
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }}
+        .key-level {{
+            background: var(--bg-tertiary);
+            padding: 15px 20px;
+            border-radius: 8px;
+        }}
+        .key-level .label {{ color: var(--text-secondary); font-size: 0.85rem; }}
+        .key-level .value {{ font-size: 1.2rem; font-weight: bold; margin-top: 5px; }}
+
+        .verdict {{
+            text-align: center;
+            padding: 30px;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            border-top: 2px solid var(--border-color);
+            margin-top: 30px;
+        }}
+        .verdict strong {{ color: var(--text-primary); }}
+
+        @media (max-width: 768px) {{
+            .metrics-grid {{ grid-template-columns: repeat(2, 1fr); }}
+            .signals-grid {{ grid-template-columns: 1fr; }}
+            table {{ font-size: 0.8rem; }}
+            th, td {{ padding: 8px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌅 Pre-Market Report</h1>
+            <div class="date">{esc(report_data.get('date', ''))}</div>
+            <div class="regime-badge {get_regime_class(report_data.get('regime', ''))}">
+                {esc(report_data.get('regime', ''))}
+            </div>
+        </header>
+
+        <div class="section">
+            <h2>📊 Overnight Futures</h2>
+            <div class="metrics-grid">{futures_html}{vix_html}</div>
+            {crypto_html}
+        </div>
+
+        <div class="section">
+            <h2>🔍 Regime Assessment</h2>
+            <div class="signals-grid">{regime_signals_html}</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {(report_data.get('bullish_count', 0) / 4 * 100):.0f}%"></div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; color: var(--text-secondary);">
+                Bullish Signals: {report_data.get('bullish_count', 0)}/4
+            </div>
+        </div>
+
+        {econ_html}
+
+        <div class="section">
+            <h2>📈 Major Indices</h2>
+            <table>
+                <thead><tr><th>Ticker</th><th>Price</th><th>20MA</th><th>50MA</th><th>200MA</th></tr></thead>
+                <tbody>{indices_html}</tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>🏆 Sector Leaders</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Rank</th><th>Ticker</th><th>Name</th><th>1W</th><th>1M</th><th>3M</th><th>6M</th><th>S2</th></tr></thead>
+                    <tbody>{sector_rows}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Watchlist Analysis</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Ticker</th><th>Tier</th><th>Score</th><th>Current</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>6M</th><th>Sector</th></tr></thead>
+                    <tbody>{watchlist_rows}</tbody>
+                </table>
+            </div>
+            {ready_html}
+        </div>
+
+        <div class="section">
+            <h2>🎯 Action Items</h2>
+            {action_html}
+        </div>
+
+        <div class="section">
+            <h2>⚡ Key Levels</h2>
+            <div class="key-levels">
+                <div class="key-level">
+                    <div class="label">SPY 50MA</div>
+                    <div class="value">${levels.get('spy_ma50', 0):.0f}</div>
+                </div>
+                <div class="key-level">
+                    <div class="label">QQQ 50MA</div>
+                    <div class="value">${levels.get('qqq_ma50', 0):.0f}</div>
+                </div>
+                <div class="key-level">
+                    <div class="label">VIX Watch</div>
+                    <div class="value">28</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="verdict">
+            <strong>Verdict:</strong> {esc(report_data.get('regime', '').split()[1] if report_data.get('regime') else 'NEUTRAL')} regime.
+            {report_data.get('verdict_action', 'Be selective.')}
+        </div>
+    </div>
+</body>
+</html>'''
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
+    return output_path
+
 
 def load_watchlist():
     """Load watchlist from CSV with current prices and calculate entry score"""
@@ -200,21 +686,38 @@ def fetch_economic_calendar():
     except Exception as e:
         return {'today': [], 'tomorrow': []}
 
-def generate_comprehensive_report():
+def generate_comprehensive_report(output_format='console', output_path=None):
     """Generate comprehensive pre-market report"""
-    
+
     report_date = datetime.now().strftime('%Y-%m-%d')
-    print("🌅 COMPREHENSIVE PRE-MARKET REPORT — " + report_date)
-    print()
-    
+
+    # Data collection structure
+    report_data = {
+        'date': report_date,
+        'futures': [],
+        'vix': {},
+        'crypto': {},
+        'regime_signals': [],
+        'bullish_count': 0,
+        'regime': '',
+        'economic': {'events': [], 'risk_level': '🟢', 'advice': 'Clear day, trade normally'},
+        'indices': [],
+        'sector_leaders': [],
+        'watchlist': [],
+        'ready_tickers': [],
+        'action_items': [],
+        'key_levels': {},
+        'verdict_action': ''
+    }
+
     # Load data
     scan = load_comprehensive_scan()
     watchlist = load_watchlist()
-    
+
     # 1. OVERNIGHT FUTURES
-    print("**📊 OVERNIGHT FUTURES**")
-    for ticker, symbol in [("ES=F", "/ES"), ("NQ=F", "/NQ"), ("RTY=F", "/RTY"), 
-                           ("YM=F", "/YM"), ("CL=F", "/CL"), ("GC=F", "/GC")]:
+    futures_symbols = [("ES=F", "/ES"), ("NQ=F", "/NQ"), ("RTY=F", "/RTY"),
+                       ("YM=F", "/YM"), ("CL=F", "/CL"), ("GC=F", "/GC")]
+    for ticker, symbol in futures_symbols:
         try:
             data = yf.Ticker(ticker).history(period="5d")
             if len(data) >= 2:
@@ -223,10 +726,16 @@ def generate_comprehensive_report():
                 change = curr - prev
                 pct = ((curr/prev)-1)*100
                 arrow = "↑" if change > 0 else "↓"
-                print(f"{symbol:5} ${curr:,.2f} {arrow} ({change:+.2f}, {pct:+.2f}%)")
+                report_data['futures'].append({
+                    'symbol': symbol,
+                    'price': curr,
+                    'change': change,
+                    'pct': pct,
+                    'arrow': arrow
+                })
         except:
             pass
-    
+
     # VIX
     try:
         vix = yf.Ticker("^VIX").history(period="5d")
@@ -235,10 +744,14 @@ def generate_comprehensive_report():
             vix_prev = vix['Close'].iloc[-2]
             vix_change = vix_curr - vix_prev
             vix_level = "Low <18" if vix_curr < 18 else "Elevated 18-28" if vix_curr < 28 else "High >28"
-            print(f"VIX   {vix_curr:.2f} ({vix_change:+.2f}) — {vix_level}")
+            report_data['vix'] = {
+                'price': vix_curr,
+                'change': vix_change,
+                'level': vix_level
+            }
     except:
-        pass
-    
+        report_data['vix'] = {'price': 25, 'change': 0, 'level': 'Elevated 18-28'}
+
     # Crypto
     try:
         btc = yf.Ticker("BTC-USD").history(period="2d")
@@ -248,38 +761,30 @@ def generate_comprehensive_report():
             btc_prev = btc['Close'].iloc[-2]
             eth_curr = eth['Close'].iloc[-1]
             eth_prev = eth['Close'].iloc[-2]
-            btc_pct = ((btc_curr/btc_prev)-1)*100
-            eth_pct = ((eth_curr/eth_prev)-1)*100
-            print(f"\nCrypto: BTC ${btc_curr:,.0f} ({btc_pct:+.2f}%) | ETH ${eth_curr:,.0f} ({eth_pct:+.2f}%)")
+            report_data['crypto'] = {
+                'btc_price': btc_curr,
+                'btc_change': btc_curr - btc_prev,
+                'btc_pct': ((btc_curr/btc_prev)-1)*100,
+                'eth_price': eth_curr,
+                'eth_change': eth_curr - eth_prev,
+                'eth_pct': ((eth_curr/eth_prev)-1)*100
+            }
     except:
         pass
-    
-    # 4. ECONOMIC CALENDAR
-    print("\n**📅 ECONOMIC CALENDAR (US)**")
+
+    # ECONOMIC CALENDAR
     econ = fetch_economic_calendar()
-    
     if econ['today']:
-        risk_level = '🟢'
         has_high_impact = any(e['impact'] == '🔴' for e in econ['today'])
         if has_high_impact:
-            risk_level = '🔴'
-            advice = "Reduce size 50% or wait for post-event clarity"
-        elif econ['today']:
-            risk_level = '🟡'
-            advice = "Normal size, watch for volatility at event time"
+            report_data['economic']['risk_level'] = '🔴'
+            report_data['economic']['advice'] = "Reduce size 50% or wait for post-event clarity"
         else:
-            advice = "Clear day, trade normally"
-        
-        print(f"{risk_level} Today's Events:")
-        for event in econ['today']:
-            print(f"   {event['time']} {event['impact']} {event['event']}")
-        print(f"   → {advice}")
-    else:
-        print("🟢 No major US economic events today")
-        print("   → Clear day, trade normally")
-    
-    # 5. MAJOR INDICES
-    print("\n**📈 MAJOR INDICES vs KEY MAs**")
+            report_data['economic']['risk_level'] = '🟡'
+            report_data['economic']['advice'] = "Normal size, watch for volatility at event time"
+        report_data['economic']['events'] = econ['today']
+
+    # MAJOR INDICES
     indices = {}
     for ticker in ["SPY", "QQQ", "IWM"]:
         try:
@@ -288,98 +793,166 @@ def generate_comprehensive_report():
             ma20 = data['Close'].rolling(20).mean().iloc[-1]
             ma50 = data['Close'].rolling(50).mean().iloc[-1]
             ma200 = data['Close'].rolling(200).mean().iloc[-1]
-            
-            s20 = "✓" if close > ma20 else "✗"
-            s50 = "✓" if close > ma50 else "✗"
-            s200 = "✓" if close > ma200 else "✗"
-            
-            print(f"{ticker:4} ${close:,.2f} | 20MA {s20} | 50MA {s50} | 200MA {s200}")
             indices[ticker] = (close, ma50, ma200)
+            report_data['indices'].append({
+                'ticker': ticker,
+                'close': close,
+                'above_20': close > ma20,
+                'above_50': close > ma50,
+                'above_200': close > ma200,
+                'ma20': ma20,
+                'ma50': ma50,
+                'ma200': ma200
+            })
         except:
             pass
-    
-    # 3. REGIME
-    print("\n**🔍 REGIME ASSESSMENT**")
+
+    # REGIME ASSESSMENT
     spy_close, spy_ma50, spy_ma200 = indices.get("SPY", (0, 0, 0))
     qqq_close, qqq_ma50, qqq_ma200 = indices.get("QQQ", (0, 0, 0))
     iwm_close, iwm_ma50, iwm_ma200 = indices.get("IWM", (0, 0, 0))
-    
-    try:
-        vix_curr = yf.Ticker("^VIX").history(period="1d")['Close'].iloc[-1]
-    except:
-        vix_curr = 25
-    
+
+    vix_curr = report_data['vix'].get('price', 25)
+
     signals = [
         ("SPY > 50 SMA", spy_close > spy_ma50),
         ("QQQ > 50 SMA", qqq_close > qqq_ma50),
         ("IWM > 50 SMA", iwm_close > iwm_ma50),
         ("VIX < 18", vix_curr < 18)
     ]
-    
+
     bullish = sum(1 for _, v in signals if v)
-    for sig, status in signals:
-        print(f"{'✓' if status else '✗'} {sig}")
-    print(f"\nBullish Signals: {bullish}/4")
-    
+    report_data['regime_signals'] = signals
+    report_data['bullish_count'] = bullish
+
     regime = "🟢 BULL" if bullish >= 4 else "🟡 NEUTRAL" if bullish >= 2 else "🔴 BEAR"
-    print(f"\n{regime}")
-    
-    # 4. SECTOR LEADERS (from comprehensive scan)
+    report_data['regime'] = regime
+
+    # SECTOR LEADERS
     if scan:
-        print("\n**🏆 TOP 20 LEADING ETFs (by Overall Rank)**")
-        print(f"{'Rank':<5} {'Ticker':<6} {'Name':<22} {'1W':>8} {'1M':>8} {'3M':>8} {'6M':>8} {'S2':>3}")
-        print("-" * 90)
-        
-        for row in scan[:20]:
-            print(f"{row['overall_rank']:<5} {row['ticker']:<6} {row['name']:<22} "
-                  f"{row['ret_1w']:>+7.1f}% {row['ret_1m']:>+7.1f}% "
-                  f"{row['ret_3m']:>+7.1f}% {row['ret_6m']:>+7.1f}% "
-                  f"{row['stage2_score']:>3}")
-    
-    # 6. WATCHLIST
-    print("\n**📋 WATCHLIST ANALYSIS — Entry Score Rankings**")
+        report_data['sector_leaders'] = scan[:20]
+
+    # WATCHLIST
     if watchlist:
-        # Count by tier
-        tier_counts = {'1': 0, '2': 0, '3': 0}
-        for stock in watchlist:
-            tier_counts[stock['tier']] = tier_counts.get(stock['tier'], 0) + 1
-        
-        print(f"Total: {len(watchlist)} | 🟢 Tier 1: {tier_counts['1']} | 🟡 Tier 2: {tier_counts['2']} | 🔴 Tier 3: {tier_counts['3']}")
-        
-        # Show ALL stocks sorted by entry score
-        print(f"\n{'Ticker':<8} {'Tier':<8} {'Score':<7} {'Current':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<4} {'6M':<10} {'Sector'}")
-        print("-" * 95)
-        
-        for stock in watchlist:
-            tier_icon = '🟢' if stock['tier'] == '1' else '🟡' if stock['tier'] == '2' else '🔴'
-            dist_sign = '+' if stock['dist_to_pivot'] > 0 else ''
-            print(f"{stock['ticker']:<8} {tier_icon} T{stock['tier']:<4} {stock['entry_score']:<6} ${stock['current']:<9.2f} ${stock['pivot']:<9.2f} "
-                  f"{dist_sign}{stock['dist_to_pivot']:<6.1f}% {stock['risk_pct']:<7.1f}% "
-                  f"{stock['stage2']}/4  {stock['ret_6m']:>9.1f}% {stock['sector']}")
-        
-        # Highlight ready setups
-        ready = [s for s in watchlist if s['tier'] == '1' and abs(s['dist_to_pivot']) < 3]
-        if ready:
-            print(f"\n✅ Tier 1 Ready (Score ≥60, within 3%): {', '.join(s['ticker'] for s in ready)}")
+        report_data['watchlist'] = watchlist
+        # Ready tickers
+        ready = [s['ticker'] for s in watchlist if s['tier'] == '1' and abs(s['dist_to_pivot']) < 3]
+        report_data['ready_tickers'] = ready
+
+    # ACTION ITEMS
+    report_data['action_items'] = [
+        {'text': 'Review top 20 for actionable setups', 'checked': False},
+        {'text': 'Check individual stock charts in leading sectors', 'checked': False},
+        {'text': 'Check earnings calendar', 'checked': False},
+        {'text': 'Monitor pre-market gaps', 'checked': False},
+        {'text': 'NO NEW ENTRIES until reclaim' if bullish < 2 else 'EXECUTE A+ SETUPS ONLY', 'checked': False}
+    ]
+
+    # KEY LEVELS
+    report_data['key_levels'] = {
+        'spy_ma50': spy_ma50,
+        'qqq_ma50': qqq_ma50,
+        'vix_watch': 28
+    }
+
+    # VERDICT
+    report_data['verdict_action'] = 'Stay flat.' if bullish < 2 else 'Be selective.'
+
+    # OUTPUT
+    if output_format == 'html':
+        if not output_path:
+            output_path = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_{report_date}.html")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        result = generate_html_report(report_data, output_path)
+        print(f"✅ HTML report saved to: {result}")
+        return result
     else:
-        print("⚠️ Watchlist is empty")
-        print("   Run: python3 watchlist_manager.py add TICKER")
-    
-    # 7. ACTION ITEMS
-    print("\n**🎯 TODAY'S ACTION ITEMS**")
-    print("1. ☐ Review top 20 for actionable setups")
-    print("2. ☐ Check individual stock charts in leading sectors")
-    print("3. ☐ Check earnings calendar")
-    print("4. ☐ Monitor pre-market gaps")
-    print(f"5. ☐ {'NO NEW ENTRIES until reclaim' if bullish < 2 else 'EXECUTE A+ SETUPS ONLY'}")
-    
-    # 8. KEY LEVELS
-    print(f"\n**⚡ KEY LEVELS**")
-    print(f"SPY: Reclaim ${spy_ma50:.0f} | QQQ: Reclaim ${qqq_ma50:.0f} | VIX: Watch 28")
-    
-    print("\n" + "—" * 60)
-    print(f"Verdict: {regime.split()[1]} regime. {'Stay flat.' if bullish < 2 else 'Be selective.'}")
-    print("\n— Ace 🎯")
+        # Console output
+        print("🌅 COMPREHENSIVE PRE-MARKET REPORT — " + report_date)
+        print()
+
+        print("**📊 OVERNIGHT FUTURES**")
+        for f in report_data['futures']:
+            print(f"{f['symbol']:5} ${f['price']:,.2f} {f['arrow']} ({f['change']:+.2f}, {f['pct']:+.2f}%)")
+
+        v = report_data['vix']
+        print(f"VIX   {v['price']:.2f} ({v['change']:+.2f}) — {v['level']}")
+
+        c = report_data['crypto']
+        if c:
+            print(f"\nCrypto: BTC ${c['btc_price']:,.0f} ({c['btc_pct']:+.2f}%) | ETH ${c['eth_price']:,.0f} ({c['eth_pct']:+.2f}%)")
+
+        print("\n**📅 ECONOMIC CALENDAR (US)**")
+        if report_data['economic']['events']:
+            print(f"{report_data['economic']['risk_level']} Today's Events:")
+            for e in report_data['economic']['events']:
+                print(f"   {e['time']} {e['impact']} {e['event']}")
+            print(f"   → {report_data['economic']['advice']}")
+        else:
+            print("🟢 No major US economic events today")
+            print("   → Clear day, trade normally")
+
+        print("\n**📈 MAJOR INDICES vs KEY MAs**")
+        for idx in report_data['indices']:
+            s20 = "✓" if idx['above_20'] else "✗"
+            s50 = "✓" if idx['above_50'] else "✗"
+            s200 = "✓" if idx['above_200'] else "✗"
+            print(f"{idx['ticker']:4} ${idx['close']:,.2f} | 20MA {s20} | 50MA {s50} | 200MA {s200}")
+
+        print("\n**🔍 REGIME ASSESSMENT**")
+        for sig, status in report_data['regime_signals']:
+            print(f"{'✓' if status else '✗'} {sig}")
+        print(f"\nBullish Signals: {bullish}/4")
+        print(f"\n{regime}")
+
+        if report_data['sector_leaders']:
+            print("\n**🏆 TOP 20 LEADING ETFs (by Overall Rank)**")
+            print(f"{'Rank':<5} {'Ticker':<6} {'Name':<22} {'1W':>8} {'1M':>8} {'3M':>8} {'6M':>8} {'S2':>3}")
+            print("-" * 90)
+            for row in report_data['sector_leaders']:
+                print(f"{row['overall_rank']:<5} {row['ticker']:<6} {row['name']:<22} "
+                      f"{row['ret_1w']:>+7.1f}% {row['ret_1m']:>+7.1f}% "
+                      f"{row['ret_3m']:>+7.1f}% {row['ret_6m']:>+7.1f}% "
+                      f"{row['stage2_score']:>3}")
+
+        print("\n**📋 WATCHLIST ANALYSIS — Entry Score Rankings**")
+        if report_data['watchlist']:
+            tier_counts = {'1': 0, '2': 0, '3': 0}
+            for stock in report_data['watchlist']:
+                tier_counts[stock['tier']] = tier_counts.get(stock['tier'], 0) + 1
+            print(f"Total: {len(report_data['watchlist'])} | 🟢 Tier 1: {tier_counts['1']} | 🟡 Tier 2: {tier_counts['2']} | 🔴 Tier 3: {tier_counts['3']}")
+
+            print(f"\n{'Ticker':<8} {'Tier':<8} {'Score':<7} {'Current':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<4} {'6M':<10} {'Sector'}")
+            print("-" * 95)
+            for stock in report_data['watchlist']:
+                tier_icon = '🟢' if stock['tier'] == '1' else '🟡' if stock['tier'] == '2' else '🔴'
+                dist_sign = '+' if stock['dist_to_pivot'] > 0 else ''
+                print(f"{stock['ticker']:<8} {tier_icon} T{stock['tier']:<4} {stock['entry_score']:<6} ${stock['current']:<9.2f} ${stock['pivot']:<9.2f} "
+                      f"{dist_sign}{stock['dist_to_pivot']:<6.1f}% {stock['risk_pct']:<7.1f}% "
+                      f"{stock['stage2']}/4  {stock['ret_6m']:>9.1f}% {stock['sector']}")
+
+            if report_data['ready_tickers']:
+                print(f"\n✅ Tier 1 Ready (Score ≥60, within 3%): {', '.join(report_data['ready_tickers'])}")
+        else:
+            print("⚠️ Watchlist is empty")
+            print("   Run: python3 watchlist_manager.py add TICKER")
+
+        print("\n**🎯 TODAY'S ACTION ITEMS**")
+        for i, item in enumerate(report_data['action_items'], 1):
+            print(f"{i}. ☐ {item['text']}")
+
+        print(f"\n**⚡ KEY LEVELS**")
+        print(f"SPY: Reclaim ${report_data['key_levels']['spy_ma50']:.0f} | QQQ: Reclaim ${report_data['key_levels']['qqq_ma50']:.0f} | VIX: Watch 28")
+
+        print("\n" + "—" * 60)
+        print(f"Verdict: {regime.split()[1] if regime else 'NEUTRAL'} regime. {report_data['verdict_action']}")
+        print("\n— Ace 🎯")
 
 if __name__ == "__main__":
-    generate_comprehensive_report()
+    parser = argparse.ArgumentParser(description='Generate comprehensive pre-market report')
+    parser.add_argument('--html', action='store_true', help='Generate HTML report instead of console output')
+    parser.add_argument('--output', type=str, default=None, help='Output path for HTML report (default: reports/premarket_report_YYYY-MM-DD.html)')
+    args = parser.parse_args()
+
+    output_format = 'html' if args.html else 'console'
+    generate_comprehensive_report(output_format=output_format, output_path=args.output)

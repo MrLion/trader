@@ -33,7 +33,7 @@ CLAUDE.md         - Development operations guide
 | `sector_scan.py` | Daily sector ETF performance ranking |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates |
 | `premarket_report.py` | Generate pre-market briefing |
-| `premarket_report_comprehensive.py` | Extended version with breadth data |
+| `premarket_report_comprehensive.py` | Extended version with breadth data + HTML reports |
 | `postmarket_report.py` | Post-market analysis and trade logging |
 | `midday_scan.py` | Intraday scan for leading stocks |
 
@@ -56,9 +56,13 @@ python3 scripts/sector_scan.py
 python3 scripts/sector_scan_comprehensive.py
 python3 scripts/stage2_rs_screen.py
 
-# Reports
+# Reports (console output)
 python3 scripts/premarket_report.py
 python3 scripts/postmarket_report.py
+
+# Reports (HTML output)
+python3 scripts/premarket_report_comprehensive.py --html
+python3 scripts/premarket_report_comprehensive.py --html --output /path/to/custom.html
 ```
 
 ## Trading Framework
