@@ -19,6 +19,7 @@ data/             - watchlist.csv (live trading universe)
 scans/            - Daily CSV outputs from sector/stock screens
 reports/          - Generated HTML market reports
 memory/           - Daily logs and curated memories
+.gstack/          - QA reports and analysis (gitignored)
 AGENTS.MD         - Complete trading playbook
 CLAUDE.md         - Development operations guide
 ```
@@ -31,6 +32,7 @@ CLAUDE.md         - Development operations guide
 | `analyze_watchlist.py` | Scan entire watchlist for setups |
 | `watchlist_manager.py` | Add, remove, list watchlist items |
 | `sector_scan.py` | Daily sector ETF performance ranking |
+| `sector_scan_comprehensive.py` | Extended sector scan with comprehensive data |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates |
 | `premarket_report.py` | Generate pre-market briefing (console or HTML) |
 | `postmarket_report.py` | Post-market analysis and trade logging |
@@ -128,13 +130,15 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 **Features:**
 - Market close summary (SPY, QQQ, IWM) with intraday ranges
 - VIX analysis with level classification
-- Overnight futures tracking
+- Regime Assessment with signal grid and progress bar
+- Major Indices with MA indicators (20/50/200)
 - Crypto performance (BTC, ETH)
 - Watchlist performance (change %, volume, distance to pivot)
 - Gap detection (>3% moves) with volume confirmation
 - Dynamic action items based on today's action
-- Key levels for tomorrow (support/resistance)
+- Key levels for tomorrow (50MA values)
 - Dark theme HTML reports
+- Mobile responsive design
 
 ## Trading Framework
 
@@ -190,7 +194,7 @@ The watchlist (`data/watchlist.csv`) tracks:
 ## External Integrations
 
 - **Data Source**: Yahoo Finance via `yfinance`
-- **Communications**: Telegram via `openclaw message send`
+- **Communications**: Telegram via `deliver_report.py` (primary) or `openclaw message send`
 - **Broker**: Manual execution (alerts feed into broker platform)
 
 ## Documentation
