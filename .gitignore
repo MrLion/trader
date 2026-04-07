@@ -5,3 +5,5 @@ data/*.csv
 scans/*.csv
 reports/*.html
 .claude/
+.env
+

@@ -862,6 +862,8 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     if output_format == 'html':
         if not output_path:
             output_path = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_{report_date}.html")
+        else:
+            output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         result = generate_html_report(report_data, output_path)
         print(f"✅ HTML report saved to: {result}")
