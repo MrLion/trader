@@ -324,7 +324,7 @@ python3 scripts/midday_scan.py --output /path/to/output.csv --html-output /path/
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--min-dollar-vol` | Minimum dollar volume filter | 20,000,000 |
-| `--stage2-min` | Minimum Stage 2 score to include | 3 |
+| `--entry-score-min` | Minimum entry score to include | 0 |
 | `--include-watchlist` | Add watchlist.csv tickers | False |
 | `--leading-sectors-only` | Scan only today's leading sectors | False |
 | `--output` | Custom CSV output path | scans/leading_stocks_YYYY-MM-DD.csv |

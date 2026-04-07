@@ -148,8 +148,9 @@ def generate_html_report(report_data, output_path):
     for stock in report_data.get('watchlist', []):
         dist_class = "ready" if abs(stock.get('dist_to_pivot', 99)) < 3 else "close" if abs(stock.get('dist_to_pivot', 99)) < 5 else ""
         dist_sign = '+' if stock.get('dist_to_pivot', 0) > 0 else ''
+        tier_priority_class = "tier-1-priority" if stock.get('tier') == '1' else ""
         watchlist_rows += f'''
-        <tr>
+        <tr class="{tier_priority_class}">
             <td class="ticker">{esc(stock.get('ticker', ''))}</td>
             <td class="tier {get_tier_class(stock.get('tier', '3'))}">T{esc(stock.get('tier', ''))}</td>
             <td class="score">{stock.get('entry_score', 0)}</td>
@@ -164,7 +165,7 @@ def generate_html_report(report_data, output_path):
         '''
 
     ready_tickers = report_data.get('ready_tickers', [])
-    ready_html = f"<div class='ready-banner'>✅ Tier 1 Ready: {', '.join(ready_tickers)}</div>" if ready_tickers else ""
+    ready_html = f"<div class='ready-banner'>Tier 1 Ready: {', '.join(ready_tickers)}</div>" if ready_tickers else ""
 
     # Action items
     action_items = report_data.get('action_items', [])
@@ -394,6 +395,130 @@ def generate_html_report(report_data, output_path):
         }}
         .verdict strong {{ color: var(--text-primary); }}
 
+        /* Sticky table headers */
+        thead tr {{
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }}
+        thead th {{
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border-color);
+        }}
+
+        /* Zebra striping */
+        tbody tr:nth-child(even) {{
+            background: rgba(255,255,255,0.02);
+        }}
+
+        /* Visual priority for Tier 1 */
+        tr.tier-1-priority {{
+            border-left: 3px solid var(--accent-green);
+        }}
+        tr.tier-1-priority td:first-child {{
+            padding-left: 9px;
+        }}
+        tr.tier-1-priority:hover {{
+            background: rgba(74, 222, 128, 0.08);
+        }}
+
+        /* Section headings with icons */
+        h2::before {{
+            display: inline-block;
+            margin-right: 10px;
+            font-weight: normal;
+        }}
+        .section-futures h2::before {{ content: ""; }}
+        .section-regime h2::before {{ content: ""; }}
+        .section-indices h2::before {{ content: ""; }}
+        .section-sectors h2::before {{ content: ""; }}
+        .section-watchlist h2::before {{ content: ""; }}
+        .section-action h2::before {{ content: ""; }}
+        .section-levels h2::before {{ content: ""; }}
+
+        /* Enhanced progress bar with gradient */
+        .progress-fill {{
+            background: linear-gradient(90deg, var(--accent-green) 0%, #22c55e 100%);
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+        }}
+
+        /* Improved ready banner with icon */
+        .ready-banner {{
+            background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+            border: 1px solid var(--accent-green);
+            border-left: 4px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin: 20px 0 10px 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .ready-banner::before {{
+            content: "→";
+            font-size: 1.2rem;
+            font-weight: bold;
+        }}
+
+        /* Tooltips for abbreviations */
+        abbr {{
+            border-bottom: 1px dotted var(--text-secondary);
+            cursor: help;
+            text-decoration: none;
+        }}
+
+        /* Timestamp footer */
+        .timestamp {{
+            text-align: center;
+            padding: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            margin-top: 20px;
+        }}
+
+        /* Print styles */
+        @media print {{
+            body {{
+                background: white;
+                color: black;
+                padding: 10px;
+            }}
+            .section {{
+                background: white;
+                border: 1px solid #ccc;
+                break-inside: avoid;
+            }}
+            .metric-card, .key-level, .event-item {{
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+            }}
+            .progress-fill {{
+                background: #22c55e !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            .tier-1 {{ color: #15803d !important; }}
+            .tier-2 {{ color: #a16207 !important; }}
+            .tier-3 {{ color: #dc2626 !important; }}
+            .positive {{ color: #15803d !important; }}
+            .negative {{ color: #dc2626 !important; }}
+            .ready-banner {{
+                background: #f0fdf4 !important;
+                border: 1px solid #22c55e !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            thead th {{
+                background: #f5f5f5 !important;
+            }}
+            tr.tier-1-priority {{
+                border-left: 3px solid #22c55e !important;
+            }}
+        }}
+
         @media (max-width: 768px) {{
             .metrics-grid {{ grid-template-columns: repeat(2, 1fr); }}
             .signals-grid {{ grid-template-columns: 1fr; }}
@@ -405,21 +530,21 @@ def generate_html_report(report_data, output_path):
 <body>
     <div class="container">
         <header>
-            <h1>🌅 Pre-Market Report</h1>
+            <h1>Pre-Market Report</h1>
             <div class="date">{esc(report_data.get('date', ''))}</div>
             <div class="regime-badge {get_regime_class(report_data.get('regime', ''))}">
                 {esc(report_data.get('regime', ''))}
             </div>
         </header>
 
-        <div class="section">
-            <h2>📊 Overnight Futures</h2>
+        <div class="section section-futures">
+            <h2>Overnight Futures</h2>
             <div class="metrics-grid">{futures_html}{vix_html}</div>
             {crypto_html}
         </div>
 
-        <div class="section">
-            <h2>🔍 Regime Assessment</h2>
+        <div class="section section-regime">
+            <h2>Regime Assessment</h2>
             <div class="signals-grid">{regime_signals_html}</div>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {(report_data.get('bullish_count', 0) / 4 * 100):.0f}%"></div>
@@ -431,42 +556,42 @@ def generate_html_report(report_data, output_path):
 
         {econ_html}
 
-        <div class="section">
-            <h2>📈 Major Indices</h2>
+        <div class="section section-indices">
+            <h2>Major Indices</h2>
             <table>
-                <thead><tr><th>Ticker</th><th>Price</th><th>20MA</th><th>50MA</th><th>200MA</th></tr></thead>
+                <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Current Market Price">Price</abbr></th><th><abbr title="20-Day Simple Moving Average">20MA</abbr></th><th><abbr title="50-Day Simple Moving Average">50MA</abbr></th><th><abbr title="200-Day Simple Moving Average">200MA</abbr></th></tr></thead>
                 <tbody>{indices_html}</tbody>
             </table>
         </div>
 
-        <div class="section">
-            <h2>🏆 Sector Leaders</h2>
+        <div class="section section-sectors">
+            <h2>Sector Leaders</h2>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th>Rank</th><th>Ticker</th><th>Name</th><th>1W</th><th>1M</th><th>3M</th><th>6M</th><th>S2</th></tr></thead>
+                    <thead><tr><th><abbr title="Overall Performance Rank">Rank</abbr></th><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th>Company Name</th><th><abbr title="1 Week Return">1W</abbr></th><th><abbr title="1 Month Return">1M</abbr></th><th><abbr title="3 Month Return">3M</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th></tr></thead>
                     <tbody>{sector_rows}</tbody>
                 </table>
             </div>
         </div>
 
-        <div class="section">
-            <h2>📋 Watchlist Analysis</h2>
+        <div class="section section-watchlist">
+            <h2>Watchlist Analysis</h2>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th>Ticker</th><th>Tier</th><th>Score</th><th>Current</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>6M</th><th>Sector</th></tr></thead>
+                    <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Entry Score Tier (1-3)">Tier</abbr></th><th><abbr title="Entry Score (0-100)">Score</abbr></th><th><abbr title="Current Price">Current</abbr></th><th><abbr title="Pivot/Breakout Price">Pivot</abbr></th><th><abbr title="Distance to Pivot Percentage">Dist%</abbr></th><th><abbr title="Risk Percentage from Entry to Stop">Risk%</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th>Sector</th></tr></thead>
                     <tbody>{watchlist_rows}</tbody>
                 </table>
             </div>
             {ready_html}
         </div>
 
-        <div class="section">
-            <h2>🎯 Action Items</h2>
+        <div class="section section-action">
+            <h2>Action Items</h2>
             {action_html}
         </div>
 
-        <div class="section">
-            <h2>⚡ Key Levels</h2>
+        <div class="section section-levels">
+            <h2>Key Levels</h2>
             <div class="key-levels">
                 <div class="key-level">
                     <div class="label">SPY 50MA</div>
@@ -486,6 +611,10 @@ def generate_html_report(report_data, output_path):
         <div class="verdict">
             <strong>Verdict:</strong> {esc(report_data.get('regime', '').split()[1] if report_data.get('regime') else 'NEUTRAL')} regime.
             {report_data.get('verdict_action', 'Be selective.')}
+        </div>
+
+        <div class="timestamp">
+            Report generated on {esc(report_data.get('date', ''))} at {esc(datetime.now().strftime('%H:%M %Z'))} | Data via Yahoo Finance
         </div>
     </div>
 </body>

@@ -107,6 +107,45 @@ def get_stage2_score(df):
     return score
 
 
+def calculate_entry_score(stage2_score, risk_pct, dist_to_entry, momentum_6m):
+    """
+    Calculate entry score (0-100) based on standardized formula:
+    - Stage 2: max 30 pts
+    - Risk: max 30 pts
+    - Proximity: max 25 pts
+    - Momentum: max 15 pts
+    """
+    score = 0
+
+    # Stage 2 points (max 30)
+    if stage2_score >= 4: score += 30
+    elif stage2_score >= 3: score += 20
+    elif stage2_score >= 2: score += 10
+
+    # Risk points (max 30)
+    if risk_pct < 10: score += 30
+    elif risk_pct < 15: score += 20
+    elif risk_pct < 20: score += 10
+
+    # Proximity points (max 25) - distance to entry breakout
+    if dist_to_entry < 3: score += 25
+    elif dist_to_entry < 5: score += 15
+    elif dist_to_entry < 10: score += 5
+
+    # Momentum points (max 15)
+    if momentum_6m > 50: score += 15
+    elif momentum_6m > 25: score += 10
+
+    return score
+
+
+def get_tier(entry_score):
+    """Return tier based on entry score."""
+    if entry_score >= 60: return '1'
+    elif entry_score >= 40: return '2'
+    else: return '3'
+
+
 def get_atr(df, period=14):
     """Calculate ATR for stop placement."""
     if len(df) < period + 1:
@@ -150,45 +189,63 @@ def calculate_setup(df):
 
 
 def generate_html_report(results, output_path, scan_time):
-    """Generate HTML report similar to premarket comprehensive"""
+    """Generate HTML report with Entry Score Tiers"""
 
     def esc(text):
         return html.escape(str(text)) if text else ""
 
-    def get_tier_class(score):
-        return "tier-a" if score == 4 else "tier-b"
+    def get_tier_class(tier):
+        return f"tier-{tier}"
 
-    tier_a = [r for r in results if r['Stage2'] == 4]
-    tier_b = [r for r in results if r['Stage2'] == 3]
+    tier_1 = [r for r in results if r['Tier'] == '1']
+    tier_2 = [r for r in results if r['Tier'] == '2']
+    tier_3 = [r for r in results if r['Tier'] == '3']
 
-    # Build rows for tier A
-    tier_a_rows = ""
-    for r in tier_a[:20]:
-        status_icon = "🔥" if r['From_52W_High_%'] < 2 else "📈"
-        tier_a_rows += f"""
-        <tr class="{get_tier_class(r['Stage2'])}">
+    # Build rows for tier 1
+    tier_1_rows = ""
+    for r in tier_1[:20]:
+        status_icon = "🔥" if r['Dist_to_Entry_%'] < 3 else "📈"
+        tier_1_rows += f"""
+        <tr class="{get_tier_class(r['Tier'])}">
             <td class="ticker">{esc(r['Ticker'])}</td>
             <td>{esc(r['Name'][:25])}</td>
+            <td class="score">{r['Entry_Score']}</td>
             <td class="price">${r['Price']:.2f}</td>
             <td class="{'positive' if r['6M_%'] > 0 else 'negative'}">{r['6M_%']:+.1f}%</td>
-            <td>{r['From_52W_High_%']:.1f}%</td>
+            <td>{r['Risk_%']:.1f}%</td>
+            <td>{r['Dist_to_Entry_%']:.1f}%</td>
             <td>{status_icon}</td>
             <td>${r['Entry_Breakout']:.2f}</td>
             <td>${r['Stop']:.2f}</td>
-            <td>{r['Risk_%']:.1f}%</td>
         </tr>
         """
 
-    # Build rows for tier B
-    tier_b_rows = ""
-    for r in tier_b[:15]:
-        tier_b_rows += f"""
-        <tr class="{get_tier_class(r['Stage2'])}">
+    # Build rows for tier 2
+    tier_2_rows = ""
+    for r in tier_2[:15]:
+        tier_2_rows += f"""
+        <tr class="{get_tier_class(r['Tier'])}">
             <td class="ticker">{esc(r['Ticker'])}</td>
             <td>{esc(r['Name'][:25])}</td>
+            <td class="score">{r['Entry_Score']}</td>
             <td class="price">${r['Price']:.2f}</td>
             <td class="{'positive' if r['6M_%'] > 0 else 'negative'}">{r['6M_%']:+.1f}%</td>
-            <td>{r['From_52W_High_%']:.1f}%</td>
+            <td>{r['Risk_%']:.1f}%</td>
+            <td>{r['Dist_to_Entry_%']:.1f}%</td>
+        </tr>
+        """
+
+    # Build rows for tier 3
+    tier_3_rows = ""
+    for r in tier_3[:10]:
+        tier_3_rows += f"""
+        <tr class="{get_tier_class(r['Tier'])}">
+            <td class="ticker">{esc(r['Ticker'])}</td>
+            <td>{esc(r['Name'][:25])}</td>
+            <td class="score">{r['Entry_Score']}</td>
+            <td class="price">${r['Price']:.2f}</td>
+            <td class="{'positive' if r['6M_%'] > 0 else 'negative'}">{r['6M_%']:+.1f}%</td>
+            <td>{r['Risk_%']:.1f}%</td>
         </tr>
         """
 
@@ -253,8 +310,10 @@ def generate_html_report(results, output_path, scan_time):
         .positive {{ color: var(--accent-green); }}
         .negative {{ color: var(--accent-red); }}
 
-        .tier-a {{ border-left: 3px solid var(--accent-green); }}
-        .tier-b {{ border-left: 3px solid var(--accent-yellow); }}
+        .tier-1 {{ border-left: 3px solid var(--accent-green); }}
+        .tier-2 {{ border-left: 3px solid var(--accent-yellow); }}
+        .tier-3 {{ border-left: 3px solid var(--accent-red); }}
+        .score {{ font-weight: bold; }}
 
         @media (max-width: 768px) {{
             table {{ font-size: 0.8rem; }}
@@ -270,48 +329,72 @@ def generate_html_report(results, output_path, scan_time):
         </header>
 
         <div class="summary">
-            Found {len(results)} Stage 2+ candidates | Tier A: {len(tier_a)} | Tier B: {len(tier_b)}
+            Found {len(results)} Stage 2+ candidates | 🟢 Tier 1: {len(tier_1)} | 🟡 Tier 2: {len(tier_2)} | 🔴 Tier 3: {len(tier_3)}
         </div>
 
         <div class="section">
-            <h2>🟢 Tier A — Stage 2 Score 4 ({len(tier_a)} candidates)</h2>
+            <h2>🟢 Tier 1 — Entry Score ≥60 ({len(tier_1)} candidates) — Best Entry Setups</h2>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Ticker</th>
                             <th>Name</th>
+                            <th>Score</th>
                             <th>Price</th>
                             <th>6M</th>
-                            <th>From High</th>
+                            <th>Risk</th>
+                            <th>Dist%</th>
                             <th>Status</th>
                             <th>Entry</th>
                             <th>Stop</th>
-                            <th>Risk</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {tier_a_rows}
+                        {tier_1_rows}
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="section">
-            <h2>🟡 Tier B — Stage 2 Score 3 ({len(tier_b)} candidates)</h2>
+            <h2>🟡 Tier 2 — Entry Score 40-59 ({len(tier_2)} candidates) — Wait for Better Entry</h2>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Ticker</th>
                             <th>Name</th>
+                            <th>Score</th>
                             <th>Price</th>
                             <th>6M</th>
-                            <th>From High</th>
+                            <th>Risk</th>
+                            <th>Dist%</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {tier_b_rows}
+                        {tier_2_rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔴 Tier 3 — Entry Score &lt;40 ({len(tier_3)} candidates) — Monitor Only</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                            <th>Price</th>
+                            <th>6M</th>
+                            <th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {tier_3_rows}
                     </tbody>
                 </table>
             </div>
@@ -351,8 +434,8 @@ Examples:
 
     parser.add_argument('--min-dollar-vol', type=int, default=20_000_000,
                        help='Minimum dollar volume filter (default: 20M)')
-    parser.add_argument('--stage2-min', type=int, default=3,
-                       help='Minimum Stage 2 score (default: 3)')
+    parser.add_argument('--entry-score-min', type=int, default=0,
+                       help='Minimum entry score to include (default: 0)')
     parser.add_argument('--include-watchlist', action='store_true',
                        help='Include watchlist.csv tickers in scan')
     parser.add_argument('--leading-sectors-only', action='store_true',
@@ -407,10 +490,7 @@ Examples:
             if df.empty or len(df) < 200:
                 continue
 
-            score = get_stage2_score(df)
-            if score < args.stage2_min:
-                continue
-
+            stage2_score = get_stage2_score(df)
             setup = calculate_setup(df)
             if not setup:
                 continue
@@ -429,17 +509,37 @@ Examples:
             if dollar_vol < args.min_dollar_vol:
                 continue
 
+            # Calculate distance to entry breakout
+            dist_to_entry = abs((setup['entry_breakout'] - current) / current) * 100
+
+            # Calculate entry score (0-100)
+            entry_score = calculate_entry_score(
+                stage2_score,
+                setup['risk_pct'],
+                dist_to_entry,
+                six_month_return
+            )
+
+            # Filter by minimum entry score
+            if entry_score < args.entry_score_min:
+                continue
+
+            tier = get_tier(entry_score)
+
             results.append({
                 'Ticker': ticker,
                 'Name': info.get('shortName', ticker),
                 'Sector': info.get('sector', 'Unknown'),
                 'Industry': info.get('industry', 'Unknown'),
                 'Price': current,
-                'Stage2': score,
+                'Stage2': stage2_score,
+                'Entry_Score': entry_score,
+                'Tier': tier,
                 '6M_%': round(six_month_return, 1),
                 '3M_%': round(three_month_return, 1),
                 '1M_%': round(one_month_return, 1),
                 'From_52W_High_%': round(from_high, 1),
+                'Dist_to_Entry_%': round(dist_to_entry, 1),
                 'ATR': setup['atr'],
                 'Entry_Breakout': setup['entry_breakout'],
                 'Stop': setup['stop'],
@@ -450,31 +550,44 @@ Examples:
         except Exception as e:
             continue
 
-    # Sort by Stage 2 score, then by 6M return
-    results = sorted(results, key=lambda x: (-x['Stage2'], -x['6M_%']))
+    # Sort by Entry Score (descending)
+    results = sorted(results, key=lambda x: -x['Entry_Score'])
 
     # Output summary
-    print(f"Found {len(results)} Stage 2+ candidates\n")
+    tier_counts = {'1': 0, '2': 0, '3': 0}
+    for r in results:
+        tier_counts[r['Tier']] = tier_counts.get(r['Tier'], 0) + 1
+
+    print(f"Found {len(results)} Stage 2+ candidates")
+    print(f"🟢 Tier 1: {tier_counts['1']} | 🟡 Tier 2: {tier_counts['2']} | 🔴 Tier 3: {tier_counts['3']}\n")
     print("="*80)
 
-    # Tier A
-    tier_a = [r for r in results if r['Stage2'] == 4]
-    print(f"\n🟢 TIER A — Stage 2 Score 4 ({len(tier_a)} candidates)")
+    # Tier 1 (Entry Score >= 60)
+    tier_1 = [r for r in results if r['Tier'] == '1']
+    print(f"\n🟢 TIER 1 — Entry Score ≥60 ({len(tier_1)} candidates) — Best entry setups")
     print("-"*80)
-    for r in tier_a[:20]:
-        status = "🔥 NEW HIGH" if r['From_52W_High_%'] < 2 else "📈 TRENDING"
-        print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | "
-              f"6M: {r['6M_%']:>+6.1f}% | From High: {r['From_52W_High_%']:>5.1f}% | {status}")
-        print(f"       Entry: ${r['Entry_Breakout']:.2f} | Stop: ${r['Stop']:.2f} | Risk: {r['Risk_%']:.1f}%")
+    for r in tier_1[:20]:
+        status = "🔥 READY" if r['Dist_to_Entry_%'] < 3 else "📈 SETTING UP"
+        print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
+              f"Risk: {r['Risk_%']:>5.1f}% | {status}")
+        print(f"       S2: {r['Stage2']}/4 | Entry: ${r['Entry_Breakout']:.2f} ({r['Dist_to_Entry_%']:.1f}% away) | Stop: ${r['Stop']:.2f}")
         print()
 
-    # Tier B
-    tier_b = [r for r in results if r['Stage2'] == 3]
-    print(f"\n🟡 TIER B — Stage 2 Score 3 ({len(tier_b)} candidates)")
+    # Tier 2 (Entry Score 40-59)
+    tier_2 = [r for r in results if r['Tier'] == '2']
+    print(f"\n🟡 TIER 2 — Entry Score 40-59 ({len(tier_2)} candidates) — Good setups, wait for better entry")
     print("-"*80)
-    for r in tier_b[:15]:
-        print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | "
-              f"6M: {r['6M_%']:>+6.1f}% | From High: {r['From_52W_High_%']:>5.1f}%")
+    for r in tier_2[:15]:
+        print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
+              f"S2: {r['Stage2']}/4 | Risk: {r['Risk_%']:.1f}% | Entry: ${r['Entry_Breakout']:.2f}")
+
+    # Tier 3 (Entry Score < 40)
+    tier_3 = [r for r in results if r['Tier'] == '3']
+    print(f"\n🔴 TIER 3 — Entry Score <40 ({len(tier_3)} candidates) — Monitor only")
+    print("-"*80)
+    for r in tier_3[:10]:
+        print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
+              f"S2: {r['Stage2']}/4 | Risk: {r['Risk_%']:.1f}%")
 
     # Save to CSV
     df_out = pd.DataFrame(results)
