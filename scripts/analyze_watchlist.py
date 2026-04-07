@@ -10,56 +10,68 @@ WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchl
 
 def analyze_watchlist():
     """Analyze all watchlist stocks and rank by entry attractiveness."""
-    
+
     if not WATCHLIST_PATH.exists():
         print("❌ Watchlist not found")
         return
-    
-    with open(WATCHLIST_PATH, 'r') as f:
-        reader = csv.DictReader(f)
-        watchlist = list(reader)
-    
+
+    # Load watchlist into pandas for easier manipulation
+    df = pd.read_csv(WATCHLIST_PATH)
+
+    # Track which tickers need pivot calculation
+    calculated_pivots = {}
+
     results = []
-    
-    for row in watchlist:
+
+    for idx, row in df.iterrows():
         ticker = row['Ticker']
-        pivot = float(row['Pivot_Price']) if row['Pivot_Price'] else None
-        
-        if not pivot:
-            continue
-        
+
+        # Check if pivot is missing
+        pivot_missing = pd.isna(row['Pivot_Price']) or row['Pivot_Price'] == ''
+        pivot = None
+
         try:
             stock = yf.Ticker(ticker)
             hist = stock.history(period="1y")
             info = stock.info
-            
+
             if len(hist) < 200:
                 continue
-            
+
             current = hist['Close'].iloc[-1]
-            
+
+            # Calculate pivot if missing
+            if pivot_missing:
+                recent_high = hist['High'].tail(5).max()
+                pivot = round(recent_high + 0.01, 2)
+                calculated_pivots[ticker] = pivot
+                # Update the dataframe for persistence
+                df.at[idx, 'Pivot_Price'] = pivot
+            else:
+                pivot = float(row['Pivot_Price'])
+
             # Returns
             ret_1m = (current / hist['Close'].iloc[-20] - 1) * 100
             ret_3m = (current / hist['Close'].iloc[-65] - 1) * 100 if len(hist) >= 65 else 0
             ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
-            
+
             # MAs
             ma20 = hist['Close'].rolling(20).mean().iloc[-1]
             ma50 = hist['Close'].rolling(50).mean().iloc[-1]
             ma150 = hist['Close'].rolling(150).mean().iloc[-1]
             ma200 = hist['Close'].rolling(200).mean().iloc[-1]
-            
+
             # 52-week high
             high_52w = hist['Close'].max()
             from_high = ((high_52w - current) / high_52w) * 100
-            
+
             # Stage 2 score
             score = 0
             if current > ma150: score += 1
             if current > ma200: score += 1
             if ma20 > ma50 > ma150 > ma200: score += 1
             if from_high < 15: score += 1
-            
+
             # ATR
             high_low = hist['High'] - hist['Low']
             high_close = abs(hist['High'] - hist['Close'].shift())
@@ -67,33 +79,33 @@ def analyze_watchlist():
             ranges = pd.concat([high_low, high_close, low_close], axis=1)
             true_range = ranges.max(axis=1)
             atr = true_range.rolling(14).mean().iloc[-1]
-            
+
             # Stop
             recent_low = hist['Low'].tail(10).min()
             stop = max(recent_low, current - 2 * atr)
             risk = (pivot - stop) / pivot * 100 if pivot > stop else 0
-            
+
             # Distance to pivot
             dist_to_pivot = ((pivot - current) / current) * 100 if current > 0 else 0
-            
+
             # Entry attractiveness score (higher = better)
             # Factors: Stage 2 score, risk %, proximity to pivot, momentum
             entry_score = 0
             if score >= 4: entry_score += 30
             elif score >= 3: entry_score += 20
             elif score >= 2: entry_score += 10
-            
+
             if risk < 10: entry_score += 30
             elif risk < 15: entry_score += 20
             elif risk < 20: entry_score += 10
-            
+
             if dist_to_pivot < 3: entry_score += 25  # Very close to breakout
             elif dist_to_pivot < 5: entry_score += 15
             elif dist_to_pivot < 10: entry_score += 5
-            
+
             if ret_6m > 50: entry_score += 15
             elif ret_6m > 25: entry_score += 10
-            
+
             results.append({
                 'Ticker': ticker,
                 'Current': round(current, 2),
@@ -109,17 +121,22 @@ def analyze_watchlist():
                 'Entry_Score': entry_score,
                 'Sector': info.get('sector', 'Unknown')
             })
-            
+
         except Exception as e:
             print(f"⚠️ {ticker}: {e}")
-    
+
+    # Persist calculated pivots back to watchlist
+    if calculated_pivots:
+        df.to_csv(WATCHLIST_PATH, index=False)
+        print(f"\n💾 Auto-calculated and saved pivots for {len(calculated_pivots)} tickers: {', '.join(calculated_pivots.keys())}")
+
     # Sort by entry score (descending)
     results.sort(key=lambda x: x['Entry_Score'], reverse=True)
-    
+
     # Display
     print("\n🎯 WATCHLIST ENTRY RANKINGS — Ranked by Favorability\n")
     print("=" * 120)
-    
+
     # Tier 1: Best setups (Score ≥60)
     print("\n**🟢 TIER 1 — BEST ENTRY SETUP (Score ≥60)**\n")
     tier1 = [r for r in results if r['Entry_Score'] >= 60]
@@ -130,7 +147,7 @@ def analyze_watchlist():
             print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {r['Risk_%']:<7.1f}% {r['Stage2']:<6}/4 🟢 {r['6M']:+>8.1f}% {r['Sector']}")
     else:
         print("No Tier 1 setups currently")
-    
+
     # Tier 2: Good setups (Score 40-59)
     print("\n\n**🟡 TIER 2 — GOOD SETUP (Score 40-59)**\n")
     tier2 = [r for r in results if 40 <= r['Entry_Score'] < 60]
@@ -141,7 +158,7 @@ def analyze_watchlist():
             print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {r['Risk_%']:<7.1f}% {r['Stage2']:<6}/4 🟡 {r['6M']:+>8.1f}% {r['Sector']}")
     else:
         print("No Tier 2 setups currently")
-    
+
     # Tier 3: Watch only (Score <40)
     print("\n\n**🔴 TIER 3 — WAIT / MONITOR (Score <40)**\n")
     tier3 = [r for r in results if r['Entry_Score'] < 40]
@@ -152,11 +169,11 @@ def analyze_watchlist():
             print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {r['Risk_%']:<7.1f}% {r['Stage2']:<6}/4 🔴 {r['6M']:+>8.1f}% {r['Sector']}")
     else:
         print("No Tier 3 setups currently")
-    
+
     # Summary
     print("\n" + "=" * 120)
     print(f"\n📊 SUMMARY: {len(tier1)} Tier 1 | {len(tier2)} Tier 2 | {len(tier3)} Tier 3 | Total: {len(results)}")
-    
+
     # Top 3 recommendations
     if results:
         print("\n🎯 TOP 3 RECOMMENDATIONS:")

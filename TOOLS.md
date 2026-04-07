@@ -547,6 +547,116 @@ The script provides clear error messages:
 
 ---
 
+## 🌙 Comprehensive Post-Market Report
+
+**Script:** `scripts/postmarket_report.py`
+
+**Purpose:** Generate comprehensive end-of-day report with market close summary, watchlist performance, gap analysis, and overnight futures.
+
+### Usage
+
+```bash
+# Console output (default)
+python3 scripts/postmarket_report.py
+
+# Generate HTML report
+python3 scripts/postmarket_report.py --html
+
+# Custom output path with timestamp
+python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +%Y%m%d_%H%M).html
+```
+
+### Output Format
+
+**Console Mode:** Plain text with emoji indicators
+
+**HTML Mode:** Self-contained HTML file with:
+- Dark theme with visual styling
+- Market close cards with intraday ranges
+- VIX analysis with risk classification
+- Overnight futures tracking
+- Crypto performance summary
+- Watchlist performance table with tier badges
+- Gap detection section (>3% moves)
+- Action items checklist
+- Key levels for tomorrow
+
+### Report Features
+
+| Section | Description |
+|---------|-------------|
+| **Market Close Summary** | SPY, QQQ, IWM close prices with intraday H/L |
+| **VIX Analysis** | Current level with Low/Elevated/High classification |
+| **Overnight Futures** | ES, NQ, RTY post-market levels |
+| **Crypto** | BTC and ETH 24h performance |
+| **Watchlist Performance** | All watchlist stocks with change %, volume ratio, pivot distance |
+| **Gap Analysis** | Stocks with >3% gaps, volume confirmation |
+| **Action Items** | Dynamic checklist based on today's action |
+| **Key Levels** | Support/resistance levels for tomorrow |
+
+### Console Output Example
+
+```
+🌙 POST-MARKET REPORT — 2026-04-07
+
+**📊 MARKET CLOSE SUMMARY**
+SPY  $654.03 (-4.90, -0.74%) | H: $658.36 L: $651.06
+QQQ  $582.60 (-5.90, -1.00%) | H: $587.06 L: $578.40
+IWM  $250.88 (-1.48, -0.59%) | H: $253.48 L: $249.52
+
+VIX:  27.34 (+3.17) — Elevated 18-28
+
+**📈 WATCHLIST PERFORMANCE TODAY**
+Total: 21 | Gained: 6 | Declined: 14
+
+Ticker   Change     Vol      Close      Pivot      Dist%    Tier
+---------------------------------------------------------------------------
+POWL     +6.67%     1.0x     $199.18    $207.23    4.0%     🟢 T1
+STRL     -4.64%     1.0x     $375.44    $396.61    5.6%     🟢 T1
+...
+
+**🚀 GAPS >3%**
+📈 POWL: +6.67% (Vol: 1.0x) — News/Driven
+📉 STRL: -4.64% (Vol: 1.0x) — News/Driven
+
+**🎯 ACTION ITEMS FOR TOMORROW**
+1. ☐ Review today's 5 gaps >3%
+2. ☐ Update watchlist pivots for any breakouts
+3. ☐ Note: BEAR day - adjust sizing accordingly
+4. ☐ Check overnight futures before bed
+5. ☐ Review tomorrow's economic calendar
+
+**⚡ KEY LEVELS FOR TOMORROW**
+SPY: Support ~$651 | Resistance ~$658
+QQQ: Support ~$578 | Resistance ~$587
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--html` | Generate HTML report | False |
+| `--output` | Custom output path | reports/postmarket_report_YYYY-MM-DD_HHMMSS.html |
+
+### Telegram Integration
+
+Post the HTML report with summary:
+
+```bash
+openclaw message send --channel telegram --account trader --target -4872065090 \
+  --message "🌙 Post-Market Report — $(date +%Y-%m-%d)
+
+Market: BEAR day (3/3 indices red)
+Gaps >3%: 5 stocks
+VIX: Elevated at 27.34
+
+Full report attached." \
+  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/postmarket_report_$(date +%Y%m%d).html \
+  --force-document
+```
+
+---
+
 ## 🔗 MC Stock Charts Scraper
 
 **Script:** `scripts/mcstock_scraper.py`

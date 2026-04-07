@@ -70,6 +70,8 @@ python3 scripts/postmarket_report.py
 # Reports (HTML output)
 python3 scripts/premarket_report_comprehensive.py --html
 python3 scripts/premarket_report_comprehensive.py --html --output /path/to/custom.html
+python3 scripts/postmarket_report.py --html
+python3 scripts/postmarket_report.py --html --output reports/eod_$(date +%Y%m%d_%H%M).html
 
 # Deliver reports via Telegram (with env vars set)
 python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html --caption "Morning briefing"
@@ -85,6 +87,55 @@ python3 scripts/mcstock_scraper.py
 python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 ```
+
+## Comprehensive Reports
+
+Both pre-market and post-market reports now support console and HTML output with dark theme styling.
+
+### Pre-Market Report (Comprehensive)
+```bash
+# Console output
+python3 scripts/premarket_report_comprehensive.py
+
+# HTML report with dark theme
+python3 scripts/premarket_report_comprehensive.py --html
+
+# Custom output path
+python3 scripts/premarket_report_comprehensive.py --html --output reports/premarket_$(date +%Y%m%d).html
+```
+
+**Features:**
+- Overnight futures (ES, NQ, RTY, YM, CL, GC)
+- VIX level classification (Low <18, Elevated 18-28, High >28)
+- Crypto tracking (BTC, ETH)
+- Economic calendar with risk assessment
+- Major indices vs 20/50/200 MA
+- Sector leaders from scan data
+- Watchlist entry scores (Tier 1/2/3)
+- Dark theme HTML reports
+
+### Post-Market Report
+```bash
+# Console output
+python3 scripts/postmarket_report.py
+
+# HTML report with dark theme
+python3 scripts/postmarket_report.py --html
+
+# Custom output path
+python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +%Y%m%d_%H%M).html
+```
+
+**Features:**
+- Market close summary (SPY, QQQ, IWM) with intraday ranges
+- VIX analysis with level classification
+- Overnight futures tracking
+- Crypto performance (BTC, ETH)
+- Watchlist performance (change %, volume, distance to pivot)
+- Gap detection (>3% moves) with volume confirmation
+- Dynamic action items based on today's action
+- Key levels for tomorrow (support/resistance)
+- Dark theme HTML reports
 
 ## Trading Framework
 
