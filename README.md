@@ -57,6 +57,12 @@ python3 scripts/sector_scan.py
 python3 scripts/sector_scan_comprehensive.py
 python3 scripts/stage2_rs_screen.py
 
+# Midday scan
+python3 scripts/midday_scan.py
+python3 scripts/midday_scan.py --include-watchlist
+python3 scripts/midday_scan.py --leading-sectors-only
+python3 scripts/midday_scan.py --html
+
 # Reports (console output)
 python3 scripts/premarket_report.py
 python3 scripts/postmarket_report.py

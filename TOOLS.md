@@ -279,6 +279,98 @@ openclaw message send --channel telegram --account trader --target 47258942 \
 
 ---
 
+## 🔄 Mid-Day Scan
+
+**Script:** `scripts/midday_scan.py`
+
+**Purpose:** Intraday scan of Stage 2+ candidates with entry setup calculations.
+
+### Features
+
+- **Curated universe** — 60+ liquid tickers across leading sectors
+- **Stage 2 scoring** — 0-4 score based on technical criteria
+- **Entry calculations** — Breakout levels and 2 ATR stops
+- **Dynamic sectors** — Load today's leading sectors from scan
+- **Watchlist integration** — Include your watchlist tickers
+- **HTML reports** — Visual output for midday review
+
+### Usage
+
+```bash
+# Basic scan (full universe)
+python3 scripts/midday_scan.py
+
+# Include your watchlist
+python3 scripts/midday_scan.py --include-watchlist
+
+# Focus only on today's leading sectors
+python3 scripts/midday_scan.py --leading-sectors-only
+
+# Generate HTML report
+python3 scripts/midday_scan.py --html
+
+# Custom dollar volume filter (e.g., 50M+)
+python3 scripts/midday_scan.py --min-dollar-vol 50000000
+
+# Custom Stage 2 minimum (e.g., only score 4)
+python3 scripts/midday_scan.py --stage2-min 4
+
+# Custom output paths
+python3 scripts/midday_scan.py --output /path/to/output.csv --html-output /path/to/output.html
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--min-dollar-vol` | Minimum dollar volume filter | 20,000,000 |
+| `--stage2-min` | Minimum Stage 2 score to include | 3 |
+| `--include-watchlist` | Add watchlist.csv tickers | False |
+| `--leading-sectors-only` | Scan only today's leading sectors | False |
+| `--output` | Custom CSV output path | scans/leading_stocks_YYYY-MM-DD.csv |
+| `--html` | Generate HTML report | False |
+| `--html-output` | Custom HTML output path | reports/midday_scan_YYYY-MM-DD.html |
+
+### Output Format
+
+**Console:**
+```
+🟢 TIER A — Stage 2 Score 4 (8 candidates)
+--------------------------------------------------
+XOM    | Exxon Mobil Corp        | $114.52 | 6M: +12.5% | From High: 3.2% | 📈 TRENDING
+       Entry: $115.50 | Stop: $110.25 | Risk: 4.6%
+
+🟡 TIER B — Stage 2 Score 3 (15 candidates)
+--------------------------------------------------
+CVX    | Chevron Corp            | $155.30 | 6M:  +8.3% | From High: 5.1%
+```
+
+**CSV Columns:**
+- Ticker, Name, Sector, Industry, Price
+- Stage2, 6M_%, 3M_%, 1M_%
+- From_52W_High_%, ATR
+- Entry_Breakout, Stop, Risk_%
+- $Vol_M (dollar volume in millions)
+
+### Common Workflows
+
+**Midday check after sector rotation:**
+```bash
+python3 scripts/midday_scan.py --leading-sectors-only --html
+```
+
+**Full scan including your watchlist:**
+```bash
+python3 scripts/midday_scan.py --include-watchlist --html
+```
+
+**High liquidity only (50M+ dollar volume):**
+```bash
+python3 scripts/midday_scan.py --min-dollar-vol 50000000
+```
+
+---
+
 ## 📊 Comprehensive Pre-Market Report
 
 **Script:** `scripts/premarket_report_comprehensive.py`
