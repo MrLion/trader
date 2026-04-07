@@ -44,7 +44,12 @@ def generate_html_report(report_data, output_path):
     def get_regime_class(regime):
         return "bull" if "BULL" in regime else "bear" if "BEAR" in regime else "neutral"
 
-    # Market close cards
+    # Determine regime from indices performance
+    bullish_count = sum(1 for idx in report_data.get('indices', []) if idx.get('change', 0) > 0)
+    regime = "BULL" if bullish_count >= 2 else "BEAR" if bullish_count == 0 else "NEUTRAL"
+    regime_class = get_regime_class(regime)
+
+    # Market close cards (for section header)
     indices_html = ""
     for idx in report_data.get('indices', []):
         color = get_change_color(idx.get('change', 0))
@@ -57,6 +62,22 @@ def generate_html_report(report_data, output_path):
             </div>
             <div class="metric-range">H: ${idx.get('high', 0):.2f} L: ${idx.get('low', 0):.2f}</div>
         </div>
+        '''
+
+    # Major Indices table (like premarket)
+    indices_table_html = ""
+    for idx in report_data.get('indices', []):
+        s20_class = "pass" if idx.get('above_20') else "fail"
+        s50_class = "pass" if idx.get('above_50') else "fail"
+        s200_class = "pass" if idx.get('above_200') else "fail"
+        indices_table_html += f'''
+        <tr>
+            <td class="ticker">{esc(idx.get('ticker', ''))}</td>
+            <td class="price">${idx.get('close', 0):,.2f}</td>
+            <td class="signal {s20_class}">{'✓' if idx.get('above_20') else '✗'} 20MA</td>
+            <td class="signal {s50_class}">{'✓' if idx.get('above_50') else '✗'} 50MA</td>
+            <td class="signal {s200_class}">{'✓' if idx.get('above_200') else '✗'} 200MA</td>
+        </tr>
         '''
 
     # VIX card
@@ -73,19 +94,12 @@ def generate_html_report(report_data, output_path):
     </div>
     '''
 
-    # Futures
-    futures_html = ""
-    for f in report_data.get('futures', []):
-        color = get_change_color(f.get('change', 0))
-        futures_html += f'''
-        <div class="metric-card">
-            <div class="metric-symbol">{esc(f.get('symbol', ''))}</div>
-            <div class="metric-value">${f.get('price', 0):,.2f}</div>
-            <div class="metric-change" style="color: {color}">
-                {f.get('change', 0):+.2f} ({f.get('pct', 0):+.2f}%)
-            </div>
-        </div>
-        '''
+    # Regime signals
+    regime_signals_html = ""
+    for sig_name, sig_status in report_data.get('regime_signals', []):
+        status_class = "pass" if sig_status else "fail"
+        status_icon = "✓" if sig_status else "✗"
+        regime_signals_html += f'<div class="signal {status_class}"><span class="signal-icon">{status_icon}</span> {esc(sig_name)}</div>\n'
 
     # Crypto
     crypto = report_data.get('crypto', {})
@@ -107,11 +121,16 @@ def generate_html_report(report_data, output_path):
 
     # Watchlist performance
     watchlist_rows = ""
+    ready_tickers = []
     for stock in report_data.get('watchlist_performance', []):
         change_class = "positive" if stock.get('change_pct', 0) > 0 else "negative" if stock.get('change_pct', 0) < 0 else ""
         vol_class = "high" if stock.get('volume_ratio', 1) > 1.5 else ""
+        tier_class = "tier-1-priority" if stock.get('tier') == '1' else ""
+        # Track ready stocks (Tier 1 within 3% of pivot)
+        if stock.get('tier') == '1' and stock.get('dist_to_pivot') is not None and abs(stock.get('dist_to_pivot', 99)) < 3:
+            ready_tickers.append(stock.get('ticker'))
         watchlist_rows += f'''
-        <tr>
+        <tr class="{tier_class}">
             <td class="ticker">{esc(stock.get('ticker', ''))}</td>
             <td class="{change_class}">{stock.get('change_pct', 0):+.2f}%</td>
             <td class="{vol_class}">{stock.get('volume_ratio', 1):.1f}x</td>
@@ -121,6 +140,8 @@ def generate_html_report(report_data, output_path):
             <td class="tier-{stock.get('tier', '3')}">T{stock.get('tier', '3')}</td>
         </tr>
         '''
+
+    ready_html = f"<div class='ready-banner'>Tier 1 Ready: {', '.join(ready_tickers)}</div>" if ready_tickers else ""
 
     # Gap analysis
     gap_rows = ""
@@ -146,17 +167,25 @@ def generate_html_report(report_data, output_path):
         checked = "checked" if item.get('checked') else ""
         action_html += f'<div class="action-item"><input type="checkbox" {checked} disabled> {esc(item.get("text", ""))}</div>\n'
 
-    # Key levels
-    levels = report_data.get('key_levels', {})
+    # Key levels (include MA50 from indices)
     levels_html = ""
-    for ticker, data in levels.items():
+    for idx in report_data.get('indices', []):
+        ticker = idx['ticker']
+        ma50 = idx.get('ma50', idx.get('close', 0))
         levels_html += f'''
         <div class="key-level">
-            <div class="label">{ticker}</div>
-            <div class="value">Support: ${data.get('support', 0):.0f}</div>
-            <div class="value">Resistance: ${data.get('resistance', 0):.0f}</div>
+            <div class="label">{ticker} 50MA</div>
+            <div class="value">${ma50:.0f}</div>
         </div>
         '''
+
+    # Add VIX watch level
+    levels_html += f'''
+    <div class="key-level">
+        <div class="label">VIX Watch</div>
+        <div class="value">28</div>
+    </div>
+    '''
 
     html_content = f'''<!DOCTYPE html>
 <html lang="en">
@@ -193,6 +222,11 @@ def generate_html_report(report_data, output_path):
         }}
         h1 {{ font-size: 2rem; margin-bottom: 10px; }}
         .date {{ color: var(--text-secondary); font-size: 1.1rem; }}
+        abbr {{
+            border-bottom: 1px dotted var(--text-secondary);
+            cursor: help;
+            text-decoration: none;
+        }}
 
         .section {{
             background: var(--bg-secondary);
@@ -227,6 +261,9 @@ def generate_html_report(report_data, output_path):
         .metric-change {{ font-size: 0.95rem; font-weight: 500; }}
         .metric-range {{ font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }}
         .vix-level {{ font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }}
+        .vix.vix-low {{ border: 1px solid var(--accent-green); }}
+        .vix.vix-elevated {{ border: 1px solid var(--accent-yellow); }}
+        .vix.vix-high {{ border: 1px solid var(--accent-red); }}
 
         .crypto-row {{
             background: var(--bg-tertiary);
@@ -240,6 +277,36 @@ def generate_html_report(report_data, output_path):
         .crypto-label {{ color: var(--text-secondary); font-size: 0.9rem; }}
         .crypto-price {{ font-weight: bold; }}
         .crypto-divider {{ color: var(--border-color); margin: 0 5px; }}
+
+        .signals-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }}
+        .signal {{
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }}
+        .signal.pass {{ background: rgba(74, 222, 128, 0.1); color: var(--accent-green); }}
+        .signal.fail {{ background: rgba(248, 113, 113, 0.1); color: var(--accent-red); }}
+        .signal-icon {{ font-weight: bold; margin-right: 8px; }}
+
+        .progress-bar {{
+            background: var(--bg-tertiary);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }}
+        .progress-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green) 0%, #22c55e 100%);
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }}
 
         table {{
             width: 100%;
@@ -259,6 +326,7 @@ def generate_html_report(report_data, output_path):
             letter-spacing: 0.5px;
         }}
         tr:hover {{ background: rgba(255,255,255,0.03); }}
+        tbody tr:nth-child(even) {{ background: rgba(255,255,255,0.02); }}
         .ticker {{ font-weight: bold; font-family: monospace; }}
         .positive {{ color: var(--accent-green); }}
         .negative {{ color: var(--accent-red); }}
@@ -266,6 +334,9 @@ def generate_html_report(report_data, output_path):
         .tier-1 {{ color: var(--accent-green); }}
         .tier-2 {{ color: var(--accent-yellow); }}
         .tier-3 {{ color: var(--accent-red); }}
+        tr.tier-1-priority {{ border-left: 3px solid var(--accent-green); }}
+        tr.tier-1-priority td:first-child {{ padding-left: 9px; }}
+        tr.tier-1-priority:hover {{ background: rgba(74, 222, 128, 0.08); }}
 
         .action-item {{
             padding: 10px 0;
@@ -294,6 +365,36 @@ def generate_html_report(report_data, output_path):
         .key-level .label {{ color: var(--text-secondary); font-size: 0.85rem; }}
         .key-level .value {{ font-size: 1.2rem; font-weight: bold; margin-top: 5px; }}
 
+        .ready-banner {{
+            background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+            border: 1px solid var(--accent-green);
+            border-left: 4px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin: 20px 0 10px 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .ready-banner::before {{
+            content: "→";
+            font-size: 1.2rem;
+            font-weight: bold;
+        }}
+
+        .regime-badge {{
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+        }}
+        .regime-badge.bull {{ background: rgba(74, 222, 128, 0.2); color: var(--accent-green); }}
+        .regime-badge.neutral {{ background: rgba(250, 204, 21, 0.2); color: var(--accent-yellow); }}
+        .regime-badge.bear {{ background: rgba(248, 113, 113, 0.2); color: var(--accent-red); }}
+
         .timestamp {{
             text-align: center;
             padding: 20px;
@@ -303,70 +404,131 @@ def generate_html_report(report_data, output_path):
             margin-top: 20px;
         }}
 
+        /* Print styles */
+        @media print {{
+            body {{
+                background: white;
+                color: black;
+                padding: 10px;
+            }}
+            .section {{
+                background: white;
+                border: 1px solid #ccc;
+                break-inside: avoid;
+            }}
+            .metric-card, .key-level {{
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+            }}
+            .tier-1 {{ color: #15803d !important; }}
+            .tier-2 {{ color: #a16207 !important; }}
+            .tier-3 {{ color: #dc2626 !important; }}
+            .positive {{ color: #15803d !important; }}
+            .negative {{ color: #dc2626 !important; }}
+            .ready-banner {{
+                background: #f0fdf4 !important;
+                border: 1px solid #22c55e !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            thead th {{
+                background: #f5f5f5 !important;
+            }}
+            tr.tier-1-priority {{
+                border-left: 3px solid #22c55e !important;
+            }}
+        }}
+
         @media (max-width: 768px) {{
             .metrics-grid {{ grid-template-columns: repeat(2, 1fr); }}
+            .signals-grid {{ grid-template-columns: 1fr; }}
+            .crypto-row {{ flex-wrap: wrap; }}
             table {{ font-size: 0.8rem; }}
             th, td {{ padding: 8px; }}
+            h1 {{ font-size: 1.5rem; }}
+            .section {{ padding: 15px; }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🌙 Post-Market Report</h1>
+            <h1>Post-Market Report</h1>
             <div class="date">{esc(report_data.get('date', ''))}</div>
+            <div class="regime-badge {regime_class}">{regime} CLOSE</div>
         </header>
 
-        <div class="section">
+        <div class="section section-close">
             <h2>📊 Market Close Summary</h2>
             <div class="metrics-grid">{indices_html}{vix_html}</div>
             {crypto_html}
         </div>
 
-        <div class="section">
-            <h2>🌙 Overnight Futures</h2>
-            <div class="metrics-grid">{futures_html}</div>
+        <div class="section section-regime">
+            <h2>Regime Assessment</h2>
+            <div class="signals-grid">{regime_signals_html}</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {(report_data.get('bullish_count', 0) / 4 * 100):.0f}%"></div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; color: var(--text-secondary);">
+                Bullish Signals: {report_data.get('bullish_count', 0)}/4
+            </div>
         </div>
 
-        <div class="section">
+        <div class="section section-indices">
+            <h2>Major Indices</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Current Market Price">Price</abbr></th><th><abbr title="20-Day Simple Moving Average">20MA</abbr></th><th><abbr title="50-Day Simple Moving Average">50MA</abbr></th><th><abbr title="200-Day Simple Moving Average">200MA</abbr></th></tr></thead>
+                    <tbody>{indices_table_html}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section section-watchlist">
             <h2>📈 Watchlist Performance Today</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Ticker</th>
-                        <th>Change</th>
-                        <th>Volume</th>
-                        <th>Close</th>
-                        <th>Pivot</th>
-                        <th>Dist%</th>
-                        <th>Tier</th>
-                    </tr>
-                </thead>
-                <tbody>{watchlist_rows}</tbody>
-            </table>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th><abbr title="Stock Ticker Symbol">Ticker</abbr></th>
+                            <th><abbr title="Today's Percentage Change">Change</abbr></th>
+                            <th><abbr title="Volume vs 50-Day Average">Volume</abbr></th>
+                            <th><abbr title="Closing Price">Close</abbr></th>
+                            <th><abbr title="Pivot/Breakout Price">Pivot</abbr></th>
+                            <th><abbr title="Distance to Pivot Percentage">Dist%</abbr></th>
+                            <th><abbr title="Entry Score Tier (1-3)">Tier</abbr></th>
+                        </tr>
+                    </thead>
+                    <tbody>{watchlist_rows}</tbody>
+                </table>
+            </div>
+            {ready_html}
         </div>
 
-        <div class="section">
+        <div class="section section-gaps">
             <h2>🚀 Gap Analysis (&gt;3%)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Ticker</th>
-                        <th>Gap</th>
-                        <th>Volume</th>
-                        <th>Reason/Context</th>
-                    </tr>
-                </thead>
-                <tbody>{gap_rows}</tbody>
-            </table>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th><abbr title="Stock Ticker Symbol">Ticker</abbr></th>
+                            <th><abbr title="Gap Percentage">Gap</abbr></th>
+                            <th><abbr title="Volume vs Average">Volume</abbr></th>
+                            <th>Reason/Context</th>
+                        </tr>
+                    </thead>
+                    <tbody>{gap_rows}</tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="section">
+        <div class="section section-action">
             <h2>🎯 Action Items for Tomorrow</h2>
             {action_html}
         </div>
 
-        <div class="section">
+        <div class="section section-levels">
             <h2>⚡ Key Levels for Tomorrow</h2>
             <div class="key-levels">{levels_html}</div>
         </div>
@@ -472,31 +634,48 @@ def generate_postmarket_report(output_format='console', output_path=None):
         'date': report_date,
         'indices': [],
         'vix': {},
-        'futures': [],
         'crypto': {},
         'watchlist_performance': [],
         'gaps': [],
         'action_items': [],
-        'key_levels': {}
+        'key_levels': {},
+        'regime_signals': [],
+        'bullish_count': 0
     }
 
     # Load watchlist
     watchlist_df = load_watchlist()
 
-    # 1. MARKET CLOSE SUMMARY
+    # 1. MARKET CLOSE SUMMARY (with MAs like Major Indices)
     indices_data = {}
+    regime_checks = []
     for ticker in ["SPY", "QQQ", "IWM"]:
         try:
-            data = yf.Ticker(ticker).history(period="2d")
-            if len(data) >= 2:
+            data = yf.Ticker(ticker).history(period="252d")  # 1 year for 200MA
+            if len(data) >= 20:
                 today = data.iloc[-1]
-                prior = data.iloc[-2]
                 close = today['Close']
-                prev_close = prior['Close']
-                change = close - prev_close
-                pct = ((close / prev_close) - 1) * 100
                 high = today['High']
                 low = today['Low']
+
+                # Calculate changes from prior day
+                if len(data) >= 2:
+                    prior = data.iloc[-2]
+                    prev_close = prior['Close']
+                    change = close - prev_close
+                    pct = ((close / prev_close) - 1) * 100
+                else:
+                    change = 0
+                    pct = 0
+
+                # Calculate MAs
+                ma20 = data['Close'].tail(20).mean() if len(data) >= 20 else close
+                ma50 = data['Close'].tail(50).mean() if len(data) >= 50 else close
+                ma200 = data['Close'].tail(200).mean() if len(data) >= 200 else close
+
+                above_20 = close > ma20
+                above_50 = close > ma50
+                above_200 = close > ma200
 
                 report_data['indices'].append({
                     'ticker': ticker,
@@ -504,9 +683,16 @@ def generate_postmarket_report(output_format='console', output_path=None):
                     'change': change,
                     'pct': pct,
                     'high': high,
-                    'low': low
+                    'low': low,
+                    'above_20': above_20,
+                    'above_50': above_50,
+                    'above_200': above_200,
+                    'ma50': ma50
                 })
                 indices_data[ticker] = {'close': close, 'high': high, 'low': low}
+
+                # Regime signal: Index above 50MA (bullish sign)
+                regime_checks.append((ticker, above_50))
         except Exception as e:
             print(f"⚠️ Error fetching {ticker}: {e}")
 
@@ -527,25 +713,40 @@ def generate_postmarket_report(output_format='console', output_path=None):
     except Exception as e:
         print(f"⚠️ Error fetching VIX: {e}")
 
-    # 3. OVERNIGHT FUTURES
-    futures_symbols = [("ES=F", "/ES"), ("NQ=F", "/NQ"), ("RTY=F", "/RTY")]
-    for ticker, symbol in futures_symbols:
-        try:
-            data = yf.Ticker(ticker).history(period="2d")
-            if len(data) >= 2:
-                curr = data['Close'].iloc[-1]
-                prev = data['Close'].iloc[-2]
-                change = curr - prev
-                pct = ((curr / prev) - 1) * 100
+    # 3. REGIME ASSESSMENT (calculate signals)
+    # Calculate regime signals
+    bullish_signals = 0
+    regime_signals = []
 
-                report_data['futures'].append({
-                    'symbol': symbol,
-                    'price': curr,
-                    'change': change,
-                    'pct': pct
-                })
-        except:
-            pass
+    # Signal 1: SPY above 50MA
+    spy_above_50 = next((idx for idx in report_data['indices'] if idx['ticker'] == 'SPY'), None)
+    spy_signal = spy_above_50 and spy_above_50['above_50'] if spy_above_50 else False
+    if spy_signal:
+        bullish_signals += 1
+    regime_signals.append(("SPY > 50MA", spy_signal))
+
+    # Signal 2: QQQ above 50MA
+    qqq_above_50 = next((idx for idx in report_data['indices'] if idx['ticker'] == 'QQQ'), None)
+    qqq_signal = qqq_above_50 and qqq_above_50['above_50'] if qqq_above_50 else False
+    if qqq_signal:
+        bullish_signals += 1
+    regime_signals.append(("QQQ > 50MA", qqq_signal))
+
+    # Signal 3: IWM above 50MA
+    iwm_above_50 = next((idx for idx in report_data['indices'] if idx['ticker'] == 'IWM'), None)
+    iwm_signal = iwm_above_50 and iwm_above_50['above_50'] if iwm_above_50 else False
+    if iwm_signal:
+        bullish_signals += 1
+    regime_signals.append(("IWM > 50MA", iwm_signal))
+
+    # Signal 4: VIX < 20 (low volatility = bullish)
+    vix_bullish = report_data['vix'].get('price', 25) < 20
+    if vix_bullish:
+        bullish_signals += 1
+    regime_signals.append(("VIX < 20", vix_bullish))
+
+    report_data['regime_signals'] = regime_signals
+    report_data['bullish_count'] = bullish_signals
 
     # 4. CRYPTO
     try:
@@ -577,8 +778,7 @@ def generate_postmarket_report(output_format='console', output_path=None):
         report_data['gaps'] = detect_gaps(report_data['watchlist_performance'])
 
     # 7. ACTION ITEMS
-    bullish_count = sum(1 for idx in report_data['indices'] if idx['change'] > 0)
-    regime_today = "BULL" if bullish_count >= 2 else "BEAR" if bullish_count == 0 else "MIXED"
+    regime_today = "BULL" if report_data['bullish_count'] >= 2 else "BEAR" if report_data['bullish_count'] == 0 else "MIXED"
 
     report_data['action_items'] = [
         {'text': f'Review today\'s {len(report_data["gaps"])} gaps >3%', 'checked': False},
@@ -624,11 +824,22 @@ def generate_postmarket_report(output_format='console', output_path=None):
         if v:
             print(f"\nVIX:  {v['price']:.2f} ({v['change']:+.2f}) — {v['level']}")
 
-        if report_data['futures']:
-            print("\n**🌙 OVERNIGHT FUTURES**")
-            for f in report_data['futures']:
-                arrow = "↑" if f['change'] > 0 else "↓"
-                print(f"{f['symbol']:5} ${f['price']:>8,.2f} {arrow} ({f['change']:>+.2f}, {f['pct']:>+.2f}%)")
+        # Regime Assessment
+        print("\n**REGIME ASSESSMENT**")
+        for sig_name, sig_status in report_data['regime_signals']:
+            icon = "✓" if sig_status else "✗"
+            print(f"  {icon} {sig_name}")
+        print(f"\nBullish Signals: {report_data['bullish_count']}/4")
+
+        # Major Indices with MAs
+        print("\n**MAJOR INDICES**")
+        print(f"{'Ticker':<8} {'Price':<12} {'20MA':<10} {'50MA':<10} {'200MA':<10}")
+        print("-" * 55)
+        for idx in report_data['indices']:
+            m20 = "✓" if idx.get('above_20') else "✗"
+            m50 = "✓" if idx.get('above_50') else "✗"
+            m200 = "✓" if idx.get('above_200') else "✗"
+            print(f"{idx['ticker']:<8} ${idx['close']:<11.2f} {m20:<10} {m50:<10} {m200:<10}")
 
         c = report_data['crypto']
         if c:
