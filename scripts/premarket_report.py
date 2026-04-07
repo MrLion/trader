@@ -971,14 +971,62 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         ready = [s['ticker'] for s in watchlist if s['tier'] == '1' and abs(s['dist_to_pivot']) < 3]
         report_data['ready_tickers'] = ready
 
-    # ACTION ITEMS
-    report_data['action_items'] = [
-        {'text': 'Review top 20 for actionable setups', 'checked': False},
-        {'text': 'Check individual stock charts in leading sectors', 'checked': False},
-        {'text': 'Check earnings calendar', 'checked': False},
-        {'text': 'Monitor pre-market gaps', 'checked': False},
-        {'text': 'NO NEW ENTRIES until reclaim' if bullish < 2 else 'EXECUTE A+ SETUPS ONLY', 'checked': False}
-    ]
+    # ACTION ITEMS - Dynamic based on market conditions
+    action_items = []
+
+    # Sector leaders action (scan is a list of top performers)
+    if scan and len(scan) > 0:
+        top_sectors = [s['ticker'] for s in scan[:3]]
+        action_items.append({'text': f"🏭 Review top sectors: {', '.join(top_sectors)}", 'checked': False})
+    else:
+        action_items.append({'text': '⚠️ Run sector scan to identify leading sectors', 'checked': False})
+
+    # Ready tickers action
+    if report_data.get('ready_tickers'):
+        ready = report_data['ready_tickers'][:5]
+        action_items.append({'text': f"🎯 Tier 1 ready ({len(report_data['ready_tickers'])}): {', '.join(ready)}{'...' if len(report_data['ready_tickers']) > 5 else ''}", 'checked': False})
+    else:
+        action_items.append({'text': '⏸️ No Tier 1 setups ready - scan for new candidates', 'checked': False})
+
+    # Watchlist tier breakdown
+    if watchlist:
+        t1 = sum(1 for s in watchlist if s['tier'] == '1')
+        t2 = sum(1 for s in watchlist if s['tier'] == '2')
+        t3 = sum(1 for s in watchlist if s['tier'] == '3')
+        action_items.append({'text': f"📋 Watchlist: {t1} Tier 1 | {t2} Tier 2 | {t3} Tier 3", 'checked': True})
+
+    # Regime-based action
+    if bullish >= 4:
+        action_items.append({'text': '🟢 BULL regime (4/4): Full exposure, execute best setups', 'checked': False})
+    elif bullish >= 2:
+        action_items.append({'text': '🟡 Mixed regime: Selective entries on A+ setups', 'checked': False})
+    else:
+        action_items.append({'text': '🔴 BEAR regime: No new entries until reclaim', 'checked': False})
+
+    # VIX warning
+    vix_price = report_data['vix'].get('price', 20)
+    if vix_price >= 28:
+        action_items.append({'text': f'⚡ High VIX ({vix_price:.1f}): Reduce size, wider stops', 'checked': False})
+    elif vix_price >= 18:
+        action_items.append({'text': f'⚡ Elevated VIX ({vix_price:.1f}): Normal size, stay alert', 'checked': False})
+
+    # Economic calendar check
+    econ = report_data.get('economic', {})
+    if econ.get('events'):
+        high_impact = sum(1 for e in econ['events'] if e.get('impact') == '🔴')
+        if high_impact > 0:
+            action_items.append({'text': f'🔴 {high_impact} HIGH impact event(s) today - trade around them', 'checked': False})
+        else:
+            action_items.append({'text': '🟡 Medium impact events today - watch for volatility', 'checked': False})
+    else:
+        action_items.append({'text': '✓ Clear economic calendar - normal trading', 'checked': True})
+
+    # Standard items
+    action_items.append({'text': '📊 Review top 20 for actionable setups', 'checked': False})
+    action_items.append({'text': '📅 Check earnings calendar', 'checked': False})
+    action_items.append({'text': '🌅 Monitor pre-market gaps >3%', 'checked': False})
+
+    report_data['action_items'] = action_items
 
     # KEY LEVELS
     report_data['key_levels'] = {
