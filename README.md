@@ -65,8 +65,14 @@ python3 scripts/postmarket_report.py
 python3 scripts/premarket_report_comprehensive.py --html
 python3 scripts/premarket_report_comprehensive.py --html --output /path/to/custom.html
 
-# Deliver reports via Telegram
+# Deliver reports via Telegram (with env vars set)
 python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html --caption "Morning briefing"
+
+# Test delivery without sending (dry run)
+python3 scripts/deliver_report.py --file report.html --dry-run --verbose
+
+# Deliver to different chat
+python3 scripts/deliver_report.py --file report.html --chat-id -1001234567890
 ```
 
 ## Trading Framework

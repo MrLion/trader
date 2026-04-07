@@ -342,13 +342,32 @@ openclaw message send --channel telegram --account trader --target -4872065090 \
 
 **Script:** `scripts/deliver_report.py`
 
-**Purpose:** Direct delivery of HTML reports to Telegram Trading Sandbox without requiring OpenClaw CLI.
+**Purpose:** Production-grade delivery of HTML reports to Telegram via Bot API.
 
-### Why Use This?
+### Features
 
-- **No dependencies** — bypasses OpenClaw CLI requirements
-- **Direct Bot API** — uses Telegram's official `sendDocument` endpoint
-- **Simple & fast** — single purpose script for automated workflows
+- **Environment-based config** — No hardcoded secrets
+- **Retry logic** — Exponential backoff (3 attempts)
+- **Dry-run mode** — Test without sending
+- **Structured logging** — Timestamps and log levels
+- **Type-safe** — Full type hints throughout
+- **Exit codes** — Scriptable error handling
+
+### Configuration
+
+Set environment variables (add to `~/.zshrc` or use `.env` file):
+
+```bash
+export TELEGRAM_BOT_TOKEN="your_bot_token_from_botfather"
+export TELEGRAM_CHAT_ID="-4872065090"  # Default: Trading Sandbox
+```
+
+Or create a `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+# Edit .env with your actual token
+```
 
 ### Usage
 
@@ -357,18 +376,40 @@ openclaw message send --channel telegram --account trader --target -4872065090 \
 python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html
 
 # With caption
-python3 scripts/deliver_report.py --file reports/premarket_report_2026-04-07.html \
-  --caption "🌅 Morning briefing"
+python3 scripts/deliver_report.py --file report.html --caption "🌅 Morning briefing"
+
+# Test without sending (dry run)
+python3 scripts/deliver_report.py --file report.html --dry-run --verbose
+
+# Send to different chat
+python3 scripts/deliver_report.py --file report.html --chat-id -1001234567890
+
+# Override token from command line
+python3 scripts/deliver_report.py --file report.html --bot-token $OTHER_BOT_TOKEN
 ```
 
-### Configuration
+### CLI Options
 
-The script has hardcoded credentials for the Trading Sandbox:
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--file` | Path to HTML report | **Required** |
+| `--caption` | Caption text | None |
+| `--chat-id` | Target chat ID | `-4872065090` or `TELEGRAM_CHAT_ID` env |
+| `--bot-token` | Bot token | `TELEGRAM_BOT_TOKEN` env |
+| `--timeout` | Request timeout (seconds) | 60 |
+| `--dry-run` | Simulate without sending | False |
+| `--verbose`, `-v` | Debug output | False |
 
-- **Target:** `Trading Sandbox` (`-4872065090`)
-- **Bot:** `@tradermintbot`
+### Exit Codes
 
-**To modify target:** Edit `CHAT_ID` constant in the script.
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | File not found |
+| 2 | Authentication failed |
+| 3 | Network error |
+| 4 | API error |
+| 5 | Configuration error |
 
 ### Common Workflow
 
@@ -382,10 +423,35 @@ python3 scripts/deliver_report.py \
   --caption "🌅 Pre-Market Report — $(date +%Y-%m-%d)"
 ```
 
-### Output
+### Error Handling
 
-- ✅ Success: `Report successfully delivered to Trading Sandbox.`
-- ❌ Failure: Error message with details
+The script provides clear error messages:
+
+- **File not found**: `"❌ File not found: path/to/file"`
+- **Auth failed**: `"❌ Authentication failed: Invalid bot token"`
+- **Rate limited**: `"❌ Rate limited by Telegram API"`
+- **Network**: Retries 3x with exponential backoff before failing
+
+### Output Examples
+
+**Verbose dry-run:**
+```
+11:05:58 - INFO - 🚀 Report delivery starting
+11:05:58 - DEBUG - File validated: /absolute/path/to/report.html
+11:05:58 - INFO - File validated: report.html
+11:05:58 - INFO - 🔍 DRY RUN MODE — No actual message will be sent
+11:05:58 - INFO - [DRY RUN] Would send: report.html to -4872065090
+11:05:58 - INFO - [DRY RUN] Caption: Morning briefing
+11:05:58 - INFO - ✅ Dry run successful — message would be delivered
+```
+
+**Success:**
+```
+11:06:15 - INFO - 🚀 Report delivery starting
+11:06:15 - INFO - File validated: report.html
+11:06:15 - INFO - Message sent successfully (ID: 12345)
+11:06:15 - INFO - ✅ Report delivered successfully to Trading Sandbox
+```
 
 ---
 
