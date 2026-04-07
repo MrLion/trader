@@ -254,6 +254,40 @@ def remove_ticker(ticker):
     df.to_csv(WATCHLIST_PATH, index=False)
     print(f"✅ Removed {ticker} from watchlist")
 
+
+def remove_all_tickers(force=False):
+    """Remove all tickers from watchlist with confirmation."""
+    df = load_watchlist()
+
+    if df.empty:
+        print("⚠️ Watchlist is already empty")
+        return
+
+    count = len(df)
+
+    # Backup before clearing (always created)
+    from datetime import datetime
+    backup_path = Path(WATCHLIST_PATH).parent / f"watchlist_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(backup_path, index=False)
+
+    if not force:
+        print(f"\n⚠️  WARNING: You are about to delete ALL {count} tickers from your watchlist.")
+        print(f"\n📁 A backup will be created at: {backup_path}")
+        print("   You can restore it manually if needed.")
+        print("\nType 'DELETE ALL' to confirm, or anything else to cancel:")
+        confirmation = input("> ")
+
+        if confirmation.strip() != "DELETE ALL":
+            print("❌ Cancelled. No tickers were removed.")
+            print(f"📁 Backup kept at: {backup_path}")
+            return
+
+    # Clear watchlist
+    empty_df = pd.DataFrame(columns=df.columns)
+    empty_df.to_csv(WATCHLIST_PATH, index=False)
+    print(f"✅ Removed all {count} tickers from watchlist")
+    print(f"📁 Backup saved to: {backup_path}")
+
 if __name__ == '__main__':
     import sys
 
@@ -263,6 +297,7 @@ if __name__ == '__main__':
         print("  python watchlist_manager.py add <ticker> [notes]")
         print("  python watchlist_manager.py list")
         print("  python watchlist_manager.py remove <ticker>")
+        print("  python watchlist_manager.py remove-all [--force]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -276,5 +311,8 @@ if __name__ == '__main__':
         list_watchlist()
     elif cmd == 'remove' and len(sys.argv) >= 3:
         remove_ticker(sys.argv[2])
+    elif cmd == 'remove-all':
+        force = '--force' in sys.argv
+        remove_all_tickers(force=force)
     else:
         print("Invalid command")
