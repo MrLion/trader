@@ -8,9 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Ticker Analysis:** `python3 scripts/analyze_ticker.py TICKER`
 - **Watchlist Analysis:** `python3 scripts/analyze_watchlist.py`
 - **Watchlist Management:**
-    - Add: `python3 scripts/watchlist_manager.py add TICKER [TIER] [NOTES]`
-    - List: `python3 scripts/watchlist_manager.py list [TIER]`
-    - Promote: `python3 scripts/watchlist_manager.py promote TICKER NEW_TIER`
+    - Add: `python3 scripts/watchlist_manager.py add TICKER [NOTES]`
+    - List: `python3 scripts/watchlist_manager.py list`
     - Remove: `python3 scripts/watchlist_manager.py remove TICKER`
     - Populate: `python3 scripts/watchlist_manager.py populate /path/to/scan.csv`
 - **Market Scans:**

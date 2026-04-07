@@ -29,7 +29,7 @@ CLAUDE.md         - Development operations guide
 |--------|---------|
 | `analyze_ticker.py` | Full technical breakdown on a single stock |
 | `analyze_watchlist.py` | Scan entire watchlist for setups |
-| `watchlist_manager.py` | Add, promote, remove, list watchlist items |
+| `watchlist_manager.py` | Add, remove, list watchlist items |
 | `sector_scan.py` | Daily sector ETF performance ranking |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates |
 | `premarket_report.py` | Generate pre-market briefing |
@@ -47,10 +47,9 @@ python3 scripts/analyze_ticker.py AAPL
 python3 scripts/analyze_watchlist.py
 
 # Watchlist management
-python3 scripts/watchlist_manager.py add AAPL B "Pullback to 21 EMA"
-python3 scripts/watchlist_manager.py promote AAPL A
+python3 scripts/watchlist_manager.py add AAPL "Pullback to 21 EMA"
 python3 scripts/watchlist_manager.py remove AAPL
-python3 scripts/watchlist_manager.py list A
+python3 scripts/watchlist_manager.py list
 
 # Market scans
 python3 scripts/sector_scan.py
@@ -75,13 +74,6 @@ python3 scripts/postmarket_report.py
 - Average daily dollar volume >= $20M
 - Market cap >= $1B
 - NYSE/NASDAQ only
-
-### Watchlist Tiers (Manual Classification)
-| Tier | Description | Max | Criteria |
-|------|-------------|-----|----------|
-| A | Actionable | 5 | Mature setup, pivot defined, entry within 1-3 days |
-| B | Developing | 10 | Constructive base forming, not at buy point yet |
-| C | Radar | 15 | Strong RS, interesting story, early stage |
 
 ### Entry Score Tiers (Automated by `analyze_watchlist.py`)
 Calculated using scoring formulae (max 100 pts):
@@ -115,10 +107,10 @@ Calculated using scoring formulae (max 100 pts):
 ## Data Model
 
 The watchlist (`data/watchlist.csv`) tracks:
-- Ticker, Tier (A/B/C), Stage (0-4), RS_Rank
+- Ticker, Stage (0-4), RS_Rank
 - Pivot_Price, Stop_Level, ATR, Risk_%
 - Sector, Industry, Pattern_Type
-- Notes, Added_Date, Promoted_Date
+- Notes, Added_Date
 
 ## External Integrations
 

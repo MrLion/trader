@@ -194,7 +194,7 @@ def run_stage2_screen(tickers):
     print()
     
     if len(top_rs) > 0:
-        print("🎯 TOP STAGE 2 + RS NAMES (Tier B candidates)")
+        print("🎯 TOP STAGE 2 + RS NAMES (Best candidates)")
         print("-" * 70)
         print(f"{'Ticker':<8} {'Price':>10} {'6M Return':>12} {'RS vs SPY':>12} {'From High':>12}")
         print("-" * 70)
@@ -205,7 +205,7 @@ def run_stage2_screen(tickers):
     print()
     
     if len(stage2_df) > 0:
-        print(f"📊 ALL STAGE 2 NAMES (Tier C)")
+        print(f"📊 ALL STAGE 2 NAMES")
         print("-" * 70)
         print(f"{'Ticker':<8} {'Sector':<20} {'6M Return':>12} {'From High':>12}")
         print("-" * 70)
@@ -215,10 +215,10 @@ def run_stage2_screen(tickers):
     
     print()
     print("📝 NEXT STEPS:")
-    print("1. Review charts for Tier B names — look for VCP patterns, flat bases")
+    print("1. Review charts — look for VCP patterns, flat bases")
     print("2. Calculate RS line (stock vs SPY) — should be at/near highs")
     print("3. Check earnings dates — avoid within 5 days")
-    print("4. Promote to A-tier if pivot defined")
+    print("4. Set pivot prices and run analyze_watchlist.py for entry scores")
     print()
     
     if len(errors) > 0:

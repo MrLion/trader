@@ -108,46 +108,50 @@ major = ticker.major_holders  # [insiders_percent, institutions_percent, ...]
 ### Commands
 
 ```bash
-# Populate from scan results (auto-tier: B for Stage 4 + strong RS, else C)
+# Populate from scan results
 python3 scripts/watchlist_manager.py populate /path/to/scan.csv
 
 # Manual add a stock
-python3 scripts/watchlist_manager.py add TICKER [TIER] [NOTES]
-# Example: python3 scripts/watchlist_manager.py add AAPL B "Pullback to 21 EMA"
-
-# Promote/demote tier
-python3 scripts/watchlist_manager.py promote TICKER NEW_TIER
-# Example: python3 scripts/watchlist_manager.py promote HAL A
+python3 scripts/watchlist_manager.py add TICKER [NOTES]
+# Example: python3 scripts/watchlist_manager.py add AAPL "Pullback to 21 EMA"
 
 # Remove from watchlist
 python3 scripts/watchlist_manager.py remove TICKER
 
-# List all (or filter by tier)
+# List all
 python3 scripts/watchlist_manager.py list
-python3 scripts/watchlist_manager.py list A
 ```
 
-### Tier System
+### Entry Score Tiers
 
-| Tier | Definition | Max | When to Promote |
-|------|-----------|-----|-----------------|
-| **A — Actionable** | Mature setup, pivot defined | 5 | Pattern ready, entry trigger set |
-| **B — Developing** | Base forming but not ready | 10 | Clear VCP or MA pullback |
-| **C — On Radar** | Strong RS, early stage | 15 | Stage 2+ confirmed, watching |
+Entry scores are calculated automatically by `analyze_watchlist.py` (max 100 points):
 
-### Auto-Tier Logic
+| Component | Criteria | Points |
+|-----------|----------|--------|
+| **Stage 2 Score** | 4/4 🟢 | +30 |
+| | 3/4 🟢 | +20 |
+| | 2/4 🟡 | +10 |
+| **Risk %** | < 10% | +30 |
+| | < 15% | +20 |
+| | < 20% | +10 |
+| **Distance to Pivot** | < 3% | +25 |
+| | < 5% | +15 |
+| | < 10% | +5 |
+| **6M Momentum** | > 50% | +15 |
+| | > 25% | +10 |
 
-- **Stage 4 + 6M return >50%** → Tier B
-- **Stage 3 with strong RS** → Tier C
-- **Manual override** available via `add` command
+**Tier Thresholds:**
+- **Tier 1 (≥60 pts):** Best entry setups — ready now
+- **Tier 2 (40-59 pts):** Good setups — wait for better entry
+- **Tier 3 (<40 pts):** Monitor only — too far or too wide
 
 ### Watchlist Schema
 
 ```
-Ticker, Tier, Stage, RS_Rank, Base_Count, Pattern_Type, 
+Ticker, Stage, RS_Rank, Base_Count, Pattern_Type,
 Pivot_Price, Stop_Level, Target_1, Target_2, R_Ratio,
 Avg_Volume_50d, Market_Cap, Sector, Industry, Notes,
-Added_Date, Promoted_Date, Alert_Set
+Added_Date, Alert_Set
 ```
 
 ---
