@@ -269,8 +269,13 @@ The engine automatically enters positions when **ALL** conditions are met:
 | Rule | Threshold | Source |
 |------|-----------|--------|
 | Entry Score | ≥ 60 (Tier 1) | Watchlist analysis |
-| Distance to Pivot | ≤ 1% | Real-time price vs pivot |
+| Distance to Pivot | ± 1% (symmetric) | Real-time price vs pivot |
 | Volume | ≥ 1.5x average | Alpaca real-time data |
+
+**Distance Filter Note:** The engine enters when price is within ±1% of pivot. This means:
+- **-1.0% ≤ distance ≤ +1.0%**: ✅ Enter zone (price at or near breakout level)
+- **Distance < -1.0%**: ❌ Already broke out (chasing)
+- **Distance > +1.0%**: ❌ Too far below pivot (not ready)
 | Market Condition | SPY ≥ -0.3% | Alpaca SPY data |
 | Sector Limit | < 3 positions/sector | Local state |
 | Position Size | < 20% equity | Risk calculation |
@@ -338,6 +343,41 @@ Order Submission (order_manager.submit_entry)
 2. **Distance > 1%** — Price too far from pivot
 3. **SPY down > 0.3%** — Market condition filter
 4. **Already signaled today** — Prevents duplicate orders
+
+### Entry Logging & Troubleshooting
+
+The engine provides detailed logging to help debug why positions are or aren't opening:
+
+**Example Output:**
+```
+⏸️  AAPL: Score 45 < 60 (need Tier 1)
+⏸️  TSLA: Distance +5.2% outside ±1.0% (Current $210, Pivot $200)
+⏸️  MSFT: Risk validation failed - Daily entry limit reached (5)
+⏸️  NVDA: Already signaled today
+📐 AMD: Position sizing - Equity $100,000, Entry $150, Stop $140
+📐 AMD: Calculated 75 shares, Position value $11,250
+✅ AMD: Score 85, Distance -0.5% - EXECUTING
+🚀 AMD: Submitting order for 75 shares...
+🚀 AUTO-ENTRY: AMD at $150.00 x 75 shares
+   Order ID: abc-123
+   Stop: $140.00 | Target: $165.00
+
+📊 Checked: 23 | Eligible: 1 | Rejected (score): 15 | Rejected (distance): 7
+```
+
+**Status Indicators:**
+| Indicator | Meaning |
+|-----------|---------|
+| ⏸️ | Skipped (rejection reason follows) |
+| 📐 | Position sizing calculation |
+| ✅ | Passed all filters, executing |
+| 🚀 | Order submitted |
+| ❌ | Order submission failed |
+
+**Price Source Priority:**
+1. Alpaca REST API (primary - most reliable)
+2. WebSocket cache (if < 60 seconds old)
+3. Stale cache (fallback with warning)
 
 ### Auto-Exit Rules
 
