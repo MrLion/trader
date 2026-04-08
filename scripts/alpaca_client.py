@@ -14,6 +14,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.live import StockDataStream
 from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
+from alpaca.data.enums import DataFeed
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, StopLossRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -369,8 +370,24 @@ class AlpacaClient:
             print("⚠️ No tickers provided for WebSocket stream")
             return
 
+        # Cleanup any existing stream first to prevent orphan coroutines
+        if self.stream:
+            try:
+                await self.stream.stop()
+                await asyncio.sleep(0.5)
+            except Exception:
+                pass
+            self.stream = None
+            self.ws_connected = False
+
         try:
-            self.stream = StockDataStream(self.api_key, self.secret_key)
+            # Create stream with IEX feed (free tier)
+            from alpaca.data.enums import DataFeed
+            self.stream = StockDataStream(
+                self.api_key,
+                self.secret_key,
+                feed=DataFeed.IEX
+            )
         except Exception as e:
             print(f"⚠️ Failed to create WebSocket stream: {e}")
             self.ws_connected = False
@@ -389,21 +406,34 @@ class AlpacaClient:
             except Exception as e:
                 print(f"⚠️ Trade callback error: {e}")
 
-        self.stream.subscribe_trades(_trade_callback, *tickers)
+        try:
+            self.stream.subscribe_trades(_trade_callback, *tickers)
+        except Exception as e:
+            print(f"⚠️ Failed to subscribe to trades: {e}")
+            self.ws_connected = False
+            return
 
         # Subscribe to quotes if handler provided
         if quote_handler:
             async def _quote_callback(q):
                 await quote_handler(q)
-            self.stream.subscribe_quotes(_quote_callback, *tickers)
+            try:
+                self.stream.subscribe_quotes(_quote_callback, *tickers)
+            except Exception as e:
+                print(f"⚠️ Failed to subscribe to quotes: {e}")
 
         self.ws_connected = True
         print(f"📡 WebSocket connected, streaming {len(tickers)} tickers...")
 
         try:
+            # Run the stream - this blocks until connection closes
             await self.stream.run()
+        except asyncio.CancelledError:
+            # Normal shutdown
+            pass
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
+        finally:
             self.ws_connected = False
             self.stream = None
 
