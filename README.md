@@ -142,11 +142,23 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 
 ## Trading Framework
 
-### Stage 2 Criteria
-- Price > 100 SMA > 200 SMA
-- 200 SMA rising for 1+ month
-- Price within 25% of 52-week high
-- Price >= 1.25x 52-week low
+### Stage 2 Criteria (7-Point System)
+| Criterion | Points | Description |
+|-----------|--------|-------------|
+| Price > 50 MA | 1 pt | Short-term trend confirmation |
+| Price > 100 MA | 1 pt | Medium-term trend confirmation |
+| Price > 200 MA | 1 pt | Long-term trend confirmation |
+| MA Stacking (50 > 100 > 200) | 1 pt | Proper moving average alignment |
+| 200 MA Rising (20+ days) | 1 pt | Sustained uptrend confirmation |
+| Within 25% of 52-week high | 1 pt | Proximity to highs |
+| >= 1.25x 52-week low | 1 pt | Recovery from lows |
+
+**Total: 7 points maximum**
+
+**Compliance Thresholds:**
+- 6-7 pts: Excellent Stage 2 (Tier 1 quality)
+- 4-5 pts: Good Stage 2 (Tier 2 quality)
+- <4 pts: Developing (Tier 3)
 
 ### Universe Filter
 - Price >= $10
@@ -159,16 +171,17 @@ Calculated using scoring formulae (max 100 pts):
 
 | Component | Max Points | Criteria |
 |-----------|------------|----------|
-| Stage 2 Score | 30 pts | ≥4/4 = +30, ≥3/4 = +20, ≥2/4 = +10, <2 = +0 |
-| Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, ≥20% = +0 |
+| Stage 2 Score | 30 pts | ≥6/7 = +30, ≥5/7 = +25, ≥4/7 = +20, ≥3/7 = +10, ≥2/7 = +5, <2 = +0 |
+| Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, <25% = +5, ≥25% = +0 |
 | Proximity | 25 pts | <3% = +25, <5% = +15, <10% = +5, ≥10% = +0 |
 | Momentum | 15 pts | 6M return >50% = +15, >25% = +10, ≤25% = +0 |
+| Relative Strength | 10 pts | RS 6M >20% = +10, >10% = +5, ≤10% = +0 |
 
-| Tier | Score | Meaning |
-|------|-------|---------|
-| 🟢 Tier 1 | ≥ 60 pts | Best entry setups — ready now |
-| 🟡 Tier 2 | 40-59 pts | Good setups — wait for better entry |
-| 🔴 Tier 3 | < 40 pts | Monitor only — too far or too wide |
+| Tier | Score | Stage 2 Min | Meaning |
+|------|-------|-------------|---------|
+| 🟢 Tier 1 | ≥ 60 pts | 6/7 | Best entry setups — ready now |
+| 🟡 Tier 2 | 40-59 pts | 4/7 | Good setups — wait for better entry |
+| 🔴 Tier 3 | < 40 pts | <4/7 | Monitor only — too far or too wide |
 
 ### Entry Protocol
 1. **Trigger**: Price breaks above pivot (within 1-2% of buy point)

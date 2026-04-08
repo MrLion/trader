@@ -79,6 +79,11 @@ import yfinance as yf
 import json
 from datetime import datetime
 from pathlib import Path
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score
 
 WATCHLIST_PATH = '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'
 SCAN_DIR = '/Users/mintmrlion/.openclaw/workspaces/trader/scans'
@@ -115,18 +120,8 @@ def get_stock_data(ticker):
         true_range = ranges.max(axis=1)
         atr = true_range.rolling(14).mean().iloc[-1]
 
-        # Stage 2 score
-        sma20 = df['Close'].rolling(20).mean().iloc[-1]
-        sma50 = df['Close'].rolling(50).mean().iloc[-1]
-        sma100 = df['Close'].rolling(100).mean().iloc[-1]
-        sma200 = df['Close'].rolling(200).mean().iloc[-1]
-        high_52w = df['Close'].rolling(252).max().iloc[-1]
-
-        stage = 0
-        if current > sma100: stage += 1
-        if current > sma200: stage += 1
-        if sma20 > sma50 > sma100 > sma200: stage += 1
-        if current >= high_52w * 0.85: stage += 1
+        # Stage 2 score using shared 7-point system
+        stage = calculate_stage2_score(df)
 
         # 6-month return
         six_mo_return = (current / df['Close'].iloc[-126] - 1) * 100 if len(df) >= 126 else 0
@@ -241,6 +236,7 @@ def list_watchlist():
     print(f"\n📋 WATCHLIST ({len(df)} total)\n")
     print(df[['Ticker', 'Stage', 'RS_Rank', 'Sector', 'Notes']].to_string(index=False))
     print(f"\n💡 Run `python3 scripts/analyze_watchlist.py` to see entry scores (Tier 1/2/3)")
+    print(f"   Stage 2 Score: 0-7 (7 = Price > 50/100/200 MA, proper stacking, 200MA rising, within 25% of high, above 1.25x low)")
 
 def remove_ticker(ticker):
     """Remove a ticker from watchlist."""

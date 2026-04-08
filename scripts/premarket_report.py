@@ -15,6 +15,11 @@ from pathlib import Path
 import re
 import pandas as pd
 import html
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score, get_entry_score
 
 def generate_html_report(report_data, output_path):
     """Generate standalone HTML report with embedded CSS"""
@@ -658,20 +663,14 @@ def load_watchlist():
                     # Calculate returns
                     ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
                     
-                    # Calculate MAs for Stage 2
+                    # Calculate Stage 2 score using shared 7-point system
+                    stage2 = calculate_stage2_score(hist)
+
+                    # Calculate additional data for display
                     ma20 = hist['Close'].rolling(20).mean().iloc[-1]
                     ma50 = hist['Close'].rolling(50).mean().iloc[-1]
-                    ma150 = hist['Close'].rolling(150).mean().iloc[-1] if len(hist) >= 150 else 0
-                    ma200 = hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else 0
-                    
-                    # Stage 2 score
-                    stage2 = 0
-                    if current > ma150: stage2 += 1
-                    if current > ma200: stage2 += 1
-                    if ma20 > ma50 > ma150 > ma200: stage2 += 1
                     high_52w = hist['Close'].max()
                     from_high = ((high_52w - current) / high_52w) * 100
-                    if from_high < 15: stage2 += 1
                     
                     # ATR for stop
                     high_low = hist['High'] - hist['Low']
@@ -689,27 +688,9 @@ def load_watchlist():
                     # Distance to pivot
                     dist_to_pivot = ((pivot - current) / current) * 100
                     
-                    # ENTRY SCORE CALCULATION
-                    entry_score = 0
-                    
-                    # Stage 2 points (max 30)
-                    if stage2 >= 4: entry_score += 30
-                    elif stage2 >= 3: entry_score += 20
-                    elif stage2 >= 2: entry_score += 10
-                    
-                    # Risk points (max 30)
-                    if risk < 10: entry_score += 30
-                    elif risk < 15: entry_score += 20
-                    elif risk < 20: entry_score += 10
-                    
-                    # Proximity points (max 25)
-                    if abs(dist_to_pivot) < 3: entry_score += 25
-                    elif abs(dist_to_pivot) < 5: entry_score += 15
-                    elif abs(dist_to_pivot) < 10: entry_score += 5
-                    
-                    # Momentum points (max 15)
-                    if ret_6m > 50: entry_score += 15
-                    elif ret_6m > 25: entry_score += 10
+                    # ENTRY SCORE CALCULATION using shared function (7-point system thresholds)
+                    # Note: RS_6M not calculated in premarket, pass 0
+                    entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0)
                     
                     # Tier based on score
                     if entry_score >= 60: tier = '1'

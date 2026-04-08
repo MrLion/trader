@@ -5,6 +5,11 @@ import yfinance as yf
 import pandas as pd
 import csv
 from pathlib import Path
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score
 
 def get_manual_pivot(ticker):
     """Get manual pivot price from watchlist if it exists."""
@@ -49,17 +54,13 @@ def analyze_ticker(ticker):
         ma50 = hist['Close'].rolling(50).mean().iloc[-1]
         ma150 = hist['Close'].rolling(150).mean().iloc[-1]
         ma200 = hist['Close'].rolling(200).mean().iloc[-1]
-        
+
         # 52-week high/low
         high_52w = hist['Close'].max()
         from_high = ((high_52w - current) / high_52w) * 100
-        
-        # Stage 2 score
-        score = 0
-        if current > ma150: score += 1
-        if current > ma200: score += 1
-        if ma20 > ma50 > ma150 > ma200: score += 1
-        if from_high < 15: score += 1
+
+        # Stage 2 score using shared 7-point system
+        score = calculate_stage2_score(hist)
         
         # ATR calculation
         high_low = hist['High'] - hist['Low']
@@ -82,8 +83,8 @@ def analyze_ticker(ticker):
         stop = max(recent_low, current - 2 * atr)
         risk = (pivot_price - stop) / pivot_price * 100
         
-        # Status emoji
-        status = '🟢' if score >= 3 else '🟡' if score == 2 else '🔴'
+        # Status emoji (for 7-point system)
+        status = '🟢' if score >= 5 else '🟡' if score >= 3 else '🔴'
         
         # Above MAs check
         above_20 = '✓' if current > ma20 else '✗'
@@ -100,7 +101,7 @@ def analyze_ticker(ticker):
         print("| 1M Return | {:+.1f}% |".format(ret_1m))
         print("| 3M Return | {:+.1f}% |".format(ret_3m))
         print("| 6M Return | {:+.1f}% |".format(ret_6m))
-        print("| Stage 2 Score | {}/4 {} |".format(score, status))
+        print("| Stage 2 Score | {}/7 {} |".format(score, status))
         print("| From 52W High | {:.1f}% |".format(from_high))
         print("| Above All MAs | {} {} {} {} 20/50/150/200 |".format(above_20, above_50, above_150, above_200))
         
@@ -116,16 +117,16 @@ def analyze_ticker(ticker):
         
         print("\nAssessment:")
         print("- **Momentum** — 6M: +{:.1f}%, 3M: +{:.1f}%, 1M: {:.1f}%".format(ret_6m, ret_3m, ret_1m))
-        print("- **Stage 2** — {}/4 {}: Above 100/200 MA, MAs aligned".format(score, status))
+        print("- **Stage 2** — {}/7 {}: Above 50/100/200 MA, proper stacking".format(score, status))
         print("- **Distance from highs** — {:.1f}%".format(from_high))
         print("- **Risk level** — {:.1f}%".format(risk))
         
-        # Verdict
-        if score >= 3 and risk < 10:
+        # Verdict (updated for 7-point system)
+        if score >= 6 and risk < 10:
             verdict = "A-TIER — Strong setup. Watch for volume-confirmed breakout."
-        elif score >= 3:
+        elif score >= 5:
             verdict = "TIER B — Developing Stage 2 setup. Promote to A on breakout."
-        elif score >= 2:
+        elif score >= 4:
             verdict = "TIER C — On radar, monitor for improvement."
         else:
             verdict = "PASS — Below Stage 2 criteria."

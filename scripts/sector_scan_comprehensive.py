@@ -10,6 +10,11 @@ import yfinance as yf
 from datetime import datetime
 from pathlib import Path
 import csv
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score
 
 # Full ETF universe from comprehensive CSV
 ETFS = [
@@ -146,18 +151,9 @@ ETFS = [
     ("IGV", "Software"),
 ]
 
-def calculate_stage2_score(row):
-    """Calculate Stage 2 score (0-4)"""
-    score = 0
-    if row['above_20']:
-        score += 1
-    if row['above_50']:
-        score += 1
-    if row['above_200']:
-        score += 1
-    if row['from_high'] <= 10:
-        score += 1
-    return score
+def calculate_stage2_score_from_hist(hist):
+    """Calculate Stage 2 score using shared 7-point system."""
+    return calculate_stage2_score(hist)
 
 def run_comprehensive_scan():
     """Run comprehensive sector scan"""
@@ -191,6 +187,9 @@ def run_comprehensive_scan():
             above_50 = close > hist['Close'].rolling(50).mean().iloc[-1] if len(hist) >= 50 else False
             above_200 = close > hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else False
             
+            # Calculate full Stage 2 score using shared function
+            stage2_score = calculate_stage2_score(hist)
+
             results.append({
                 'ticker': ticker,
                 'name': name,
@@ -201,7 +200,8 @@ def run_comprehensive_scan():
                 'above_20': above_20,
                 'above_50': above_50,
                 'above_200': above_200,
-                'from_high': from_high
+                'from_high': from_high,
+                'stage2_score': stage2_score
             })
             
             print(f"  ✓ {ticker}")
@@ -213,10 +213,6 @@ def run_comprehensive_scan():
     if len(results) == 0:
         print("No results found!")
         return
-    
-    # Calculate Stage 2 scores
-    for row in results:
-        row['stage2_score'] = calculate_stage2_score(row)
     
     # Calculate rankings
     for timeframe in ['6m', '3m', '1m', '1w']:

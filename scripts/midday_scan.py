@@ -11,6 +11,11 @@ import pandas as pd
 import html
 from datetime import datetime
 from pathlib import Path
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score, get_entry_score
 
 
 def load_watchlist_tickers():
@@ -55,57 +60,12 @@ def load_tickers_from_file(filepath):
     return tickers
 
 
-def get_stage2_score(df):
-    """Calculate Stage 2 score (0-4)."""
-    if df.empty or len(df) < 200:
-        return 0
-
-    current = df['Close'].iloc[-1]
-    sma20 = df['Close'].rolling(20).mean().iloc[-1]
-    sma50 = df['Close'].rolling(50).mean().iloc[-1]
-    sma100 = df['Close'].rolling(100).mean().iloc[-1]
-    sma200 = df['Close'].rolling(200).mean().iloc[-1]
-    high_52w = df['Close'].rolling(252).max().iloc[-1]
-
-    score = 0
-    if current > sma100: score += 1
-    if current > sma200: score += 1
-    if sma20 > sma50 > sma100 > sma200: score += 1
-    if current >= high_52w * 0.85: score += 1
-
-    return score
-
-
-def calculate_entry_score(stage2_score, risk_pct, dist_to_entry, momentum_6m):
+def calculate_entry_score_midday(stage2_score, risk_pct, dist_to_entry, momentum_6m):
     """
-    Calculate entry score (0-100) based on standardized formula:
-    - Stage 2: max 30 pts
-    - Risk: max 30 pts
-    - Proximity: max 25 pts
-    - Momentum: max 15 pts
+    Calculate entry score (0-100) using shared function.
+    For midday scan, we pass RS_6M as 0 since we don't calculate it here.
     """
-    score = 0
-
-    # Stage 2 points (max 30)
-    if stage2_score >= 4: score += 30
-    elif stage2_score >= 3: score += 20
-    elif stage2_score >= 2: score += 10
-
-    # Risk points (max 30)
-    if risk_pct < 10: score += 30
-    elif risk_pct < 15: score += 20
-    elif risk_pct < 20: score += 10
-
-    # Proximity points (max 25) - distance to entry breakout
-    if dist_to_entry < 3: score += 25
-    elif dist_to_entry < 5: score += 15
-    elif dist_to_entry < 10: score += 5
-
-    # Momentum points (max 15)
-    if momentum_6m > 50: score += 15
-    elif momentum_6m > 25: score += 10
-
-    return score
+    return get_entry_score(stage2_score, risk_pct, dist_to_entry, momentum_6m, rs_6m=0)
 
 
 def get_tier(entry_score):
@@ -453,7 +413,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
             if df.empty or len(df) < 200:
                 continue
 
-            stage2_score = get_stage2_score(df)
+            stage2_score = calculate_stage2_score(df)
             if stage2_score < 2:  # Minimum Stage 2 score of 2
                 continue
 
@@ -478,8 +438,8 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
             # Calculate distance to entry breakout
             dist_to_entry = abs((setup['entry_breakout'] - current) / current) * 100
 
-            # Calculate entry score (0-100)
-            entry_score = calculate_entry_score(
+            # Calculate entry score (0-100) using shared function
+            entry_score = calculate_entry_score_midday(
                 stage2_score,
                 setup['risk_pct'],
                 dist_to_entry,
@@ -536,7 +496,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
         status = "🔥 READY" if r['Dist_to_Entry_%'] < 3 else "📈 SETTING UP"
         print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
               f"Risk: {r['Risk_%']:>5.1f}% | {status}")
-        print(f"       S2: {r['Stage2']}/4 | Entry: ${r['Entry_Breakout']:.2f} ({r['Dist_to_Entry_%']:.1f}% away) | Stop: ${r['Stop']:.2f}")
+        print(f"       S2: {r['Stage2']}/7 | Entry: ${r['Entry_Breakout']:.2f} ({r['Dist_to_Entry_%']:.1f}% away) | Stop: ${r['Stop']:.2f}")
         print()
 
     # Tier 2 (Entry Score 40-59)
@@ -545,7 +505,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
     print("-"*80)
     for r in tier_2[:15]:
         print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
-              f"S2: {r['Stage2']}/4 | Risk: {r['Risk_%']:.1f}% | Entry: ${r['Entry_Breakout']:.2f}")
+              f"S2: {r['Stage2']}/7 | Risk: {r['Risk_%']:.1f}% | Entry: ${r['Entry_Breakout']:.2f}")
 
     # Tier 3 (Entry Score < 40)
     tier_3 = [r for r in results if r['Tier'] == '3']
@@ -553,7 +513,7 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
     print("-"*80)
     for r in tier_3[:10]:
         print(f"{r['Ticker']:6} | {r['Name'][:25]:25} | ${r['Price']:>7.2f} | Score: {r['Entry_Score']:>2} | "
-              f"S2: {r['Stage2']}/4 | Risk: {r['Risk_%']:.1f}%")
+              f"S2: {r['Stage2']}/7 | Risk: {r['Risk_%']:.1f}%")
 
     # Save to CSV
     df_out = pd.DataFrame(results)

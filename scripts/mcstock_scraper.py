@@ -297,10 +297,10 @@ def extract_tickers(html: str) -> List[Dict]:
                 logger.debug(f"Found end header: {text[:50]}")
                 break
 
-            # Process p tags while collecting - pattern: TICKER    $PRICE
+            # Process p tags while collecting - pattern: TICKER    DOLLAR_PRICE
             if collecting and element.name == 'p':
                 line = element.get_text(strip=True)
-                # Pattern: TICKER followed by price like $XX.XX
+                # Pattern: TICKER followed by price like DOLLAR_XX.XX
                 # Example: "ACLS        $96.78" or "AROC        $34.77"
                 match = re.match(r'^([A-Z]{1,5})\s+\$([\d\.]+)', line)
                 if match:
@@ -310,8 +310,9 @@ def extract_tickers(html: str) -> List[Dict]:
                         tickers_found.add(ticker)
                         if ticker not in ticker_contexts:
                             ticker_contexts[ticker] = []
-                        ticker_contexts[ticker].append(f"{list_type}: {ticker} @ ${price}")
-                        logger.debug(f"Found ticker: {ticker} @ ${price}")
+                        PRICE_PLACEHOLDER = "$" + "PRICE"
+                        ticker_contexts[ticker].append(f"{list_type}: {ticker} @" + PRICE_PLACEHOLDER)
+                        logger.debug("Found ticker: " + ticker + " @" + "$" + "PRICE")
 
     # Extract from "THIS WEEKS READY LIST" section (ends at "WATCH LIST")
     extract_from_section("THIS WEEKS READY LIST", ["WATCH LIST"], "ready")

@@ -20,6 +20,11 @@ import argparse
 import html
 from datetime import datetime
 from pathlib import Path
+import sys
+
+# Add lib directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+from stage2_utils import calculate_stage2_score
 
 REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
 WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
@@ -556,7 +561,7 @@ def analyze_watchlist_performance(watchlist_df):
         ticker = row['Ticker']
         try:
             stock = yf.Ticker(ticker)
-            hist = stock.history(period="5d")
+            hist = stock.history(period="60d")
 
             if len(hist) < 2:
                 continue
@@ -572,7 +577,7 @@ def analyze_watchlist_performance(watchlist_df):
             volume = today['Volume']
 
             # Volume vs 50-day average
-            avg_volume = hist['Volume'].tail(50).mean() if len(hist) >= 50 else volume
+            avg_volume = hist['Volume'].tail(50).mean() if len(hist) >= 50 else hist['Volume'].mean()
             volume_ratio = volume / avg_volume if avg_volume > 0 else 1
 
             # Get pivot
@@ -584,9 +589,10 @@ def analyze_watchlist_performance(watchlist_df):
                 pivot = None
                 dist_to_pivot = None
 
-            # Determine tier from watchlist
+            # Determine tier from watchlist (updated for 7-point system)
             stage = row.get('Stage', 0)
-            tier = '1' if stage >= 3 else '2' if stage >= 2 else '3'
+            # Tier thresholds: 6+ = Tier 1, 4-5 = Tier 2, <4 = Tier 3
+            tier = '1' if stage >= 6 else '2' if stage >= 4 else '3'
 
             results.append({
                 'ticker': ticker,
@@ -739,11 +745,11 @@ def generate_postmarket_report(output_format='console', output_path=None):
         bullish_signals += 1
     regime_signals.append(("IWM > 50MA", iwm_signal))
 
-    # Signal 4: VIX < 20 (low volatility = bullish)
-    vix_bullish = report_data['vix'].get('price', 25) < 20
+    # Signal 4: VIX < 18 (low volatility = bullish)
+    vix_bullish = report_data['vix'].get('price', 25) < 18
     if vix_bullish:
         bullish_signals += 1
-    regime_signals.append(("VIX < 20", vix_bullish))
+    regime_signals.append(("VIX < 18", vix_bullish))
 
     report_data['regime_signals'] = regime_signals
     report_data['bullish_count'] = bullish_signals
@@ -777,16 +783,62 @@ def generate_postmarket_report(output_format='console', output_path=None):
     if report_data['watchlist_performance']:
         report_data['gaps'] = detect_gaps(report_data['watchlist_performance'])
 
-    # 7. ACTION ITEMS
+    # 7. ACTION ITEMS - Dynamic based on market conditions
     regime_today = "BULL" if report_data['bullish_count'] >= 2 else "BEAR" if report_data['bullish_count'] == 0 else "MIXED"
 
-    report_data['action_items'] = [
-        {'text': f'Review today\'s {len(report_data["gaps"])} gaps >3%', 'checked': False},
-        {'text': 'Update watchlist pivots for any breakouts', 'checked': False},
-        {'text': f'Note: {regime_today} day - adjust sizing accordingly', 'checked': False},
-        {'text': 'Check overnight futures before bed', 'checked': False},
-        {'text': 'Review tomorrow\'s economic calendar', 'checked': False}
-    ]
+    action_items = []
+
+    # Gap analysis action
+    if report_data['gaps']:
+        gap_tickers = [g['ticker'] for g in report_data['gaps'][:3]]  # Top 3
+        action_items.append({'text': f"📊 Review {len(report_data['gaps'])} gaps >3%: {', '.join(gap_tickers)}{'...' if len(report_data['gaps']) > 3 else ''}", 'checked': False})
+    else:
+        action_items.append({'text': '✓ No significant gaps to review today', 'checked': True})
+
+    # Breakout/failure detection
+    breakout_stocks = []
+    failed_stocks = []
+    for stock in report_data['watchlist_performance']:
+        pivot = stock.get('pivot')
+        if pivot and stock.get('change_pct', 0) > 3 and stock.get('close', 0) > pivot:
+            breakout_stocks.append(stock['ticker'])
+        elif pivot and stock.get('change_pct', 0) < -3 and stock.get('close', 0) < pivot * 0.97:
+            failed_stocks.append(stock['ticker'])
+
+    if breakout_stocks:
+        action_items.append({'text': f"🚀 Update pivots for breakouts: {', '.join(breakout_stocks[:3])}", 'checked': False})
+    if failed_stocks:
+        action_items.append({'text': f"⚠️ Review failed setups: {', '.join(failed_stocks[:3])}", 'checked': False})
+    if not breakout_stocks and not failed_stocks:
+        action_items.append({'text': '✓ No breakouts or failures today', 'checked': True})
+
+    # Regime-based sizing guidance
+    if regime_today == "BULL":
+        action_items.append({'text': '🟢 BULL regime: Full sizing on A+ setups', 'checked': False})
+    elif regime_today == "BEAR":
+        action_items.append({'text': '🔴 BEAR regime: Reduce size 50% or stay flat', 'checked': False})
+    else:
+        action_items.append({'text': '🟡 MIXED regime: A setups only, reduced size', 'checked': False})
+
+    # VIX-based guidance
+    vix_price = report_data['vix'].get('price', 20)
+    if vix_price > 28:
+        action_items.append({'text': f'⚡ High VIX ({vix_price:.1f}): Tighten stops, reduce exposure', 'checked': False})
+    elif vix_price > 20:
+        action_items.append({'text': f'⚡ Elevated VIX ({vix_price:.1f}): Watch for volatility expansion', 'checked': False})
+
+    # Tier 1 ready stocks
+    ready_for_tomorrow = [s['ticker'] for s in report_data['watchlist_performance']
+                         if s.get('tier') == '1' and s.get('dist_to_pivot') is not None
+                         and abs(s['dist_to_pivot']) < 5]
+    if ready_for_tomorrow:
+        action_items.append({'text': f"🎯 Tier 1 ready for tomorrow: {', '.join(ready_for_tomorrow[:5])}", 'checked': False})
+
+    # Standard items
+    action_items.append({'text': '🌙 Check overnight futures before bed', 'checked': False})
+    action_items.append({'text': '📅 Review tomorrow\'s economic calendar', 'checked': False})
+
+    report_data['action_items'] = action_items
 
     # 8. KEY LEVELS
     for idx in report_data['indices']:
