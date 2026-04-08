@@ -144,39 +144,62 @@ python3 scripts/paper_engine.py --capital 500000 --once
 
 ---
 
-## Phase 6: CLI Commands
+## Phase 4: CLI Commands ✅ COMPLETE
 
-### Start Engine
+### Files Created
 
-```bash
-python3 scripts/paper_engine.py --capital 500000
-```
+| File | Lines | Purpose |
+|------|-------|---------|
+| `scripts/paper_portfolio.py` | ~350 | CLI for monitoring and control |
 
-### View Status
-
-```bash
-python3 scripts/paper_portfolio.py live     # Real-time positions
-python3 scripts/paper_portfolio.py today    # Today's trades
-python3 scripts/paper_portfolio.py report   # Performance report
-```
-
-### Control
+### Available Commands
 
 ```bash
-python3 scripts/paper_portfolio.py stop       # Graceful shutdown
-python3 scripts/paper_portfolio.py close KEYS --reason "manual"  # Emergency close
+# Account overview
+python3 scripts/paper_portfolio.py status
+
+# Real-time position values with current prices
+python3 scripts/paper_portfolio.py live
+
+# Today's trades (entries/exits)
+python3 scripts/paper_portfolio.py today
+
+# Full trade history
+python3 scripts/paper_portfolio.py history [--limit 100]
+
+# Performance report with statistics
+python3 scripts/paper_portfolio.py report
+
+# Emergency close position
+python3 scripts/paper_portfolio.py close TICKER [--reason "manual"] [--force]
 ```
+
+### Data Files
+
+| File | Format | Purpose |
+|------|--------|---------|
+| `data/paper_positions.json` | JSON | Live open positions |
+| `data/paper_account.json` | JSON | Account state (cash, equity, P&L) |
+| `data/paper_trades.jsonl` | JSONL | Trade history (append-only) |
 
 ---
 
-## Phase 7: Implementation Timeline
+## Implementation Status
 
-| Phase | Duration | Deliverables |
-|-------|----------|--------------|
-| Phase 1 | Day 1 | Core engine, market hours, basic entry |
-| Phase 2 | Day 2 | Volume confirmation, market conditions |
-| Phase 3 | Day 3 | Trailing stops, EMA calculations |
-| Phase 4 | Day 4 | CLI tools, reporting, testing |
+| Phase | Status | Deliverables |
+|-------|--------|--------------|
+| Phase 1 | ✅ Complete | Core engine with event loop, persistence |
+| Phase 2 | ✅ Complete | Entry rules, volume confirmation, SPY check |
+| Phase 3 | ✅ Complete | Trailing stops (1R→breakeven, 1.5-2R→EMA10, 3R+→EMA21) |
+| Phase 4 | ✅ Complete | CLI tools for monitoring and control |
+
+**Current Files:**
+- `scripts/paper_engine.py` (~400 lines) - Main daemon
+- `scripts/paper_state.py` (~260 lines) - State management
+- `scripts/paper_exits.py` (~250 lines) - Exit rules
+- `scripts/paper_portfolio.py` (~350 lines) - CLI interface
+
+**Total: ~1,260 lines across 4 files**
 
 **Total: ~950 lines across 4 files**
 
