@@ -202,18 +202,25 @@ class AlpacaPaperEngine:
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price from cache or REST API."""
-        # Try WebSocket cache first (with freshness check)
+        # Try WebSocket cache first (if recent)
         if ticker in self.price_cache:
             cache_entry = self.price_cache[ticker]
             age = (datetime.now() - cache_entry.get('timestamp', datetime.now())).total_seconds()
-            if age < 60:  # Cache valid for 60 seconds
+            if age < 60:  # Only use if < 60 seconds old
                 return cache_entry['price']
 
-        # Fallback to REST
+        # Always try REST as primary source for entry decisions
         price = self.alpaca.get_latest_price(ticker, use_fallback=True)
         if price:
             self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
-        return price
+            return price
+
+        # Final fallback: use stale cache if available (better than nothing)
+        if ticker in self.price_cache:
+            print(f"   ⚠️  {ticker}: Using stale price from cache (REST failed)")
+            return self.price_cache[ticker]['price']
+
+        return None
 
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions."""
@@ -241,17 +248,22 @@ class AlpacaPaperEngine:
 
     def _analyze_ticker(self, ticker: str) -> Optional[Dict]:
         """Analyze ticker for entry."""
-        if ticker in self.state.positions or ticker in self.signaled_tickers:
+        if ticker in self.state.positions:
+            return None
+
+        if ticker in self.signaled_tickers:
             return None
 
         try:
             # Get historical data from Alpaca
             hist = self.alpaca.get_historical_bars(ticker, days=60)
             if hist is None or len(hist) < 50:
+                print(f"   ⏸️  {ticker}: Insufficient historical data ({len(hist) if hist else 0} bars)")
                 return None
 
             current = self._get_current_price(ticker)
             if current is None:
+                print(f"   ⏸️  {ticker}: Cannot get current price")
                 return None
 
             # Calculate Stage 2 score
@@ -334,47 +346,79 @@ class AlpacaPaperEngine:
         """Scan for entry opportunities."""
         market_ok, market_msg = self._check_market_conditions()
         if not market_ok:
+            print(f"   ⏸️  Market condition failed: {market_msg}")
             return
 
         watchlist = self._load_watchlist_tickers()
         if not watchlist:
+            print("   ⏸️  No tickers in watchlist")
             return
+
+        checked = 0
+        eligible = 0
+        rejected_score = 0
+        rejected_distance = 0
 
         for ticker in watchlist:
             analysis = self._analyze_ticker(ticker)
             if not analysis:
                 continue
 
-            # Entry criteria
+            checked += 1
+
+            # Entry criteria with detailed logging
             if analysis['entry_score'] < ENTRY_THRESHOLD:
-                continue
-            if analysis['dist_to_pivot'] > MAX_DIST_TO_PIVOT:
+                print(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {ENTRY_THRESHOLD} (need Tier 1)")
+                rejected_score += 1
                 continue
 
+            # Fixed: symmetric distance filter (±1%)
+            if not (-MAX_DIST_TO_PIVOT <= analysis['dist_to_pivot'] <= MAX_DIST_TO_PIVOT):
+                print(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{MAX_DIST_TO_PIVOT}% (Current ${analysis['current']:.2f}, Pivot ${analysis['pivot']:.2f})")
+                rejected_distance += 1
+                continue
+
+            eligible += 1
+            print(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}% - EXECUTING")
             self._execute_entry(analysis)
+
+        if checked > 0:
+            print(f"\n   📊 Checked: {checked} | Eligible: {eligible} | Rejected (score): {rejected_score} | Rejected (distance): {rejected_distance}")
 
     def _execute_entry(self, analysis: Dict):
         """Execute entry via Alpaca."""
         ticker = analysis['ticker']
+
+        # Check if already signaled today
+        if ticker in self.signaled_tickers:
+            print(f"   ⏸️  {ticker}: Already signaled today")
+            return
+
+        # Check if already have pending order
+        if self.order_manager.has_pending_order(ticker):
+            print(f"   ⏸️  {ticker}: Order already pending")
+            return
+
         entry_price = analysis['current']
         stop_price = analysis['stop']
         target_price = analysis['target']
         sector = analysis['sector']
 
-        # Check if already have pending order
-        if self.order_manager.has_pending_order(ticker):
-            return
-
         # Calculate position size
         equity = self.state.get_equity()
         shares = self.exits.calculate_position_size(equity, entry_price, stop_price)
-
         position_value = entry_price * shares
+
+        print(f"   📐 {ticker}: Position sizing - Equity ${equity:,.0f}, Entry ${entry_price:.2f}, Stop ${stop_price:.2f}")
+        print(f"   📐 {ticker}: Calculated {shares} shares, Position value ${position_value:,.2f}")
 
         # Validate
         can_enter, reason = self.state.can_enter_position(sector, position_value)
         if not can_enter:
+            print(f"   ⏸️  {ticker}: Risk validation failed - {reason}")
             return
+
+        print(f"   🚀 {ticker}: Submitting order for {shares} shares...")
 
         # Submit order via order manager
         order = self.order_manager.submit_entry(
@@ -399,6 +443,8 @@ class AlpacaPaperEngine:
             print(f"\n🚀 AUTO-ENTRY: {ticker} at ${entry_price:.2f} x {shares} shares")
             print(f"   Order ID: {order.id}")
             print(f"   Stop: ${stop_price:.2f} | Target: ${target_price:.2f}")
+        else:
+            print(f"   ❌ {ticker}: Order submission failed (check Alpaca API)")
 
     async def _execute_exit(self, ticker: str, signal: ExitSignal):
         """Execute exit via Alpaca."""
