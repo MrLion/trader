@@ -89,6 +89,18 @@ class AlpacaPaperEngine:
     def _sync_with_alpaca(self):
         """Sync local state with Alpaca positions."""
         try:
+            # Load watchlist for sector lookup
+            watchlist_sectors = {}
+            try:
+                df = pd.read_csv(WATCHLIST_PATH)
+                if 'Ticker' in df.columns and 'Sector' in df.columns:
+                    watchlist_sectors = {
+                        row['Ticker']: str(row['Sector']) if pd.notna(row['Sector']) else 'Unknown'
+                        for _, row in df.iterrows()
+                    }
+            except Exception:
+                pass
+
             # Sync positions via order manager
             sync_result = self.order_manager.sync_positions(self.state.positions)
 
@@ -96,6 +108,10 @@ class AlpacaPaperEngine:
                 for pos in sync_result['added']:
                     ticker = pos['ticker']
                     print(f"📥 Syncing {ticker} position from Alpaca")
+
+                    # Get sector from watchlist, fallback to 'Unknown'
+                    sector = watchlist_sectors.get(ticker, 'Unknown')
+
                     position = Position(
                         ticker=ticker,
                         status='OPEN',
@@ -105,7 +121,7 @@ class AlpacaPaperEngine:
                         stop_price=pos['avg_price'] * 0.95,  # Estimate
                         target_price=pos['avg_price'] * 1.1,
                         initial_risk=0,
-                        sector='Unknown'
+                        sector=sector
                     )
                     self.state.positions[ticker] = position
 
