@@ -541,50 +541,63 @@ class AlpacaPaperEngine:
 
     async def run(self):
         """Main event loop."""
-        print("\n" + "="*60)
-        print("🚀 ALPACA PAPER TRADING ENGINE STARTED")
-        print("="*60)
+        import sys
+        print("\n" + "="*60, flush=True)
+        print("🚀 ALPACA PAPER TRADING ENGINE STARTED", flush=True)
+        print("="*60, flush=True)
 
         self.running = True
         ws_task = None
+        cycle_count = 0
 
         while self.running:
+            cycle_count += 1
             try:
+                print(f"\n{'='*60}", flush=True)
+                print(f"🔄 CYCLE #{cycle_count} STARTING", flush=True)
+                print(f"{'='*60}", flush=True)
+
                 # Start/restart WebSocket if not running
                 if not ws_task or ws_task.done():
                     if ws_task and ws_task.done():
-                        print("\n🔄 WebSocket task ended, restarting...")
+                        print("\n🔄 WebSocket task ended, restarting...", flush=True)
                     ws_task = asyncio.create_task(self._start_websocket())
                     await asyncio.sleep(2)  # Wait for connection
 
                 self._reset_daily_signals()
+                print("📊 Calling _print_status()...", flush=True)
                 self._print_status()
 
                 # Process any pending orders (check fills)
+                print("📋 Processing pending orders...", flush=True)
                 self._process_pending_orders()
 
-                if self._is_market_hours():
+                is_market_hours = self._is_market_hours()
+                print(f"📈 Market hours check: {is_market_hours}", flush=True)
+
+                if is_market_hours:
                     # Check exits using cached prices
+                    print("🔍 Checking exits...", flush=True)
                     self._check_exits()
 
                     # Check for entries (REST)
-                    print("   🔔 About to check entries...")  # Debug
+                    print("🔍 About to check entries...", flush=True)
                     self._check_entries()
                 else:
-                    print("   ⏳ Market closed - monitoring only")
+                    print("   ⏳ Market closed - monitoring only", flush=True)
 
                 # Wait before next iteration
+                print("⏱️  Starting countdown...", flush=True)
                 for i in range(30, 0, -1):
                     if not self.running:
                         break
-                    print(f"⏱️  Next check in {i}s...")
+                    print(f"⏱️  Next check in {i}s...", flush=True)
                     await asyncio.sleep(1)
 
             except Exception as e:
-                print(f"\n❌ Error in main loop: {e}")
+                print(f"\n❌ Error in main loop: {e}", flush=True)
                 import traceback
                 traceback.print_exc()
-                await asyncio.sleep(30)
 
         # Cleanup
         print("\n🛑 Stopping WebSocket...")
