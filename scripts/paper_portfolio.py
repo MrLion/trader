@@ -238,11 +238,11 @@ def cmd_history(args):
         event = t.get('event', '')
         ticker = t.get('ticker', '')
         price = t.get('exit_price' if event == 'EXIT' else 'entry_price', 0)
-        reason = t.get('exit_reason', '')
+        reason = t.get('exit_reason', '') or ''
         pnl = t.get('realized_pnl', 0)
 
         pnl_str = f"${pnl:,.2f}" if pnl else ""
-        emoji = "🚀" if event == 'ENTRY' else "🎯" if pnl >= 0 else "🛑"
+        emoji = "🚀" if event == 'ENTRY' else "🎯" if pnl and pnl >= 0 else "🛑"
 
         print(f"{ts:<20} {emoji} {event:<6} {ticker:<8} ${price:<9.2f} "
               f"{reason:<15} {pnl_str:<12}")
