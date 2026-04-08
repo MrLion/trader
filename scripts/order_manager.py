@@ -184,6 +184,13 @@ class OrderManager:
 
         order = self.pending_orders[order_id]
 
+        # Auto-detect and purge stale test/mock orders
+        if order_id.startswith('test-order-') or order_id.startswith('mock-'):
+            print(f"🧹 Cleaning up stale test order: {order_id}")
+            del self.pending_orders[order_id]
+            self._save_orders()
+            return None
+
         # Get latest status from Alpaca
         alpaca_order = self.alpaca.get_order(order_id)
 
