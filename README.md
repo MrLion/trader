@@ -173,7 +173,7 @@ Calculated using scoring formulae (max 100 pts):
 |-----------|------------|----------|
 | Stage 2 Score | 30 pts | ≥6/7 = +30, ≥5/7 = +25, ≥4/7 = +20, ≥3/7 = +10, ≥2/7 = +5, <2 = +0 |
 | Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, <25% = +5, ≥25% = +0 |
-| Proximity | 25 pts | <3% = +25, <5% = +15, <10% = +5, ≥10% = +0 |
+| Proximity | 25 pts | Within ±3% of pivot = +25, ±5% = +15, ±10% = +5, beyond ±10% = +0 |
 | Momentum | 15 pts | 6M return >50% = +15, >25% = +10, ≤25% = +0 |
 | Relative Strength | 10 pts | RS 6M >20% = +10, >10% = +5, ≤10% = +0 |
 
@@ -184,7 +184,7 @@ Calculated using scoring formulae (max 100 pts):
 | 🔴 Tier 3 | < 40 pts | <4/7 | Monitor only — too far or too wide |
 
 ### Entry Protocol
-1. **Trigger**: Price breaks above pivot (within 1-2% of buy point)
+1. **Trigger**: Price within ±1% of pivot (entry zone: -1% below to +1% above breakout level)
 2. **Volume**: Tracking >= 1.5x 50-day average
 3. **Market**: SPY/QQQ green or <= 0.3% down
 4. **Risk Calc**: Account risk = 0.75% equity; Shares = Account risk / Risk per share
