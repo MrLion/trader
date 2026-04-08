@@ -316,6 +316,7 @@ class AlpacaPaperEngine:
             }
 
         except Exception as e:
+            print(f"   ⏸️  {ticker}: Analysis error - {type(e).__name__}: {e}")
             return None
 
     async def _check_exit_async(self, ticker: str, current_price: float):
@@ -363,11 +364,12 @@ class AlpacaPaperEngine:
         logs = []
 
         for ticker in watchlist:
+            checked += 1
+            if checked == 1:
+                print(f"   Starting with ticker: {ticker}")
             analysis = self._analyze_ticker(ticker)
             if not analysis:
                 continue
-
-            checked += 1
 
             # Entry criteria with detailed logging (accumulate for batch output)
             if analysis['entry_score'] < ENTRY_THRESHOLD:
