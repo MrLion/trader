@@ -93,62 +93,52 @@ export ALPACA_MODE="paper"  # or "live"
 
 ---
 
-## Phase 2: Data Layer Migration
+## Phase 2: Data Layer Migration ✅ COMPLETE
 
-### 2.1 Create `scripts/alpaca_client.py`
+### Files Created/Modified
 
-New module to encapsulate all Alpaca interactions:
+| File | Changes | Purpose |
+|------|---------|---------|
+| `scripts/alpaca_client.py` | Enhanced | Rate limiting, fallback to yfinance |
+| `scripts/rate_limiter.py` | New | Rate limiting, circuit breakers, health monitoring |
 
-```python
-class AlpacaClient:
-    """Unified Alpaca REST + WebSocket client."""
+### Rate Limiting
 
-    def __init__(self, mode='paper'):
-        # Initialize REST client
-        # Initialize WebSocket connection
+**Implementation:**
+- 200 requests/minute tracking (Alpaca limit)
+- Automatic wait time calculation
+- Exponential backoff on errors (up to 60s)
+- Circuit breaker after 5 errors in 1 minute
 
-    def get_latest_price(self, ticker) -> float
-    def get_historical_bars(self, ticker, timeframe) -> DataFrame
-    def get_quote(self, ticker) -> Quote
-    def submit_order(self, ...) -> Order
-    def get_position(self, ticker) -> Position
-    def list_positions(self) -> List[Position]
-    def close_position(self, ticker) -> Order
-```
+### Data Fallback
 
-### 2.2 Historical Data Migration
+**Primary → Fallback Chain:**
+1. Alpaca WebSocket cache (real-time)
+2. Alpaca REST API (rate limited)
+3. yfinance (unlimited, free)
 
-**yfinance → Alpaca**
+**Health Monitoring:**
+- Tracks Alpaca and yfinance health separately
+- Automatic failover on failures
+- Recovery detection after 3 successes
 
-| Function | yfinance | Alpaca |
-|----------|----------|--------|
-| Daily bars | `.history(period="1y")` | `get_bars(ticker, TimeFrame.Day, limit=252)` |
-| Intraday | `.history(interval="5m")` | `get_bars(ticker, TimeFrame.Minute, limit=1000)` |
-| Real-time price | Last close | `get_latest_trade()` |
-| SPY benchmark | yf.Ticker("SPY") | Same - keep yfinance for SPY |
-
-**Decision:** Keep yfinance for:
-- SPY benchmark (simpler, no rate limits)
-- 52-week high calculations (long historical data)
-- Backfill when Alpaca history is insufficient
-
-### 2.3 Real-Time Price Updates
-
-**WebSocket Stream Setup:**
+### Usage
 
 ```python
-# In AlpacaClient
-async def start_price_stream(self, tickers: List[str], callback):
-    """Subscribe to real-time price updates."""
-    conn = Stream(self.api_key, self.secret_key)
-    conn.subscribe_trades(callback, *tickers)
-    await conn.run()
-```
+from alpaca_client import AlpacaClient, health_monitor
 
-**Price Cache with WebSocket:**
-- Maintain in-memory price cache updated by WebSocket
-- Fallback to REST API on WebSocket disconnect
-- TTL of 5 seconds for cached prices
+client = AlpacaClient(mode='paper')
+
+# Get price with automatic fallback
+price = client.get_latest_price('AAPL')  # Tries Alpaca → yfinance
+
+# Get historical bars with fallback
+bars = client.get_historical_bars('AAPL', days=252)  # Tries Alpaca → yfinance
+
+# Check health
+print(client.get_health_summary())
+# Output: WebSocket: ✅ (50 prices cached) | Rate Limit: 15/200 | Circuit: 🟢 CLOSED
+```
 
 ---
 

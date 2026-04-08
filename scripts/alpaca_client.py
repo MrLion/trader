@@ -16,10 +16,15 @@ from alpaca.data.timeframe import TimeFrame
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, StopLossRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.common.exceptions import APIError
 
 # Config path
 CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/config')
 CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
+
+# Import rate limiter
+sys.path.insert(0, str(Path(__file__).parent))
+from rate_limiter import RateLimiter, health_monitor
 
 
 class AlpacaClient:
@@ -53,6 +58,9 @@ class AlpacaClient:
         self.ws_connected = False
         self.api_error_count = 0
 
+        # Rate limiter
+        self.rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
+
     def _load_config(self, key: str) -> Optional[str]:
         """Load config from file."""
         if not CONFIG_FILE.exists():
@@ -65,9 +73,19 @@ class AlpacaClient:
             return None
 
     def get_account(self) -> Dict:
-        """Get account information."""
+        """Get account information with rate limiting."""
+        if not self.rate_limiter.can_make_request():
+            wait = self.rate_limiter.get_wait_time()
+            if wait > 0:
+                print(f"⏳ Rate limit: waiting {wait:.1f}s")
+                import time
+                time.sleep(wait)
+
         try:
+            self.rate_limiter.record_request()
             account = self.trading_client.get_account()
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
             self.api_error_count = 0
             return {
                 'id': account.id,
@@ -78,27 +96,80 @@ class AlpacaClient:
                 'status': account.status,
                 'currency': account.currency
             }
+        except APIError as e:
+            self.rate_limiter.record_error(is_rate_limit=e.status_code == 429)
+            health_monitor.mark_failure('alpaca')
+            self.api_error_count += 1
+            raise
         except Exception as e:
+            health_monitor.mark_failure('alpaca')
             self.api_error_count += 1
             raise
 
-    def get_latest_price(self, ticker: str) -> Optional[float]:
-        """Get latest trade price (REST fallback)."""
+    def get_latest_price(self, ticker: str, use_fallback: bool = True) -> Optional[float]:
+        """Get latest trade price with rate limiting and fallback.
+
+        Args:
+            ticker: Stock symbol
+            use_fallback: If True, fallback to yfinance on failure
+        """
+        # Check WebSocket cache first
+        cached = self.get_cached_price(ticker)
+        if cached:
+            return cached
+
+        if not self.rate_limiter.can_make_request():
+            if use_fallback:
+                return self._yfinance_fallback_price(ticker)
+            return None
+
         try:
+            self.rate_limiter.record_request()
             from alpaca.data.requests import StockTradesRequest
 
             request = StockTradesRequest(symbol_or_symbols=ticker)
             trades = self.data_client.get_stock_trades(request)
 
             if ticker in trades.data and len(trades.data[ticker]) > 0:
-                return float(trades.data[ticker][0].price)
-            return None
-        except Exception:
+                price = float(trades.data[ticker][0].price)
+                self.rate_limiter.record_success()
+                health_monitor.mark_success('alpaca')
+                return price
+
             return None
 
-    def get_historical_bars(self, ticker: str, days: int = 252) -> Optional[pd.DataFrame]:
-        """Get historical daily bars."""
+        except Exception as e:
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
+
+            if use_fallback:
+                return self._yfinance_fallback_price(ticker)
+            return None
+
+    def _yfinance_fallback_price(self, ticker: str) -> Optional[float]:
+        """Fallback to yfinance for price data."""
         try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="1d", interval="5m")
+            if len(hist) > 0:
+                price = float(hist['Close'].iloc[-1])
+                health_monitor.mark_success('yfinance')
+                return price
+        except Exception:
+            pass
+        return None
+
+    def get_historical_bars(self, ticker: str, days: int = 252,
+                           use_fallback: bool = True) -> Optional[pd.DataFrame]:
+        """Get historical daily bars with rate limiting and fallback."""
+        if not self.rate_limiter.can_make_request():
+            if use_fallback:
+                return self._yfinance_fallback_bars(ticker, days)
+            return None
+
+        try:
+            self.rate_limiter.record_request()
             end = datetime.now()
             start = end - timedelta(days=days)
 
@@ -112,6 +183,8 @@ class AlpacaClient:
             bars = self.data_client.get_stock_bars(request)
 
             if ticker not in bars.data:
+                if use_fallback:
+                    return self._yfinance_fallback_bars(ticker, days)
                 return None
 
             df = pd.DataFrame([{
@@ -124,15 +197,34 @@ class AlpacaClient:
             } for b in bars.data[ticker]])
 
             df.set_index('Timestamp', inplace=True)
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
             return df
 
         except Exception as e:
-            print(f"⚠️ Error fetching historical data for {ticker}: {e}")
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
+
+            if use_fallback:
+                return self._yfinance_fallback_bars(ticker, days)
             return None
+
+    def _yfinance_fallback_bars(self, ticker: str, days: int = 252) -> Optional[pd.DataFrame]:
+        """Fallback to yfinance for historical bars."""
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=f"{days}d")
+            if len(hist) > 0:
+                health_monitor.mark_success('yfinance')
+                return hist
+        except Exception:
+            pass
+        return None
 
     def submit_market_order(self, ticker: str, shares: int, side: str,
                            stop_price: Optional[float] = None) -> Optional[Dict]:
-        """Submit a market order.
+        """Submit a market order with rate limiting.
 
         Args:
             ticker: Stock symbol
@@ -140,7 +232,14 @@ class AlpacaClient:
             side: 'buy' or 'sell'
             stop_price: Optional stop loss price
         """
+        if not self.rate_limiter.can_make_request():
+            wait = self.rate_limiter.get_wait_time()
+            print(f"⏳ Rate limited: waiting {wait:.1f}s before order")
+            import time
+            time.sleep(wait)
+
         try:
+            self.rate_limiter.record_request()
             order_side = OrderSide.BUY if side == 'buy' else OrderSide.SELL
 
             # Build order request
@@ -158,6 +257,9 @@ class AlpacaClient:
             request = MarketOrderRequest(**order_data)
             order = self.trading_client.submit_order(request)
 
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
+
             return {
                 'id': str(order.id),
                 'symbol': order.symbol,
@@ -168,7 +270,15 @@ class AlpacaClient:
                 'stop_price': float(order.stop_price) if order.stop_price else None
             }
 
+        except APIError as e:
+            is_rate_limit = e.status_code == 429
+            self.rate_limiter.record_error(is_rate_limit=is_rate_limit)
+            health_monitor.mark_failure('alpaca')
+            print(f"❌ Order submission failed: {e}")
+            return None
         except Exception as e:
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
             print(f"❌ Order submission failed: {e}")
             return None
 
@@ -314,8 +424,25 @@ class AlpacaClient:
             'ws_connected': self.ws_connected,
             'ws_healthy': self.is_ws_healthy(),
             'api_errors': self.api_error_count,
-            'cache_size': len(self.price_cache)
+            'cache_size': len(self.price_cache),
+            'rate_limiter': self.rate_limiter.get_status(),
+            'health_monitor': health_monitor.get_status()
         }
+
+    def get_health_summary(self) -> str:
+        """Get formatted health summary."""
+        health = self.check_health()
+        rl = health['rate_limiter']
+        hm = health['health_monitor']
+
+        lines = [
+            f"WebSocket: {'✅' if health['ws_healthy'] else '❌'} ({health['cache_size']} prices cached)",
+            f"Rate Limit: {rl['requests_in_window']}/{rl['max_requests']} requests",
+            f"Circuit: {'🔴 OPEN' if rl['circuit_open'] else '🟢 CLOSED'}",
+            f"Provider: {hm['current']} (alpaca: {'✅' if hm['providers']['alpaca']['healthy'] else '❌'}, "
+            f"yfinance: {'✅' if hm['providers']['yfinance']['healthy'] else '❌'})"
+        ]
+        return " | ".join(lines)
 
 
 # Test function
