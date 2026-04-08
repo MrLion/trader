@@ -61,6 +61,13 @@ class AlpacaPaperEngine:
         # Market data
         self.spy_data = None
 
+        # SPY cache for relative strength calculation (refreshed daily)
+        self.spy_cache = {
+            'date': None,
+            'return_6m': 0.0,
+            'price': None
+        }
+
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -119,6 +126,53 @@ class AlpacaPaperEngine:
 
         except Exception as e:
             print(f"⚠️ Error syncing with Alpaca: {e}")
+
+    def _refresh_spy_cache(self) -> bool:
+        """Refresh SPY 6-month return cache (called daily).
+
+        Returns:
+            True if successful, False otherwise
+        """
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Check if already cached for today
+        if self.spy_cache['date'] == current_date:
+            return True
+
+        try:
+            print(f"🔄 Refreshing SPY cache for {current_date}...")
+
+            # Get SPY historical data (6 months + buffer)
+            hist = self.alpaca.get_historical_bars('SPY', days=200)
+            if hist is None or len(hist) < 100:
+                bar_count = len(hist) if hist is not None else 0
+                print(f"⚠️ Insufficient SPY data ({bar_count} bars)")
+                return False
+
+            current_price = hist['Close'].iloc[-1]
+            # Use available data (up to 130 days for 6 months, or whatever we have)
+            days_back = min(130, len(hist) - 1)
+            price_6m_ago = hist['Close'].iloc[-days_back]  # ~6 months ago or best available
+            return_6m = ((current_price / price_6m_ago) - 1) * 100
+
+            self.spy_cache['date'] = current_date
+            self.spy_cache['return_6m'] = return_6m
+            self.spy_cache['price'] = current_price
+
+            print(f"✅ SPY cache updated: 6M return = {return_6m:+.1f}%")
+            return True
+
+        except Exception as e:
+            print(f"⚠️ Failed to refresh SPY cache: {e}")
+            return False
+
+    def _get_spy_return_6m(self) -> float:
+        """Get cached SPY 6-month return (refresh if needed)."""
+        if not self._refresh_spy_cache():
+            # Return 0 if refresh fails, but log warning
+            if self.spy_cache['return_6m'] == 0:
+                print("⚠️ SPY cache unavailable, RS calculations will use 0")
+        return self.spy_cache['return_6m']
 
     def _signal_handler(self, signum, frame):
         """Graceful shutdown."""
@@ -312,8 +366,12 @@ class AlpacaPaperEngine:
             dist_to_pivot = ((pivot - current) / current) * 100
             risk_pct = abs((stop - pivot) / pivot) * 100 if pivot > stop else 999
 
-            # Approximate entry score
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, 0)
+            # Get SPY 6-month return for relative strength calculation
+            spy_return_6m = self._get_spy_return_6m()
+            rs_6m = ret_6m - spy_return_6m
+
+            # Calculate entry score with RS component
+            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m)
 
             return {
                 'ticker': ticker,
@@ -559,6 +617,9 @@ class AlpacaPaperEngine:
                         print("\n🔄 WebSocket task ended, restarting...")
                     ws_task = asyncio.create_task(self._start_websocket())
                     await asyncio.sleep(2)
+
+                # Refresh SPY cache (will only fetch if new day or not cached)
+                self._refresh_spy_cache()
 
                 self._reset_daily_signals()
                 self._print_status()
