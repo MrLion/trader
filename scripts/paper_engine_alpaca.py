@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from alpaca_client import AlpacaClient
 from paper_state import PaperState, Position
 from paper_exits import ExitEngine, ExitSignal
+from order_manager import OrderManager, OrderStatus
 from stage2_utils import calculate_stage2_score, get_entry_score
 
 # Configurable paths
@@ -42,6 +43,7 @@ class AlpacaPaperEngine:
     def __init__(self, mode: str = 'paper'):
         print("🔌 Initializing Alpaca client...")
         self.alpaca = AlpacaClient(mode=mode)
+        self.order_manager = OrderManager(self.alpaca)
         self.state = PaperState(initial_capital=self._get_account_value())
         self.exits = ExitEngine()
 
@@ -67,6 +69,7 @@ class AlpacaPaperEngine:
         self._sync_with_alpaca()
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
+        print(f"📋 Pending orders: {self.order_manager.get_pending_count()}")
 
     def _get_account_value(self) -> float:
         """Get initial account value from Alpaca."""
@@ -79,26 +82,36 @@ class AlpacaPaperEngine:
     def _sync_with_alpaca(self):
         """Sync local state with Alpaca positions."""
         try:
-            alpaca_positions = self.alpaca.list_positions()
+            # Sync positions via order manager
+            sync_result = self.order_manager.sync_positions(self.state.positions)
 
-            for alpaca_pos in alpaca_positions:
-                ticker = alpaca_pos['symbol']
-
-                if ticker not in self.state.positions:
-                    # Position exists in Alpaca but not locally
+            if sync_result['added']:
+                for pos in sync_result['added']:
+                    ticker = pos['ticker']
                     print(f"📥 Syncing {ticker} position from Alpaca")
                     position = Position(
                         ticker=ticker,
                         status='OPEN',
                         entry_date=datetime.now().isoformat(),
-                        entry_price=alpaca_pos['avg_entry_price'],
-                        shares=int(alpaca_pos['qty']),
-                        stop_price=alpaca_pos['avg_entry_price'] * 0.95,  # Estimate
-                        target_price=alpaca_pos['avg_entry_price'] * 1.1,
+                        entry_price=pos['avg_price'],
+                        shares=pos['qty'],
+                        stop_price=pos['avg_price'] * 0.95,  # Estimate
+                        target_price=pos['avg_price'] * 1.1,
                         initial_risk=0,
                         sector='Unknown'
                     )
                     self.state.positions[ticker] = position
+
+            if sync_result['removed']:
+                for ticker in sync_result['removed']:
+                    print(f"📤 Position {ticker} closed externally")
+                    if ticker in self.state.positions:
+                        del self.state.positions[ticker]
+
+            if sync_result['discrepancies']:
+                for disc in sync_result['discrepancies']:
+                    print(f"⚠️ Position discrepancy: {disc['ticker']} - "
+                          f"Alpaca: {disc['alpaca_qty']}, Local: {disc['local_qty']}")
 
             # Update cash
             account = self.alpaca.get_account()
@@ -331,13 +344,17 @@ class AlpacaPaperEngine:
 
             self._execute_entry(analysis)
 
-    async def _execute_entry(self, analysis: Dict):
+    def _execute_entry(self, analysis: Dict):
         """Execute entry via Alpaca."""
         ticker = analysis['ticker']
         entry_price = analysis['current']
         stop_price = analysis['stop']
         target_price = analysis['target']
         sector = analysis['sector']
+
+        # Check if already have pending order
+        if self.order_manager.has_pending_order(ticker):
+            return
 
         # Calculate position size
         equity = self.state.get_equity()
@@ -350,16 +367,15 @@ class AlpacaPaperEngine:
         if not can_enter:
             return
 
-        # Submit order to Alpaca
-        order = self.alpaca.submit_market_order(
+        # Submit order via order manager
+        order = self.order_manager.submit_entry(
             ticker=ticker,
             shares=shares,
-            side='buy',
             stop_price=stop_price
         )
 
         if order:
-            # Record locally
+            # Record locally (optimistic - will update on fill)
             position = self.state.enter_position(
                 ticker=ticker,
                 entry_price=entry_price,
@@ -372,16 +388,30 @@ class AlpacaPaperEngine:
             self.signaled_tickers.add(ticker)
 
             print(f"\n🚀 AUTO-ENTRY: {ticker} at ${entry_price:.2f} x {shares} shares")
-            print(f"   Order ID: {order['id']}")
+            print(f"   Order ID: {order.id}")
             print(f"   Stop: ${stop_price:.2f} | Target: ${target_price:.2f}")
 
     async def _execute_exit(self, ticker: str, signal: ExitSignal):
         """Execute exit via Alpaca."""
-        # Close position via Alpaca
-        order = self.alpaca.close_position(ticker)
+        if ticker not in self.state.positions:
+            return
+
+        position = self.state.positions[ticker]
+
+        # Check if already have pending exit order
+        pending = self.order_manager.get_pending_for_ticker(ticker)
+        if any(o.side == 'sell' for o in pending):
+            return
+
+        # Submit exit via order manager
+        order = self.order_manager.submit_exit(
+            ticker=ticker,
+            shares=position.shares,
+            reason=signal.reason
+        )
 
         if order:
-            # Record locally
+            # Record locally (optimistic)
             position = self.state.close_position(
                 ticker=ticker,
                 exit_price=signal.exit_price,
@@ -393,6 +423,20 @@ class AlpacaPaperEngine:
                 print(f"\n{pnl_emoji} AUTO-EXIT: {ticker} at ${signal.exit_price:.2f}")
                 print(f"   Reason: {signal.reason}")
                 print(f"   P&L: ${position.realized_pnl:,.2f}")
+
+    def _process_pending_orders(self):
+        """Check status of all pending orders."""
+        if self.order_manager.get_pending_count() == 0:
+            return
+
+        filled = self.order_manager.process_all_pending()
+        for order in filled:
+            if order.side == 'buy':
+                print(f"✅ Entry filled: {order.ticker} "
+                      f"@${order.filled_price:.2f} x {order.filled_qty}")
+            else:
+                print(f"✅ Exit filled: {order.ticker} "
+                      f"(${order.reason})")
 
     def _reset_daily_signals(self):
         """Reset entry signals for new day."""
@@ -410,8 +454,11 @@ class AlpacaPaperEngine:
         print(f"📡 WebSocket: {'Connected' if self.alpaca.is_ws_healthy() else 'Disconnected'}")
 
         stats = self.state.get_stats()
+        orders = self.order_manager.get_orders_summary()
+
         print(f"💰 Equity: ${stats['equity']:,.2f} | Cash: ${stats['cash']:,.2f}")
         print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f}")
+        print(f"📋 Pending Orders: {orders['pending']} | Health: {self.alpaca.get_health_summary()}")
         print(f"{'='*60}")
 
     async def run(self):
@@ -432,6 +479,9 @@ class AlpacaPaperEngine:
             try:
                 self._reset_daily_signals()
                 self._print_status()
+
+                # Process any pending orders (check fills)
+                self._process_pending_orders()
 
                 if self._is_market_hours():
                     # Check exits using cached prices

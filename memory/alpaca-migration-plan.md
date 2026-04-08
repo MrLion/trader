@@ -142,67 +142,59 @@ print(client.get_health_summary())
 
 ---
 
-## Phase 3: Execution Layer Migration
+## Phase 3: Execution Layer Migration ✅ COMPLETE
 
-### 3.1 Order Submission
+### Files Created/Modified
 
-Replace local state simulation with actual API calls:
+| File | Lines | Purpose |
+|------|-------|---------|
+| `scripts/order_manager.py` | ~350 | Order lifecycle management |
+| `scripts/paper_engine_alpaca.py` | Enhanced | Integrated order manager |
 
-```python
-# Current (simulated)
-def enter_position(self, ticker, entry_price, shares, ...):
-    position = Position(...)
-    self.positions[ticker] = position
-    self.cash -= entry_price * shares
+### Order Lifecycle Management
 
-# New (Alpaca API)
-def enter_position(self, ticker, entry_price, shares, ...):
-    order = self.alpaca.submit_order(
-        symbol=ticker,
-        qty=shares,
-        side='buy',
-        type='market',  # or 'limit' at pivot price
-        time_in_force='day',
-        stop_loss={'stop_price': stop_price}
-    )
-    return order
+**Order States:**
+```
+PENDING → SUBMITTED → ACCEPTED → FILLED
+                                  ↓
+                           CANCELED | EXPIRED | REJECTED
 ```
 
-### 3.2 Position Sync
+**Features:**
+- Automatic order status tracking from Alpaca
+- Position sync with order verification
+- Duplicate order prevention
+- Order persistence to disk (`data/alpaca_orders.json`)
+- Fill notifications with price and quantity
+
+### Position Sync
 
 **Two-way sync between local state and Alpaca:**
+- Detects positions opened externally
+- Detects positions closed externally
+- Reports quantity discrepancies
+- Auto-syncs on engine startup
 
+**Usage:**
 ```python
-def sync_positions(self):
-    """Pull positions from Alpaca, update local state."""
-    alpaca_positions = self.alpaca.list_positions()
+from order_manager import OrderManager, OrderStatus
+from alpaca_client import AlpacaClient
 
-    for pos in alpaca_positions:
-        if pos.symbol not in self.positions:
-            # Position exists in Alpaca but not locally - sync it
-            self._sync_from_alpaca(pos)
+alpaca = AlpacaClient(mode='paper')
+manager = OrderManager(alpaca)
 
-    # Check for positions closed externally
-    for ticker in list(self.positions.keys()):
-        if ticker not in [p.symbol for p in alpaca_positions]:
-            self._handle_externally_closed(ticker)
-```
+# Submit entry
+order = manager.submit_entry('AAPL', shares=100, stop_price=145.0)
 
-### 3.3 Order Lifecycle Management
+# Submit exit
+order = manager.submit_exit('AAPL', shares=100, reason='STOP_HIT')
 
-Handle Alpaca order states:
-- `new` → `filled` (entry complete)
-- `filled` → `held` (position open)
-- `held` → `closed` (exit complete)
+# Check pending orders
+manager.process_all_pending()  # Updates statuses
 
-```python
-def check_order_status(self, order_id):
-    order = self.alpaca.get_order(order_id)
-
-    if order.status == 'filled':
-        self._on_entry_filled(order)
-    elif order.status in ['canceled', 'expired']:
-        self._on_entry_failed(order)
+# Sync with Alpaca
+result = manager.sync_positions(local_positions)
+# Returns: {'synced': [...], 'added': [...], 'removed': [...], 'discrepancies': [...]}
 ```
 
 ---
