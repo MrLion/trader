@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+"""Alpaca API client - Hybrid REST + WebSocket for paper trading."""
+
+import asyncio
+import json
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Callable
+
+import pandas as pd
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.live import StockDataStream
+from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest, StopLossRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+
+# Config path
+CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/config')
+CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
+
+
+class AlpacaClient:
+    """Unified Alpaca REST + WebSocket client for paper trading."""
+
+    def __init__(self, mode: str = 'paper'):
+        """Initialize Alpaca clients.
+
+        Args:
+            mode: 'paper' or 'live'
+        """
+        self.mode = mode
+        self.api_key = os.getenv('ALPACA_API_KEY') or self._load_config('api_key')
+        self.secret_key = os.getenv('ALPACA_SECRET_KEY') or self._load_config('secret_key')
+
+        if not self.api_key or not self.secret_key:
+            raise ValueError("Alpaca API keys not found. Set ALPACA_API_KEY and ALPACA_SECRET_KEY env vars.")
+
+        # Initialize REST clients
+        self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
+        self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
+
+        # WebSocket stream (initialized on demand)
+        self.stream: Optional[StockDataStream] = None
+        self.price_cache: Dict[str, Dict] = {}
+        self._trade_handlers: List[Callable] = []
+        self._order_handlers: List[Callable] = []
+
+        # Health tracking
+        self.last_ws_message = None
+        self.ws_connected = False
+        self.api_error_count = 0
+
+    def _load_config(self, key: str) -> Optional[str]:
+        """Load config from file."""
+        if not CONFIG_FILE.exists():
+            return None
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                return config.get(self.mode, {}).get(key)
+        except Exception:
+            return None
+
+    def get_account(self) -> Dict:
+        """Get account information."""
+        try:
+            account = self.trading_client.get_account()
+            self.api_error_count = 0
+            return {
+                'id': account.id,
+                'cash': float(account.cash),
+                'portfolio_value': float(account.portfolio_value),
+                'equity': float(account.equity),
+                'buying_power': float(account.buying_power),
+                'status': account.status,
+                'currency': account.currency
+            }
+        except Exception as e:
+            self.api_error_count += 1
+            raise
+
+    def get_latest_price(self, ticker: str) -> Optional[float]:
+        """Get latest trade price (REST fallback)."""
+        try:
+            from alpaca.data.requests import StockTradesRequest
+
+            request = StockTradesRequest(symbol_or_symbols=ticker)
+            trades = self.data_client.get_stock_trades(request)
+
+            if ticker in trades.data and len(trades.data[ticker]) > 0:
+                return float(trades.data[ticker][0].price)
+            return None
+        except Exception:
+            return None
+
+    def get_historical_bars(self, ticker: str, days: int = 252) -> Optional[pd.DataFrame]:
+        """Get historical daily bars."""
+        try:
+            end = datetime.now()
+            start = end - timedelta(days=days)
+
+            request = StockBarsRequest(
+                symbol_or_symbols=ticker,
+                timeframe=TimeFrame.Day,
+                start=start,
+                end=end
+            )
+
+            bars = self.data_client.get_stock_bars(request)
+
+            if ticker not in bars.data:
+                return None
+
+            df = pd.DataFrame([{
+                'Open': b.open,
+                'High': b.high,
+                'Low': b.low,
+                'Close': b.close,
+                'Volume': b.volume,
+                'Timestamp': b.timestamp
+            } for b in bars.data[ticker]])
+
+            df.set_index('Timestamp', inplace=True)
+            return df
+
+        except Exception as e:
+            print(f"⚠️ Error fetching historical data for {ticker}: {e}")
+            return None
+
+    def submit_market_order(self, ticker: str, shares: int, side: str,
+                           stop_price: Optional[float] = None) -> Optional[Dict]:
+        """Submit a market order.
+
+        Args:
+            ticker: Stock symbol
+            shares: Number of shares
+            side: 'buy' or 'sell'
+            stop_price: Optional stop loss price
+        """
+        try:
+            order_side = OrderSide.BUY if side == 'buy' else OrderSide.SELL
+
+            # Build order request
+            order_data = {
+                'symbol': ticker,
+                'qty': shares,
+                'side': order_side,
+                'time_in_force': TimeInForce.DAY
+            }
+
+            # Add stop loss if provided (for entries)
+            if stop_price and side == 'buy':
+                order_data['stop_loss'] = StopLossRequest(stop_price=stop_price)
+
+            request = MarketOrderRequest(**order_data)
+            order = self.trading_client.submit_order(request)
+
+            return {
+                'id': str(order.id),
+                'symbol': order.symbol,
+                'qty': float(order.qty),
+                'side': order.side.value,
+                'type': order.order_type.value,
+                'status': order.status.value,
+                'stop_price': float(order.stop_price) if order.stop_price else None
+            }
+
+        except Exception as e:
+            print(f"❌ Order submission failed: {e}")
+            return None
+
+    def get_order(self, order_id: str) -> Optional[Dict]:
+        """Get order by ID."""
+        try:
+            order = self.trading_client.get_order_by_id(order_id)
+            return {
+                'id': str(order.id),
+                'symbol': order.symbol,
+                'qty': float(order.qty),
+                'filled_qty': float(order.filled_qty),
+                'side': order.side.value,
+                'status': order.status.value,
+                'filled_price': float(order.filled_avg_price) if order.filled_avg_price else None
+            }
+        except Exception:
+            return None
+
+    def list_positions(self) -> List[Dict]:
+        """Get all open positions."""
+        try:
+            positions = self.trading_client.get_all_positions()
+            return [{
+                'symbol': p.symbol,
+                'qty': float(p.qty),
+                'avg_entry_price': float(p.avg_entry_price),
+                'market_value': float(p.market_value),
+                'current_price': float(p.current_price),
+                'unrealized_pl': float(p.unrealized_pl),
+                'unrealized_plpc': float(p.unrealized_plpc),
+                'change_today': float(p.change_today)
+            } for p in positions]
+        except Exception:
+            return []
+
+    def get_position(self, ticker: str) -> Optional[Dict]:
+        """Get position for specific ticker."""
+        try:
+            p = self.trading_client.get_open_position(ticker)
+            return {
+                'symbol': p.symbol,
+                'qty': float(p.qty),
+                'avg_entry_price': float(p.avg_entry_price),
+                'market_value': float(p.market_value),
+                'current_price': float(p.current_price),
+                'unrealized_pl': float(p.unrealized_pl)
+            }
+        except Exception:
+            return None
+
+    def close_position(self, ticker: str) -> Optional[Dict]:
+        """Close position for ticker."""
+        try:
+            order = self.trading_client.close_position(ticker)
+            return {
+                'id': str(order.id),
+                'symbol': order.symbol,
+                'qty': float(order.qty),
+                'status': order.status.value
+            }
+        except Exception as e:
+            print(f"❌ Failed to close position {ticker}: {e}")
+            return None
+
+    def cancel_all_orders(self) -> bool:
+        """Cancel all open orders."""
+        try:
+            self.trading_client.cancel_orders()
+            return True
+        except Exception:
+            return False
+
+    # WebSocket Methods
+
+    async def start_price_stream(self, tickers: List[str],
+                                  trade_handler: Callable,
+                                  quote_handler: Optional[Callable] = None):
+        """Start WebSocket price stream for tickers.
+
+        Args:
+            tickers: List of symbols to subscribe
+            trade_handler: Callback for trade updates (price changes)
+            quote_handler: Optional callback for quote updates
+        """
+        if not tickers:
+            return
+
+        self.stream = StockDataStream(self.api_key, self.secret_key)
+
+        # Subscribe to trades
+        async def _trade_callback(t):
+            self.price_cache[t.symbol] = {
+                'price': t.price,
+                'timestamp': t.timestamp,
+                'size': t.size
+            }
+            self.last_ws_message = datetime.now()
+            await trade_handler(t)
+
+        self.stream.subscribe_trades(_trade_callback, *tickers)
+
+        # Subscribe to quotes if handler provided
+        if quote_handler:
+            async def _quote_callback(q):
+                await quote_handler(q)
+            self.stream.subscribe_quotes(_quote_callback, *tickers)
+
+        self.ws_connected = True
+
+        try:
+            await self.stream.run()
+        except Exception as e:
+            print(f"⚠️ WebSocket error: {e}")
+            self.ws_connected = False
+            raise
+
+    async def stop_price_stream(self):
+        """Stop WebSocket stream."""
+        if self.stream:
+            await self.stream.stop()
+            self.ws_connected = False
+            self.stream = None
+
+    def is_ws_healthy(self) -> bool:
+        """Check if WebSocket connection is healthy."""
+        if not self.ws_connected or not self.last_ws_message:
+            return False
+
+        # Consider unhealthy if no message in 60 seconds
+        elapsed = (datetime.now() - self.last_ws_message).total_seconds()
+        return elapsed < 60
+
+    def get_cached_price(self, ticker: str) -> Optional[float]:
+        """Get price from WebSocket cache."""
+        if ticker in self.price_cache:
+            return self.price_cache[ticker]['price']
+        return None
+
+    def check_health(self) -> Dict:
+        """Check client health."""
+        return {
+            'ws_connected': self.ws_connected,
+            'ws_healthy': self.is_ws_healthy(),
+            'api_errors': self.api_error_count,
+            'cache_size': len(self.price_cache)
+        }
+
+
+# Test function
+if __name__ == "__main__":
+    import sys
+
+    print("Testing Alpaca Client...")
+
+    try:
+        client = AlpacaClient(mode='paper')
+
+        # Test account
+        print("\n📊 Account:")
+        account = client.get_account()
+        print(f"   Cash: ${account['cash']:,.2f}")
+        print(f"   Equity: ${account['equity']:,.2f}")
+        print(f"   Status: {account['status']}")
+
+        # Test positions
+        print("\n📋 Positions:")
+        positions = client.list_positions()
+        if positions:
+            for p in positions:
+                print(f"   {p['symbol']}: {p['qty']} shares @ ${p['avg_entry_price']:.2f}")
+        else:
+            print("   No open positions")
+
+        # Test price
+        print("\n💰 AAPL Price:")
+        price = client.get_latest_price('AAPL')
+        if price:
+            print(f"   ${price:.2f}")
+        else:
+            print("   Could not fetch")
+
+        print("\n✅ Client initialized successfully")
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        print("\nMake sure ALPACA_API_KEY and ALPACA_SECRET_KEY are set.")
+        sys.exit(1)

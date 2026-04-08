@@ -8,3 +8,6 @@ reports/*.html
 .env
 
 .gstack/
+
+# Alpaca API credentials (never commit these!)
+data/config/alpaca_config.json

@@ -1,0 +1,15 @@
+{
+  "_comment": "Copy this to alpaca_config.json and fill in your API keys",
+  "paper": {
+    "api_key": "your_paper_api_key_here",
+    "secret_key": "your_paper_secret_key_here",
+    "base_url": "https://paper-api.alpaca.markets"
+  },
+  "live": {
+    "api_key": "your_live_api_key_here",
+    "secret_key": "your_live_secret_key_here",
+    "base_url": "https://api.alpaca.markets"
+  },
+  "data_feed": "iex",
+  "mode": "paper"
+}
