@@ -87,6 +87,12 @@ python3 scripts/deliver_report.py --file report.html --chat-id -1001234567890
 python3 scripts/mcstock_scraper.py
 python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
+
+# Entry Signals Scanner (identifies tickers meeting entry criteria)
+python3 scripts/entry_signals.py                    # Scan watchlist for Tier 1 signals
+python3 scripts/entry_signals.py --min-tier 2       # Include Tier 2 signals
+python3 scripts/entry_signals.py --tickers AAPL MSFT TSLA  # Scan specific tickers
+python3 scripts/entry_signals.py --export json      # Export as JSON instead of CSV
 ```
 
 ## Comprehensive Reports
@@ -139,6 +145,43 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 - Key levels for tomorrow (50MA values)
 - Dark theme HTML reports
 - Mobile responsive design
+
+### Entry Signals Scanner
+
+Scan your watchlist for tickers meeting entry criteria without executing trades.
+
+```bash
+# Scan entire watchlist for Tier 1 entry signals
+python3 scripts/entry_signals.py
+
+# Include Tier 2 signals (score 40-59)
+python3 scripts/entry_signals.py --min-tier 2
+
+# Scan specific tickers
+python3 scripts/entry_signals.py --tickers AAPL MSFT NVDA
+
+# Export as JSON
+python3 scripts/entry_signals.py --export json
+
+# No export (console output only)
+python3 scripts/entry_signals.py --export none
+```
+
+**Entry Criteria:**
+- Entry Score ≥ 60 (Tier 1) or ≥ 40 (Tier 2)
+- Distance to Pivot within ±1.0%
+- Market condition: SPY ≥ -0.3%
+
+**Output:**
+- Console: Signal details with score, distance, stop/target
+- CSV: `scans/entry_signals_YYYYMMDD_HHMM.csv`
+- JSON: Full analysis data for each signal
+
+**Use Cases:**
+- Pre-market scan before engine starts
+- Manual review before auto-entry
+- Identify setups for next session
+- Validate watchlist candidates
 
 ## Trading Framework
 
