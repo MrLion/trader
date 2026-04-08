@@ -258,7 +258,8 @@ class AlpacaPaperEngine:
             # Get historical data from Alpaca
             hist = self.alpaca.get_historical_bars(ticker, days=60)
             if hist is None or len(hist) < 50:
-                print(f"   ⏸️  {ticker}: Insufficient historical data ({len(hist) if hist else 0} bars)")
+                bar_count = len(hist) if hist is not None else 0
+                print(f"   ⏸️  {ticker}: Insufficient historical data ({bar_count} bars)")
                 return None
 
             current = self._get_current_price(ticker)
@@ -287,12 +288,17 @@ class AlpacaPaperEngine:
                 ret_6m = ((current / hist['Close'].iloc[-130]) - 1) * 100
 
             # ATR and stop
-            high_low = hist['High'] - hist['Low']
-            high_close = abs(hist['High'] - hist['Close'].shift())
-            low_close = abs(hist['Low'] - hist['Close'].shift())
-            ranges = pd.concat([high_low, high_close, low_close], axis=1)
-            true_range = ranges.max(axis=1)
-            atr = true_range.rolling(14).mean().iloc[-1]
+            try:
+                high_low = hist['High'] - hist['Low']
+                high_close = abs(hist['High'] - hist['Close'].shift())
+                low_close = abs(hist['Low'] - hist['Close'].shift())
+                ranges = pd.concat([high_low, high_close, low_close], axis=1)
+                true_range = ranges.max(axis=1)
+                atr = true_range.rolling(14).mean().iloc[-1]
+            except Exception as e:
+                print(f"   ⏸️  {ticker}: ATR calculation error - {e}")
+                print(f"      hist columns: {hist.columns.tolist()}, shape: {hist.shape}")
+                return None
 
             stop = self.exits.calculate_initial_stop(ticker, current)
             target = self.exits.calculate_target_price(current, stop)
