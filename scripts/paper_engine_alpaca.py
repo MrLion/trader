@@ -255,8 +255,8 @@ class AlpacaPaperEngine:
             return None
 
         try:
-            # Get historical data from Alpaca
-            hist = self.alpaca.get_historical_bars(ticker, days=90)
+            # Get historical data from Alpaca (uses configured historical_days, default 365)
+            hist = self.alpaca.get_historical_bars(ticker)
             if hist is None or len(hist) < 30:
                 bar_count = len(hist) if hist is not None else 0
                 print(f"   ⏸️  {ticker}: Insufficient historical data ({bar_count} bars)")

@@ -25,40 +25,45 @@ def calculate_stage2_score(hist: pd.DataFrame) -> int:
     Returns:
         int: Score from 0-7
     """
-    if len(hist) < 30:
+    if len(hist) < 200:
         return 0
 
     current = hist['Close'].iloc[-1]
     high_52w = hist['Close'].max()
     low_52w = hist['Close'].min()
 
-    # Calculate moving averages based on available data
-    ma50 = hist['Close'].rolling(50).mean().iloc[-1] if len(hist) >= 50 else current
-    ma100 = hist['Close'].rolling(100).mean().iloc[-1] if len(hist) >= 100 else current
-    ma200 = hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else current
+    # Calculate moving averages
+    ma50 = hist['Close'].rolling(50).mean().iloc[-1]
+    ma100 = hist['Close'].rolling(100).mean().iloc[-1]
+    ma200 = hist['Close'].rolling(200).mean().iloc[-1]
 
     score = 0
 
-    # 1. Price > 50 MA (only if we have 50+ bars)
-    if len(hist) >= 50 and current > ma50:
+    # 1. Price > 50 MA
+    if current > ma50:
         score += 1
 
-    # 2. Price > 100 MA (only if we have 100+ bars)
-    if len(hist) >= 100 and current > ma100:
+    # 2. Price > 100 MA
+    if current > ma100:
         score += 1
 
-    # 3. Price > 200 MA (only if we have 200+ bars)
-    if len(hist) >= 200 and current > ma200:
+    # 3. Price > 200 MA
+    if current > ma200:
         score += 1
 
-    # 4. Proper MA stacking: 50 > 100 > 200 (requires all MAs)
-    if len(hist) >= 200 and ma50 > ma100 > ma200:
+    # 4. Proper MA stacking: 50 > 100 > 200
+    if ma50 > ma100 > ma200:
         score += 1
 
-    # 5. 200 MA rising (only if we have 200+ bars)
-    if len(hist) >= 201:
-        ma200_prev = hist['Close'].rolling(200).mean().iloc[-2]
-        if ma200 > ma200_prev:
+    # 5. 200 MA rising for 20+ days (compare to value 20 days ago)
+    if len(hist) >= 221:
+        ma200_20days_ago = hist['Close'].rolling(200).mean().iloc[-21]
+        if ma200 > ma200_20days_ago:
+            score += 1
+    else:
+        # Fallback: just check if MA200 is rising vs 1 day ago
+        ma200_1day_ago = hist['Close'].rolling(200).mean().iloc[-2]
+        if ma200 > ma200_1day_ago:
             score += 1
 
     # 6. Price within 25% of 52-week high

@@ -11,5 +11,6 @@
     "base_url": "https://api.alpaca.markets"
   },
   "data_feed": "iex",
+  "historical_days": 365,
   "mode": "paper"
 }

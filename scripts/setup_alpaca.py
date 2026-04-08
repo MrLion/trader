@@ -47,6 +47,13 @@ def setup():
         print("  export ALPACA_SECRET_KEY='your_secret'")
         return
 
+    # Historical data configuration
+    print("\n📊 Historical Data Configuration:")
+    print("  Default is 365 days (needed for full Stage 2 scoring)")
+    print("  Use 90 days if you want faster analysis with limited history")
+    days_input = input("Historical days [365]: ").strip()
+    historical_days = int(days_input) if days_input else 365
+
     # Create config
     config = {
         "_comment": "Alpaca API credentials - NEVER commit this file!",
@@ -61,6 +68,7 @@ def setup():
             "base_url": "https://api.alpaca.markets"
         },
         "data_feed": "iex",
+        "historical_days": historical_days,
         "mode": "paper"
     }
 

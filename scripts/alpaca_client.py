@@ -45,6 +45,9 @@ class AlpacaClient:
         if not self.api_key or not self.secret_key:
             raise ValueError("Alpaca API keys not found. Set ALPACA_API_KEY and ALPACA_SECRET_KEY env vars.")
 
+        # Historical data configuration (default 365 days for full Stage 2 scoring)
+        self.historical_days = self._load_config_int('historical_days', default=365)
+
         # Initialize REST clients
         self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
         self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
@@ -73,6 +76,18 @@ class AlpacaClient:
                 return config.get(self.mode, {}).get(key)
         except Exception:
             return None
+
+    def _load_config_int(self, key: str, default: int) -> int:
+        """Load integer config value from file."""
+        if not CONFIG_FILE.exists():
+            return default
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                val = config.get(key, default)
+                return int(val) if val is not None else default
+        except Exception:
+            return default
 
     def get_account(self) -> Dict:
         """Get account information with rate limiting."""
@@ -162,9 +177,18 @@ class AlpacaClient:
             pass
         return None
 
-    def get_historical_bars(self, ticker: str, days: int = 252,
+    def get_historical_bars(self, ticker: str, days: int = None,
                            use_fallback: bool = True) -> Optional[pd.DataFrame]:
-        """Get historical daily bars with rate limiting and fallback."""
+        """Get historical daily bars with rate limiting and fallback.
+
+        Args:
+            ticker: Stock symbol
+            days: Number of days to fetch (default: uses configured historical_days)
+            use_fallback: If True, fallback to yfinance on failure
+        """
+        if days is None:
+            days = self.historical_days
+
         if not self.rate_limiter.can_make_request():
             if use_fallback:
                 return self._yfinance_fallback_bars(ticker, days)
@@ -179,8 +203,7 @@ class AlpacaClient:
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
                 start=start,
-                end=end,
-                feed=DataFeed.IEX  # Free tier feed
+                end=end
             )
 
             bars = self.data_client.get_stock_bars(request)
