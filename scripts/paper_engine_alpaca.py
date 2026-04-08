@@ -351,6 +351,7 @@ class AlpacaPaperEngine:
 
     def _check_entries(self):
         """Scan for entry opportunities."""
+        print("   DEBUG: _check_entries() started")
         market_ok, market_msg = self._check_market_conditions()
         if not market_ok:
             print(f"⏸️  Market condition failed: {market_msg}")
@@ -545,15 +546,17 @@ class AlpacaPaperEngine:
         print("="*60)
 
         self.running = True
-
-        # Start WebSocket in background
-        ws_task = asyncio.create_task(self._start_websocket())
-
-        # Wait for WebSocket to connect
-        await asyncio.sleep(2)
+        ws_task = None
 
         while self.running:
             try:
+                # Start/restart WebSocket if not running
+                if not ws_task or ws_task.done():
+                    if ws_task and ws_task.done():
+                        print("\n🔄 WebSocket task ended, restarting...")
+                    ws_task = asyncio.create_task(self._start_websocket())
+                    await asyncio.sleep(2)  # Wait for connection
+
                 self._reset_daily_signals()
                 self._print_status()
 
@@ -565,6 +568,7 @@ class AlpacaPaperEngine:
                     self._check_exits()
 
                     # Check for entries (REST)
+                    print("   🔔 About to check entries...")  # Debug
                     self._check_entries()
                 else:
                     print("   ⏳ Market closed - monitoring only")
@@ -578,11 +582,15 @@ class AlpacaPaperEngine:
 
             except Exception as e:
                 print(f"\n❌ Error in main loop: {e}")
+                import traceback
+                traceback.print_exc()
                 await asyncio.sleep(30)
 
         # Cleanup
         print("\n🛑 Stopping WebSocket...")
         await self.alpaca.stop_price_stream()
+        if ws_task:
+            ws_task.cancel()
         print("✅ Engine stopped gracefully")
 
 
