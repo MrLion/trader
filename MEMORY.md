@@ -71,11 +71,19 @@ Assessment:
 Verdict: [A-TIER / TIER B / TIER C / PASS]
 ```
 
-**Stage 2 Score Criteria (4 points):**
-1. Price above 150-day SMA
-2. Price above 200-day SMA
-3. MA alignment (20 > 50 > 150 > 200)
-4. Within 15% of 52-week high
+**Stage 2 Score Criteria (7-Point System):**
+1. Price > 50-day SMA (1 pt)
+2. Price > 100-day SMA (1 pt)
+3. Price > 200-day SMA (1 pt)
+4. MA Alignment: 50 > 100 > 200 (1 pt)
+5. 200-day SMA rising for 20+ days (1 pt)
+6. Within 25% of 52-week high (1 pt)
+7. Price ≥ 1.25× 52-week low (1 pt)
+
+**Compliance Thresholds:**
+- 6-7 pts: Excellent Stage 2 (Tier 1 quality) 🟢
+- 4-5 pts: Good Stage 2 (Tier 2 quality) 🟡
+- <4 pts: Developing (Tier 3) 🔴
 
 **Command Format:** `Analyze $TICKER` (e.g., Analyze $AAPL)
 
@@ -118,7 +126,7 @@ Verdict: [A-TIER / PASS / WAIT]
 **Key Elements to Include:**
 - Company name and sector/industry classification
 - Returns (1M, 3M, 6M) for momentum context
-- **Stage 2 Score (4 criteria: above 100SMA, above 200SMA, MA bullish, near 52W high)**
+- **Stage 2 Score (7-point system: 50/100/200 MA, Alignment, 200MA Slope, 52w High/Low)**
 - Distance from 52W highs (%)
 - Entry/stop/risk calculation (2 ATR standard)
 - Visual status (🟢 = strong, 🟡 = developing, 🔴 = weak)

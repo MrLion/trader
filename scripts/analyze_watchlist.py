@@ -197,47 +197,47 @@ def analyze_watchlist(output_csv=False, output_html=False):
 def display_console_output(results):
     """Display formatted console output."""
 
-    print("\n🎯 WATCHLIST ENTRY RANKINGS — Ranked by Favorability\n")
-    print("=" * 140)
+    print("\n🎯 WATCHLIST ENTRY RANKINGS — Ranked by Entry Score\n")
+    print("=" * 150)
 
     # Tier 1: Best setups (Score ≥60)
-    print("\n**🟢 TIER 1 — BEST ENTRY SETUP (Score ≥60)**\n")
+    print("\n**🟢 TIER 1 — BEST ENTRY SETUP (Entry Score ≥60)**\n")
     tier1 = [r for r in results if r['Entry_Score'] >= 60]
     if tier1:
-        print(f"{'Ticker':<8} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'Stage2':<8} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
-        print("-" * 140)
+        print(f"{'Ticker':<8} {'QScore':<7} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<5} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
+        print("-" * 150)
         for r in tier1:
             risk_display = f"{r['Risk_%']:.1f}%" if r['Risk_%'] < 999 else "INVALID"
-            print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<6}/7 🟢 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
+            print(f"{r['Ticker']:<8} {r['Entry_Score']:<6} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<3}/7 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
     else:
         print("No Tier 1 setups currently")
 
     # Tier 2: Good setups (Score 40-59)
-    print("\n\n**🟡 TIER 2 — GOOD SETUP (Score 40-59)**\n")
+    print("\n\n**🟡 TIER 2 — GOOD SETUP (Entry Score 40-59)**\n")
     tier2 = [r for r in results if 40 <= r['Entry_Score'] < 60]
     if tier2:
-        print(f"{'Ticker':<8} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'Stage2':<8} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
-        print("-" * 140)
+        print(f"{'Ticker':<8} {'QScore':<7} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<5} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
+        print("-" * 150)
         for r in tier2:
             risk_display = f"{r['Risk_%']:.1f}%" if r['Risk_%'] < 999 else "INVALID"
-            print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<6}/7 🟡 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
+            print(f"{r['Ticker']:<8} {r['Entry_Score']:<6} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<3}/7 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
     else:
         print("No Tier 2 setups currently")
 
     # Tier 3: Watch only (Score <40)
-    print("\n\n**🔴 TIER 3 — WAIT / MONITOR (Score <40)**\n")
+    print("\n\n**🔴 TIER 3 — WAIT / MONITOR (Entry Score <40)**\n")
     tier3 = [r for r in results if r['Entry_Score'] < 40]
     if tier3:
-        print(f"{'Ticker':<8} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'Stage2':<8} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
-        print("-" * 140)
+        print(f"{'Ticker':<8} {'QScore':<7} {'Price':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<5} {'RS 6M':<10} {'Vol':<8} {'RSI':<8} {'Sector'}")
+        print("-" * 150)
         for r in tier3:
             risk_display = f"{r['Risk_%']:.1f}%" if r['Risk_%'] < 999 else "INVALID"
-            print(f"{r['Ticker']:<8} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<6}/7 🔴 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
+            print(f"{r['Ticker']:<8} {r['Entry_Score']:<6} ${r['Current']:<9.2f} ${r['Pivot']:<9.2f} {r['Dist_to_Pivot']:<7.1f}% {risk_display:<7} {r['Stage2']:<3}/7 {r['RS_6M']:+>8.1f}% {r['Volume_Ratio']:<7.1f}x {r['RSI']:<7.1f} {r['Sector'][:20]}")
     else:
         print("No Tier 3 setups currently")
 
     # Summary
-    print("\n" + "=" * 140)
+    print("\n" + "=" * 150)
     print(f"\n📊 SUMMARY: {len(tier1)} Tier 1 | {len(tier2)} Tier 2 | {len(tier3)} Tier 3 | Total: {len(results)}")
 
     # Top 3 recommendations
@@ -245,7 +245,8 @@ def display_console_output(results):
         print("\n🎯 TOP 3 RECOMMENDATIONS:")
         for i, r in enumerate(results[:3], 1):
             risk_display = f"{r['Risk_%']:.1f}%" if r['Risk_%'] < 999 else "INVALID"
-            print(f"  {i}. {r['Ticker']} — {r['Dist_to_Pivot']:.1f}% from pivot, {risk_display} risk, Stage 2 {r['Stage2']}/7, RS {r['RS_6M']:+.1f}%")
+            tier_emoji = "🟢" if r['Entry_Score'] >= 60 else "🟡" if r['Entry_Score'] >= 40 else "🔴"
+            print(f"  {i}. {r['Ticker']} — QScore: {r['Entry_Score']} {tier_emoji} | {r['Dist_to_Pivot']:.1f}% from pivot | {risk_display} risk | S2: {r['Stage2']}/7 | RS: {r['RS_6M']:+.1f}%")
 
 def generate_csv_output(results):
     """Export results to CSV."""
@@ -257,6 +258,8 @@ def generate_csv_output(results):
     csv_path = OUTPUT_DIR / f"watchlist_analysis_{timestamp}.csv"
 
     df = pd.DataFrame(results)
+    # Rename Entry_Score to QScore for CSV output
+    df = df.rename(columns={'Entry_Score': 'QScore'})
     df.to_csv(csv_path, index=False)
     print(f"\n💾 CSV exported: {csv_path}")
 
@@ -296,22 +299,22 @@ def generate_html_output(results):
 <body>
     <h1>🎯 Watchlist Analysis — {pd.Timestamp.now().strftime('%Y-%m-%d')}</h1>
 
-    <h2 class="tier1">🟢 Tier 1 (Score ≥60)</h2>
+    <h2 class="tier1">🟢 Tier 1 (Entry Score ≥60)</h2>
     <table>
-        <tr><th>Ticker</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>Stage2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier1"><td>{r["Ticker"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if r['Entry_Score'] >= 60)}
+        <tr><th>Ticker</th><th>QScore</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier1"><td>{r["Ticker"]}</td><td>{r["Entry_Score"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if r['Entry_Score'] >= 60)}
     </table>
 
-    <h2 class="tier2">🟡 Tier 2 (Score 40-59)</h2>
+    <h2 class="tier2">🟡 Tier 2 (Entry Score 40-59)</h2>
     <table>
-        <tr><th>Ticker</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>Stage2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier2"><td>{r["Ticker"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if 40 <= r['Entry_Score'] < 60)}
+        <tr><th>Ticker</th><th>QScore</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier2"><td>{r["Ticker"]}</td><td>{r["Entry_Score"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if 40 <= r['Entry_Score'] < 60)}
     </table>
 
-    <h2 class="tier3">🔴 Tier 3 (Score <40)</h2>
+    <h2 class="tier3">🔴 Tier 3 (Entry Score <40)</h2>
     <table>
-        <tr><th>Ticker</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>Stage2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier3"><td>{r["Ticker"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if r['Entry_Score'] < 40)}
+        <tr><th>Ticker</th><th>QScore</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>RS 6M</th><th>Vol</th><th>RSI</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier3"><td>{r["Ticker"]}</td><td>{r["Entry_Score"]}</td><td>${r["Current"]:.2f}</td><td>${r["Pivot"]:.2f}</td><td>{r["Dist_to_Pivot"]:.1f}%</td><td>{(f"{r["Risk_%"]:.1f}%" if r["Risk_%"] < 999 else "<span class=\\'invalid\\'>INVALID</span>")}</td><td>{r["Stage2"]}/7</td><td>{r["RS_6M"]:+.1f}%</td><td>{r["Volume_Ratio"]:.1f}x</td><td>{r["RSI"]:.1f}</td><td>{r["Sector"]}</td></tr>' for r in results if r['Entry_Score'] < 40)}
     </table>
 </body>
 </html>"""
