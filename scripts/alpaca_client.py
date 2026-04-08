@@ -179,7 +179,8 @@ class AlpacaClient:
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
                 start=start,
-                end=end
+                end=end,
+                feed=DataFeed.IEX  # Free tier feed
             )
 
             bars = self.data_client.get_stock_bars(request)
