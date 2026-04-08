@@ -167,9 +167,7 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 - NYSE/NASDAQ only
 
 ### Entry Score Tiers (Automated by `analyze_watchlist.py`)
-Calculated using scoring formulae:
-
-**Note:** `analyze_watchlist.py` maximum is **110 pts** (includes RS 6M component), while `paper_engine_alpaca.py` maximum is **100 pts** (RS 6M hardcoded to 0 for performance). Both use the same Tier thresholds (≥60 for Tier 1).
+Calculated using scoring formulae (max 110 pts):
 
 | Component | Max Points | Criteria |
 |-----------|------------|----------|
@@ -477,7 +475,7 @@ python3 scripts/validate_alpaca.py
 - **Fixed countdown timer overwriting logs** - Removed `\r` carriage return that was erasing entry check output
 - **Fixed empty orders file error** - Order manager now handles empty/corrupted JSON gracefully
 - **Fixed historical data requirements** - Lowered minimum bars from 50 to 30 and increased request from 60 to 90 days. Stage 2 scoring now works with limited history (conditionally checks MAs based on available data)
-- **Documented entry score discrepancy** - `analyze_watchlist.py` scores up to 110 (includes RS 6M), while `paper_engine_alpaca.py` scores up to 100 (RS 6M hardcoded to 0)
+- **Fixed entry score discrepancy** - `paper_engine_alpaca.py` now calculates RS 6M component (fetches SPY data daily), matching `analyze_watchlist.py` max score of 110
 
 ## License
 
