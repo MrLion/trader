@@ -366,19 +366,28 @@ class AlpacaClient:
             quote_handler: Optional callback for quote updates
         """
         if not tickers:
+            print("⚠️ No tickers provided for WebSocket stream")
             return
 
-        self.stream = StockDataStream(self.api_key, self.secret_key)
+        try:
+            self.stream = StockDataStream(self.api_key, self.secret_key)
+        except Exception as e:
+            print(f"⚠️ Failed to create WebSocket stream: {e}")
+            self.ws_connected = False
+            return
 
         # Subscribe to trades
         async def _trade_callback(t):
-            self.price_cache[t.symbol] = {
-                'price': t.price,
-                'timestamp': t.timestamp,
-                'size': t.size
-            }
-            self.last_ws_message = datetime.now()
-            await trade_handler(t)
+            try:
+                self.price_cache[t.symbol] = {
+                    'price': t.price,
+                    'timestamp': datetime.now(),
+                    'size': getattr(t, 'size', 0)
+                }
+                self.last_ws_message = datetime.now()
+                await trade_handler(t)
+            except Exception as e:
+                print(f"⚠️ Trade callback error: {e}")
 
         self.stream.subscribe_trades(_trade_callback, *tickers)
 
@@ -389,13 +398,14 @@ class AlpacaClient:
             self.stream.subscribe_quotes(_quote_callback, *tickers)
 
         self.ws_connected = True
+        print(f"📡 WebSocket connected, streaming {len(tickers)} tickers...")
 
         try:
             await self.stream.run()
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
             self.ws_connected = False
-            raise
+            self.stream = None
 
     async def stop_price_stream(self):
         """Stop WebSocket stream."""

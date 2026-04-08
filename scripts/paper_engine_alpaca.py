@@ -178,14 +178,33 @@ class AlpacaPaperEngine:
         self.ws_running = True
         self.ws_tickers = set(all_tickers)
 
-        try:
-            await self.alpaca.start_price_stream(
-                tickers=all_tickers,
-                trade_handler=self._ws_trade_handler
-            )
-        except Exception as e:
-            print(f"⚠️ WebSocket error: {e}")
-            self.ws_running = False
+        retry_count = 0
+        max_retries = 3
+
+        while retry_count < max_retries and self.running:
+            try:
+                await self.alpaca.start_price_stream(
+                    tickers=all_tickers,
+                    trade_handler=self._ws_trade_handler
+                )
+                # If we get here, stream ended normally
+                print("🔄 WebSocket stream ended, restarting...")
+                retry_count += 1
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                print(f"⚠️ WebSocket error: {e}")
+                retry_count += 1
+
+                if retry_count < max_retries:
+                    wait_time = min(2 ** retry_count, 30)  # Exponential backoff
+                    print(f"🔄 Retrying WebSocket connection in {wait_time}s... "
+                          f"({retry_count}/{max_retries})")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print("❌ WebSocket failed after max retries. Falling back to REST polling.")
+
+        self.ws_running = False
 
     def _load_watchlist_tickers(self) -> List[str]:
         """Load watchlist tickers."""
@@ -199,12 +218,18 @@ class AlpacaPaperEngine:
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price from cache or REST API."""
-        # Try WebSocket cache first
+        # Try WebSocket cache first (with freshness check)
         if ticker in self.price_cache:
-            return self.price_cache[ticker]['price']
+            cache_entry = self.price_cache[ticker]
+            age = (datetime.now() - cache_entry.get('timestamp', datetime.now())).total_seconds()
+            if age < 60:  # Cache valid for 60 seconds
+                return cache_entry['price']
 
         # Fallback to REST
-        return self.alpaca.get_latest_price(ticker)
+        price = self.alpaca.get_latest_price(ticker, use_fallback=True)
+        if price:
+            self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
+        return price
 
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions."""
@@ -451,7 +476,12 @@ class AlpacaPaperEngine:
         print(f"\n{'='*60}")
         print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"📈 Market: {'OPEN' if self._is_market_hours() else 'CLOSED'}")
-        print(f"📡 WebSocket: {'Connected' if self.alpaca.is_ws_healthy() else 'Disconnected'}")
+
+        # WebSocket status
+        if self.alpaca.is_ws_healthy():
+            print(f"📡 WebSocket: Connected ({len(self.price_cache)} tickers cached)")
+        else:
+            print(f"📡 WebSocket: Disconnected (using REST fallback)")
 
         stats = self.state.get_stats()
         orders = self.order_manager.get_orders_summary()
