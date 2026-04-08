@@ -14,3 +14,5 @@ data/config/alpaca_config.json
 
 # Alpaca order data (runtime state)
 data/alpaca_orders.json
+data/paper_*.json
+data/paper_*.jsonl

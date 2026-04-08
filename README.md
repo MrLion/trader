@@ -277,6 +277,68 @@ The engine automatically enters positions when **ALL** conditions are met:
 | Daily Entries | ≤ 5 per day | Circuit breaker |
 | Daily Loss | > -2% equity | Stop trading limit |
 
+### Watchlist to Order Decision Flow
+
+This diagram shows exactly how a stock in your `data/watchlist.csv` becomes an Alpaca order:
+
+```
+Watchlist CSV (Ticker + Pivot_Price)
+    ↓
+Engine loads tickers every 30 seconds
+    ↓
+For each ticker: _analyze_ticker()
+    ├── Fetch 60-day price history (Alpaca)
+    ├── Get current price (WebSocket cache)
+    ├── Calculate Stage 2 score (0-7)
+    ├── Get Pivot_Price from watchlist.csv
+    ├── Calculate metrics:
+    │   ├── Distance to Pivot: (pivot - price) / price
+    │   ├── 6M Return: price vs 130 days ago
+    │   ├── ATR: 14-day Average True Range
+    │   ├── Stop: price - 2×ATR
+    │   └── Entry Score: f(Stage2, Risk%, Distance, Momentum)
+    └── Return analysis dict
+    ↓
+Check Entry Filters (_check_entries)
+    ├── Entry Score ≥ 60? (Tier 1)
+    ├── Distance to Pivot ≤ 1.0%?
+    ├── SPY ≥ -0.3%? (market condition)
+    ├── Not already in position?
+    └── No pending order for ticker?
+    ↓
+Risk Validation (can_enter_position)
+    ├── Daily entries < 5? (circuit breaker)
+    ├── Sector positions < 3?
+    ├── Position size < 20% equity?
+    ├── Sufficient buying power?
+    └── Daily loss > -2%? (stop trading)
+    ↓
+Position Sizing
+    └── Shares = (Equity × 0.0075) / (Entry - Stop)
+        (Risks 0.75% of account per trade)
+    ↓
+Order Submission (order_manager.submit_entry)
+    └── Alpaca submit_market_order(ticker, shares, stop_price)
+        (Market order with stop-loss bracket)
+    ↓
+🚀 Position opened
+```
+
+**Required watchlist.csv columns:**
+- `Ticker` — Stock symbol (e.g., "AAPL")
+- `Pivot_Price` — Your breakout entry level (REQUIRED for distance calculation)
+
+**Optional columns:**
+- `Sector` — Used for sector limit tracking
+- `Stop_Level` — Ignored (engine calculates 2×ATR stop)
+- `RS_Rank` — Ignored (engine recalculates)
+
+**Common rejection reasons:**
+1. **Entry Score < 60** — Setup not strong enough
+2. **Distance > 1%** — Price too far from pivot
+3. **SPY down > 0.3%** — Market condition filter
+4. **Already signaled today** — Prevents duplicate orders
+
 ### Auto-Exit Rules
 
 Positions are automatically closed based on trailing stops:
