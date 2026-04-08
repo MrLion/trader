@@ -426,15 +426,12 @@ class AlpacaClient:
         print(f"📡 WebSocket stream starting for {len(tickers)} tickers...")
 
         try:
-            # Run the stream - this blocks until connection closes
-            await self.stream.run()
+            # Run the stream - use _run_forever() to avoid event loop conflict
+            # This is a known workaround for alpaca-py bug in v0.41.0-0.42.1
+            await self.stream._run_forever()
         except asyncio.CancelledError:
             # Normal shutdown
             print("🔄 WebSocket cancelled (normal shutdown)")
-        except AttributeError as e:
-            # Known Alpaca library internal error - log but don't crash
-            print(f"⚠️ WebSocket internal error (non-fatal): {e}")
-            print("   Falling back to REST API for prices")
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
         finally:
