@@ -474,6 +474,7 @@ python3 scripts/validate_alpaca.py
 - **Fixed proximity scoring bug** - Entry score now correctly awards proximity points for stocks both above and below pivot (symmetric ±3%/5%/10% scoring)
 - **Fixed countdown timer overwriting logs** - Removed `\r` carriage return that was erasing entry check output
 - **Fixed empty orders file error** - Order manager now handles empty/corrupted JSON gracefully
+- **Fixed historical data requirements** - Lowered minimum bars from 50 to 30 and increased request from 60 to 90 days. Stage 2 scoring now works with limited history (conditionally checks MAs based on available data)
 
 ## License
 
