@@ -77,7 +77,10 @@ class OrderManager:
         if self.orders_file.exists():
             try:
                 with open(self.orders_file, 'r') as f:
-                    data = json.load(f)
+                    content = f.read().strip()
+                    if not content:
+                        return  # Empty file, nothing to load
+                    data = json.loads(content)
                     for order_id, order_data in data.get('pending', {}).items():
                         self.pending_orders[order_id] = Order.from_dict(order_data)
                     for order_id, order_data in data.get('filled', {}).items():

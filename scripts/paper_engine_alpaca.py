@@ -346,18 +346,21 @@ class AlpacaPaperEngine:
         """Scan for entry opportunities."""
         market_ok, market_msg = self._check_market_conditions()
         if not market_ok:
-            print(f"   ⏸️  Market condition failed: {market_msg}")
+            print(f"⏸️  Market condition failed: {market_msg}")
             return
 
         watchlist = self._load_watchlist_tickers()
         if not watchlist:
-            print("   ⏸️  No tickers in watchlist")
+            print("⏸️  No tickers in watchlist")
             return
+
+        print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
 
         checked = 0
         eligible = 0
         rejected_score = 0
         rejected_distance = 0
+        logs = []
 
         for ticker in watchlist:
             analysis = self._analyze_ticker(ticker)
@@ -366,24 +369,30 @@ class AlpacaPaperEngine:
 
             checked += 1
 
-            # Entry criteria with detailed logging
+            # Entry criteria with detailed logging (accumulate for batch output)
             if analysis['entry_score'] < ENTRY_THRESHOLD:
-                print(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {ENTRY_THRESHOLD} (need Tier 1)")
+                logs.append(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {ENTRY_THRESHOLD} (need Tier 1)")
                 rejected_score += 1
                 continue
 
             # Fixed: symmetric distance filter (±1%)
             if not (-MAX_DIST_TO_PIVOT <= analysis['dist_to_pivot'] <= MAX_DIST_TO_PIVOT):
-                print(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{MAX_DIST_TO_PIVOT}% (Current ${analysis['current']:.2f}, Pivot ${analysis['pivot']:.2f})")
+                logs.append(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{MAX_DIST_TO_PIVOT}% (Current ${analysis['current']:.2f}, Pivot ${analysis['pivot']:.2f})")
                 rejected_distance += 1
                 continue
 
             eligible += 1
-            print(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}% - EXECUTING")
+            logs.append(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}% - EXECUTING")
+            print("\n".join(logs))
+            logs.clear()
             self._execute_entry(analysis)
 
+        # Print accumulated logs
+        if logs:
+            print("\n".join(logs))
+
         if checked > 0:
-            print(f"\n   📊 Checked: {checked} | Eligible: {eligible} | Rejected (score): {rejected_score} | Rejected (distance): {rejected_distance}")
+            print(f"\n📊 Entry Check Summary: Checked {checked} | Eligible {eligible} | Rejected (score) {rejected_score} | Rejected (distance) {rejected_distance}")
 
     def _execute_entry(self, analysis: Dict):
         """Execute entry via Alpaca."""
@@ -556,9 +565,8 @@ class AlpacaPaperEngine:
                 for i in range(30, 0, -1):
                     if not self.running:
                         break
-                    print(f"\r⏱️  Next check in {i}s...", end='', flush=True)
+                    print(f"⏱️  Next check in {i}s...")
                     await asyncio.sleep(1)
-                print()
 
             except Exception as e:
                 print(f"\n❌ Error in main loop: {e}")

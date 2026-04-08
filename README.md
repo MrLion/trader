@@ -391,6 +391,25 @@ Positions are automatically closed based on trailing stops:
 | Hard Stop | Initial | Price hits 2×ATR stop |
 | Target | 2R+ | Profit target hit |
 
+### Entry Score Calculation
+
+The entry score (0-100) determines Tier classification:
+
+| Component | Max Points | Criteria |
+|-----------|------------|----------|
+| Stage 2 Score | 30 pts | ≥6/7 = +30, ≥5/7 = +25, ≥4/7 = +20, ≥3/7 = +10, ≥2/7 = +5, <2 = +0 |
+| Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, <25% = +5, ≥25% = +0 |
+| **Proximity** | **25 pts** | **Within ±3% of pivot = +25, ±5% = +15, ±10% = +5** |
+| Momentum | 15 pts | 6M return >50% = +15, >25% = +10, ≤25% = +0 |
+| Relative Strength | 10 pts | RS 6M >20% = +10, >10% = +5, ≤10% = +0 |
+
+**Note:** Proximity is symmetric - stocks both above (breakout) and below (approaching) the pivot receive points based on absolute distance.
+
+**Tier Thresholds:**
+- 🟢 Tier 1: ≥ 60 points (eligible for auto-entry)
+- 🟡 Tier 2: 40-59 points (monitor for better entry)
+- 🔴 Tier 3: < 40 points (too far or too wide)
+
 ### Architecture
 
 | Component | Purpose | Key Features |
@@ -448,6 +467,13 @@ python3 scripts/validate_alpaca.py
 - `AGENTS.MD` - Complete trading playbook with operating rhythm, entry/exit protocols, and journaling guidelines
 - `CLAUDE.md` - Development operations and architecture notes
 - `TOOLS.md` - Technical documentation for yfinance and script usage
+
+## Recent Fixes
+
+### 2026-04-08
+- **Fixed proximity scoring bug** - Entry score now correctly awards proximity points for stocks both above and below pivot (symmetric ±3%/5%/10% scoring)
+- **Fixed countdown timer overwriting logs** - Removed `\r` carriage return that was erasing entry check output
+- **Fixed empty orders file error** - Order manager now handles empty/corrupted JSON gracefully
 
 ## License
 

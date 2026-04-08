@@ -187,12 +187,13 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
     elif risk_pct < 25:
         entry_score += 5
 
-    # Proximity to pivot component (25 pts max)
-    if 0 < dist_to_pivot < 3:
+    # Proximity to pivot component (25 pts max) - symmetric (within ±10%)
+    dist_abs = abs(dist_to_pivot)
+    if dist_abs < 3:
         entry_score += 25
-    elif 0 < dist_to_pivot < 5:
+    elif dist_abs < 5:
         entry_score += 15
-    elif 0 < dist_to_pivot < 10:
+    elif dist_abs < 10:
         entry_score += 5
 
     # Momentum component (15 pts max)
