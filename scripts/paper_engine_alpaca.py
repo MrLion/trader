@@ -270,15 +270,21 @@ class AlpacaPaperEngine:
             # Calculate Stage 2 score
             stage2 = calculate_stage2_score(hist)
 
-            # Get pivot from watchlist
+            # Get pivot and sector from watchlist
             pivot = current
+            sector = 'Unknown'
             try:
                 df = pd.read_csv(WATCHLIST_PATH)
                 row = df[df['Ticker'] == ticker]
-                if not row.empty and 'Pivot_Price' in row.columns:
-                    pivot_val = row['Pivot_Price'].values[0]
-                    if not pd.isna(pivot_val):
-                        pivot = float(pivot_val)
+                if not row.empty:
+                    if 'Pivot_Price' in row.columns:
+                        pivot_val = row['Pivot_Price'].values[0]
+                        if not pd.isna(pivot_val):
+                            pivot = float(pivot_val)
+                    if 'Sector' in row.columns:
+                        sector_val = row['Sector'].values[0]
+                        if not pd.isna(sector_val):
+                            sector = str(sector_val)
             except Exception:
                 pass
 
@@ -318,7 +324,7 @@ class AlpacaPaperEngine:
                 'target': target,
                 'stage2': stage2,
                 'entry_score': entry_score,
-                'sector': 'Unknown'
+                'sector': sector
             }
 
         except Exception as e:
