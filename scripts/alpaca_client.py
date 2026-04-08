@@ -383,10 +383,17 @@ class AlpacaClient:
         try:
             # Create stream with IEX feed (free tier)
             from alpaca.data.enums import DataFeed
+            import ssl
+            import certifi
+
+            # Create SSL context with certifi certificates (fixes macOS cert issues)
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+
             self.stream = StockDataStream(
                 self.api_key,
                 self.secret_key,
-                feed=DataFeed.IEX
+                feed=DataFeed.IEX,
+                websocket_params={'ssl': ssl_context}
             )
         except Exception as e:
             print(f"⚠️ Failed to create WebSocket stream: {e}")
@@ -441,7 +448,10 @@ class AlpacaClient:
     async def stop_price_stream(self):
         """Stop WebSocket stream."""
         if self.stream:
-            await self.stream.stop()
+            try:
+                await asyncio.wait_for(self.stream.stop(), timeout=3.0)
+            except (asyncio.TimeoutError, Exception):
+                pass  # Don't hang on cleanup
             self.ws_connected = False
             self.stream = None
 
