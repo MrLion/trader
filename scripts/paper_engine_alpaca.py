@@ -178,33 +178,17 @@ class AlpacaPaperEngine:
         self.ws_running = True
         self.ws_tickers = set(all_tickers)
 
-        retry_count = 0
-        max_retries = 3
-
-        while retry_count < max_retries and self.running:
-            try:
-                await self.alpaca.start_price_stream(
-                    tickers=all_tickers,
-                    trade_handler=self._ws_trade_handler
-                )
-                # If we get here, stream ended normally
-                print("🔄 WebSocket stream ended, restarting...")
-                retry_count += 1
-                await asyncio.sleep(5)
-
-            except Exception as e:
-                print(f"⚠️ WebSocket error: {e}")
-                retry_count += 1
-
-                if retry_count < max_retries:
-                    wait_time = min(2 ** retry_count, 30)  # Exponential backoff
-                    print(f"🔄 Retrying WebSocket connection in {wait_time}s... "
-                          f"({retry_count}/{max_retries})")
-                    await asyncio.sleep(wait_time)
-                else:
-                    print("❌ WebSocket failed after max retries. Falling back to REST polling.")
-
-        self.ws_running = False
+        try:
+            await self.alpaca.start_price_stream(
+                tickers=all_tickers,
+                trade_handler=self._ws_trade_handler
+            )
+            # Stream ended (either normally or with error)
+        except Exception as e:
+            print(f"⚠️ WebSocket error: {e}")
+        finally:
+            self.ws_running = False
+            print("📡 WebSocket disconnected. Using REST polling for prices.")
 
     def _load_watchlist_tickers(self) -> List[str]:
         """Load watchlist tickers."""
