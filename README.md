@@ -204,11 +204,142 @@ The watchlist (`data/watchlist.csv`) tracks:
 - Sector, Industry, Pattern_Type
 - Notes, Added_Date
 
+## Alpaca Paper Trading (Automated)
+
+The system now supports **automated paper trading** via Alpaca API with real-time WebSocket data. This executes trades automatically based on your watchlist setups.
+
+### Setup
+
+```bash
+# 1. Configure Alpaca credentials
+python3 scripts/setup_alpaca.py
+
+# 2. Test connection
+python3 scripts/setup_alpaca.py --test
+
+# 3. Validate everything is working
+python3 scripts/validate_alpaca.py
+```
+
+**Or set environment variables:**
+```bash
+export ALPACA_API_KEY="your_key"
+export ALPACA_SECRET_KEY="your_secret"
+```
+
+### Start Automated Trading
+
+```bash
+# Paper trading (default)
+python3 scripts/paper_engine_alpaca.py
+
+# With custom starting capital
+python3 scripts/paper_engine_alpaca.py --capital 500000
+
+# For live trading (real money)
+python3 scripts/paper_engine_alpaca.py --mode live
+```
+
+### Monitor Positions
+
+```bash
+# View account status
+python3 scripts/paper_portfolio.py status
+
+# Real-time positions with current prices
+python3 scripts/paper_portfolio.py live
+
+# Today's trades
+python3 scripts/paper_portfolio.py today
+
+# Full trade history
+python3 scripts/paper_portfolio.py history
+
+# Performance report
+python3 scripts/paper_portfolio.py report
+
+# Emergency close position
+python3 scripts/paper_portfolio.py close AAPL --reason "manual"
+```
+
+### Auto-Entry Rules
+
+The engine automatically enters positions when **ALL** conditions are met:
+
+| Rule | Threshold | Source |
+|------|-----------|--------|
+| Entry Score | ≥ 60 (Tier 1) | Watchlist analysis |
+| Distance to Pivot | ≤ 1% | Real-time price vs pivot |
+| Volume | ≥ 1.5x average | Alpaca real-time data |
+| Market Condition | SPY ≥ -0.3% | Alpaca SPY data |
+| Sector Limit | < 3 positions/sector | Local state |
+| Position Size | < 20% equity | Risk calculation |
+| Daily Entries | ≤ 5 per day | Circuit breaker |
+| Daily Loss | > -2% equity | Stop trading limit |
+
+### Auto-Exit Rules
+
+Positions are automatically closed based on trailing stops:
+
+| R Multiple | Stop Type | Trigger |
+|------------|-----------|---------|
+| +1R | BREAKEVEN | Move to entry price |
+| +1.5-2R | EMA10 | Trail 10-day EMA |
+| +3R+ | EMA21 | Trail 21-day EMA |
+| Hard Stop | Initial | Price hits 2×ATR stop |
+| Target | 2R+ | Profit target hit |
+
+### Architecture
+
+| Component | Purpose | Key Features |
+|-----------|---------|--------------|
+| `alpaca_client.py` | API client | REST + WebSocket, rate limiting, yfinance fallback |
+| `paper_engine_alpaca.py` | Main engine | 30s polling loop, auto-entry/exit, WebSocket streaming |
+| `order_manager.py` | Order lifecycle | Position sync, order tracking, fill notifications |
+| `rate_limiter.py` | Rate management | 200 req/min limit, circuit breaker, exponential backoff |
+| `paper_portfolio.py` | CLI monitoring | Status, live prices, reports, emergency close |
+
+### Data Flow
+
+1. **WebSocket Stream** — Real-time price updates (fallback to REST)
+2. **Entry Detection** — Scan watchlist every 30 seconds during market hours
+3. **Order Submission** — Market orders via Alpaca API
+4. **Fill Tracking** — Poll order status, update local state
+5. **Exit Monitoring** — WebSocket price updates trigger exit checks
+6. **Position Sync** — Two-way sync with Alpaca (handles external changes)
+
+### Risk Management
+
+- **Account Risk**: 0.75% per trade
+- **Position Sizing**: `shares = (equity × 0.0075) / (price - stop)`
+- **Circuit Breakers**: Daily loss limit (-2%), max 5 entries/day
+- **Rate Limiting**: 200 requests/minute with automatic backoff
+- **Provider Fallback**: Alpaca → yfinance on failures
+
+### Testing
+
+```bash
+# Run all unit tests
+python3 tests/test_alpaca_integration.py
+
+# Run validation suite
+python3 scripts/validate_alpaca.py
+```
+
+**Unit Tests (15/15 passing):**
+- Rate limiter tracking and backoff
+- Circuit breaker activation
+- Health monitoring and failover
+- Order lifecycle management
+- Position synchronization
+
 ## External Integrations
 
 - **Data Source**: Yahoo Finance via `yfinance`
+- **Real-Time Data**: Alpaca API (WebSocket + REST)
+- **Automated Trading**: Alpaca paper/live accounts
 - **Communications**: Telegram via `deliver_report.py` (primary) or `openclaw message send`
-- **Broker**: Manual execution (alerts feed into broker platform)
+- **Broker**: Alpaca (automated) or manual execution
 
 ## Documentation
 
