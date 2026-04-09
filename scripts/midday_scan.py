@@ -14,6 +14,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score
+from trading_exceptions import TradingExceptionHandler
 
 
 def load_watchlist_tickers():
@@ -26,8 +27,12 @@ def load_watchlist_tickers():
                 reader = csv.DictReader(f)
                 for row in reader:
                     tickers.append(row['Ticker'])
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "watchlist_load", e,
+                severity=TradingExceptionHandler.WARNING,
+                file=str(watchlist_path)
+            )
     return tickers
 
 
@@ -52,8 +57,12 @@ def load_tickers_from_file(filepath):
                     ticker = line.strip().upper()
                     if ticker and not ticker.startswith('#'):
                         tickers.append(ticker)
-    except Exception:
-        pass
+    except Exception as e:
+        TradingExceptionHandler.log_exception(
+            "tickers_from_file", e,
+            severity=TradingExceptionHandler.WARNING,
+            filepath=str(filepath)
+        )
 
     return tickers
 
@@ -471,7 +480,12 @@ Note: You must specify a ticker source (--include-watchlist or --tickers-file)
                 '$Vol_M': round(dollar_vol / 1_000_000, 1)
             })
 
-        except Exception:
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "ticker_analysis", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
             continue
 
     # Sort by Entry Score (descending)

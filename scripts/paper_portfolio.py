@@ -10,6 +10,11 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+# Add scripts directory to path for local imports
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from trading_exceptions import TradingExceptionHandler
+
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
@@ -41,8 +46,12 @@ def load_trades(limit: int = 100) -> List[Dict]:
                 line = line.strip()
                 if line:
                     trades.append(json.loads(line))
-    except Exception:
-        pass
+    except Exception as e:
+        TradingExceptionHandler.log_exception(
+            "load_recent_trades", e,
+            severity=TradingExceptionHandler.WARNING,
+            file=str(TRADES_FILE)
+        )
 
     return trades[-limit:] if trades else []
 
@@ -71,8 +80,12 @@ def cmd_status(args):
     watchlist_df = None
     try:
         watchlist_df = pd.read_csv(DATA_DIR / 'watchlist.csv')
-    except Exception:
-        pass
+    except Exception as e:
+        TradingExceptionHandler.log_exception(
+            "watchlist_load", e,
+            severity=TradingExceptionHandler.WARNING,
+            file=str(DATA_DIR / 'watchlist.csv')
+        )
 
     print("\n" + "=" * 60)
     print("📊 PAPER TRADING ACCOUNT STATUS")
@@ -150,8 +163,12 @@ def cmd_status(args):
                             stop_val = row['Stop_Level'].values[0]
                             if pd.notna(stop_val) and stop_val > 0:
                                 stop = float(stop_val)
-                except Exception:
-                    pass
+                except Exception as e:
+                    TradingExceptionHandler.log_exception(
+                        "stop_level_lookup", e,
+                        severity=TradingExceptionHandler.WARNING,
+                        ticker=ticker
+                    )
 
             stop_str = f"${stop:.2f}" if stop > 0 else "N/A"
             print(f"   {ticker:6} | {sector[:12]:12} | {shares:4} shares | "

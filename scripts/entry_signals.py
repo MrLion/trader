@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from alpaca_client import AlpacaClient
 from traderlib import calculate_stage2_score, get_entry_score
+from trading_exceptions import TradingExceptionHandler
 
 # Configurable paths
 DATA_DIR = Path(__file__).parent.parent / 'data'
@@ -68,16 +69,24 @@ class EntrySignalScanner:
             if quote:
                 # Use ask price for conservative entry estimate
                 return quote.get('ask_price') or quote.get('close_price')
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "get_current_price_quote", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
 
         # Fallback to historical
         try:
             hist = self.alpaca.get_historical_bars(ticker, days=5)
             if hist is not None and len(hist) > 0:
                 return hist['Close'].iloc[-1]
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "get_current_price_hist", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
 
         return None
 
@@ -100,8 +109,12 @@ class EntrySignalScanner:
                     return False, f"SPY {change_pct:+.2f}% (below {MAX_SPY_DECLINE}%)"
 
                 return True, f"SPY {change_pct:+.2f}%"
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "market_conditions", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker="SPY"
+            )
 
         return True, "SPY OK"
 
@@ -135,8 +148,13 @@ class EntrySignalScanner:
                         sector_val = row['Sector'].values[0]
                         if not pd.isna(sector_val):
                             sector = str(sector_val)
-            except Exception:
-                pass
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "sector_lookup", e,
+                    severity=TradingExceptionHandler.WARNING,
+                    ticker=ticker,
+                    file=str(WATCHLIST_PATH)
+                )
 
             # Calculate metrics
             ret_6m = 0

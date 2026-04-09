@@ -31,6 +31,7 @@ from paper_exits import ExitEngine, ExitSignal
 def create_engine_with_mocks(mode='paper', mock_datetime=None):
     """Helper to create engine with all necessary mocks."""
     from paper_engine_alpaca import AlpacaPaperEngine
+    from paper_state import PaperState
 
     with patch('paper_engine_alpaca.AlpacaClient') as mock_client:
         mock_alpaca = mock_client.return_value
@@ -43,9 +44,24 @@ def create_engine_with_mocks(mode='paper', mock_datetime=None):
         # Create engine with patched methods to avoid file operations
         with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
             with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
-                engine = AlpacaPaperEngine(mode=mode)
-                engine.alpaca = mock_alpaca
-                return engine, mock_alpaca
+                with patch.object(PaperState, '_load_state', return_value=None):
+                    engine = AlpacaPaperEngine(mode=mode)
+                    engine.alpaca = mock_alpaca
+
+                    # Ensure clean state
+                    engine.state.positions = {}
+                    engine.state.cash = 100000.0
+                    engine.state.day_pnl = 0.0
+
+                    # Mock state.get_stats() to return actual float values
+                    engine.state.get_stats = Mock(return_value={
+                        'equity': 100000.0,
+                        'cash': 100000.0,
+                        'open_positions': 0,
+                        'day_pnl': 0.0
+                    })
+
+                    return engine, mock_alpaca
 
 
 class TestPaperEngineMarketHours(unittest.TestCase):
@@ -271,7 +287,7 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
 
     def test_execute_entry_pending_order_exists(self):
         """Test entry rejected when order already pending."""
-        self.engine.order_manager.pending_orders['AAPL'] = Mock()
+        self.engine.order_manager.pending_orders['AAPL'] = Mock(ticker='AAPL')
 
         analysis = {
             'ticker': 'AAPL',

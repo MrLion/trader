@@ -21,7 +21,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 import pytz
 
-from scripts.paper_engine_alpaca import ENTRY_THRESHOLD, MAX_DIST_TO_PIVOT
 from scripts.paper_state import PaperState, Position
 
 

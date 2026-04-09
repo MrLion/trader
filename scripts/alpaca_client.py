@@ -34,6 +34,7 @@ CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 # Import rate limiter
 sys.path.insert(0, str(Path(__file__).parent))
 from rate_limiter import RateLimiter, health_monitor
+from trading_exceptions import TradingExceptionHandler
 
 
 class AlpacaClient:
@@ -181,8 +182,12 @@ class AlpacaClient:
                 price = float(hist['Close'].iloc[-1])
                 health_monitor.mark_success('yfinance')
                 return price
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "yfinance_price_fallback", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
         return None
 
     def get_historical_bars(self, ticker: str, days: int = None,
@@ -253,8 +258,12 @@ class AlpacaClient:
             if len(hist) > 0:
                 health_monitor.mark_success('yfinance')
                 return hist
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "yfinance_hist_fallback", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
         return None
 
     def submit_market_order(self, ticker: str, shares: int, side: str,
@@ -408,8 +417,11 @@ class AlpacaClient:
             try:
                 await self.stream.stop()
                 await asyncio.sleep(0.5)
-            except Exception:
-                pass
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "websocket_cleanup", e,
+                    severity=TradingExceptionHandler.WARNING
+                )
             self.stream = None
             self.ws_connected = False
 

@@ -138,8 +138,8 @@ def generate_html_report(report_data, output_path):
             <td class="{change_class}">{stock.get('change_pct', 0):+.2f}%</td>
             <td class="{vol_class}">{stock.get('volume_ratio', 1):.1f}x</td>
             <td>${stock.get('close', 0):.2f}</td>
-            <td>${stock.get('pivot', 0):.2f}</td>
-            <td>{stock.get('dist_to_pivot', 0):.1f}%</td>
+            <td>${(stock.get('pivot') or 0):.2f}</td>
+            <td>{(stock.get('dist_to_pivot') or 0):.1f}%</td>
             <td class="tier-{stock.get('tier', '3')}">T{stock.get('tier', '3')}</td>
         </tr>
         '''

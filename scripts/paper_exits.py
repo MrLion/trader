@@ -9,6 +9,10 @@ from datetime import datetime
 import yfinance as yf
 import pandas as pd
 
+# Add scripts directory for local imports
+sys.path.insert(0, str(Path(__file__).parent))
+from trading_exceptions import TradingExceptionHandler
+
 # Add parent directory to path for traderlib imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -279,7 +283,12 @@ class ExitEngine:
 
             return round(stop, 2)
 
-        except Exception:
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "atr_stop_calculation", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker if 'ticker' in locals() else 'unknown'
+            )
             # Fallback
             fallback = self.risk_config.stop_loss.fallback_pct if self.risk_config else 0.07
             return round(entry_price * (1 - fallback), 2)

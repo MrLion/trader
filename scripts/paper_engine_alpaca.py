@@ -178,6 +178,10 @@ class AlpacaPaperEngine:
             self.state.cash = account['cash']
 
         except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "alpaca_sync", e,
+                severity=TradingExceptionHandler.ERROR
+            )
             print(f"⚠️ Error syncing with Alpaca: {e}")
 
     def _refresh_spy_cache(self) -> bool:
@@ -312,7 +316,12 @@ class AlpacaPaperEngine:
         try:
             df = pd.read_csv(WATCHLIST_PATH)
             return df['Ticker'].tolist()
-        except Exception:
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "watchlist_ticker_load", e,
+                severity=TradingExceptionHandler.WARNING,
+                file=str(WATCHLIST_PATH)
+            )
             return []
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
@@ -405,8 +414,13 @@ class AlpacaPaperEngine:
                         sector_val = row['Sector'].values[0]
                         if not pd.isna(sector_val):
                             sector = str(sector_val)
-            except Exception:
-                pass
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "sector_lookup", e,
+                    severity=TradingExceptionHandler.WARNING,
+                    ticker=ticker,
+                    file=str(WATCHLIST_PATH)
+                )
 
             # Calculate metrics
             ret_6m = 0

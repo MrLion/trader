@@ -7,13 +7,13 @@
 account:
   # Maximum risk per trade as % of total account equity
   # This is your R - the amount you're willing to lose if stop is hit
-  risk_per_trade_pct: 0.0075  # 0.75% of account per trade
+  risk_per_trade_pct: 0.005  # 0.75% of account per trade
 
   # Maximum daily loss before halting trading
   daily_loss_limit_pct: 0.02  # 2% of initial capital
 
   # Maximum positions per sector
-  max_sector_positions: 3
+  max_sector_positions: 5
 
   # Daily entry limit
   max_entries_per_day: 10
@@ -24,13 +24,13 @@ account:
 position:
   # Maximum position size as % of account equity (hard cap)
   # Formula: position_value / equity <= max_position_pct
-  max_position_pct: 0.05  # 5% max position regardless of stop distance
+  max_position_pct: 0.10  # 5% max position regardless of stop distance
 
   # Alternative formula: min(account_risk / stop_distance, max_position_pct)
   # Example: 0.75% / 5% stop = 15% position, but capped at 5%
 
   # Minimum position size (to avoid tiny positions)
-  min_position_pct: 0.005  # 0.5% of equity minimum
+  min_position_pct: 0.05  # 5% of equity minimum
 
 # =============================================================================
 # STOP LOSS CONFIGURATION
@@ -103,7 +103,7 @@ profiles:
     account:
       risk_per_trade_pct: 0.005    # 0.5%
     position:
-      max_position_pct: 0.03       # 3%
+      max_position_pct: 0.1       # 10%
     stop_loss:
       max_stop_distance_pct: 0.08  # 8% max
 

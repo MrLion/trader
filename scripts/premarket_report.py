@@ -18,6 +18,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score
+from trading_exceptions import TradingExceptionHandler
 
 def generate_html_report(report_data, output_path):
     """Generate standalone HTML report with embedded CSS"""
@@ -712,6 +713,11 @@ def load_watchlist():
                         'sector': row.get('Sector', 'Unknown')
                     })
                 except Exception as e:
+                    TradingExceptionHandler.log_exception(
+                        "ticker_analysis", e,
+                        severity=TradingExceptionHandler.WARNING,
+                        ticker=row.get('Ticker', 'unknown')
+                    )
                     continue
             except (ValueError, KeyError):
                 continue
