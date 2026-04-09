@@ -543,11 +543,14 @@ class TestPaperEngineExitExecution(unittest.TestCase):
         mock_result = Mock()
         mock_result.realized_pnl = 500.0
 
-        with patch.object(self.engine.state, 'close_position', return_value=mock_result):
-            with patch('builtins.print') as mock_print:
-                self.engine._execute_exit(position, signal)
+        mock_state = Mock()
+        mock_state.close_position = Mock(return_value=mock_result)
+        self.engine.state = mock_state
 
-        self.engine.state.close_position.assert_called_once_with(
+        with patch('builtins.print') as mock_print:
+            self.engine._execute_exit(position, signal)
+
+        mock_state.close_position.assert_called_once_with(
             ticker='AAPL',
             exit_price=145.0,
             reason='STOP_HIT'
@@ -593,13 +596,16 @@ class TestPaperEngineEntryExecution(unittest.TestCase):
         }
 
         mock_position = Mock()
+        mock_state = Mock()
+        mock_state.can_enter_position = Mock(return_value=(True, 'OK'))
+        mock_state.enter_position = Mock(return_value=mock_position)
+        mock_state.get_equity = Mock(return_value=100000)
+        self.engine.state = mock_state
 
-        with patch.object(self.engine.state, 'can_enter_position', return_value=(True, 'OK')):
-            with patch.object(self.engine.state, 'enter_position', return_value=mock_position):
-                with patch('builtins.print') as mock_print:
-                    self.engine._execute_entry(analysis)
+        with patch('builtins.print') as mock_print:
+            self.engine._execute_entry(analysis)
 
-        self.engine.state.enter_position.assert_called_once()
+        mock_state.enter_position.assert_called_once()
         self.assertIn('AAPL', self.engine.signaled_tickers)
 
     def test_execute_entry_validation_fails(self):
