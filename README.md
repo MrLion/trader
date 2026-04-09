@@ -286,7 +286,7 @@ python3 scripts/paper_engine_alpaca.py --mode live
 ### Monitor Positions
 
 ```bash
-# View account status
+# View account status (shows cash, equity, day P&L, unrealized P&L, open positions)
 python3 scripts/paper_portfolio.py status
 
 # Real-time positions with current prices (fetches live yfinance data)
@@ -304,6 +304,12 @@ python3 scripts/paper_portfolio.py report
 # Emergency close position
 python3 scripts/paper_portfolio.py close AAPL --reason "manual"
 ```
+
+**Status Report Fields:**
+- **Cash:** Available buying power
+- **Equity:** Cash + position values
+- **Day P&L:** Realized gains from closed positions today
+- **Unrealized P&L:** Current gains/losses from open positions (mark-to-market)
 
 ### Auto-Entry Rules
 

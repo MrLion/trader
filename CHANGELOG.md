@@ -50,3 +50,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - `paper_state.py`, `paper_engine_alpaca.py`, `paper_portfolio.py`, `order_manager.py`: Now support `PAPER_TRADING_DATA_DIR` env var
+
+## [0.2.1] - 2026-04-08
+### Added
+- **Portfolio CLI (`paper_portfolio.py`):**
+    - Added Unrealized P&L display in `status` command showing current gains/losses from open positions
+
+### Fixed
+- **Portfolio CLI (`paper_portfolio.py`):**
+    - Fixed entry price display to read from Alpaca format (`avg_entry_price`)
+    - Fixed hard stop display to lookup `Stop_Level` from watchlist when not in position data
