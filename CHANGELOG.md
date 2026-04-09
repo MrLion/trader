@@ -22,6 +22,9 @@ All notable changes to this project will be documented in this file.
     - Configurable via environment variables: `PAPER_MAX_ENTRY_PRICE`, `PAPER_MAX_SHARES`, etc.
     - Validation failures logged with metadata for debugging
   - **Result:** Cleaned 90 test entries, reduced fake P&L from -$2.2M to real -$363
+  - **Update (282f765):** Additional cleanup for STOCK0/1/2 patterns and history/today command filtering
+    - Removed 12 more test entries (STOCK patterns)
+    - History now shows 12 real trades vs 50 with garbage data
 
 ### Added
 - **Flexible Risk Configuration System** (`config/risk_config.yaml`)
