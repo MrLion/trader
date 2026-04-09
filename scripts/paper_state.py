@@ -43,7 +43,20 @@ class Position:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Position':
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        # Map Alpaca field names to internal field names
+        field_map = {
+            'symbol': 'ticker',
+            'avg_entry_price': 'entry_price',
+            'qty': 'shares',
+            'unrealized_pl': 'unrealized_pnl',
+        }
+        mapped_data = {}
+        for k, v in data.items():
+            # Map Alpaca field names to internal names
+            internal_key = field_map.get(k, k)
+            if internal_key in cls.__dataclass_fields__:
+                mapped_data[internal_key] = v
+        return cls(**mapped_data)
 
 
 class PaperState:
@@ -71,8 +84,17 @@ class PaperState:
             try:
                 with open(POSITIONS_FILE, 'r') as f:
                     data = json.load(f)
-                    for ticker, pos_data in data.items():
-                        self.positions[ticker] = Position.from_dict(pos_data)
+                    # Handle both dict format (from paper_state) and list format (from Alpaca/sync_state)
+                    if isinstance(data, list):
+                        # Alpaca format: list of position dicts with 'symbol' key
+                        for pos_data in data:
+                            ticker = pos_data.get('symbol')
+                            if ticker:
+                                self.positions[ticker] = Position.from_dict(pos_data)
+                    else:
+                        # Internal format: dict with ticker as key
+                        for ticker, pos_data in data.items():
+                            self.positions[ticker] = Position.from_dict(pos_data)
             except Exception as e:
                 print(f"⚠️ Error loading positions: {e}")
 
