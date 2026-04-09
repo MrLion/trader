@@ -422,9 +422,6 @@ class AlpacaPaperEngine:
             spy_return_6m = self._get_spy_return_6m()
             rs_6m = ret_6m - spy_return_6m
 
-            # Debug logging for score discrepancy investigation
-            print(f"      🔍 {ticker} score components: Stage2={stage2}, Risk%={risk_pct:.1f}, Dist={dist_to_pivot:.1f}%, 6M={ret_6m:.1f}%, RS={rs_6m:.1f}% (SPY={spy_return_6m:.1f}%)")
-
             # Calculate entry score with RS component
             entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m)
 
@@ -497,7 +494,6 @@ class AlpacaPaperEngine:
             # Entry criteria with detailed logging (accumulate for batch output)
             if analysis['entry_score'] < ENTRY_THRESHOLD:
                 logs.append(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {ENTRY_THRESHOLD} (need Tier 1)")
-                logs.append(f"      Debug: Stage2={analysis.get('stage2', 'N/A')}, Current=${analysis.get('current', 0):.2f}, Pivot=${analysis.get('pivot', 0):.2f}")
                 rejected_score += 1
                 continue
 
