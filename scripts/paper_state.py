@@ -158,6 +158,7 @@ class PaperState:
             'cash': self.cash,
             'equity': self.get_equity(),
             'day_pnl': self.day_pnl,
+            'day_return_pct': (self.day_pnl / self.initial_capital) * 100 if self.initial_capital else 0,
             'trade_count': self.trade_count,
             'entries_today': self.entries_today,
             'last_entry_reset': self.last_entry_reset,
