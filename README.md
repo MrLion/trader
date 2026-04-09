@@ -527,6 +527,33 @@ export PAPER_TRADING_DATA_DIR=/path/to/test/data
 python3 scripts/paper_engine_alpaca.py
 ```
 
+## CI/CD
+
+This project uses **GitHub Actions** for automated testing.
+
+### Workflow Features
+- **Multi-version testing:** Python 3.11, 3.12, 3.13
+- **Coverage enforcement:** Fails if coverage drops below 50%
+- **Automatic triggers:** Runs on every push to `main`/`develop` and all pull requests
+- **Artifacts:** Coverage reports uploaded for each run
+
+### Viewing Results
+Check the **Actions** tab in GitHub to see:
+- Test results per Python version
+- Coverage reports
+- Build status
+
+### Coverage Reporting
+Coverage reports are uploaded to:
+- **Codecov** (if configured)
+- **GitHub Artifacts** (retained for 7 days)
+
+To generate coverage locally:
+```bash
+pytest tests/ --cov=scripts --cov-branch --cov-report=html
+open htmlcov/index.html
+```
+
 ## External Integrations
 
 - **Data Source**: Yahoo Finance via `yfinance`

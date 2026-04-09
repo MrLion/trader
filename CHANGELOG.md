@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
     - `tests/conftest.py`: Automatic test isolation via environment variable
 - **Test Isolation:** `PAPER_TRADING_DATA_DIR` environment variable for isolated test data
 - **Coverage Reporting:** pytest-cov integration with HTML/XML output
+- **CI/CD Pipeline:** GitHub Actions workflow (`.github/workflows/test.yml`) for automated testing on Python 3.11/3.12/3.13 with coverage enforcement
 
 ### Fixed
 - **Data Pollution:** Tests no longer write to production `data/` folder (automatic temp directory isolation)
