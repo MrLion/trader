@@ -289,7 +289,7 @@ python3 scripts/paper_engine_alpaca.py --mode live
 # View account status
 python3 scripts/paper_portfolio.py status
 
-# Real-time positions with current prices
+# Real-time positions with current prices (fetches live yfinance data)
 python3 scripts/paper_portfolio.py live
 
 # Today's trades
