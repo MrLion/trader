@@ -14,7 +14,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
+from dotenv import load_dotenv
 from requests.exceptions import HTTPError, RequestException, Timeout
+
+# Load environment variables from .env file (if it exists)
+PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / '.env')
 
 # Exit codes
 EXIT_SUCCESS = 0

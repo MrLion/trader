@@ -13,6 +13,18 @@ This is a command center for Stage 2 trading methodology (Mark Minervini's appro
 
 ## Quick Start
 
+### One-Command Setup
+
+```bash
+# Run the setup script (creates directories, installs deps, copies .env)
+./setup.sh
+
+# Or use Make
+make setup
+```
+
+### Manual Setup
+
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
@@ -21,7 +33,10 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your API keys (optional, for Telegram and Alpaca)
 
-# 3. Run your first analysis
+# 3. Create required directories
+mkdir -p data/config scans reports memory
+
+# 4. Run your first analysis
 python3 scripts/analyze_ticker.py AAPL
 ```
 
@@ -107,6 +122,24 @@ python3 scripts/entry_signals.py                    # Scan watchlist for Tier 1 
 python3 scripts/entry_signals.py --min-tier 2       # Include Tier 2 signals
 python3 scripts/entry_signals.py --tickers AAPL MSFT TSLA  # Scan specific tickers
 python3 scripts/entry_signals.py --export json      # Export as JSON instead of CSV
+```
+
+## Development Commands
+
+Use the Makefile for common development tasks:
+
+```bash
+# Setup (run once)
+make setup              # Full setup (directories, deps, .env)
+
+# Testing
+make test               # Run test suite with coverage
+make test-coverage      # Generate HTML coverage report
+
+# Maintenance
+make clean              # Remove cache files
+make lint               # Run linter
+make format             # Format code with black
 ```
 
 ## Comprehensive Reports
@@ -532,13 +565,31 @@ Tests automatically use temporary directories via `PAPER_TRADING_DATA_DIR` envir
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (.env)
+
+All API credentials can be configured via a `.env` file in the project root (copied from `.env.example`):
+
+```bash
+# Alpaca API (required for paper/live trading)
+ALPACA_API_KEY=your_alpaca_api_key_here
+ALPACA_SECRET_KEY=your_alpaca_secret_key_here
+
+# Telegram (optional - for report delivery)
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=-4872065090
+
+# MC Stock Charts (optional - for scraper)
+MCSTOCK_USER=your_username_here
+MCSTOCK_PASS=your_password_here
+```
+
+### Other Environment Variables
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `PAPER_TRADING_DATA_DIR` | Data directory for paper trading state | `./data` |
-| `ALPACA_API_KEY` | Alpaca API key (optional, can use setup script) | - |
-| `ALPACA_SECRET_KEY` | Alpaca secret key (optional) | - |
+| `TRADER_WATCHLIST` | Path to custom watchlist CSV | `./data/watchlist.csv` |
+| `TRADER_OUTPUT` | Path to custom output directory | `./reports` |
 
 **Example:**
 ```bash

@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Callable
 
 import pandas as pd
+from dotenv import load_dotenv
 from alpaca.data.historical import StockHistoricalDataClient
+
+# Load environment variables from .env file (if it exists)
+# This allows credentials to be stored in .env instead of environment variables
+PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / '.env')
 from websockets.exceptions import ConnectionClosed
 from alpaca.data.live import StockDataStream
 from alpaca.data.requests import StockBarsRequest, StockQuotesRequest

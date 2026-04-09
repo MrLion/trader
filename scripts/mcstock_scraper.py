@@ -8,7 +8,7 @@ a CSV compatible with watchlist_manager.py populate.
 
 REQUIREMENTS:
 -------------
-    pip install requests beautifulsoup4
+    pip install requests beautifulsoup4 python-dotenv
 
 AUTHENTICATION:
 ---------------
@@ -72,6 +72,11 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+# Load environment variables from .env file (if it exists)
+PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / '.env')
 
 # Configuration
 BASE_URL = "https://www.mcstockcharts.com"
@@ -82,7 +87,6 @@ DATE_STR = datetime.now().strftime('%Y-%m-%d')
 
 # Project paths (script is in scripts/ directory)
 SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Exit codes
 EXIT_SUCCESS = 0
