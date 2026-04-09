@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 
-# Data paths
-DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+# Data paths - configurable via environment variable for testing
+DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
 ACCOUNT_FILE = DATA_DIR / 'paper_account.json'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'

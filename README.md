@@ -483,19 +483,49 @@ The entry score (0-100) determines Tier classification:
 ### Testing
 
 ```bash
-# Run all unit tests
-python3 tests/test_alpaca_integration.py
+# Run all tests
+python3 -m pytest tests/
+
+# Run with coverage report
+python3 -m pytest tests/ --cov=scripts --cov-report=term-missing
+
+# Run specific test file
+python3 -m pytest tests/test_alpaca_client_extended.py -v
 
 # Run validation suite
 python3 scripts/validate_alpaca.py
 ```
 
-**Unit Tests (15/15 passing):**
-- Rate limiter tracking and backoff
-- Circuit breaker activation
-- Health monitoring and failover
-- Order lifecycle management
-- Position synchronization
+**Test Suite Overview:**
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `test_alpaca_client_extended.py` | 34 | Config, rate limiting, fallbacks, orders, WebSocket |
+| `test_paper_engine_extended.py` | 28 | Market hours, SPY cache, entry filters, execution |
+| `test_integration_paper_engine.py` | 5 | Critical path integration (timeouts, sync, sector limits) |
+| `test_chaos.py` | 9 | Failure scenarios (cascades, corrupt data, rate storms) |
+| `test_paper_state_recovery.py` | 7 | Edge cases (missing files, zero equity, negative P&L) |
+| `test_exit_engine.py` | 4 | Trailing stops, breakeven, hard stops, targets |
+| `test_alpaca_integration.py` | 15 | Rate limiter, circuit breaker, health monitoring |
+
+**Test Isolation:**
+Tests automatically use temporary directories via `PAPER_TRADING_DATA_DIR` environment variable. No production data is modified during testing. See `tests/conftest.py` for implementation.
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `PAPER_TRADING_DATA_DIR` | Data directory for paper trading state | `./data` |
+| `ALPACA_API_KEY` | Alpaca API key (optional, can use setup script) | - |
+| `ALPACA_SECRET_KEY` | Alpaca secret key (optional) | - |
+
+**Example:**
+```bash
+# Use custom data directory (useful for testing)
+export PAPER_TRADING_DATA_DIR=/path/to/test/data
+python3 scripts/paper_engine_alpaca.py
+```
 
 ## External Integrations
 
@@ -523,6 +553,8 @@ Failure mode documentation for production incidents:
 ## Recent Fixes
 
 ### 2026-04-08
+- **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
+- **Extended test coverage** - 62 new tests for `alpaca_client.py` (50% coverage) and `paper_engine_alpaca.py` (54% coverage)
 - **Fixed proximity scoring bug** - Entry score now correctly awards proximity points for stocks both above and below pivot (symmetric ±3%/5%/10% scoring)
 - **Fixed countdown timer overwriting logs** - Removed `\r` carriage return that was erasing entry check output
 - **Fixed empty orders file error** - Order manager now handles empty/corrupted JSON gracefully

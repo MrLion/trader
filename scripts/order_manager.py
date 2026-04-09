@@ -2,6 +2,7 @@
 """Order lifecycle manager for Alpaca paper trading."""
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -65,8 +66,9 @@ class OrderManager:
         # Position tracking
         self.expected_positions: Dict[str, int] = {}  # Shares we expect to have
 
-        # Persistence
-        self.data_dir = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+        # Persistence - configurable via environment variable for testing
+        default_data_dir = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+        self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', default_data_dir))
         self.orders_file = self.data_dir / 'alpaca_orders.json'
 
         # Load existing orders

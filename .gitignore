@@ -16,3 +16,5 @@ data/config/alpaca_config.json
 data/alpaca_orders.json
 data/paper_*.json
 data/paper_*.jsonl
+.coverage
+htmlcov/

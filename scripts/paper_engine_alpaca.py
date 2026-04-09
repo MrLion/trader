@@ -4,6 +4,7 @@
 import argparse
 import asyncio
 import json
+import os
 import signal
 import sys
 from datetime import datetime
@@ -22,8 +23,9 @@ from paper_exits import ExitEngine, ExitSignal
 from order_manager import OrderManager, OrderStatus
 from stage2_utils import calculate_stage2_score, get_entry_score
 
-# Configurable paths
-DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+# Configurable paths - uses environment variable for testing
+DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
 
 # Market hours (Eastern Time)

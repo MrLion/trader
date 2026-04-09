@@ -31,3 +31,21 @@ All notable changes to this project will be documented in this file.
 
 ### Documented
 - Entry score discrepancies and historical data requirements.
+
+## [0.2.0] - 2026-04-08
+### Added
+- **Comprehensive Test Suite:**
+    - `tests/test_alpaca_client_extended.py`: 34 tests covering config loading, rate limiting, fallbacks, orders, WebSocket
+    - `tests/test_paper_engine_extended.py`: 28 tests for market hours, SPY cache, entry filters, execution paths
+    - `tests/test_integration_paper_engine.py`: Phase 1 integration tests for critical paths
+    - `tests/test_chaos.py`: Phase 3 chaos tests for failure scenarios
+    - `tests/test_paper_state_recovery.py`: Phase 3 recovery tests for edge cases
+    - `tests/conftest.py`: Automatic test isolation via environment variable
+- **Test Isolation:** `PAPER_TRADING_DATA_DIR` environment variable for isolated test data
+- **Coverage Reporting:** pytest-cov integration with HTML/XML output
+
+### Fixed
+- **Data Pollution:** Tests no longer write to production `data/` folder (automatic temp directory isolation)
+
+### Changed
+- `paper_state.py`, `paper_engine_alpaca.py`, `paper_portfolio.py`, `order_manager.py`: Now support `PAPER_TRADING_DATA_DIR` env var
