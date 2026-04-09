@@ -51,6 +51,16 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - `paper_state.py`, `paper_engine_alpaca.py`, `paper_portfolio.py`, `order_manager.py`: Now support `PAPER_TRADING_DATA_DIR` env var
 
+## [0.2.2] - 2026-04-09
+### Fixed
+- **Stock Split Adjustment (CRITICAL):**
+    - Added `adjustment=Adjustment.ALL` to Alpaca `StockBarsRequest` to fetch split-adjusted prices
+    - **Root Cause:** POWL had a 3:1 stock split on April 8, 2025. Alpaca returned unadjusted prices (~$180), while yfinance returned split-adjusted prices (~$60)
+    - **Impact:** Entry scores were completely wrong - POWL showed score 15 (Tier 3) instead of 90 (Tier 1), causing false rejections
+    - **Before Fix:** Stage2=3/7, 6M return=-27.6%, RS=-28.4%, Score=15
+    - **After Fix:** Stage2=7/7, 6M return=+118.1%, RS=+116.7%, Score=90
+    - Affects `scripts/alpaca_client.py` - all historical data now matches yfinance
+
 ## [0.2.1] - 2026-04-08
 ### Added
 - **Portfolio CLI (`paper_portfolio.py`):**
