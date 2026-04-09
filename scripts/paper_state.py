@@ -185,8 +185,8 @@ class PaperState:
         equity = self.get_equity()
 
         # Check daily entry limit
-        if self.entries_today >= 5:
-            return False, "Daily entry limit reached (5)"
+        if self.entries_today >= 10:
+            return False, "Daily entry limit reached (10)"
 
         # Check sector limit
         sector_counts = self.get_sector_counts()
