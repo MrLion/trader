@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.3.1 (Flexible Risk Configuration)
+**Released:** 2026-04-09
+
+### Summary
+This release introduces a flexible risk configuration system that allows traders to customize risk parameters via YAML profiles. The system now enforces dual constraints: account risk per trade (default 0.75%) AND maximum position size (default 5%), preventing oversized positions even with tight stops.
+
+### Key Features
+- **Risk Profiles:** Choose from `default`, `conservative`, `aggressive`, or `tight_stops` profiles via `--risk-profile` flag
+- **Dual Constraint Sizing:** Position sizing respects both account risk % and max position % caps
+- **Stop Distance Validation:** Automatic rejection of trades with stops wider than configured limits (default 10% max)
+- **Environment Overrides:** Runtime customization via `RISK_ACCOUNT_RISK_PCT`, `RISK_POSITION_MAX_PCT` env vars
+- **Dynamic VIX:** Premarket report now uses current VIX value for threshold calculations
+
+### Fixed in this Version
+- WebSocket error handling with exponential backoff
+- ATR calculation consistency using Alpaca data
+- Entry price sync from Alpaca for accurate P&L tracking
+- Traderlib import errors and packaging improvements
+
+### How to Use
+```bash
+# View risk configuration
+python3 scripts/paper_engine_alpaca.py --risk-summary
+
+# Run with conservative profile
+python3 scripts/paper_engine_alpaca.py --risk-profile conservative
+
+# Run with tight stops (rejects wide stops)
+python3 scripts/paper_engine_alpaca.py --risk-profile tight_stops
+```
+
+---
+
 ## v0.1.0-stable (Alpaca Integration)
 **Released:** 2026-04-08
 
