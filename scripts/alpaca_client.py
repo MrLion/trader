@@ -14,7 +14,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.live import StockDataStream
 from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import DataFeed, Adjustment
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, StopLossRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -203,7 +203,8 @@ class AlpacaClient:
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
                 start=start,
-                end=end
+                end=end,
+                adjustment=Adjustment.ALL
             )
 
             bars = self.data_client.get_stock_bars(request)
