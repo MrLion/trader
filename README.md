@@ -651,12 +651,25 @@ Failure mode documentation for production incidents:
 ## Recent Fixes
 
 ### 2026-04-09
+
+**Developer Experience (DX) Improvements:**
+- **Unified credential management** - All API keys now load from `.env` file using `python-dotenv`. No more manual `export` commands needed. Scripts updated: `alpaca_client.py`, `deliver_report.py`, `mcstock_scraper.py`
+- **One-command setup** - Added `setup.sh` script that creates directories, installs dependencies, and copies `.env.example` to `.env`
+- **Makefile commands** - Common tasks now available: `make setup`, `make test`, `make clean`, `make lint`, `make format`
+- **Updated `.env.example`** - Now includes all credentials (Alpaca, Telegram, MCStock) with clear documentation
+
+**Trading Engine Fixes:**
 - **Fixed shutdown message** - Suppressed misleading "Using REST polling" message during Ctrl+C shutdown
 - **Improved WebSocket error handling** - Added exponential backoff for reconnects (5s → 60s max), specific handling for ConnectionClosed errors, and delay reset on successful connection
 - **Fixed ATR calculation inconsistency** - Paper engine now uses Alpaca data for both ATR display and stop calculation (was using yfinance for stops, causing risk% mismatches)
 - **Fixed entry price sync from Alpaca** - Position entry prices now update with actual fill prices from Alpaca (was using theoretical signal prices, causing P&L discrepancies)
 - **Fixed Day P&L display** - `day_return_pct` is now persisted to account file, showing correct percentage and 🔴 emoji for negative values
 - **Added entry price sync on startup** - Existing positions get their entry prices corrected during Alpaca sync
+
+**Project Infrastructure:**
+- **Added `requirements.txt`** - All dependencies with pinned versions for reproducible installs
+- **Updated CI/CD** - GitHub Actions now uses `requirements.txt` instead of manual pip installs
+- **Added `python-dotenv` dependency** - For `.env` file support across all scripts
 
 ### 2026-04-08
 - **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
