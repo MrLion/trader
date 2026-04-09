@@ -27,6 +27,17 @@ All notable changes to this project will be documented in this file.
 - ATR calculation consistency (now uses Alpaca data for stops)
 - Entry price sync from Alpaca for accurate P&L
 - Day P&L display persistence
+- **Shutdown message** - Suppressed misleading "Using REST polling" message during Ctrl+C shutdown
+
+### Infrastructure
+- **requirements.txt** - All dependencies with pinned versions for reproducible installs
+- **CI/CD** - GitHub Actions now uses `requirements.txt` instead of manual pip installs
+- **python-dotenv** - For `.env` file support across all scripts
+
+### Developer Experience
+- **Unified credential management** - All API keys load from `.env` file using `python-dotenv`
+- **One-command setup** - Added `setup.sh` script for directory creation and dependency installation
+- **Makefile commands** - `make setup`, `make test`, `make clean`, `make lint`, `make format`
 
 ## [0.2.2] - 2026-04-09
 ### Fixed
@@ -80,6 +91,9 @@ All notable changes to this project will be documented in this file.
     - Fixed DataFrame boolean evaluation errors in the engine loop.
     - Corrected the entry score proximity bug to use symmetric $\pm 1\%$ filtering.
     - Fixed WebSocket restart logic and added comprehensive debug logging.
+    - Fixed countdown timer overwriting logs - Removed `\r` carriage return that was erasing entry check output
+    - Fixed empty orders file error - Order manager now handles empty/corrupted JSON gracefully
+    - Fixed historical data requirements - Lowered minimum bars from 50 to 30 and increased request from 60 to 90 days
 - **Portfolio CLI (`paper_portfolio.py`):**
     - Fixed `NameError` in `live` command caused by missing `pos_dict` initialization.
     - Fixed incorrect entry price mapping (`avg_entry_price` vs `entry_price`) that caused `+inf%` P&L.
@@ -88,6 +102,10 @@ All notable changes to this project will be documented in this file.
     - Fixed Alpaca historical data feed specification.
     - Resolved "insufficient historical data" errors by increasing default fetch days.
     - Fixed sector reading logic from the watchlist CSV.
+
+### Infrastructure
+- **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
+- **Extended test coverage** - 62 new tests for `alpaca_client.py` (50% coverage) and `paper_engine_alpaca.py` (54% coverage)
 
 ### Changed
 - Updated README with detailed documentation on the watchlist-to-order decision flow and Alpaca engine logic.

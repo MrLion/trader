@@ -681,57 +681,9 @@ Failure mode documentation for production incidents:
 - [Stuck Position](docs/runbooks/stuck_position.md) - Can't exit, ticker halted/delisted
 - [Data Quality](docs/runbooks/data_quality.md) - Entry scores wrong, Stage 2 miscalculated
 
-## Recent Fixes
+## Recent Changes
 
-### 2026-04-09
-
-**Flexible Risk Configuration System:**
-- **New `config/risk_config.yaml`** - Centralized risk management configuration with named profiles (default, conservative, aggressive, tight_stops)
-- **Dual-constraint position sizing** - Enforces both account risk (0.75%) AND position size cap (5% max)
-- **Stop distance limits** - Configurable min/max stop distances (3-10%) with automatic rejection of wide stops
-- **Environment variable overrides** - Runtime overrides via `RISK_ACCOUNT_RISK_PCT`, `RISK_POSITION_MAX_PCT`, etc.
-- **New CLI flags** - `--risk-profile` and `--risk-summary` for paper engine
-- **Risk profiles**:
-  - `conservative`: 0.5% risk, 3% max position, 8% max stop
-  - `aggressive`: 1.0% risk, 10% max position, 15% max stop  
-  - `tight_stops`: 0.75% risk, 15% max position, **5% max stop** (rejects wide stops)
-- **New module** `traderlib/risk_config.py` - Full risk configuration management with validation
-
-**Developer Experience (DX) Improvements:**
-- **Unified credential management** - All API keys now load from `.env` file using `python-dotenv`. No more manual `export` commands needed. Scripts updated: `alpaca_client.py`, `deliver_report.py`, `mcstock_scraper.py`
-- **One-command setup** - Added `setup.sh` script that creates directories, installs dependencies, and copies `.env.example` to `.env`
-- **Makefile commands** - Common tasks now available: `make setup`, `make test`, `make clean`, `make lint`, `make format`
-- **Updated `.env.example`** - Now includes all credentials (Alpaca, Telegram, MCStock) with clear documentation
-
-**Trading Engine Fixes:**
-- **Fixed shutdown message** - Suppressed misleading "Using REST polling" message during Ctrl+C shutdown
-- **Improved WebSocket error handling** - Added exponential backoff for reconnects (5s → 60s max), specific handling for ConnectionClosed errors, and delay reset on successful connection
-- **Fixed ATR calculation inconsistency** - Paper engine now uses Alpaca data for both ATR display and stop calculation (was using yfinance for stops, causing risk% mismatches)
-- **Fixed entry price sync from Alpaca** - Position entry prices now update with actual fill prices from Alpaca (was using theoretical signal prices, causing P&L discrepancies)
-- **Fixed Day P&L display** - `day_return_pct` is now persisted to account file, showing correct percentage and 🔴 emoji for negative values
-- **Added entry price sync on startup** - Existing positions get their entry prices corrected during Alpaca sync
-
-**Project Infrastructure:**
-- **Added `requirements.txt`** - All dependencies with pinned versions for reproducible installs
-- **Updated CI/CD** - GitHub Actions now uses `requirements.txt` instead of manual pip installs
-- **Added `python-dotenv` dependency** - For `.env` file support across all scripts
-
-**Report Improvements:**
-- **Dynamic VIX calculation** - Premarket report now uses current VIX value instead of hardcoded levels for Low/Elevated/High thresholds
-
-**Code Quality:**
-- **Packaged traderlib** - Created proper Python package structure with `setup.py` for editable installs (`pip install -e .`)
-- **Added pre-commit hooks** - Black, flake8, isort for automatic code formatting and linting
-- **Fixed traderlib imports** - Resolved ImportError for `calculate_relative_strength` and fixed test assertions for edge cases
-
-### 2026-04-08
-- **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
-- **Extended test coverage** - 62 new tests for `alpaca_client.py` (50% coverage) and `paper_engine_alpaca.py` (54% coverage)
-- **Fixed proximity scoring bug** - Entry score now correctly awards proximity points for stocks both above and below pivot (symmetric ±3%/5%/10% scoring)
-- **Fixed countdown timer overwriting logs** - Removed `\r` carriage return that was erasing entry check output
-- **Fixed empty orders file error** - Order manager now handles empty/corrupted JSON gracefully
-- **Fixed historical data requirements** - Lowered minimum bars from 50 to 30 and increased request from 60 to 90 days. Stage 2 scoring now works with limited history (conditionally checks MAs based on available data)
-- **Fixed entry score discrepancy** - `paper_engine_alpaca.py` now calculates RS 6M component (fetches SPY data daily), matching `analyze_watchlist.py` max score of 110
+See [CHANGELOG.md](CHANGELOG.md) for a complete history of changes.
 
 ## License
 
