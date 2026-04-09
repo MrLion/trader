@@ -685,6 +685,18 @@ Failure mode documentation for production incidents:
 
 ### 2026-04-09
 
+**Flexible Risk Configuration System:**
+- **New `config/risk_config.yaml`** - Centralized risk management configuration with named profiles (default, conservative, aggressive, tight_stops)
+- **Dual-constraint position sizing** - Enforces both account risk (0.75%) AND position size cap (5% max)
+- **Stop distance limits** - Configurable min/max stop distances (3-10%) with automatic rejection of wide stops
+- **Environment variable overrides** - Runtime overrides via `RISK_ACCOUNT_RISK_PCT`, `RISK_POSITION_MAX_PCT`, etc.
+- **New CLI flags** - `--risk-profile` and `--risk-summary` for paper engine
+- **Risk profiles**:
+  - `conservative`: 0.5% risk, 3% max position, 8% max stop
+  - `aggressive`: 1.0% risk, 10% max position, 15% max stop  
+  - `tight_stops`: 0.75% risk, 15% max position, **5% max stop** (rejects wide stops)
+- **New module** `traderlib/risk_config.py` - Full risk configuration management with validation
+
 **Developer Experience (DX) Improvements:**
 - **Unified credential management** - All API keys now load from `.env` file using `python-dotenv`. No more manual `export` commands needed. Scripts updated: `alpaca_client.py`, `deliver_report.py`, `mcstock_scraper.py`
 - **One-command setup** - Added `setup.sh` script that creates directories, installs dependencies, and copies `.env.example` to `.env`

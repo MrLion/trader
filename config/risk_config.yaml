@@ -1,0 +1,125 @@
+# Risk Management Configuration for Paper Trading Engine
+# All percentages are expressed as decimals (0.0075 = 0.75%)
+
+# =============================================================================
+# ACCOUNT-LEVEL RISK SETTINGS
+# =============================================================================
+account:
+  # Maximum risk per trade as % of total account equity
+  # This is your R - the amount you're willing to lose if stop is hit
+  risk_per_trade_pct: 0.0075  # 0.75% of account per trade
+
+  # Maximum daily loss before halting trading
+  daily_loss_limit_pct: 0.02  # 2% of initial capital
+
+  # Maximum positions per sector
+  max_sector_positions: 3
+
+  # Daily entry limit
+  max_entries_per_day: 10
+
+# =============================================================================
+# POSITION-LEVEL RISK SETTINGS
+# =============================================================================
+position:
+  # Maximum position size as % of account equity (hard cap)
+  # Formula: position_value / equity <= max_position_pct
+  max_position_pct: 0.05  # 5% max position regardless of stop distance
+
+  # Alternative formula: min(account_risk / stop_distance, max_position_pct)
+  # Example: 0.75% / 5% stop = 15% position, but capped at 5%
+
+  # Minimum position size (to avoid tiny positions)
+  min_position_pct: 0.005  # 0.5% of equity minimum
+
+# =============================================================================
+# STOP LOSS CONFIGURATION
+# =============================================================================
+stop_loss:
+  # Method for calculating initial stop:
+  # - "atr": Use 2x ATR below entry
+  # - "atr_or_support": Use max(2x ATR, recent low)
+  # - "percent": Fixed percentage below entry
+  # - "pivot_based": Based on pivot/support levels
+  method: "atr_or_support"
+
+  # When method is "percent"
+  fixed_pct: 0.07  # 7% below entry
+
+  # ATR settings (when method uses ATR)
+  atr:
+    period: 14
+    multiplier: 2.0  # 2x ATR
+
+  # Hard limits on stop distance (safety rails)
+  min_stop_distance_pct: 0.03   # Minimum 3% stop (tighter stops = larger positions)
+  max_stop_distance_pct: 0.10   # Maximum 10% stop (rejects wide stops)
+
+  # Fallback if calculation fails
+  fallback_pct: 0.07  # 7% below entry
+
+# =============================================================================
+# PROFIT TARGET CONFIGURATION
+# =============================================================================
+profit_target:
+  # Minimum R multiple to take profit
+  min_r_multiple: 2.0  # At least 2:1 reward/risk
+
+  # Trailing stop activation levels
+  trailing_stops:
+    breakeven_at_r: 1.0      # Move to breakeven at +1R
+    ema10_at_r: 1.5        # Trail 10 EMA starting at +1.5R
+    ema21_at_r: 3.0        # Trail 21 EMA starting at +3R
+
+# =============================================================================
+# ENTRY SCORE THRESHOLDS
+# =============================================================================
+entry:
+  # Minimum entry score to trigger trade
+  min_entry_score: 60
+
+  # Maximum distance from pivot (in %)
+  max_dist_to_pivot_pct: 1.0
+
+  # Minimum volume ratio vs 20-day average
+  min_volume_ratio: 1.5
+
+# =============================================================================
+# MARKET ENVIRONMENT FILTERS
+# =============================================================================
+market:
+  # Maximum SPY decline to allow new entries
+  max_spy_decline_pct: -0.5  # -0.5%
+
+  # Maximum VIX level for new entries
+  # max_vix: 35  # Uncomment to enable
+
+# =============================================================================
+# PRESET RISK PROFILES
+# =============================================================================
+# Use with: --risk-profile <name>
+profiles:
+  conservative:
+    account:
+      risk_per_trade_pct: 0.005    # 0.5%
+    position:
+      max_position_pct: 0.03       # 3%
+    stop_loss:
+      max_stop_distance_pct: 0.08  # 8% max
+
+  aggressive:
+    account:
+      risk_per_trade_pct: 0.01     # 1.0%
+    position:
+      max_position_pct: 0.10       # 10%
+    stop_loss:
+      max_stop_distance_pct: 0.15  # 15% max
+
+  tight_stops:
+    # For setups with tight technical stops (pivot-based)
+    stop_loss:
+      method: "atr_or_support"
+      min_stop_distance_pct: 0.02   # 2%
+      max_stop_distance_pct: 0.05   # 5%
+    position:
+      max_position_pct: 0.15         # Can take larger positions with tight stops

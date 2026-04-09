@@ -10,10 +10,18 @@ from .stage2_utils import (
     get_entry_score,
     get_stage2_tier,
 )
+from .risk_config import (
+    RiskConfig,
+    RiskConfigManager,
+    calculate_position_size_with_constraints,
+)
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = [
     "calculate_stage2_score",
     "get_entry_score",
     "get_stage2_tier",
+    "RiskConfig",
+    "RiskConfigManager",
+    "calculate_position_size_with_constraints",
 ]

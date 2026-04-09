@@ -22,6 +22,8 @@ from paper_state import PaperState, Position
 from paper_exits import ExitEngine, ExitSignal
 from order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score
+from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
+from trading_exceptions import TradingExceptionHandler, critical, error, warning
 
 # Configurable paths - uses environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
@@ -32,22 +34,23 @@ WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
 MARKET_OPEN = (9, 30)
 MARKET_CLOSE = (16, 0)
 
-# Entry criteria thresholds
-ENTRY_THRESHOLD = 60
-MAX_DIST_TO_PIVOT = 1.0
-MIN_VOLUME_RATIO = 1.5
-MAX_SPY_DECLINE = -0.5
-
 
 class AlpacaPaperEngine:
     """Paper trading engine using Alpaca for real-time data and execution."""
 
-    def __init__(self, mode: str = 'paper'):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None):
         print("🔌 Initializing Alpaca client...")
+
+        # Load risk configuration first
+        self.risk_manager = RiskConfigManager(profile=risk_profile)
+        self.risk_config = self.risk_manager.get_config()
+
         self.alpaca = AlpacaClient(mode=mode)
         self.order_manager = OrderManager(self.alpaca)
         self.state = PaperState(initial_capital=self._get_account_value())
-        self.exits = ExitEngine()
+
+        # Pass risk config to ExitEngine
+        self.exits = ExitEngine(risk_config=self.risk_config)
 
         self.running = False
         self.ws_running = False
@@ -80,6 +83,9 @@ class AlpacaPaperEngine:
         print(f"✅ Engine ready - Mode: {mode.upper()}")
         print(f"📋 Pending orders: {self.order_manager.get_pending_count()}")
 
+        # Print risk summary
+        self.risk_manager.print_summary()
+
     def _get_account_value(self) -> float:
         """Get initial account value from Alpaca."""
         try:
@@ -100,8 +106,13 @@ class AlpacaPaperEngine:
                         row['Ticker']: str(row['Sector']) if pd.notna(row['Sector']) else 'Unknown'
                         for _, row in df.iterrows()
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "watchlist_load", e,
+                    severity=TradingExceptionHandler.CRITICAL,
+                    file=str(WATCHLIST_PATH)
+                )
+                watchlist_sectors = {}
 
             # Sync positions via order manager
             sync_result = self.order_manager.sync_positions(self.state.positions)
@@ -327,7 +338,7 @@ class AlpacaPaperEngine:
         return None
 
     def _check_market_conditions(self) -> tuple:
-        """Check SPY market conditions."""
+        """Check SPY market conditions using configured thresholds."""
         spy_price = self._get_current_price('SPY')
         if spy_price is None:
             return False, "Cannot fetch SPY"
@@ -341,12 +352,17 @@ class AlpacaPaperEngine:
                 prev_close = hist['Close'].iloc[-2]
                 change_pct = ((spy_price / prev_close) - 1) * 100
 
-                if change_pct < MAX_SPY_DECLINE:
-                    return False, f"SPY {change_pct:+.2f}%"
+                max_decline = self.risk_config.market.max_spy_decline_pct
+                if change_pct < max_decline:
+                    return False, f"SPY {change_pct:+.2f}% (below {max_decline}%)"
 
                 return True, f"SPY {change_pct:+.2f}%"
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "market_condition_check", e,
+                severity=TradingExceptionHandler.ERROR,
+                ticker="SPY"
+            )
 
         return True, "SPY OK"
 
@@ -474,7 +490,7 @@ class AlpacaPaperEngine:
                 asyncio.create_task(self._execute_exit(ticker, signal))
 
     def _check_entries(self):
-        """Scan for entry opportunities."""
+        """Scan for entry opportunities using configured thresholds."""
         market_ok, market_msg = self._check_market_conditions()
         if not market_ok:
             print(f"⏸️  Market condition failed: {market_msg}")
@@ -487,10 +503,15 @@ class AlpacaPaperEngine:
 
         print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
 
+        # Get thresholds from config
+        entry_threshold = self.risk_config.entry.min_entry_score
+        max_dist = self.risk_config.entry.max_dist_to_pivot_pct
+
         checked = 0
         eligible = 0
         rejected_score = 0
         rejected_distance = 0
+        rejected_stop = 0
         logs = []
 
         for ticker in watchlist:
@@ -500,19 +521,27 @@ class AlpacaPaperEngine:
                 continue
 
             # Entry criteria with detailed logging (accumulate for batch output)
-            if analysis['entry_score'] < ENTRY_THRESHOLD:
-                logs.append(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {ENTRY_THRESHOLD} (need Tier 1)")
+            if analysis['entry_score'] < entry_threshold:
+                logs.append(f"   ⏸️  {ticker}: Score {analysis['entry_score']:.0f} < {entry_threshold} (need Tier 1)")
                 rejected_score += 1
                 continue
 
-            # Fixed: symmetric distance filter (±1%)
-            if not (-MAX_DIST_TO_PIVOT <= analysis['dist_to_pivot'] <= MAX_DIST_TO_PIVOT):
-                logs.append(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{MAX_DIST_TO_PIVOT}% (Current ${analysis['current']:.2f}, Pivot ${analysis['pivot']:.2f})")
+            # Symmetric distance filter
+            if not (-max_dist <= analysis['dist_to_pivot'] <= max_dist):
+                logs.append(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{max_dist}%")
                 rejected_distance += 1
                 continue
 
+            # Check stop distance is within configured limits
+            stop_dist_pct = abs(analysis['stop'] - analysis['current']) / analysis['current'] * 100
+            max_stop_pct = self.risk_config.stop_loss.max_stop_distance_pct * 100
+            if stop_dist_pct > max_stop_pct:
+                logs.append(f"   ⏸️  {ticker}: Stop {stop_dist_pct:.1f}% exceeds max {max_stop_pct:.1f}%")
+                rejected_stop += 1
+                continue
+
             eligible += 1
-            logs.append(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}% - EXECUTING")
+            logs.append(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}%, Stop {stop_dist_pct:.1f}% - EXECUTING")
             print("\n".join(logs))
             logs.clear()
             self._execute_entry(analysis)
@@ -522,7 +551,7 @@ class AlpacaPaperEngine:
             print("\n".join(logs))
 
         if checked > 0:
-            print(f"\n📊 Entry Check Summary: Checked {checked} | Eligible {eligible} | Rejected (score) {rejected_score} | Rejected (distance) {rejected_distance}")
+            print(f"\n📊 Entry Check Summary: Checked {checked} | Eligible {eligible} | Rejected (score) {rejected_score} | Rejected (dist) {rejected_distance} | Rejected (stop) {rejected_stop}")
 
     def _execute_entry(self, analysis: Dict):
         """Execute entry via Alpaca."""
@@ -543,16 +572,36 @@ class AlpacaPaperEngine:
         target_price = analysis['target']
         sector = analysis['sector']
 
-        # Calculate position size
+        # Calculate position size with dual constraint system
         equity = self.state.get_equity()
         shares = self.exits.calculate_position_size(equity, entry_price, stop_price)
-        position_value = entry_price * shares
 
-        print(f"   📐 {ticker}: Position sizing - Equity ${equity:,.0f}, Entry ${entry_price:.2f}, Stop ${stop_price:.2f}")
-        print(f"   📐 {ticker}: Calculated {shares} shares, Position value ${position_value:,.2f}")
+        # Get calculation metadata for logging
+        calc_meta = self.exits.get_last_position_calc() or {}
+        position_value = shares * entry_price if shares else 0
+
+        # Log detailed position sizing
+        print(f"   📐 {ticker}: Position sizing - Equity ${equity:,.0f}")
+        print(f"      Entry: ${entry_price:.2f} | Stop: ${stop_price:.2f} | Risk/share: ${calc_meta.get('risk_per_share', entry_price-stop_price):.2f}")
+        print(f"      Stop distance: {calc_meta.get('stop_distance_pct', 0):.1f}%")
+
+        if calc_meta.get('constraints_applied'):
+            for constraint in calc_meta['constraints_applied']:
+                print(f"      🔧 {constraint}")
+
+        if calc_meta.get('rejected'):
+            print(f"   ⏸️  {ticker}: Position rejected - {calc_meta.get('rejection_reason', 'unknown')}")
+            return
+
+        if shares == 0:
+            print(f"   ⏸️  {ticker}: Position size is zero")
+            return
+
+        print(f"      Shares: {shares} | Position value: ${position_value:,.2f} ({calc_meta.get('position_pct', 0):.1f}% of equity)")
+        print(f"      Account risk: ${calc_meta.get('account_risk_dollars', 0):.2f} ({calc_meta.get('account_risk_pct', 0):.2f}%)")
 
         # Validate
-        can_enter, reason = self.state.can_enter_position(sector, position_value)
+        can_enter, reason = self.state.can_enter_position(sector, position_value, self.risk_config)
         if not can_enter:
             print(f"   ⏸️  {ticker}: Risk validation failed - {reason}")
             return
@@ -756,9 +805,19 @@ def main():
     parser = argparse.ArgumentParser(description='Alpaca Paper Trading Engine')
     parser.add_argument('--mode', choices=['paper', 'live'], default='paper',
                         help='Trading mode (default: paper)')
+    parser.add_argument('--risk-profile', type=str, default=None,
+                        help='Risk profile from config (conservative, aggressive, tight_stops)')
+    parser.add_argument('--risk-summary', action='store_true',
+                        help='Print risk configuration and exit')
     args = parser.parse_args()
 
-    engine = AlpacaPaperEngine(mode=args.mode)
+    # If just printing risk summary
+    if args.risk_summary:
+        manager = RiskConfigManager(profile=args.risk_profile)
+        manager.print_summary()
+        return
+
+    engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile)
     asyncio.run(engine.run())
 
 

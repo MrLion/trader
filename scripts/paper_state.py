@@ -184,29 +184,48 @@ class PaperState:
             counts[pos.sector] = counts.get(pos.sector, 0) + 1
         return counts
 
-    def can_enter_position(self, sector: str, position_value: float) -> tuple:
-        """Check if entry is allowed based on risk rules."""
+    def can_enter_position(self, sector: str, position_value: float,
+                           risk_config=None) -> tuple:
+        """Check if entry is allowed based on risk rules.
+
+        Args:
+            sector: Stock sector
+            position_value: Dollar value of position
+            risk_config: Optional RiskConfig object (uses defaults if None)
+        """
         equity = self.get_equity()
 
+        # Get thresholds from config or use defaults
+        if risk_config:
+            max_entries = risk_config.account.max_entries_per_day
+            max_sector = risk_config.account.max_sector_positions
+            max_position_pct = risk_config.position.max_position_pct
+            daily_loss_pct = risk_config.account.daily_loss_limit_pct
+        else:
+            max_entries = 10
+            max_sector = MAX_SECTOR_POSITIONS
+            max_position_pct = 0.20
+            daily_loss_pct = 0.02
+
         # Check daily entry limit
-        if self.entries_today >= 10:
-            return False, "Daily entry limit reached (10)"
+        if self.entries_today >= max_entries:
+            return False, f"Daily entry limit reached ({max_entries})"
 
         # Check sector limit
         sector_counts = self.get_sector_counts()
-        if sector_counts.get(sector, 0) >= MAX_SECTOR_POSITIONS:
-            return False, f"Sector limit reached ({MAX_SECTOR_POSITIONS} in {sector})"
+        if sector_counts.get(sector, 0) >= max_sector:
+            return False, f"Sector limit reached ({max_sector} in {sector})"
 
-        # Check position size limit (20% of equity)
-        if position_value > equity * 0.20:
-            return False, f"Position size {position_value:,.0f} exceeds 20% of equity"
+        # Check position size limit
+        if position_value > equity * max_position_pct:
+            return False, f"Position size {position_value:,.0f} exceeds {max_position_pct*100:.0f}% of equity"
 
         # Check buying power
         if position_value > self.cash:
             return False, f"Insufficient cash (${self.cash:,.2f} < ${position_value:,.2f})"
 
-        # Check daily loss limit (-2%)
-        if self.day_pnl < -0.02 * self.initial_capital:
+        # Check daily loss limit
+        if self.day_pnl < -daily_loss_pct * self.initial_capital:
             return False, f"Daily loss limit hit (${self.day_pnl:,.2f})"
 
         return True, "OK"
