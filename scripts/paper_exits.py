@@ -95,7 +95,7 @@ class ExitEngine:
             return ExitSignal(
                 should_exit=True,
                 reason=f"STOP_HIT",
-                exit_price=current_stop,
+                exit_price=current_price,
                 r_multiple=r_multiple
             )
 
@@ -129,12 +129,13 @@ class ExitEngine:
             position.stop_price = new_stop
             position.current_stop_type = new_stop_type
 
-        # 4. Check profit target (2R minimum, extendable)
+        # 4. Check profit target (target hit OR 2R minimum)
         target_price = position.target_price
-        if r_multiple >= 2.0 and current_price >= target_price:
+        if current_price >= target_price or r_multiple >= 2.0:
+            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= 2.0 else "TARGET_HIT"
             return ExitSignal(
                 should_exit=True,
-                reason=f"TARGET_HIT_{r_multiple:.1f}R",
+                reason=reason,
                 exit_price=current_price,
                 r_multiple=r_multiple
             )
