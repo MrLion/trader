@@ -233,44 +233,103 @@ class EntrySignalScanner:
             print(f"⚠️  Market filter blocking entries")
 
         print(f"\n🔍 Scanning {len(tickers)} tickers for entry signals...")
-        print(f"   Criteria: Score ≥ {ENTRY_THRESHOLD}, Distance ≤ ±{MAX_DIST_TO_PIVOT}%")
-        print("-" * 70)
+        print(f"   Entry Criteria: Score ≥ {ENTRY_THRESHOLD}, Distance ≤ ±{MAX_DIST_TO_PIVOT}%")
 
-        signals = []
-        checked = 0
-
+        # Collect all analyses
+        all_analyses = []
         for ticker in tickers:
-            checked += 1
             analysis = self._analyze_ticker(ticker)
-            if not analysis:
-                continue
+            if analysis:
+                all_analyses.append(analysis)
 
+        # Categorize results
+        ready_now = []      # Score ≥60, within ±1%
+        close_pivot = []    # Score ≥60, distance 1-3%
+        extended = []       # Score ≥60, but distance >3% (extended from pivot)
+        tier2_watch = []    # Score 40-59
+        tier3_skip = []     # Score <40
+
+        for a in all_analyses:
             # Skip if below minimum tier
-            tier_num = int(analysis['tier'][-1])
+            tier_num = int(a['tier'][-1])
             if tier_num > min_tier:
                 continue
 
-            # Check entry criteria
-            score_ok = analysis['entry_score'] >= ENTRY_THRESHOLD
-            dist_ok = -MAX_DIST_TO_PIVOT <= analysis['dist_to_pivot'] <= MAX_DIST_TO_PIVOT
+            score_ok = a['entry_score'] >= ENTRY_THRESHOLD
+            dist_ok = -MAX_DIST_TO_PIVOT <= a['dist_to_pivot'] <= MAX_DIST_TO_PIVOT
+            dist_close = abs(a['dist_to_pivot']) <= 3.0  # Within 3%
 
             if score_ok and dist_ok:
-                signals.append(analysis)
-                print(f"\n🎯 {analysis['ticker']} - {analysis['tier']} ENTRY SIGNAL")
-                print(f"   Price: ${analysis['current']:.2f} | Pivot: ${analysis['pivot']:.2f}")
-                print(f"   Score: {analysis['entry_score']:.0f}/110 | Distance: {analysis['dist_to_pivot']:+.1f}%")
-                print(f"   Stage 2: {analysis['stage2']}/7 | Risk: {analysis['risk_pct']:.1f}%")
-                print(f"   Stop: ${analysis['stop']:.2f} | Target: ${analysis['target']:.2f}")
+                ready_now.append(a)
+            elif score_ok and dist_close:
+                close_pivot.append(a)  # Score ≥60, distance 1-3%
+            elif score_ok:
+                extended.append(a)  # Score ≥60, but distance >3%
+            elif a['entry_score'] >= 40:
+                tier2_watch.append(a)  # Score 40-59
             else:
-                status = []
-                if not score_ok:
-                    status.append(f"score {analysis['entry_score']:.0f}")
-                if not dist_ok:
-                    status.append(f"dist {analysis['dist_to_pivot']:+.1f}%")
-                print(f"   ⏸️  {ticker}: {', '.join(status)}")
+                tier3_skip.append(a)  # Score <40
 
-        print("-" * 70)
-        print(f"\n📊 Scan Complete: {len(signals)} entry signals found from {checked} tickers")
+        # Sort by entry score (descending)
+        ready_now.sort(key=lambda x: x['entry_score'], reverse=True)
+        close_pivot.sort(key=lambda x: x['entry_score'], reverse=True)
+        extended.sort(key=lambda x: x['entry_score'], reverse=True)
+        tier2_watch.sort(key=lambda x: x['entry_score'], reverse=True)
+        tier3_skip.sort(key=lambda x: x['entry_score'], reverse=True)
+
+        signals = ready_now  # Return signals that meet entry criteria
+
+        # Display results by category
+        print("=" * 90)
+
+        def _format_dist(d):
+            """Format distance with sign and icon."""
+            sign = "+" if d > 0 else "-" if d < 0 else ""
+            icon = "📈" if d > 0 else "📉" if d < 0 else "➡️"
+            return f"{sign}{abs(d):.1f}% {icon}"
+
+        if ready_now:
+            print(f"\n🔥 READY NOW - Entry Signals (Score ≥{ENTRY_THRESHOLD}, Within ±{MAX_DIST_TO_PIVOT}%)")
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Price':<10} {'→ Pivot':<10}")
+            print("-" * 90)
+            for a in ready_now:
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+
+        if close_pivot:
+            print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{ENTRY_THRESHOLD}, Distance 1-3%)")
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 90)
+            for a in close_pivot:
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+
+        if extended:
+            print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{ENTRY_THRESHOLD})")
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 90)
+            for a in extended:
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+
+        if tier2_watch:
+            print(f"\n📊 TIER 2 WATCH - Developing Setups (Score 40-59)")
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 90)
+            for a in tier2_watch:
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+
+        if tier3_skip and min_tier >= 3:
+            print(f"\n⏸️  TIER 3 / BELOW THRESHOLD - Not Ready (Score <40)")
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 90)
+            for a in tier3_skip[:10]:  # Show first 10
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+            if len(tier3_skip) > 10:
+                print(f"   ... and {len(tier3_skip) - 10} more")
+
+        if not any([ready_now, close_pivot, extended, tier2_watch]):
+            print("\n⏸️  No qualifying setups found in Tier 1 or Tier 2")
+
+        print("=" * 90)
+        print(f"\n📊 Scan Complete: {len(ready_now)} Entry Signals | {len(close_pivot)} Close to Pivot | {len(extended)} Extended | {len(tier2_watch)} Tier 2 | {len(tier3_skip)} Tier 3")
 
         return signals
 
