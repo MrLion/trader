@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Callable, Optional, Any, Dict
 from datetime import datetime
 
-# Log file directory
-LOG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/logs')
+# Log file directory - use project root relative path
+PROJECT_ROOT = Path(__file__).parent.parent
+LOG_DIR = PROJECT_ROOT / 'data' / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / 'trading_exceptions.log'
 
