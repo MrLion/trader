@@ -368,7 +368,7 @@ def main():
         '--min-tier', '-m',
         type=int,
         choices=[1, 2, 3],
-        default=1,
+        default=3,
         help='Minimum tier to include (1=Tier1 only, 2=Tier1+2, 3=All)'
     )
     parser.add_argument(
