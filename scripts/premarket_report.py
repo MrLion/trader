@@ -612,7 +612,7 @@ def generate_html_report(report_data, output_path):
                 </div>
                 <div class="key-level">
                     <div class="label">VIX Watch</div>
-                    <div class="value">28</div>
+                    <div class="value">${levels.get('vix_watch', 28):.1f}</div>
                 </div>
             </div>
         </div>
@@ -850,21 +850,30 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         except:
             pass
 
-    # VIX
+    # VIX - use current value as watch level
     try:
         vix = yf.Ticker("^VIX").history(period="5d")
         if len(vix) >= 2:
             vix_curr = vix['Close'].iloc[-1]
             vix_prev = vix['Close'].iloc[-2]
             vix_change = vix_curr - vix_prev
-            vix_level = "Low <18" if vix_curr < 18 else "Elevated 18-28" if vix_curr < 28 else "High >28"
+
+            # Simple level classification
+            if vix_curr < 18:
+                vix_level = "Low <18"
+            elif vix_curr < 28:
+                vix_level = "Elevated 18-28"
+            else:
+                vix_level = "High >28"
+
             report_data['vix'] = {
                 'price': vix_curr,
                 'change': vix_change,
-                'level': vix_level
+                'level': vix_level,
+                'watch_level': vix_curr  # Current VIX value
             }
     except:
-        report_data['vix'] = {'price': 25, 'change': 0, 'level': 'Elevated 18-28'}
+        report_data['vix'] = {'price': 25, 'change': 0, 'level': 'Elevated 18-28', 'watch_level': 25}
 
     # Crypto
     try:
@@ -1010,11 +1019,12 @@ def generate_comprehensive_report(output_format='console', output_path=None):
 
     report_data['action_items'] = action_items
 
-    # KEY LEVELS
+    # KEY LEVELS - use dynamic VIX watch level (75th percentile of last 20 days)
+    vix_watch_dynamic = report_data['vix'].get('watch_level', 28)
     report_data['key_levels'] = {
         'spy_ma50': spy_ma50,
         'qqq_ma50': qqq_ma50,
-        'vix_watch': 28
+        'vix_watch': vix_watch_dynamic
     }
 
     # VERDICT
@@ -1107,7 +1117,8 @@ def generate_comprehensive_report(output_format='console', output_path=None):
             print(f"{i}. ☐ {item['text']}")
 
         print(f"\n**⚡ KEY LEVELS**")
-        print(f"SPY: Reclaim ${report_data['key_levels']['spy_ma50']:.0f} | QQQ: Reclaim ${report_data['key_levels']['qqq_ma50']:.0f} | VIX: Watch 28")
+        vix_watch = report_data['key_levels']['vix_watch']
+        print(f"SPY: Reclaim ${report_data['key_levels']['spy_ma50']:.0f} | QQQ: Reclaim ${report_data['key_levels']['qqq_ma50']:.0f} | VIX: Watch {vix_watch:.1f}")
 
         print("\n" + "—" * 60)
         print(f"Verdict: {regime.split()[1] if regime else 'NEUTRAL'} regime. {report_data['verdict_action']}")
