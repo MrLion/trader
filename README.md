@@ -586,6 +586,7 @@ Failure mode documentation for production incidents:
 ## Recent Fixes
 
 ### 2026-04-09
+- **Fixed ATR calculation inconsistency** - Paper engine now uses Alpaca data for both ATR display and stop calculation (was using yfinance for stops, causing risk% mismatches)
 - **Fixed entry price sync from Alpaca** - Position entry prices now update with actual fill prices from Alpaca (was using theoretical signal prices, causing P&L discrepancies)
 - **Fixed Day P&L display** - `day_return_pct` is now persisted to account file, showing correct percentage and 🔴 emoji for negative values
 - **Added entry price sync on startup** - Existing positions get their entry prices corrected during Alpaca sync
