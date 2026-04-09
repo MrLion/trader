@@ -95,6 +95,27 @@ def cmd_status(args):
     day_return = account.get('day_return_pct', 0)
     print(f"   Day P&L: {format_currency(day_pnl)} ({format_pct(day_return)})")
 
+    # Calculate Unrealized P&L from open positions
+    unrealized_pnl = 0.0
+    if positions:
+        pos_list = positions if isinstance(positions, list) else list(positions.values())
+        for pos in pos_list:
+            # Alpaca provides unrealized_pl directly
+            pos_unrealized = pos.get('unrealized_pl', 0) or pos.get('unrealized_pnl', 0)
+            if pos_unrealized:
+                unrealized_pnl += float(pos_unrealized)
+            else:
+                # Calculate manually if not provided
+                entry = pos.get('avg_entry_price') or pos.get('entry_price', 0)
+                current = pos.get('current_price', 0)
+                shares = pos.get('qty') or pos.get('shares', 0)
+                if entry and current and shares:
+                    unrealized_pnl += (current - entry) * shares
+
+    if unrealized_pnl != 0:
+        unrealized_pct = (unrealized_pnl / account.get('initial_capital', 1)) * 100
+        print(f"   Unrealized P&L: {format_currency(unrealized_pnl)} ({format_pct(unrealized_pct)})")
+
     print(f"\n📊 ACTIVITY")
     print(f"   Open Positions: {account.get('open_positions', 0)}")
     print(f"   Entries Today:  {account.get('entries_today', 0)}")
