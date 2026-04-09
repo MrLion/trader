@@ -32,6 +32,32 @@ All notable changes to this project will be documented in this file.
 ### Documented
 - Entry score discrepancies and historical data requirements.
 
+## [0.3.1] - 2026-04-09
+
+### Added
+- **Flexible Risk Configuration System** (`config/risk_config.yaml`)
+  - Named profiles: default, conservative, aggressive, tight_stops
+  - Dual-constraint position sizing (account risk + position cap)
+  - Min/max stop distance validation with automatic rejection
+  - Environment variable overrides: `RISK_ACCOUNT_RISK_PCT`, `RISK_POSITION_MAX_PCT`
+  - New CLI flags: `--risk-profile` and `--risk-summary` for paper engine
+  - New module `traderlib/risk_config.py` with full configuration management
+- Packaged traderlib as proper Python package (`setup.py` for editable installs)
+- Pre-commit hooks (black, flake8, isort) for code quality
+- Dynamic VIX calculation in premarket report (uses current VIX value)
+
+### Changed
+- Updated risk management: max position size capped at 5% of equity
+- Reject trades with stop distance > 10% (configurable)
+
+### Fixed
+- Traderlib import errors (`calculate_relative_strength`)
+- Test assertions for edge cases
+- WebSocket error handling with exponential backoff
+- ATR calculation consistency (now uses Alpaca data for stops)
+- Entry price sync from Alpaca for accurate P&L
+- Day P&L display persistence
+
 ## [0.2.0] - 2026-04-08
 ### Added
 - **Comprehensive Test Suite:**
