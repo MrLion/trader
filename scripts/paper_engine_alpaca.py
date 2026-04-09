@@ -220,6 +220,7 @@ class AlpacaPaperEngine:
         """Graceful shutdown."""
         print("\n\n🛑 Shutdown signal received...")
         self.running = False
+        self.ws_running = False
 
     def _is_market_hours(self) -> bool:
         """Check if market is open."""
@@ -284,7 +285,9 @@ class AlpacaPaperEngine:
             print(f"⚠️ WebSocket error: {e}")
         finally:
             self.ws_running = False
-            print("📡 WebSocket disconnected. Using REST polling for prices.")
+            # Only print polling message if engine is still running (not during shutdown)
+            if self.running:
+                print("📡 WebSocket disconnected. Using REST polling for prices.")
 
     def _load_watchlist_tickers(self) -> List[str]:
         """Load watchlist tickers."""
