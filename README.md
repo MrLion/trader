@@ -586,6 +586,7 @@ Failure mode documentation for production incidents:
 ## Recent Fixes
 
 ### 2026-04-09
+- **Fixed shutdown message** - Suppressed misleading "Using REST polling" message during Ctrl+C shutdown
 - **Improved WebSocket error handling** - Added exponential backoff for reconnects (5s → 60s max), specific handling for ConnectionClosed errors, and delay reset on successful connection
 - **Fixed ATR calculation inconsistency** - Paper engine now uses Alpaca data for both ATR display and stop calculation (was using yfinance for stops, causing risk% mismatches)
 - **Fixed entry price sync from Alpaca** - Position entry prices now update with actual fill prices from Alpaca (was using theoretical signal prices, causing P&L discrepancies)
