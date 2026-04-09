@@ -511,6 +511,15 @@ python3 scripts/validate_alpaca.py
 - `CLAUDE.md` - Development operations and architecture notes
 - `TOOLS.md` - Technical documentation for yfinance and script usage
 
+## Operational Runbooks
+
+Failure mode documentation for production incidents:
+
+- [API Outage](docs/runbooks/api_outage.md) - Alpaca API down, connection timeouts
+- [Partial Fill](docs/runbooks/partial_fill.md) - Position size doesn't match order
+- [Stuck Position](docs/runbooks/stuck_position.md) - Can't exit, ticker halted/delisted
+- [Data Quality](docs/runbooks/data_quality.md) - Entry scores wrong, Stage 2 miscalculated
+
 ## Recent Fixes
 
 ### 2026-04-08

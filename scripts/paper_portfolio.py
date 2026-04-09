@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -12,8 +13,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 
-# Data paths
-DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+# Data paths - configurable via environment variable for testing
+DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
 ACCOUNT_FILE = DATA_DIR / 'paper_account.json'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
@@ -68,6 +70,13 @@ def cmd_status(args):
         print("❌ No account data found. Engine may not be running.")
         return
 
+    # Load watchlist for sector lookup
+    watchlist_df = None
+    try:
+        watchlist_df = pd.read_csv(DATA_DIR / 'watchlist.csv')
+    except Exception:
+        pass
+
     print("\n" + "=" * 60)
     print("📊 PAPER TRADING ACCOUNT STATUS")
     print("=" * 60)
@@ -92,14 +101,32 @@ def cmd_status(args):
     print(f"   Total Trades:   {account.get('trade_count', 0)}")
 
     if positions:
-        print(f"\n📋 OPEN POSITIONS ({len(positions)})")
+        pos_dict = {}
+        if isinstance(positions, list):
+            for p in positions:
+                ticker = p.get('symbol') or p.get('ticker')
+                if ticker:
+                    pos_dict[ticker] = p
+        else:
+            pos_dict = positions
+
+        print(f"\n📋 OPEN POSITIONS ({len(pos_dict)})")
         print("-" * 60)
-        for ticker, pos in positions.items():
+        for ticker, pos in pos_dict.items():
             entry = pos.get('entry_price', 0)
-            shares = pos.get('shares', 0)
+            shares = pos.get('shares', 0) or pos.get('qty', 0)
             stop = pos.get('stop_price', 0)
             stop_type = pos.get('current_stop_type', 'HARD')
+
+            # Sector lookup from watchlist if not in position data
             sector = pos.get('sector', 'Unknown')
+            if sector == 'Unknown' and watchlist_df is not None:
+                try:
+                    row = watchlist_df[watchlist_df['Ticker'] == ticker]
+                    if not row.empty and 'Sector' in row.columns:
+                        sector = str(row['Sector'].values[0])
+                except Exception:
+                    pass
 
             print(f"   {ticker:6} | {sector[:12]:12} | {shares:4} shares | "
                   f"Entry: ${entry:.2f} | Stop: ${stop:.2f} ({stop_type})")
@@ -121,6 +148,15 @@ def cmd_live(args):
         print("📭 No open positions")
         return
 
+    pos_dict = {}
+    if isinstance(positions, list):
+        for p in positions:
+            ticker = p.get('symbol') or p.get('ticker')
+            if ticker:
+                pos_dict[ticker] = p
+    else:
+        pos_dict = positions
+
     print("\n" + "=" * 80)
     print("📈 LIVE POSITIONS (Fetching current prices...)")
     print("=" * 80)
@@ -131,7 +167,7 @@ def cmd_live(args):
     total_pnl = 0
     total_value = 0
 
-    for ticker, pos in positions.items():
+    for ticker, pos in pos_dict.items():
         try:
             stock = yf.Ticker(ticker)
             hist = stock.history(period="1d", interval="5m")
@@ -141,8 +177,8 @@ def cmd_live(args):
                 continue
 
             current = hist['Close'].iloc[-1]
-            entry = pos.get('entry_price', 0)
-            shares = pos.get('shares', 0)
+            entry = pos.get('entry_price', 0) or pos.get('avg_entry_price', 0)
+            shares = pos.get('shares', 0) or pos.get('qty', 0)
             stop = pos.get('stop_price', 0)
             stop_type = pos.get('current_stop_type', 'HARD')
             initial_risk = pos.get('initial_risk', 1)
