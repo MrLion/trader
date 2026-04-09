@@ -113,23 +113,31 @@ def cmd_status(args):
         print(f"\n📋 OPEN POSITIONS ({len(pos_dict)})")
         print("-" * 60)
         for ticker, pos in pos_dict.items():
-            entry = pos.get('entry_price', 0)
-            shares = pos.get('shares', 0) or pos.get('qty', 0)
+            # Handle both Alpaca format (avg_entry_price) and internal format (entry_price)
+            entry = pos.get('entry_price') or pos.get('avg_entry_price', 0)
+            shares = pos.get('shares') or pos.get('qty', 0)
             stop = pos.get('stop_price', 0)
             stop_type = pos.get('current_stop_type', 'HARD')
 
-            # Sector lookup from watchlist if not in position data
+            # Sector and stop lookup from watchlist if not in position data
             sector = pos.get('sector', 'Unknown')
-            if sector == 'Unknown' and watchlist_df is not None:
+            if watchlist_df is not None:
                 try:
                     row = watchlist_df[watchlist_df['Ticker'] == ticker]
-                    if not row.empty and 'Sector' in row.columns:
-                        sector = str(row['Sector'].values[0])
+                    if not row.empty:
+                        if sector == 'Unknown' and 'Sector' in row.columns:
+                            sector = str(row['Sector'].values[0])
+                        # Look up stop level from watchlist if missing
+                        if stop == 0 and 'Stop_Level' in row.columns:
+                            stop_val = row['Stop_Level'].values[0]
+                            if pd.notna(stop_val) and stop_val > 0:
+                                stop = float(stop_val)
                 except Exception:
                     pass
 
+            stop_str = f"${stop:.2f}" if stop > 0 else "N/A"
             print(f"   {ticker:6} | {sector[:12]:12} | {shares:4} shares | "
-                  f"Entry: ${entry:.2f} | Stop: ${stop:.2f} ({stop_type})")
+                  f"Entry: ${entry:.2f} | Stop: {stop_str} ({stop_type})")
 
     # Last update
     ts = account.get('timestamp')
