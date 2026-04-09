@@ -6,9 +6,8 @@ Verify that Stage 2 scoring is consistent and correct using frozen fixtures.
 import unittest
 import pandas as pd
 from pathlib import Path
-import sys
 
-from scripts.lib.stage2_utils import calculate_stage2_score
+from traderlib import calculate_stage2_score
 
 class TestStage2Fixtures(unittest.TestCase):
     """Test Stage 2 scoring against real and synthetic frozen data."""

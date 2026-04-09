@@ -7,7 +7,6 @@ entry scoring, and technical indicator calculations.
 
 from .stage2_utils import (
     calculate_stage2_score,
-    calculate_relative_strength,
     get_entry_score,
     get_stage2_tier,
 )
@@ -15,7 +14,6 @@ from .stage2_utils import (
 __version__ = "0.3.0"
 __all__ = [
     "calculate_stage2_score",
-    "calculate_relative_strength",
     "get_entry_score",
     "get_stage2_tier",
 ]

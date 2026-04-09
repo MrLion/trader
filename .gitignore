@@ -22,3 +22,4 @@ htmlcov/
 # Hypothesis test cache
 .hypothesis/
 .context/
+*.egg-info/
