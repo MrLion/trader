@@ -18,6 +18,14 @@ This release introduces a flexible risk configuration system that allows traders
 - ATR calculation consistency using Alpaca data
 - Entry price sync from Alpaca for accurate P&L tracking
 - Traderlib import errors and packaging improvements
+- GitHub Actions CI/CD test failures (110 tests passing)
+
+### Infrastructure & Observability
+- **Structured Exception Logging:** Centralized error handling with severity levels (CRITICAL/ERROR/WARNING/INFO)
+  - Logs to both console and `data/logs/trading_exceptions.log`
+  - Daily rotation with 30-day retention
+  - Metrics tracking for monitoring
+- **Silent Exception Fix:** Replaced 19 silent `except Exception: pass` handlers with proper logging across 8 files
 
 ### How to Use
 ```bash
