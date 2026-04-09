@@ -11,6 +11,20 @@ This is a command center for Stage 2 trading methodology (Mark Minervini's appro
 3. **Generate** pre-market and post-market reports
 4. **Execute** with discipline via entry/exit protocols
 
+## Quick Start
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Copy environment template and configure
+cp .env.example .env
+# Edit .env with your API keys (optional, for Telegram and Alpaca)
+
+# 3. Run your first analysis
+python3 scripts/analyze_ticker.py AAPL
+```
+
 ## Repository Structure
 
 ```
