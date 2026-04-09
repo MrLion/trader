@@ -73,6 +73,181 @@ Your "eject button" (stop loss) must be between 3% and 10% away from your entry 
 
 **Script:** `scripts/paper_exits.py` - `calculate_initial_stop()`
 
+---
+
+### How Stop Distance Limits Actually Work
+
+The stop distance limits act as **safety rails** at two different stages:
+
+#### Stage 1: Stop Calculation (Creating the Stop)
+
+**Location:** `paper_exits.py:263-276`
+
+When calculating a stop, the system first computes where the stop *should* be based on ATR/support. Then it **clips** the result to fit within your min/max bounds:
+
+```python
+# Config values: min=3%, max=10%
+min_stop = entry_price * (1 - 0.03)  # $100 → $97 minimum
+max_stop = entry_price * (1 - 0.10)  # $100 → $90 maximum
+
+# Example: ATR calculation says stop at $92 (8% away)
+stop = max(atr_stop, recent_low)     # Stop is $92
+if stop > min_stop:                    # $92 > $97? No, so keep $92
+    stop = min_stop
+if stop < max_stop:                    # $92 < $90? No, $92 is fine
+    stop = max_stop
+# Result: $92 (8% stop) - ACCEPTED
+
+# Example: ATR says stop at $88 (12% away)
+if stop < max_stop:                    # $88 < $90? Yes!
+    stop = max_stop                    # Move stop to $90 (10%)
+# Result: $90 (10% stop) - CAPPED TO MAX
+```
+
+**The logic:** The stop is moved UP (made tighter) if it's:
+- **Above** the min_stop line → pushed to min (closer to entry)
+- **Below** the max_stop line → pushed to max (farther from entry)
+
+#### Stage 2: Position Sizing Validation (Accepting/Rejecting Trades)
+
+**Location:** `risk_config.py:269-283`
+
+Even after the stop is calculated, the system validates it **before** calculating position size:
+
+```python
+stop_distance_pct = abs(entry_price - stop_price) / entry_price
+
+if stop_distance_pct < min_stop_distance_pct:  # < 3%
+    # Stop is TOO TIGHT - adjust it
+    adjusted_stop = entry_price * (1 - min_stop_distance_pct)
+    metadata['constraints_applied'].append("stop_too_tight_using_min_3.0%")
+    # Continue with adjusted stop
+
+if stop_distance_pct > max_stop_distance_pct:    # > 10%
+    # Stop is TOO WIDE - REJECT TRADE
+    metadata['rejected'] = True
+    metadata['rejection_reason'] = "Stop 12.0% exceeds max 10.0%"
+    return 0, metadata  # Zero shares
+```
+
+---
+
+### The Three Scenarios
+
+#### Scenario 1: Stop Too Tight (< 3%)
+**Example:** Entry $100, stop at $98 (2% away)
+
+**What Happens:**
+- System calculates you wanted a 2% stop
+- Adjusts stop to 3% minimum ($97)
+- Recalculates position size with $97 stop
+- Logs: `stop_too_tight_using_min_3.0%`
+- **Trade proceeds** with wider stop
+
+**Why:** Prevents normal market wiggles from stopping you out immediately.
+
+#### Scenario 2: Stop In Range (3% - 10%)
+**Example:** Entry $100, stop at $93 (7% away)
+
+**What Happens:**
+- Stop is within acceptable range
+- Position size calculated normally
+- **Trade proceeds** as planned
+
+#### Scenario 3: Stop Too Wide (> 10%)
+**Example:** Entry $100, stop at $85 (15% away)
+
+**What Happens:**
+- System detects 15% stop distance
+- **Rejects the trade entirely**
+- Returns 0 shares
+- Logs: `Stop 15.0% exceeds max 10.0%`
+
+**Why:** You're risking too much per share. The setup is too volatile or your technical analysis is off.
+
+---
+
+### Real Example Walkthrough
+
+**Stock:** NVDA at $150
+**Account:** $100,000
+**Config:** min=3%, max=10%, account_risk=0.75%, max_position=5%
+
+#### Step 1: Calculate Technical Stop
+```python
+# 14-day ATR = $8.50
+atr_stop = $150 - (2 * $8.50) = $133     # 11.3% away
+recent_low = $138                       # 8% away
+
+# atr_or_support: max($133, $138) = $138
+technical_stop = $138  # 8% stop
+```
+
+#### Step 2: Apply Min/Max Bounds
+```python
+min_stop = $150 * 0.97 = $145.50   # $150 - 3%
+max_stop = $150 * 0.90 = $135.00   # $150 - 10%
+
+# Is $138 > $145.50? No, so no adjustment up
+# Is $138 < $135.00? No ($138 > $135), so no adjustment down
+
+final_stop = $138  # 8% stop - WITHIN RANGE
+```
+
+#### Step 3: Validate During Position Sizing
+```python
+stop_distance = ($150 - $138) / $150 = 8%
+
+if 8% < 3%? No
+if 8% > 10%? No
+
+# PASSED - proceed with sizing
+
+# Account risk method:
+shares = ($100,000 * 0.0075) / $12 = 62.5 → 62 shares
+
+# Position cap method:
+max_shares = ($100,000 * 0.05) / $150 = 33.3 → 33 shares
+
+# Winner: 33 shares (position cap more restrictive)
+```
+
+---
+
+### What You See In Logs
+
+**Tight stop adjusted:**
+```
+📐 NVDA: Stop distance: 3.0%
+🔧 stop_too_tight_using_min_3.0%
+```
+
+**Wide stop rejected:**
+```
+⏸️  NVDA: Stop 12.0% exceeds max 10.0%
+   Rejected (stop): 1
+```
+
+**Normal stop accepted:**
+```
+📐 NVDA: Stop distance: 8.0%
+   Shares: 30 | Position value: $4,950
+```
+
+---
+
+### Why Two Stages?
+
+**Stage 1 (clipping)** handles cases where ATR gives an extreme value:
+- "ATR says 15% stop, but we'll cap it at 10%"
+
+**Stage 2 (validation)** handles cases where even the clipped value is too wide:
+- "Even capped at 10%, that's too much risk for this account"
+
+The separation ensures technical stops are respected when possible, but dangerous setups are rejected before any money is at risk.
+
+---
+
 ### How Stops Are Calculated
 
 The engine uses **"atr_or_support"** method by default:
