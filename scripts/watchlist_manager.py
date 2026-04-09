@@ -99,14 +99,15 @@ def load_watchlist():
                    'Added_Date', 'Alert_Set']
         return pd.DataFrame(columns=columns)
 
-def get_stock_data(ticker):
+def get_stock_data(ticker, force=False):
     """Fetch fresh data for a ticker."""
     try:
         t = yf.Ticker(ticker)
         info = t.info
         df = t.history(period="1y")
 
-        if df.empty or len(df) < 200:
+        min_days = 50 if force else 200
+        if df.empty or len(df) < min_days:
             return None
 
         current = df['Close'].iloc[-1]
@@ -142,7 +143,7 @@ def get_stock_data(ticker):
         print(f"Error fetching {ticker}: {e}")
         return None
 
-def add_to_watchlist(ticker, notes=''):
+def add_to_watchlist(ticker, notes='', force=False):
     """Add a single stock to watchlist."""
     df = load_watchlist()
 
@@ -151,7 +152,7 @@ def add_to_watchlist(ticker, notes=''):
         print(f"⚠️ {ticker} already in watchlist")
         return
 
-    data = get_stock_data(ticker)
+    data = get_stock_data(ticker, force=force)
     if not data:
         print(f"❌ Could not fetch data for {ticker}")
         return
@@ -290,7 +291,7 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python watchlist_manager.py populate <scan_file>")
-        print("  python watchlist_manager.py add <ticker> [notes]")
+        print("  python watchlist_manager.py add <ticker> [notes] [--force]")
         print("  python watchlist_manager.py list")
         print("  python watchlist_manager.py remove <ticker>")
         print("  python watchlist_manager.py remove-all [--force]")
@@ -301,8 +302,13 @@ if __name__ == '__main__':
     if cmd == 'populate' and len(sys.argv) >= 3:
         populate_from_scan(sys.argv[2])
     elif cmd == 'add' and len(sys.argv) >= 3:
-        notes = sys.argv[3] if len(sys.argv) > 3 else ''
-        add_to_watchlist(sys.argv[2], notes)
+        force = '--force' in sys.argv
+        # Extract notes (everything after ticker that's not --force)
+        args = sys.argv[2:]
+        ticker = args[0]
+        notes_args = [a for a in args[1:] if a != '--force']
+        notes = ' '.join(notes_args) if notes_args else ''
+        add_to_watchlist(ticker, notes, force=force)
     elif cmd == 'list':
         list_watchlist()
     elif cmd == 'remove' and len(sys.argv) >= 3:
