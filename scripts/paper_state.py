@@ -18,6 +18,16 @@ TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 # Trading limits - configurable via environment variables
 MAX_SECTOR_POSITIONS = int(os.environ.get('MAX_SECTOR_POSITIONS', '3'))
 
+# PHASE 3: Data validation constants
+# These values prevent obviously fake/test data from being logged
+VALIDATION = {
+    'MAX_ENTRY_PRICE': float(os.environ.get('PAPER_MAX_ENTRY_PRICE', '500.0')),
+    'MAX_SHARES': int(os.environ.get('PAPER_MAX_SHARES', '500')),
+    'MAX_POSITION_VALUE': float(os.environ.get('PAPER_MAX_POSITION_VALUE', '50000.0')),
+    'MAX_PNL_ABS': float(os.environ.get('PAPER_MAX_PNL_ABS', '10000.0')),
+    'SKIP_VALIDATION': os.environ.get('PAPER_SKIP_VALIDATION', 'false').lower() == 'true'
+}
+
 
 @dataclass
 class Position:
@@ -294,8 +304,63 @@ class PaperState:
             self.positions[ticker].current_stop_type = stop_type
             self.save_state()
 
+    def _validate_trade(self, position: Position) -> tuple[bool, str]:
+        """
+        PHASE 3: Validate trade data to prevent obviously fake/test entries.
+
+        Returns: (is_valid, reason)
+        """
+        if VALIDATION['SKIP_VALIDATION']:
+            return True, ""
+
+        # Check entry price
+        if position.entry_price > VALIDATION['MAX_ENTRY_PRICE']:
+            return False, f"entry_price {position.entry_price} > {VALIDATION['MAX_ENTRY_PRICE']}"
+
+        # Check shares
+        if position.shares > VALIDATION['MAX_SHARES']:
+            return False, f"shares {position.shares} > {VALIDATION['MAX_SHARES']}"
+
+        # Check position value
+        position_value = position.entry_price * position.shares
+        if position_value > VALIDATION['MAX_POSITION_VALUE']:
+            return False, f"position_value {position_value} > {VALIDATION['MAX_POSITION_VALUE']}"
+
+        # Check P&L on exits
+        if position.realized_pnl is not None:
+            if abs(position.realized_pnl) > VALIDATION['MAX_PNL_ABS']:
+                return False, f"realized_pnl {position.realized_pnl} exceeds limit"
+
+        return True, ""
+
     def _log_trade(self, event_type: str, position: Position):
         """Append trade to history log."""
+        # PHASE 3: Validate before logging
+        is_valid, reason = self._validate_trade(position)
+        if not is_valid:
+            # Log to stderr but don't raise (prevents breaking trading loop)
+            import sys
+            print(f"⚠️  WARNING: Trade validation failed - {reason}", file=sys.stderr)
+            print(f"   Trade not logged: {position.ticker} @ ${position.entry_price}", file=sys.stderr)
+            # Add validation failure metadata for debugging
+            trade_record = {
+                'event': event_type,
+                'timestamp': datetime.now().isoformat(),
+                'ticker': position.ticker,
+                'entry_price': position.entry_price,
+                'shares': position.shares,
+                '_meta': {
+                    'test_mode': os.environ.get('PAPER_TRADING_TEST_MODE', 'false').lower() == 'true',
+                    'data_dir': str(DATA_DIR),
+                    'source': 'paper_state',
+                    'validation_failed': True,
+                    'validation_reason': reason
+                }
+            }
+            with open(TRADES_FILE, 'a') as f:
+                f.write(json.dumps(trade_record) + '\n')
+            return
+
         trade_record = {
             'event': event_type,
             'timestamp': datetime.now().isoformat(),
@@ -305,7 +370,14 @@ class PaperState:
             'shares': position.shares,
             'realized_pnl': position.realized_pnl,
             'exit_reason': position.exit_reason,
-            'stop_type': position.current_stop_type
+            'stop_type': position.current_stop_type,
+            # PHASE 2: Test isolation metadata
+            '_meta': {
+                'test_mode': os.environ.get('PAPER_TRADING_TEST_MODE', 'false').lower() == 'true',
+                'data_dir': str(DATA_DIR),
+                'source': 'paper_state',
+                'validation_passed': True
+            }
         }
 
         with open(TRADES_FILE, 'a') as f:

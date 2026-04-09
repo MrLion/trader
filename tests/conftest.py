@@ -15,6 +15,9 @@ import shutil
 _test_data_dir = tempfile.mkdtemp(prefix='paper_trading_test_')
 os.environ['PAPER_TRADING_DATA_DIR'] = _test_data_dir
 
+# PHASE 2: Mark test mode for metadata tagging
+os.environ['PAPER_TRADING_TEST_MODE'] = 'true'
+
 # Create empty files to prevent errors
 test_positions = Path(_test_data_dir) / 'paper_positions.json'
 test_account = Path(_test_data_dir) / 'paper_account.json'

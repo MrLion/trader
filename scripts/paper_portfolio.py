@@ -336,6 +336,14 @@ def cmd_report(args):
         print("📭 No trades to report")
         return
 
+    # PHASE 2: Filter out test entries unless --include-test-data flag
+    if not getattr(args, 'include_test_data', False):
+        original_count = len(trades)
+        trades = [t for t in trades if not t.get('_meta', {}).get('test_mode', False)]
+        filtered_count = original_count - len(trades)
+        if filtered_count > 0:
+            print(f"   (Filtered {filtered_count} test entries, use --include-test-data to show)")
+
     # Calculate statistics
     exits = [t for t in trades if t.get('event') == 'EXIT']
     entries = [t for t in trades if t.get('event') == 'ENTRY']
@@ -470,6 +478,8 @@ Examples:
 
     # report
     p_report = subparsers.add_parser('report', help='Performance report')
+    p_report.add_argument('--include-test-data', action='store_true',
+                         help='Include test entries in report (default: filtered)')
     p_report.set_defaults(func=cmd_report)
 
     # close
