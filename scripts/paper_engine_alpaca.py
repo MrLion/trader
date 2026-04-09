@@ -402,7 +402,17 @@ class AlpacaPaperEngine:
                 print(f"      hist columns: {hist.columns.tolist()}, shape: {hist.shape}")
                 return None
 
-            stop = self.exits.calculate_initial_stop(ticker, current)
+            # Use ATR from Alpaca data (already calculated above)
+            atr_stop = current - (2 * atr)
+            # Get recent low from Alpaca data for support
+            recent_low = hist['Low'].tail(10).min()
+            stop = max(atr_stop, recent_low)
+            # Sanity check: stop should be 3-15% below entry
+            if stop > current * 0.97:
+                stop = current * 0.97
+            elif stop < current * 0.85:
+                stop = current * 0.85
+
             target = self.exits.calculate_target_price(current, stop)
 
             dist_to_pivot = ((pivot - current) / current) * 100
