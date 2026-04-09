@@ -15,6 +15,9 @@ POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
 ACCOUNT_FILE = DATA_DIR / 'paper_account.json'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 
+# Trading limits - configurable via environment variables
+MAX_SECTOR_POSITIONS = int(os.environ.get('MAX_SECTOR_POSITIONS', '3'))
+
 
 @dataclass
 class Position:
@@ -190,8 +193,8 @@ class PaperState:
 
         # Check sector limit
         sector_counts = self.get_sector_counts()
-        if sector_counts.get(sector, 0) >= 3:
-            return False, f"Sector limit reached (3 in {sector})"
+        if sector_counts.get(sector, 0) >= MAX_SECTOR_POSITIONS:
+            return False, f"Sector limit reached ({MAX_SECTOR_POSITIONS} in {sector})"
 
         # Check position size limit (20% of equity)
         if position_value > equity * 0.20:
