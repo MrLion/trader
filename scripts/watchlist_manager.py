@@ -74,16 +74,14 @@ AUTHOR: Ace (Trading Agent)
 DATE: 2026-04-06
 """
 
-import pandas as pd
-import yfinance as yf
 import json
 from datetime import datetime
 from pathlib import Path
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score
 
 WATCHLIST_PATH = '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'
 SCAN_DIR = '/Users/mintmrlion/.openclaw/workspaces/trader/scans'

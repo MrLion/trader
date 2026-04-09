@@ -18,3 +18,7 @@ data/paper_*.json
 data/paper_*.jsonl
 .coverage
 htmlcov/
+
+# Hypothesis test cache
+.hypothesis/
+.context/

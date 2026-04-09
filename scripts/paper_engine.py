@@ -14,9 +14,7 @@ import pandas as pd
 import pytz
 import yfinance as yf
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score
 
 from paper_state import PaperState, Position
 from paper_exits import ExitEngine, ExitSignal

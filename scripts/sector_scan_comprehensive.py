@@ -6,15 +6,13 @@ Updated with full ETF universe from master CSV
 Shows TOP 15 results
 """
 
-import yfinance as yf
+import csv
 from datetime import datetime
 from pathlib import Path
-import csv
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score
+import yfinance as yf
+
+from traderlib import calculate_stage2_score
 
 # Full ETF universe from comprehensive CSV
 ETFS = [

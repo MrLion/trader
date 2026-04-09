@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """Migrate watchlist Stage values from 4-point to 7-point system."""
 
-import sys
 from pathlib import Path
+
 import pandas as pd
 import yfinance as yf
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score
+from traderlib import calculate_stage2_score
 
 WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
 

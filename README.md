@@ -16,7 +16,7 @@ This is a command center for Stage 2 trading methodology (Mark Minervini's appro
 ### One-Command Setup
 
 ```bash
-# Run the setup script (creates directories, installs deps, copies .env)
+# Run the setup script (creates directories, installs deps, copies .env, installs pre-commit hooks)
 ./setup.sh
 
 # Or use Make
@@ -26,7 +26,10 @@ make setup
 ### Manual Setup
 
 ```bash
-# 1. Install dependencies
+# 1. Install package in editable mode (recommended)
+pip install -e .
+
+# Or install dependencies only
 pip install -r requirements.txt
 
 # 2. Copy environment template and configure
@@ -36,7 +39,10 @@ cp .env.example .env
 # 3. Create required directories
 mkdir -p data/config scans reports memory
 
-# 4. Run your first analysis
+# 4. (Optional) Install pre-commit hooks
+pre-commit install
+
+# 5. Run your first analysis
 python3 scripts/analyze_ticker.py AAPL
 ```
 
@@ -130,17 +136,44 @@ Use the Makefile for common development tasks:
 
 ```bash
 # Setup (run once)
-make setup              # Full setup (directories, deps, .env)
+make setup              # Full setup (directories, deps, .env, pre-commit hooks)
 
 # Testing
 make test               # Run test suite with coverage
 make test-coverage      # Generate HTML coverage report
 
+# Code Quality (pre-commit hooks)
+pre-commit run          # Run hooks on staged files
+pre-commit run --all-files  # Run hooks on all files
+make lint               # Run linter (flake8)
+make format             # Format code with black
+
 # Maintenance
 make clean              # Remove cache files
-make lint               # Run linter
-make format             # Format code with black
 ```
+
+### Pre-commit Hooks
+
+Pre-commit hooks automatically check code quality before each commit:
+
+```bash
+# Install hooks (one-time setup)
+pre-commit install
+
+# Run manually
+pre-commit run
+
+# Skip hooks for a specific commit (emergency only)
+git commit -m "message" --no-verify
+```
+
+Hooks configured:
+- **trailing-whitespace** - Removes trailing whitespace
+- **end-of-file-fixer** - Ensures files end with a newline
+- **black** - Python code formatting
+- **isort** - Import sorting
+- **flake8** - Python linting
+- **check-yaml/json/toml** - Syntax validation
 
 ## Comprehensive Reports
 

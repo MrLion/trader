@@ -1,0 +1,61 @@
+"""Pre-commit configuration for Trader."""
+
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(scans/|reports/|data/|memory/)
+      - id: end-of-file-fixer
+        exclude: ^(scans/|reports/|data/|memory/)
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+        language_version: python3
+
+  # Python code formatting (Black)
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: ['--line-length=120']
+        files: ^(scripts/|traderlib/|tests/)
+        exclude: ^scripts/lib/
+
+  # Python import sorting (isort)
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ['--profile=black', '--line-length=120']
+        files: ^(scripts/|traderlib/|tests/)
+        exclude: ^scripts/lib/
+
+  # Python linting (flake8)
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        language_version: python3
+        args: ['--max-line-length=120', '--extend-ignore=E203,W503']
+        files: ^(scripts/|traderlib/|tests/)
+        exclude: ^scripts/lib/
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: ['-c', '.yamllint.yml']
+        files: \.(yaml|yml)$
+        exclude: ^(.github/)

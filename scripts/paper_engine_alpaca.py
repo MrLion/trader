@@ -14,14 +14,14 @@ from typing import Dict, List, Optional, Set
 import pandas as pd
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+# Add scripts directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from alpaca_client import AlpacaClient
 from paper_state import PaperState, Position
 from paper_exits import ExitEngine, ExitSignal
 from order_manager import OrderManager, OrderStatus
-from stage2_utils import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score
 
 # Configurable paths - uses environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')

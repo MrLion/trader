@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """Analyze a single ticker using manual pivot from watchlist."""
 
-import yfinance as yf
-import pandas as pd
 import csv
 from pathlib import Path
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score
 
 def get_manual_pivot(ticker):
     """Get manual pivot price from watchlist if it exists."""

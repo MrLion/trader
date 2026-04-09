@@ -7,19 +7,17 @@ economic calendar, sector leaders, and watchlist rankings.
 Supports both console and HTML output.
 """
 
-import yfinance as yf
-import csv
 import argparse
+import csv
+import html
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
-import re
-import pandas as pd
-import html
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score, get_entry_score
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score, get_entry_score
 
 def generate_html_report(report_data, output_path):
     """Generate standalone HTML report with embedded CSS"""

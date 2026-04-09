@@ -60,6 +60,16 @@ else
 fi
 echo ""
 
+# Install package in editable mode
+echo "Installing trader package in editable mode..."
+if [ -f pyproject.toml ]; then
+    pip3 install -e . --quiet
+    echo "✅ Package installed (pip install -e .)"
+else
+    echo "⚠️  pyproject.toml not found, skipping editable install"
+fi
+echo ""
+
 # Run first-time setup scripts if keys are not configured
 echo "Checking Alpaca configuration..."
 if [ -f data/config/alpaca_config.json ] || [ -n "$ALPACA_API_KEY" ]; then
@@ -68,6 +78,17 @@ else
     echo "⚠️  Alpaca credentials not configured"
     echo "   Run: python3 scripts/setup_alpaca.py"
     echo "   Or edit .env file with your keys"
+fi
+echo ""
+
+# Install pre-commit hooks (optional)
+echo "Setting up pre-commit hooks..."
+if command -v pre-commit >/dev/null 2>&1; then
+    pre-commit install
+    echo "✅ Pre-commit hooks installed"
+    echo "   Run 'pre-commit run --all-files' to check all files"
+else
+    echo "⚠️  pre-commit not installed (run: pip install pre-commit)"
 fi
 echo ""
 
@@ -86,6 +107,11 @@ echo "   python3 scripts/analyze_ticker.py AAPL"
 echo ""
 echo "3. Start paper trading (after configuring Alpaca):"
 echo "   python3 scripts/paper_engine_alpaca.py"
+echo ""
+echo "Development commands:"
+echo "   make test          # Run tests"
+echo "   make lint          # Run linter"
+echo "   pre-commit run     # Run pre-commit hooks manually"
 echo ""
 echo "For more info:"
 echo "   cat README.md | head -100"

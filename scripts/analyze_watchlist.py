@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """Analyze entire watchlist for favorable entry points."""
 
-import yfinance as yf
-import pandas as pd
-import csv
 import argparse
-from pathlib import Path
+import csv
 import os
-import sys
+from pathlib import Path
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_tier
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_tier
 
 # Configurable paths - can be overridden via environment variables
 WATCHLIST_PATH = Path(os.getenv('TRADER_WATCHLIST', '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'))

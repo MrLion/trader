@@ -4,14 +4,11 @@
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')

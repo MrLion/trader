@@ -13,18 +13,16 @@ Features:
 - HTML and console output
 """
 
-import yfinance as yf
-import pandas as pd
-import csv
 import argparse
+import csv
 import html
 from datetime import datetime
 from pathlib import Path
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score
 
 REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
 WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')

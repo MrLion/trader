@@ -6,16 +6,14 @@ Loads tickers from watchlist or custom file - no hardcoded universe.
 
 import argparse
 import csv
-import yfinance as yf
-import pandas as pd
 import html
 from datetime import datetime
 from pathlib import Path
-import sys
 
-# Add lib directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from stage2_utils import calculate_stage2_score, get_entry_score
+import pandas as pd
+import yfinance as yf
+
+from traderlib import calculate_stage2_score, get_entry_score
 
 
 def load_watchlist_tickers():

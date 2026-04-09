@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trader"
+version = "0.3.0"
+description = "A systematic stock trading workflow system for momentum-driven swing trading"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "MrLion"}
+]
+keywords = ["trading", "stocks", "alpaca", "stage2", "minervini"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "pandas>=2.0.0",
+    "yfinance>=0.2.28",
+    "numpy>=1.24.0",
+    "alpaca-py>=0.15.0",
+    "requests>=2.31.0",
+    "websockets>=12.0",
+    "beautifulsoup4>=4.12.0",
+    "pytz>=2023.3",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "hypothesis>=6.88.0",
+    "pre-commit>=3.5.0",
+    "flake8>=6.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/MrLion/trader"
+Repository = "https://github.com/MrLion/trader"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["traderlib*"]
+
+[tool.black]
+line-length = 120
+target-version = ['py311', 'py312', 'py313']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["traderlib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "-v",
+    "--cov=traderlib",
+    "--cov=scripts",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=html:.gstack/qa-reports/coverage/html",
+    "--cov-report=xml:.gstack/qa-reports/coverage/coverage.xml",
+]
+
+[tool.coverage.run]
+source = ["traderlib", "scripts"]
+omit = [
+    "*/__pycache__/*",
+    "*/tests/*",
+    "*/test_*",
+    "scripts/setup_alpaca.py",
+    "scripts/validate_alpaca.py",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

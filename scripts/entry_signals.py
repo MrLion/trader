@@ -11,11 +11,11 @@ from typing import Dict, List, Optional
 import pandas as pd
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent / 'lib'))
+# Add scripts directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from alpaca_client import AlpacaClient
-from stage2_utils import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score
 
 # Configurable paths
 DATA_DIR = Path(__file__).parent.parent / 'data'
