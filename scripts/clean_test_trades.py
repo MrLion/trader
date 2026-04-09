@@ -34,7 +34,7 @@ DATA_DIR = Path(__file__).parent.parent / 'data'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 
 
-def is_test_entry(trade: Dict, strict: bool = False) -> Tuple[bool, str]:
+def is_test_entry(trade: Dict, strict: bool = False, seen_signatures: set = None) -> Tuple[bool, str]:
     """
     Determine if a trade entry is test data.
 
@@ -49,13 +49,29 @@ def is_test_entry(trade: Dict, strict: bool = False) -> Tuple[bool, str]:
     entry_price = trade.get('entry_price', 0)
     shares = trade.get('shares', 0)
     ticker = trade.get('ticker', '')
+    timestamp = trade.get('timestamp', '')
+
+    # Known test patterns - AAPL/MSFT/GOOGL at exact prices from test data
+    if ticker in ('AAPL', 'MSFT', 'GOOGL', 'DELISTED'):
+        if entry_price in (150.0, 151.0, 152.0, 200.0, 250.0, 300.0, 500.0):
+            return True, f"known_test_ticker_{ticker}_{entry_price}"
+
+    # Stock0, Stock1, Stock2 patterns from integration tests
+    if ticker.startswith('STOCK') and ticker[5:].isdigit():
+        return True, f"test_stock_pattern_{ticker}"
+
+    # Old dates (2024 or earlier in 2026) are likely test data
+    if isinstance(timestamp, str):
+        if timestamp.startswith('2024-'):
+            return True, "old_date_2024"
+        if timestamp.startswith('2025-'):
+            return True, "old_date_2025"
 
     # Known test patterns
     if entry_price == 500.0 and shares == 1000:
         return True, "known_test_pattern_500_1000"
 
     if entry_price == 200.0 and shares == 100 and ticker == 'AAPL':
-        # This specific pattern appears multiple times in test data
         return True, "known_test_pattern_200_100"
 
     # Realistic price check (most stocks are under $500)
@@ -74,10 +90,8 @@ def is_test_entry(trade: Dict, strict: bool = False) -> Tuple[bool, str]:
     # Strict mode additional checks
     if strict:
         # Check for repeated timestamps (possible test duplicates)
-        if 'timestamp' in trade:
-            ts = trade['timestamp']
-            if isinstance(ts, str) and ts.endswith('.000000'):
-                return True, "synthetic_timestamp"
+        if isinstance(timestamp, str) and timestamp.endswith('.000000'):
+            return True, "synthetic_timestamp"
 
         # Check for suspicious P&L on exits
         if trade.get('event') == 'EXIT':

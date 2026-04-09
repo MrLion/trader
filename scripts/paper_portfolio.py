@@ -256,6 +256,9 @@ def cmd_today(args):
     """Show today's trades."""
     trades = load_trades(limit=200)
 
+    # Filter out test entries
+    trades = [t for t in trades if not t.get('_meta', {}).get('test_mode', False)]
+
     today = datetime.now().strftime('%Y-%m-%d')
     today_trades = [t for t in trades if t.get('timestamp', '').startswith(today)]
 
@@ -300,6 +303,10 @@ def cmd_today(args):
 def cmd_history(args):
     """Show trade history."""
     trades = load_trades(limit=args.limit)
+
+    # Filter out test entries unless --include-test-data
+    if not getattr(args, 'include_test_data', False):
+        trades = [t for t in trades if not t.get('_meta', {}).get('test_mode', False)]
 
     if not trades:
         print("📭 No trade history found")
@@ -474,6 +481,8 @@ Examples:
     # history
     p_history = subparsers.add_parser('history', help='Trade history')
     p_history.add_argument('--limit', type=int, default=100, help='Number of trades')
+    p_history.add_argument('--include-test-data', action='store_true',
+                          help='Include test entries in history (default: filtered)')
     p_history.set_defaults(func=cmd_history)
 
     # report
