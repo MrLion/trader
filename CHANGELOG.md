@@ -39,6 +39,23 @@ All notable changes to this project will be documented in this file.
 - **One-command setup** - Added `setup.sh` script for directory creation and dependency installation
 - **Makefile commands** - `make setup`, `make test`, `make clean`, `make lint`, `make format`
 
+### Added (Post-Commit)
+- **Structured Exception Logging** (`scripts/trading_exceptions.py`)
+  - Severity levels: CRITICAL, ERROR, WARNING, INFO with appropriate tracebacks
+  - Daily log rotation to `data/logs/trading_exceptions.log` (30 days retention)
+  - Both console and file output for observability
+  - Metrics tracking for monitoring/alerting
+  - Decorator pattern: `@critical()`, `@error()`, `@warning()`, `@info()`
+  - Replaced 19 silent `except Exception: pass` handlers across 8 files
+
+### Fixed (Post-Commit)
+- **GitHub Actions workflow** - Fixed 2 test failures causing CI/CD pipeline errors
+  - Removed broken `ENTRY_THRESHOLD` import from `paper_engine_alpaca`
+  - Fixed test isolation by patching `PaperState._load_state` to prevent disk state leaks
+  - Fixed MagicMock format error in `state.get_stats()` mocking
+  - Fixed Mock order object to include `ticker` attribute for `has_pending_order()` check
+  - All 110 tests now passing
+
 ## [0.2.2] - 2026-04-09
 ### Fixed
 - **Stock Split Adjustment (CRITICAL):**
