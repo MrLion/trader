@@ -151,6 +151,17 @@ class AlpacaPaperEngine:
                     print(f"⚠️ Position discrepancy: {disc['ticker']} - "
                           f"Alpaca: {disc['alpaca_qty']}, Local: {disc['local_qty']}")
 
+            if sync_result['synced']:
+                for pos in sync_result['synced']:
+                    ticker = pos['ticker']
+                    alpaca_entry = float(pos['avg_price'])
+                    if ticker in self.state.positions:
+                        local_pos = self.state.positions[ticker]
+                        if abs(local_pos.entry_price - alpaca_entry) > 0.01:
+                            print(f"📝 Syncing entry price for {ticker}: ${local_pos.entry_price:.2f} → ${alpaca_entry:.2f}")
+                            local_pos.entry_price = alpaca_entry
+                            self.state.save_state()
+
             # Update cash
             account = self.alpaca.get_account()
             self.state.cash = account['cash']
@@ -599,6 +610,20 @@ class AlpacaPaperEngine:
             if order.side == 'buy':
                 print(f"✅ Entry filled: {order.ticker} "
                       f"@${order.filled_price:.2f} x {order.filled_qty}")
+                # Update position with actual fill price
+                if order.ticker in self.state.positions:
+                    actual_fill = order.filled_price
+                    if actual_fill:
+                        pos = self.state.positions[order.ticker]
+                        old_entry = pos.entry_price
+                        pos.entry_price = actual_fill
+                        # Recalculate target based on new entry price
+                        risk = actual_fill - pos.stop_price
+                        pos.target_price = actual_fill + (2 * risk) if risk > 0 else actual_fill * 1.05
+                        # Recalculate initial_risk
+                        pos.initial_risk = risk * pos.shares
+                        self.state.save_state()
+                        print(f"   📝 Updated entry price: ${old_entry:.2f} → ${actual_fill:.2f}")
             else:
                 print(f"✅ Exit filled: {order.ticker} "
                       f"(${order.reason})")

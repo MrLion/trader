@@ -278,7 +278,7 @@ class OrderManager:
                         'avg_price': alpaca_pos['avg_entry_price']
                     })
                 else:
-                    # Position exists both places - check quantity
+                    # Position exists both places - check quantity and track avg price
                     local_qty = local_positions[ticker].shares
                     if alpaca_qty != local_qty:
                         result['discrepancies'].append({
@@ -287,7 +287,10 @@ class OrderManager:
                             'local_qty': local_qty
                         })
                     else:
-                        result['synced'].append(ticker)
+                        result['synced'].append({
+                            'ticker': ticker,
+                            'avg_price': alpaca_pos['avg_entry_price']
+                        })
 
             # Check for positions locally but not in Alpaca
             for ticker in list(local_positions.keys()):
