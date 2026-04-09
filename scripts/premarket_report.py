@@ -530,6 +530,7 @@ def generate_html_report(report_data, output_path):
         @media (max-width: 768px) {{
             .metrics-grid {{ grid-template-columns: repeat(2, 1fr); }}
             .signals-grid {{ grid-template-columns: 1fr; }}
+            .crypto-row {{ flex-wrap: wrap; justify-content: center; }}
             table {{ font-size: 0.8rem; }}
             th, td {{ padding: 8px; }}
         }}
@@ -566,10 +567,12 @@ def generate_html_report(report_data, output_path):
 
         <div class="section section-indices">
             <h2>Major Indices</h2>
-            <table>
-                <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Current Market Price">Price</abbr></th><th><abbr title="20-Day Simple Moving Average">20MA</abbr></th><th><abbr title="50-Day Simple Moving Average">50MA</abbr></th><th><abbr title="200-Day Simple Moving Average">200MA</abbr></th></tr></thead>
-                <tbody>{indices_html}</tbody>
-            </table>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Current Market Price">Price</abbr></th><th><abbr title="20-Day Simple Moving Average">20MA</abbr></th><th><abbr title="50-Day Simple Moving Average">50MA</abbr></th><th><abbr title="200-Day Simple Moving Average">200MA</abbr></th></tr></thead>
+                    <tbody>{indices_html}</tbody>
+                </table>
+            </div>
         </div>
 
         <div class="section section-sectors">
