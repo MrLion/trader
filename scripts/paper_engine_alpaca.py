@@ -680,7 +680,9 @@ class AlpacaPaperEngine:
                 # Start/restart WebSocket if not running
                 if not ws_task or ws_task.done():
                     if ws_task and ws_task.done():
-                        print("\n🔄 WebSocket task ended, restarting...")
+                        delay = self.alpaca.ws_reconnect_delay
+                        print(f"\n🔄 WebSocket task ended, restarting in {delay}s...")
+                        await asyncio.sleep(delay)
                     ws_task = asyncio.create_task(self._start_websocket())
                     await asyncio.sleep(2)
 

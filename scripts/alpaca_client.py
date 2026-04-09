@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Callable
 
 import pandas as pd
 from alpaca.data.historical import StockHistoricalDataClient
+from websockets.exceptions import ConnectionClosed
 from alpaca.data.live import StockDataStream
 from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
@@ -62,6 +63,7 @@ class AlpacaClient:
         self.last_ws_message = None
         self.ws_connected = False
         self.api_error_count = 0
+        self.ws_reconnect_delay = 5  # Start with 5 seconds, exponential backoff
 
         # Rate limiter
         self.rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
@@ -455,6 +457,8 @@ class AlpacaClient:
                 print(f"⚠️ Failed to subscribe to quotes: {e}")
 
         self.ws_connected = True
+        # Reset reconnect delay on successful connection
+        self.ws_reconnect_delay = 5
         print(f"📡 WebSocket stream starting for {len(tickers)} tickers...")
 
         try:
@@ -464,11 +468,15 @@ class AlpacaClient:
         except asyncio.CancelledError:
             # Normal shutdown
             print("🔄 WebSocket cancelled (normal shutdown)")
+        except ConnectionClosed as e:
+            print(f"⚠️ WebSocket closed: {e.code if hasattr(e, 'code') else 'no code'}")
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
         finally:
             self.ws_connected = False
             self.stream = None
+            # Exponential backoff for reconnects (max 60 seconds)
+            self.ws_reconnect_delay = min(self.ws_reconnect_delay * 2, 60)
 
     async def stop_price_stream(self):
         """Stop WebSocket stream."""
