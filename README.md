@@ -585,6 +585,11 @@ Failure mode documentation for production incidents:
 
 ## Recent Fixes
 
+### 2026-04-09
+- **Fixed entry price sync from Alpaca** - Position entry prices now update with actual fill prices from Alpaca (was using theoretical signal prices, causing P&L discrepancies)
+- **Fixed Day P&L display** - `day_return_pct` is now persisted to account file, showing correct percentage and 🔴 emoji for negative values
+- **Added entry price sync on startup** - Existing positions get their entry prices corrected during Alpaca sync
+
 ### 2026-04-08
 - **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
 - **Extended test coverage** - 62 new tests for `alpaca_client.py` (50% coverage) and `paper_engine_alpaca.py` (54% coverage)
