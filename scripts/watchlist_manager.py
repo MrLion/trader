@@ -291,10 +291,10 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python watchlist_manager.py populate <scan_file>")
-        print("  python watchlist_manager.py add <ticker> [notes] [--force]")
+        print("  python watchlist_manager.py add <ticker> [notes] [-force|--force]")
         print("  python watchlist_manager.py list")
         print("  python watchlist_manager.py remove <ticker>")
-        print("  python watchlist_manager.py remove-all [--force]")
+        print("  python watchlist_manager.py remove-all [-force|--force]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -302,11 +302,11 @@ if __name__ == '__main__':
     if cmd == 'populate' and len(sys.argv) >= 3:
         populate_from_scan(sys.argv[2])
     elif cmd == 'add' and len(sys.argv) >= 3:
-        force = '--force' in sys.argv
-        # Extract notes (everything after ticker that's not --force)
+        force = '--force' in sys.argv or '-force' in sys.argv
+        # Extract notes (everything after ticker that's not --force or -force)
         args = sys.argv[2:]
         ticker = args[0]
-        notes_args = [a for a in args[1:] if a != '--force']
+        notes_args = [a for a in args[1:] if a not in ('--force', '-force')]
         notes = ' '.join(notes_args) if notes_args else ''
         add_to_watchlist(ticker, notes, force=force)
     elif cmd == 'list':
@@ -314,7 +314,7 @@ if __name__ == '__main__':
     elif cmd == 'remove' and len(sys.argv) >= 3:
         remove_ticker(sys.argv[2])
     elif cmd == 'remove-all':
-        force = '--force' in sys.argv
+        force = '--force' in sys.argv or '-force' in sys.argv
         remove_all_tickers(force=force)
     else:
         print("Invalid command")
