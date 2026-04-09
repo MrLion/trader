@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 ## [0.3.1] - 2026-04-09
 
 ### Added
+- **Test Data Isolation Solution (Three-Phase)** (`d52f834`)
+  - **Phase 1: Data Cleanup Utility** (`scripts/clean_test_trades.py`)
+    - Removes test/development entries from production `paper_trades.jsonl`
+    - Detects by: unrealistic prices (>$400), excessive shares (>500), known test patterns
+    - Automatic duplicate detection and removal
+    - Creates timestamped backups before cleaning
+    - Dry-run mode for safe preview
+  - **Phase 2: Test Metadata Tagging**
+    - Trade entries now include `_meta` dict with `test_mode` flag
+    - Tests automatically tagged via `PAPER_TRADING_TEST_MODE` env var
+    - Report command filters test entries by default
+    - Added `--include-test-data` flag to show test data when needed
+  - **Phase 3: Data Integrity Validation**
+    - Real-time validation before trade logging (price, shares, P&L limits)
+    - Configurable via environment variables: `PAPER_MAX_ENTRY_PRICE`, `PAPER_MAX_SHARES`, etc.
+    - Validation failures logged with metadata for debugging
+  - **Result:** Cleaned 90 test entries, reduced fake P&L from -$2.2M to real -$363
+
+### Added
 - **Flexible Risk Configuration System** (`config/risk_config.yaml`)
   - Named profiles: default, conservative, aggressive, tight_stops
   - Dual-constraint position sizing (account risk + position cap)
