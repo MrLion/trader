@@ -716,6 +716,14 @@ Failure mode documentation for production incidents:
 - **Updated CI/CD** - GitHub Actions now uses `requirements.txt` instead of manual pip installs
 - **Added `python-dotenv` dependency** - For `.env` file support across all scripts
 
+**Report Improvements:**
+- **Dynamic VIX calculation** - Premarket report now uses current VIX value instead of hardcoded levels for Low/Elevated/High thresholds
+
+**Code Quality:**
+- **Packaged traderlib** - Created proper Python package structure with `setup.py` for editable installs (`pip install -e .`)
+- **Added pre-commit hooks** - Black, flake8, isort for automatic code formatting and linting
+- **Fixed traderlib imports** - Resolved ImportError for `calculate_relative_strength` and fixed test assertions for edge cases
+
 ### 2026-04-08
 - **Test data isolation** - `PAPER_TRADING_DATA_DIR` environment variable prevents tests from polluting production data
 - **Extended test coverage** - 62 new tests for `alpaca_client.py` (50% coverage) and `paper_engine_alpaca.py` (54% coverage)
