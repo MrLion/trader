@@ -281,8 +281,13 @@ class AlpacaPaperEngine:
                 trade_handler=self._ws_trade_handler
             )
             # Stream ended (either normally or with error)
+        except asyncio.CancelledError:
+            # Normal shutdown - don't print error
+            raise
         except Exception as e:
-            print(f"⚠️ WebSocket error: {e}")
+            # Log error but don't spam - only print if engine is still running
+            if self.running:
+                print(f"⚠️ WebSocket error: {e}")
         finally:
             self.ws_running = False
             # Only print polling message if engine is still running (not during shutdown)
@@ -664,8 +669,21 @@ class AlpacaPaperEngine:
         stats = self.state.get_stats()
         orders = self.order_manager.get_orders_summary()
 
+        # Calculate Unrealized PnL for open positions
+        unrealized_pnl = 0.0
+        for ticker, pos in self.state.positions.items():
+            if pos.status == 'OPEN':
+                # Try WebSocket cache first, then Alpaca cached price
+                current_price = self.price_cache.get(ticker, {}).get('price')
+                if current_price is None:
+                    current_price = self.alpaca.get_cached_price(ticker)
+                if current_price is None:
+                    current_price = self.alpaca.get_latest_price(ticker, use_fallback=False)
+                if current_price:
+                    unrealized_pnl += (current_price - pos.entry_price) * pos.shares
+
         print(f"💰 Equity: ${stats['equity']:,.2f} | Cash: ${stats['cash']:,.2f}")
-        print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f}")
+        print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}")
         print(f"📋 Pending Orders: {orders['pending']} | Health: {self.alpaca.get_health_summary()}")
         print(f"{'='*60}")
 
@@ -684,7 +702,16 @@ class AlpacaPaperEngine:
                 if not ws_task or ws_task.done():
                     if ws_task and ws_task.done():
                         delay = self.alpaca.ws_reconnect_delay
-                        print(f"\n🔄 WebSocket task ended, restarting in {delay}s...")
+                        # Check if task ended with exception
+                        if ws_task.exception():
+                            exc = ws_task.exception()
+                            # Suppress verbose error messages for common WebSocket disconnects
+                            if "no close frame" in str(exc) or "ConnectionClosed" in type(exc).__name__:
+                                print(f"\n🔄 WebSocket disconnected, restarting in {delay}s...")
+                            else:
+                                print(f"\n🔄 WebSocket error ({type(exc).__name__}), restarting in {delay}s...")
+                        else:
+                            print(f"\n🔄 WebSocket task ended, restarting in {delay}s...")
                         await asyncio.sleep(delay)
                     ws_task = asyncio.create_task(self._start_websocket())
                     await asyncio.sleep(2)

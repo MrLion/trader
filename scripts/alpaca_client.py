@@ -475,7 +475,9 @@ class AlpacaClient:
             # Normal shutdown
             print("🔄 WebSocket cancelled (normal shutdown)")
         except ConnectionClosed as e:
-            print(f"⚠️ WebSocket closed: {e.code if hasattr(e, 'code') else 'no code'}")
+            # Common disconnects - don't show error code to reduce noise
+            code_str = f" (code: {e.code})" if hasattr(e, 'code') and e.code else ""
+            print(f"⚠️ WebSocket disconnected{code_str}, will reconnect...")
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
         finally:
