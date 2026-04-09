@@ -131,7 +131,20 @@ class AlpacaPaperEngine:
                 for ticker in sync_result['removed']:
                     print(f"📤 Position {ticker} closed externally")
                     if ticker in self.state.positions:
-                        del self.state.positions[ticker]
+                        # Get current price for proper close recording
+                        current_price = self._get_current_price(ticker)
+                        if current_price is None:
+                            # Fallback to entry price if can't get current
+                            current_price = self.state.positions[ticker].entry_price
+
+                        # Properly close position (records exit, P&L, cash, trade log)
+                        position = self.state.close_position(
+                            ticker=ticker,
+                            exit_price=current_price,
+                            reason='EXTERNAL_CLOSE'
+                        )
+                        if position:
+                            print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
 
             if sync_result['discrepancies']:
                 for disc in sync_result['discrepancies']:
