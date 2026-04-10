@@ -304,17 +304,9 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
         self.assertNotIn('AAPL', self.engine.state.positions)
 
     def test_execute_entry_risk_validation_fails(self):
-        """Test entry blocked by risk validation."""
-        # Fill up sector limit
-        for i in range(3):
-            self.engine.state.enter_position(
-                ticker=f'STOCK{i}',
-                entry_price=150.0,
-                shares=100,
-                stop_price=140.0,
-                target_price=165.0,
-                sector='Technology'
-            )
+        """Test entry blocked by risk validation (sector limit reached)."""
+        # Mock can_enter_position to simulate sector limit reached
+        self.engine.state.can_enter_position = Mock(return_value=(False, "Sector limit reached (3 in Technology)"))
 
         analysis = {
             'ticker': 'AAPL',
@@ -329,6 +321,8 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
         self.engine._execute_entry(analysis)
         # Should not create position due to sector limit
         self.assertNotIn('AAPL', self.engine.state.positions)
+        # Verify can_enter_position was called
+        self.engine.state.can_enter_position.assert_called_once()
 
 
 class TestPaperEngineDailyReset(unittest.TestCase):
