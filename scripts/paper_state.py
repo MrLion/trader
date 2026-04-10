@@ -21,7 +21,7 @@ MAX_SECTOR_POSITIONS = int(os.environ.get('MAX_SECTOR_POSITIONS', '3'))
 # PHASE 3: Data validation constants
 # These values prevent obviously fake/test data from being logged
 VALIDATION = {
-    'MAX_ENTRY_PRICE': float(os.environ.get('PAPER_MAX_ENTRY_PRICE', '500.0')),
+    'MAX_ENTRY_PRICE': float(os.environ.get('PAPER_MAX_ENTRY_PRICE', '5000.0')),
     'MAX_SHARES': int(os.environ.get('PAPER_MAX_SHARES', '500')),
     'MAX_POSITION_VALUE': float(os.environ.get('PAPER_MAX_POSITION_VALUE', '50000.0')),
     'MAX_PNL_ABS': float(os.environ.get('PAPER_MAX_PNL_ABS', '10000.0')),
