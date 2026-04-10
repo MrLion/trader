@@ -88,29 +88,26 @@ class TestGetCurrentPrice:
     """Test _get_current_price method."""
 
     def test_get_price_from_quote(self, scanner, mock_alpaca):
-        """Test price fetched from quote."""
-        mock_alpaca.get_latest_quote.return_value = {
-            'ask_price': 150.0,
-            'close_price': 149.5
-        }
+        """Test price fetched from get_latest_price."""
+        mock_alpaca.get_latest_price.return_value = 150.0
 
         result = scanner._get_current_price('AAPL')
 
         assert result == 150.0
 
     def test_get_price_from_close(self, scanner, mock_alpaca):
-        """Test fallback to close price when ask not available."""
-        mock_alpaca.get_latest_quote.return_value = {
-            'close_price': 149.5
-        }
+        """Test fallback to historical bars when get_latest_price returns None."""
+        mock_alpaca.get_latest_price.return_value = None
+        hist_data = pd.DataFrame({'Close': [145.0, 146.0, 149.5]})
+        mock_alpaca.get_historical_bars.return_value = hist_data
 
         result = scanner._get_current_price('AAPL')
 
         assert result == 149.5
 
     def test_get_price_fallback_to_historical(self, scanner, mock_alpaca):
-        """Test fallback to historical bars when quote fails."""
-        mock_alpaca.get_latest_quote.return_value = None
+        """Test fallback to historical bars when get_latest_price returns None."""
+        mock_alpaca.get_latest_price.return_value = None
         hist_data = pd.DataFrame({'Close': [145.0, 146.0, 147.0]})
         mock_alpaca.get_historical_bars.return_value = hist_data
 
@@ -120,7 +117,7 @@ class TestGetCurrentPrice:
 
     def test_get_price_returns_none_when_all_fail(self, scanner, mock_alpaca):
         """Test None returned when all price sources fail."""
-        mock_alpaca.get_latest_quote.return_value = None
+        mock_alpaca.get_latest_price.return_value = None
         mock_alpaca.get_historical_bars.return_value = None
 
         result = scanner._get_current_price('AAPL')
