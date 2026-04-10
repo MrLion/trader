@@ -12,12 +12,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
-from entry_signals import (
-    EntrySignalScanner,
-    ENTRY_THRESHOLD,
-    MAX_DIST_TO_PIVOT,
-    MAX_SPY_DECLINE
-)
+from entry_signals import EntrySignalScanner
+from traderlib.risk_config import RiskConfigManager
 
 
 @pytest.fixture
@@ -347,17 +343,45 @@ class TestExportSignals:
         mock_df.to_csv.assert_called_once()
 
 
-class TestConstants:
-    """Test module constants."""
+class TestRiskConfigIntegration:
+    """Test RiskConfigManager integration with scanner."""
 
-    def test_entry_threshold(self):
-        """Test ENTRY_THRESHOLD value."""
-        assert ENTRY_THRESHOLD == 60
+    def test_scanner_uses_risk_config_manager(self):
+        """Test scanner initializes with RiskConfigManager."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper')
+            assert hasattr(scanner, 'risk_manager')
+            assert isinstance(scanner.risk_manager, RiskConfigManager)
+            assert hasattr(scanner, 'risk_config')
 
-    def test_max_dist_to_pivot(self):
-        """Test MAX_DIST_TO_PIVOT value."""
-        assert MAX_DIST_TO_PIVOT == 1.0
+    def test_scanner_default_entry_threshold(self):
+        """Test default min_entry_score from risk config."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper')
+            assert scanner.risk_config.entry.min_entry_score == 60
 
-    def test_max_spy_decline(self):
-        """Test MAX_SPY_DECLINE value."""
-        assert MAX_SPY_DECLINE == -0.3
+    def test_scanner_default_max_dist_to_pivot(self):
+        """Test default max_dist_to_pivot_pct from risk config."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper')
+            assert scanner.risk_config.entry.max_dist_to_pivot_pct == 2.0
+
+    def test_scanner_default_max_spy_decline(self):
+        """Test default max_spy_decline_pct from risk config."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper')
+            assert scanner.risk_config.market.max_spy_decline_pct == -0.5
+
+    def test_scanner_uses_custom_risk_profile(self):
+        """Test scanner loads custom risk profile."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper', risk_profile='conservative')
+            # Conservative profile has 0.005 risk per trade
+            assert scanner.risk_config.account.risk_per_trade_pct == 0.005
+
+    def test_scanner_invalid_profile_uses_default(self):
+        """Test scanner falls back to default on invalid profile."""
+        with patch('entry_signals.AlpacaClient'):
+            scanner = EntrySignalScanner(mode='paper', risk_profile='nonexistent')
+            # Should still have valid config with defaults
+            assert scanner.risk_config.entry.min_entry_score == 60
