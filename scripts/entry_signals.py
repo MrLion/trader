@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from alpaca_client import AlpacaClient
 from traderlib import calculate_stage2_score, get_entry_score
+from traderlib.risk_config import RiskConfigManager
 from trading_exceptions import TradingExceptionHandler
 
 # Configurable paths
@@ -23,18 +24,14 @@ DATA_DIR = Path(__file__).parent.parent / 'data'
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
 SCANS_DIR = Path(__file__).parent.parent / 'scans'
 
-# Entry criteria thresholds
-ENTRY_THRESHOLD = 60
-MAX_DIST_TO_PIVOT = 1.0
-MIN_VOLUME_RATIO = 1.5
-MAX_SPY_DECLINE = -0.3
-
 
 class EntrySignalScanner:
     """Scan watchlist for tickers meeting entry criteria."""
 
-    def __init__(self, mode: str = 'paper'):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None):
         print("🔌 Initializing scanner...")
+        self.risk_manager = RiskConfigManager(profile=risk_profile)
+        self.risk_config = self.risk_manager.get_config()
         self.alpaca = AlpacaClient(mode=mode)
         self.spy_cache = {'date': None, 'return_6m': 0.0, 'price': None}
         print("✅ Scanner ready")
@@ -104,8 +101,8 @@ class EntrySignalScanner:
                 prev_close = hist['Close'].iloc[-2]
                 change_pct = ((spy_price / prev_close) - 1) * 100
 
-                if change_pct < MAX_SPY_DECLINE:
-                    return False, f"SPY {change_pct:+.2f}% (below {MAX_SPY_DECLINE}%)"
+                if change_pct < self.risk_config.market.max_spy_decline_pct:
+                    return False, f"SPY {change_pct:+.2f}% (below {self.risk_config.market.max_spy_decline_pct}%)"
 
                 return True, f"SPY {change_pct:+.2f}%"
         except Exception as e:
@@ -249,8 +246,11 @@ class EntrySignalScanner:
         if not market_ok:
             print(f"⚠️  Market filter blocking entries")
 
+        entry_threshold = self.risk_config.entry.min_entry_score
+        max_dist = self.risk_config.entry.max_dist_to_pivot_pct
+
         print(f"\n🔍 Scanning {len(tickers)} tickers for entry signals...")
-        print(f"   Entry Criteria: Score ≥ {ENTRY_THRESHOLD}, Distance ≤ ±{MAX_DIST_TO_PIVOT}%")
+        print(f"   Entry Criteria: Score ≥ {entry_threshold}, Distance ≤ ±{max_dist}%")
 
         # Collect all analyses
         all_analyses = []
@@ -272,8 +272,8 @@ class EntrySignalScanner:
             if tier_num > min_tier:
                 continue
 
-            score_ok = a['entry_score'] >= ENTRY_THRESHOLD
-            dist_ok = -MAX_DIST_TO_PIVOT <= a['dist_to_pivot'] <= MAX_DIST_TO_PIVOT
+            score_ok = a['entry_score'] >= entry_threshold
+            dist_ok = -max_dist <= a['dist_to_pivot'] <= max_dist
             dist_close = abs(a['dist_to_pivot']) <= 3.0  # Within 3%
 
             if score_ok and dist_ok:
@@ -306,21 +306,21 @@ class EntrySignalScanner:
             return f"{sign}{abs(d):.1f}% {icon}"
 
         if ready_now:
-            print(f"\n🔥 READY NOW - Entry Signals (Score ≥{ENTRY_THRESHOLD}, Within ±{MAX_DIST_TO_PIVOT}%)")
+            print(f"\n🔥 READY NOW - Entry Signals (Score ≥{entry_threshold}, Within ±{max_dist}%)")
             print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Price':<10} {'→ Pivot':<10}")
             print("-" * 90)
             for a in ready_now:
                 print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if close_pivot:
-            print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{ENTRY_THRESHOLD}, Distance 1-3%)")
+            print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{entry_threshold}, Distance 1-3%)")
             print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
             print("-" * 90)
             for a in close_pivot:
                 print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if extended:
-            print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{ENTRY_THRESHOLD})")
+            print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{entry_threshold})")
             print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
             print("-" * 90)
             for a in extended:
@@ -400,11 +400,16 @@ def main():
         default='paper',
         help='Alpaca mode (default: paper)'
     )
+    parser.add_argument(
+        '--risk-profile',
+        default=None,
+        help='Risk profile to use (conservative, aggressive, tight_stops)'
+    )
 
     args = parser.parse_args()
 
     # Run scan
-    scanner = EntrySignalScanner(mode=args.mode)
+    scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
     signals = scanner.scan(
         tickers=args.tickers,
         min_tier=args.min_tier
