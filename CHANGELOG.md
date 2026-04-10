@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.9] - 2026-04-10
+
+### Tests
+- **paper_engine.py coverage: 66% → 88%** (`8021a6a`)
+  - `_fetch_spy_data`: insufficient 5m history, <2 daily bars branch
+  - `_analyze_ticker`: NaN pivot uses recent high, spy=None RS fallback, exception handler
+  - `_check_entries`: all filter branches (score, distance, volume) + success path
+  - `_check_exits`: exit triggered, hold, empty history, no positions, `_print_status`
+- **paper_engine_alpaca.py coverage: 64% → 76%** (`8021a6a`)
+  - `_get_current_price`: stale cache fallback when REST also fails
+  - `_check_entries`: no watchlist, score/distance/stop-distance filters, success
+  - `_execute_entry`: shares=0, can_enter fails, order fails, order succeeds
+  - `_execute_exit`: no-position guard, pending-sell guard, success path
+  - `_check_exit_async`: exit triggered, hold, no position
+  - `_process_pending_orders`: buy fill entry-price update, sell fill log
+  - `_print_status`: unrealized PnL from WebSocket cache and Alpaca fallback
+- **Fixed `test_execute_entry_risk_validation_fails`** — was asserting 3 positions hit sector limit, but `max_sector_positions` YAML value was raised to 10; now mocks `can_enter_position` directly
+
 ## [0.3.8] - 2026-04-10
 
 ### Tests
