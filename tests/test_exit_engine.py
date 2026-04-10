@@ -15,8 +15,11 @@ Standard test position:
 
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -381,6 +384,391 @@ class TestLifecycle(unittest.TestCase):
         s = engine.evaluate_exit(pos, 170.0)
         self.assertTrue(s.should_exit)
         self.assertIn('TARGET_HIT', s.reason)
+
+
+# ---------------------------------------------------------------------------
+# Group 9 — _get_cached_data / _get_ema_values (real implementation)
+# ---------------------------------------------------------------------------
+
+class TestGetCachedData(unittest.TestCase):
+    """Tests for the real _get_cached_data and _get_ema_values (no mock seam)."""
+
+    def _make_hist(self, rows=55) -> pd.DataFrame:
+        """Return a minimal DataFrame that passes the len >= 50 check."""
+        closes = [100.0 + i * 0.1 for i in range(rows)]
+        return pd.DataFrame({
+            'Close': closes,
+            'High':  [c + 1 for c in closes],
+            'Low':   [c - 1 for c in closes],
+            'Volume': [1_000_000] * rows,
+        })
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_cache_miss_fetches_and_returns_data(self, mock_ticker_class):
+        """On first call, fetches from yfinance and caches result."""
+        engine = ExitEngine()
+        hist = self._make_hist(55)
+        mock_ticker_class.return_value.history.return_value = hist
+
+        result = engine._get_cached_data('AAPL')
+
+        self.assertIsNotNone(result)
+        self.assertIn('EMA10', result.columns)
+        self.assertIn('EMA21', result.columns)
+        self.assertIn('AAPL', engine.price_cache)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_cache_hit_does_not_refetch(self, mock_ticker_class):
+        """Second call returns cached data without calling yfinance again."""
+        engine = ExitEngine()
+        hist = self._make_hist(55)
+        mock_ticker_class.return_value.history.return_value = hist
+
+        engine._get_cached_data('AAPL')
+        engine._get_cached_data('AAPL')
+
+        mock_ticker_class.return_value.history.assert_called_once()
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_insufficient_history_returns_none(self, mock_ticker_class):
+        """Fewer than 50 rows → returns None, nothing cached."""
+        engine = ExitEngine()
+        mock_ticker_class.return_value.history.return_value = self._make_hist(30)
+
+        result = engine._get_cached_data('AAPL')
+
+        self.assertIsNone(result)
+        self.assertNotIn('AAPL', engine.price_cache)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_yfinance_exception_returns_none(self, mock_ticker_class):
+        """yfinance error → returns None gracefully."""
+        engine = ExitEngine()
+        mock_ticker_class.return_value.history.side_effect = Exception('network error')
+
+        result = engine._get_cached_data('AAPL')
+
+        self.assertIsNone(result)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_expired_cache_is_cleared_and_refetched(self, mock_ticker_class):
+        """Cache older than 5 minutes is invalidated and data is refetched."""
+        engine = ExitEngine()
+        hist = self._make_hist(55)
+        mock_ticker_class.return_value.history.return_value = hist
+
+        # Seed cache with a stale timestamp (10 minutes ago)
+        engine.price_cache['AAPL'] = hist
+        engine.cache_timestamp = datetime.now() - pd.Timedelta(minutes=10)
+
+        engine._get_cached_data('AAPL')
+
+        # Should have refetched — called once after cache cleared
+        mock_ticker_class.return_value.history.assert_called_once()
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_get_ema_values_returns_last_row(self, mock_ticker_class):
+        """_get_ema_values returns the most recent EMA10 and EMA21."""
+        engine = ExitEngine()
+        hist = self._make_hist(55)
+        hist['EMA10'] = 101.0
+        hist['EMA21'] = 99.0
+        engine.price_cache['AAPL'] = hist
+
+        ema10, ema21 = engine._get_ema_values('AAPL')
+
+        self.assertAlmostEqual(ema10, 101.0)
+        self.assertAlmostEqual(ema21, 99.0)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_get_ema_values_returns_none_when_no_data(self, mock_ticker_class):
+        """_get_ema_values returns (None, None) when cache returns None."""
+        engine = ExitEngine()
+        mock_ticker_class.return_value.history.return_value = self._make_hist(5)
+
+        ema10, ema21 = engine._get_ema_values('AAPL')
+
+        self.assertIsNone(ema10)
+        self.assertIsNone(ema21)
+
+
+# ---------------------------------------------------------------------------
+# Group 10 — evaluate_exit: no initial_risk fallback + no risk_config defaults
+# ---------------------------------------------------------------------------
+
+class TestEvaluateExitEdgePaths(unittest.TestCase):
+
+    def test_r_multiple_falls_back_when_no_initial_risk(self):
+        """Position with initial_risk=0 uses _calculate_r_multiple fallback."""
+        engine = make_engine(ema10=None, ema21=None)
+        # Override make_position to have no initial_risk
+        pos = make_position(initial_risk=0.0)
+        signal = engine.evaluate_exit(pos, 161.0)  # +1R by stop math
+        # Should still compute r_multiple correctly via fallback
+        self.assertAlmostEqual(signal.r_multiple, 1.1, places=1)
+
+    def test_no_risk_config_uses_default_thresholds(self):
+        """Engine with risk_config=None uses hardcoded 1.0/1.5/3.0 thresholds."""
+        engine = ExitEngine(risk_config=None)
+        engine._get_ema_values = Mock(return_value=(None, None))
+        pos = make_position()
+
+        # At +1R (160 → actually 161 to be just over), breakeven should still fire
+        engine.evaluate_exit(pos, 161.0)
+        self.assertEqual(pos.stop_price, 150.0)
+        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+
+
+# ---------------------------------------------------------------------------
+# Group 11 — get_position_summary
+# ---------------------------------------------------------------------------
+
+class TestGetPositionSummary(unittest.TestCase):
+
+    def setUp(self):
+        self.engine = ExitEngine()
+
+    def test_summary_keys_present(self):
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 160.0)
+        for key in ('ticker', 'current_price', 'entry_price', 'shares',
+                    'stop_price', 'stop_type', 'unrealized_pnl',
+                    'unrealized_pct', 'r_multiple', 'pct_to_stop'):
+            self.assertIn(key, summary, f"missing key: {key}")
+
+    def test_summary_unrealized_pnl_at_plus_1r(self):
+        # entry=150, stop=140, shares=100, price=160 → PnL = +1000
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 160.0)
+        self.assertAlmostEqual(summary['unrealized_pnl'], 1000.0)
+
+    def test_summary_unrealized_pnl_negative(self):
+        # price below entry
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 145.0)
+        self.assertAlmostEqual(summary['unrealized_pnl'], -500.0)
+
+    def test_summary_r_multiple_at_plus_1r(self):
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 160.0)
+        self.assertAlmostEqual(summary['r_multiple'], 1.0)
+
+    def test_summary_pct_to_stop(self):
+        # price=160, stop=140 → (160-140)/160 * 100 = 12.5%
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 160.0)
+        self.assertAlmostEqual(summary['pct_to_stop'], 12.5)
+
+    def test_summary_ticker_and_price_match(self):
+        pos = make_position()
+        summary = self.engine.get_position_summary(pos, 155.0)
+        self.assertEqual(summary['ticker'], 'TEST')
+        self.assertEqual(summary['current_price'], 155.0)
+        self.assertEqual(summary['entry_price'], 150.0)
+        self.assertEqual(summary['shares'], 100)
+
+
+# ---------------------------------------------------------------------------
+# Group 12 — calculate_initial_stop
+# ---------------------------------------------------------------------------
+
+class TestCalculateInitialStop(unittest.TestCase):
+
+    def _make_hist(self, rows=60, base=100.0) -> pd.DataFrame:
+        closes = [base + i * 0.1 for i in range(rows)]
+        highs  = [c + 2 for c in closes]
+        lows   = [c - 2 for c in closes]
+        return pd.DataFrame({'Close': closes, 'High': highs, 'Low': lows,
+                             'Volume': [1_000_000] * rows})
+
+    def _percent_config(self, pct=0.07) -> RiskConfig:
+        config = RiskConfig()
+        config.stop_loss.method = 'percent'
+        config.stop_loss.fixed_pct = pct
+        return config
+
+    def test_percent_method_applies_fixed_pct(self):
+        config = self._percent_config(pct=0.05)
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 200.0)
+        self.assertAlmostEqual(stop, 190.0)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_insufficient_history_falls_back_to_percent(self, mock_ticker_class):
+        """< 14 bars → fallback to fallback_pct."""
+        mock_ticker_class.return_value.history.return_value = self._make_hist(5)
+        config = RiskConfig()
+        config.stop_loss.fallback_pct = 0.07
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        self.assertAlmostEqual(stop, 93.0)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_atr_method_returns_stop_below_entry(self, mock_ticker_class):
+        """Pure ATR method: stop should be below entry price."""
+        mock_ticker_class.return_value.history.return_value = self._make_hist(60)
+        config = RiskConfig()
+        config.stop_loss.method = 'atr'
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        self.assertLess(stop, 100.0)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_atr_or_support_returns_stop_below_entry(self, mock_ticker_class):
+        """atr_or_support: stop should be below entry price."""
+        mock_ticker_class.return_value.history.return_value = self._make_hist(60)
+        engine = ExitEngine()  # default method = atr_or_support
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        self.assertLess(stop, 100.0)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_min_stop_distance_enforced(self, mock_ticker_class):
+        """Stop too close to entry gets pushed down to min distance."""
+        # ATR is tiny — stop would be very close to entry without enforcement
+        closes = [100.0] * 60   # flat price = ATR ≈ 0
+        hist = pd.DataFrame({'Close': closes, 'High': [100.01] * 60,
+                             'Low': [99.99] * 60, 'Volume': [1_000_000] * 60})
+        mock_ticker_class.return_value.history.return_value = hist
+        config = RiskConfig()
+        config.stop_loss.method = 'atr'
+        config.stop_loss.min_stop_distance_pct = 0.03
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        # Must be at most entry * (1 - min_pct)
+        self.assertLessEqual(stop, 100.0 * (1 - 0.03) + 0.01)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_max_stop_distance_enforced(self, mock_ticker_class):
+        """Stop too far from entry gets clamped to max distance."""
+        # Very wide ATR
+        closes = [100.0] * 60
+        hist = pd.DataFrame({'Close': closes, 'High': [120.0] * 60,
+                             'Low': [80.0] * 60, 'Volume': [1_000_000] * 60})
+        mock_ticker_class.return_value.history.return_value = hist
+        config = RiskConfig()
+        config.stop_loss.method = 'atr'
+        config.stop_loss.max_stop_distance_pct = 0.10
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        self.assertGreaterEqual(stop, 100.0 * (1 - 0.10) - 0.01)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_no_risk_config_applies_default_bounds(self, mock_ticker_class):
+        """Without risk_config, default 3-15% bounds are applied."""
+        closes = [100.0] * 60
+        hist = pd.DataFrame({'Close': closes, 'High': [100.01] * 60,
+                             'Low': [99.99] * 60, 'Volume': [1_000_000] * 60})
+        mock_ticker_class.return_value.history.return_value = hist
+        engine = ExitEngine(risk_config=None)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        # Must be within default 3-15% band
+        self.assertLessEqual(stop, 97.0 + 0.01)
+        self.assertGreaterEqual(stop, 85.0 - 0.01)
+
+    @patch('scripts.paper_exits.yf.Ticker')
+    def test_exception_falls_back_to_percent(self, mock_ticker_class):
+        """yfinance exception → fallback to fallback_pct."""
+        mock_ticker_class.return_value.history.side_effect = Exception('boom')
+        config = RiskConfig()
+        config.stop_loss.fallback_pct = 0.07
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        self.assertAlmostEqual(stop, 93.0)
+
+
+# ---------------------------------------------------------------------------
+# Group 13 — calculate_target_price
+# ---------------------------------------------------------------------------
+
+class TestCalculateTargetPrice(unittest.TestCase):
+
+    def setUp(self):
+        self.engine = ExitEngine()
+
+    def test_default_2r_target(self):
+        # entry=150, stop=140 → risk=10 → target = 150 + 10*2 = 170
+        target = self.engine.calculate_target_price(150.0, 140.0)
+        self.assertAlmostEqual(target, 170.0)
+
+    def test_explicit_r_multiple_override(self):
+        # min_r=3 → 150 + 10*3 = 180
+        target = self.engine.calculate_target_price(150.0, 140.0, min_r=3.0)
+        self.assertAlmostEqual(target, 180.0)
+
+    def test_zero_risk_returns_10pct_above_entry(self):
+        # stop == entry → no risk → fallback to +10%
+        target = self.engine.calculate_target_price(150.0, 150.0)
+        self.assertAlmostEqual(target, 165.0)
+
+    def test_inverted_stop_returns_10pct_above_entry(self):
+        # stop above entry → negative risk → fallback
+        target = self.engine.calculate_target_price(150.0, 160.0)
+        self.assertAlmostEqual(target, 165.0)
+
+    def test_uses_risk_config_r_multiple(self):
+        config = RiskConfig()
+        config.profit_target.min_r_multiple = 3.0
+        engine = ExitEngine(risk_config=config)
+        # entry=150, stop=140 → risk=10 → target = 150 + 10*3 = 180
+        target = engine.calculate_target_price(150.0, 140.0)
+        self.assertAlmostEqual(target, 180.0)
+
+
+# ---------------------------------------------------------------------------
+# Group 14 — calculate_position_size
+# ---------------------------------------------------------------------------
+
+class TestCalculatePositionSize(unittest.TestCase):
+
+    def test_dual_constraint_path_with_risk_config(self):
+        """With risk_config, delegates to calculate_position_size_with_constraints."""
+        engine = ExitEngine()  # loads default RiskConfig via RiskConfigManager
+        shares = engine.calculate_position_size(100_000, 150.0, 140.0)
+        self.assertIsInstance(shares, int)
+        self.assertGreater(shares, 0)
+
+    def test_last_position_calc_stored_after_call(self):
+        """Metadata from dual-constraint sizing is accessible via get_last_position_calc."""
+        engine = ExitEngine()
+        engine.calculate_position_size(100_000, 150.0, 140.0)
+        meta = engine.get_last_position_calc()
+        self.assertIsNotNone(meta)
+        self.assertIsInstance(meta, dict)
+
+    def test_get_last_position_calc_returns_none_before_any_call(self):
+        """No calculation yet → get_last_position_calc returns None."""
+        engine = ExitEngine()
+        self.assertIsNone(engine.get_last_position_calc())
+
+    def test_fallback_path_no_risk_config(self):
+        """Without risk_config, uses 0.75% account risk fallback."""
+        engine = ExitEngine.__new__(ExitEngine)
+        engine.price_cache = {}
+        engine.cache_timestamp = None
+        engine.risk_config = None
+        # equity=100k, risk=0.75% → $750 / $10 risk/share = 75 shares → round to 70
+        shares = engine.calculate_position_size(100_000, 150.0, 140.0)
+        self.assertEqual(shares, 70)
+
+    def test_fallback_explicit_risk_pct_override(self):
+        """account_risk_pct override is respected in fallback path."""
+        engine = ExitEngine.__new__(ExitEngine)
+        engine.price_cache = {}
+        engine.cache_timestamp = None
+        engine.risk_config = None
+        # equity=100k, risk=1% → $1000 / $10 = 100 shares
+        shares = engine.calculate_position_size(100_000, 150.0, 140.0,
+                                                account_risk_pct=0.01)
+        self.assertEqual(shares, 100)
+
+    def test_fallback_zero_risk_returns_zero(self):
+        """stop >= entry → risk/share <= 0 → returns 0."""
+        engine = ExitEngine.__new__(ExitEngine)
+        engine.price_cache = {}
+        engine.cache_timestamp = None
+        engine.risk_config = None
+        shares = engine.calculate_position_size(100_000, 150.0, 150.0)
+        self.assertEqual(shares, 0)
 
 
 if __name__ == '__main__':
