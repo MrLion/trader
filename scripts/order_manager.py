@@ -193,7 +193,9 @@ class OrderManager:
         alpaca_order = self.alpaca.get_order(order_id)
 
         # Auto-detect and purge stale test/mock orders that don't exist in Alpaca
-        if not alpaca_order and (order_id.startswith('test-order-') or order_id.startswith('mock-')):
+        # Catch 'test-order', 'test-order-*', 'mock-*' patterns
+        is_test_order = order_id == 'test-order' or order_id.startswith('test-order-') or order_id.startswith('mock-')
+        if not alpaca_order and is_test_order:
             print(f"🧹 Cleaning up stale test order: {order_id}")
             del self.pending_orders[order_id]
             self._save_orders()
