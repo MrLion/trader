@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.8] - 2026-04-10
+
+### Tests
+- **paper_exits.py coverage: 43% → 92%** (`89dd81e`)
+  - 34 new tests across 6 classes
+  - `_get_cached_data`: cache miss/hit/TTL expiry, insufficient history, yfinance exception
+  - `_get_ema_values`: real EMA lookup, None when no data
+  - `evaluate_exit` edge paths: zero `initial_risk` fallback, no `risk_config` default thresholds
+  - `get_position_summary`: PnL, R multiple, pct_to_stop, all keys present
+  - `calculate_initial_stop`: percent method, ATR/atr_or_support, min/max bound enforcement, fallback paths
+  - `calculate_target_price`: 2R default, explicit override, zero/inverted risk fallback, config `min_r_multiple`
+  - `calculate_position_size`: dual-constraint path, fallback arithmetic, explicit risk override, zero risk, metadata storage
+
 ## [0.3.7] - 2026-04-10
 
 ### Fixed
