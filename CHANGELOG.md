@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2026-04-10
+
+### Fixed
+- **Entry Signals price lookup** (`3c563b0`)
+  - `_get_current_price` was calling `AlpacaClient.get_latest_quote()` which never existed, causing `AttributeError` on every ticker scan
+  - Replaced with `get_latest_price()` which returns a float directly and already has a yfinance fallback built in
+
 ## [0.3.1] - 2026-04-09
 
 ### Added
