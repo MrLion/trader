@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.5] - 2026-04-10
+
+### Changed
+- **entry_signals.py now uses RiskConfigManager** (`7e0cb2a`)
+  - Entry thresholds (`min_entry_score`, `max_dist_to_pivot_pct`, `max_spy_decline_pct`) now loaded from `config/risk_config.yaml` instead of hardcoded constants
+  - Stays in sync with paper engine — changing YAML affects both tools
+  - Added `--risk-profile` flag: `python3 entry_signals.py --risk-profile aggressive`
+
 ## [0.3.4] - 2026-04-10
 
 ### Fixed
