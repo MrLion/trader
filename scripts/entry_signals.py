@@ -89,17 +89,10 @@ class EntrySignalScanner:
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions."""
         try:
-            spy_price = self._get_current_price('SPY')
-            if spy_price is None:
-                return True, "SPY data unavailable"
-
-            # Get yesterday's close
             import yfinance as yf
-            spy = yf.Ticker("SPY")
-            hist = spy.history(period="2d")
+            hist = yf.Ticker("SPY").history(period="2d")
             if len(hist) >= 2:
-                prev_close = hist['Close'].iloc[-2]
-                change_pct = ((spy_price / prev_close) - 1) * 100
+                change_pct = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
 
                 if change_pct < self.risk_config.market.max_spy_decline_pct:
                     return False, f"SPY {change_pct:+.2f}% (below {self.risk_config.market.max_spy_decline_pct}%)"
