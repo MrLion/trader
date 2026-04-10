@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.6] - 2026-04-10
+
+### Fixed
+- **SPY market condition showing stale/incorrect value** (`bda9be6`)
+  - Mixed data sources (Alpaca last trade + yfinance prev close) produced yesterday's move pre-market instead of today's
+  - Now uses yfinance exclusively: `iloc[-1] / iloc[-2]` — consistent regardless of market hours
+
 ## [0.3.5] - 2026-04-10
 
 ### Changed
