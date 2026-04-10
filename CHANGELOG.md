@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.7] - 2026-04-10
+
+### Fixed
+- **Exit engine: R multiple corrupted after breakeven ratchet** (`f8fbb09`)
+  - `evaluate_exit` used `position.stop_price` as both current stop and initial-stop denominator
+  - After breakeven ratchet, stop moves to entry price → risk/share = 0 → r_multiple = 0.0 forever
+  - Silently prevented EMA10/EMA21 trailing from ever activating after +1R
+  - Fix: use `position.initial_risk` (set at entry, never mutated) so R multiple stays correct through all ratchets
+
+### Tests
+- **Comprehensive exit engine test suite** (`f8fbb09`)
+  - 28 tests across 9 classes covering all exit rules and edge cases
+  - Hard stop (at/below/above boundary), breakeven ratchet, EMA10 trailing (+1.5R), EMA21 trailing (+3R)
+  - EMA fallback chain: EMA21=None falls back to EMA10, both None falls back to breakeven
+  - Stop ratchet invariant: stop never moves down across sequential price advances or retreats
+  - Custom `RiskConfig` thresholds (inline, no YAML dependency)
+  - Lifecycle regression test: proves the initial_stop bug is fixed
+
 ## [0.3.6] - 2026-04-10
 
 ### Fixed
