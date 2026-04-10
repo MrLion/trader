@@ -308,11 +308,9 @@ def calculate_position_size_with_constraints(
         metadata['constraints_applied'].append(f"below_min_position_{min_shares}_shares")
         return 0, metadata
 
-    # Round to nearest 10 for cleaner numbers
-    shares = (shares // 10) * 10
-    if shares < 10:
-        shares = 0
-        metadata['constraints_applied'].append("rounded_to_zero")
+    # Round to nearest 10 for cleaner numbers (only when shares >= 10)
+    if shares >= 10:
+        shares = (shares // 10) * 10
 
     if shares == shares_by_position_cap:
         metadata['constraints_applied'].append("capped_by_position_limit")
