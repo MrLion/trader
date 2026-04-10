@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.3] - 2026-04-10
+
+### Fixed
+- **Position sizing rounded_to_zero for high-priced stocks** (`87ba100`)
+  - Round-to-nearest-10 logic was zeroing out valid positions when share count < 10
+  - Affects high-priced stocks (e.g. CAT at $786 → 9 shares → rounded to 0)
+  - Fix: rounding now only applies when shares >= 10
+
 ## [0.3.2] - 2026-04-10
 
 ### Fixed
