@@ -114,11 +114,14 @@ class ExitEngine:
         entry_price = position.entry_price
         shares = position.shares
         current_stop = position.stop_price
-        initial_stop = position.stop_price  # Track original stop
 
-        # Calculate current R multiple
-        r_multiple = self._calculate_r_multiple(current_price, entry_price,
-                                                 initial_stop, shares)
+        # Calculate R multiple using stored initial_risk so it stays correct
+        # after stop ratchets (current stop != original stop after breakeven/EMA trailing)
+        if getattr(position, 'initial_risk', 0) > 0:
+            r_multiple = ((current_price - entry_price) * shares) / position.initial_risk
+        else:
+            r_multiple = self._calculate_r_multiple(current_price, entry_price,
+                                                     current_stop, shares)
 
         # 1. Check hard stop (price hit stop level)
         if current_price <= current_stop:
