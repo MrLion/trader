@@ -65,10 +65,9 @@ class EntrySignalScanner:
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price from Alpaca."""
         try:
-            quote = self.alpaca.get_latest_quote(ticker)
-            if quote:
-                # Use ask price for conservative entry estimate
-                return quote.get('ask_price') or quote.get('close_price')
+            price = self.alpaca.get_latest_price(ticker)
+            if price:
+                return price
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "get_current_price_quote", e,
