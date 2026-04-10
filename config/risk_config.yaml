@@ -13,7 +13,7 @@ account:
   daily_loss_limit_pct: 0.02  # 2% of initial capital
 
   # Maximum positions per sector
-  max_sector_positions: 5
+  max_sector_positions: 10
 
   # Daily entry limit
   max_entries_per_day: 10
@@ -79,7 +79,7 @@ entry:
   min_entry_score: 60
 
   # Maximum distance from pivot (in %)
-  max_dist_to_pivot_pct: 1.0
+  max_dist_to_pivot_pct: 2.0
 
   # Minimum volume ratio vs 20-day average
   min_volume_ratio: 1.5

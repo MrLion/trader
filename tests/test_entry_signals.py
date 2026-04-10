@@ -156,14 +156,17 @@ class TestCheckMarketConditions:
         assert result is False
         assert '-2.22%' in msg
 
-    def test_market_ok_when_no_spy_price(self, scanner):
-        """Test market OK when SPY price unavailable."""
-        scanner._get_current_price = Mock(return_value=None)
+    @patch('yfinance.Ticker')
+    def test_market_ok_when_no_spy_price(self, mock_ticker_class, scanner):
+        """Test market OK when SPY history unavailable (fewer than 2 rows)."""
+        mock_ticker = Mock()
+        mock_ticker.history.return_value = pd.DataFrame({'Close': []})
+        mock_ticker_class.return_value = mock_ticker
 
         result, msg = scanner._check_market_conditions()
 
         assert result is True
-        assert 'unavailable' in msg
+        assert 'SPY OK' in msg
 
 
 class TestAnalyzeTicker:
