@@ -155,6 +155,84 @@ class PaperState:
             self.entries_today = 0
             self.last_entry_reset = current_date
 
+        # Reconcile counters with trade log to fix any sync issues
+        self._reconcile_counters_from_log()
+
+    def _is_test_trade(self, trade: dict) -> bool:
+        """Detect test trades using metadata patterns."""
+        meta = trade.get('_meta', {})
+        ticker = trade.get('ticker', '')
+        price = trade.get('entry_price', 0)
+
+        # Explicit test mode flag
+        if meta.get('test_mode'):
+            return True
+
+        # Known test pattern: AAPL at exactly $150.00 (synthetic test price)
+        # This catches trades even if validation was bypassed or passed
+        if ticker == 'AAPL' and price == 150.0:
+            return True
+
+        # Known test patterns in validation failures
+        if meta.get('validation_failed'):
+            # Other known test tickers at suspicious prices
+            if ticker in ('MSFT', 'GOOGL', 'STOCK0', 'STOCK1', 'STOCK2'):
+                return True
+
+        return False
+
+    def _reconcile_counters_from_log(self) -> dict:
+        """
+        Reconcile counters with trade log, excluding test trades.
+        Called during _load_state to ensure accuracy.
+        Returns stats for reporting.
+        """
+        if not TRADES_FILE.exists():
+            return {'error': 'No trade log file'}
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        stats = {
+            'total_trades': 0,
+            'production_trades': 0,
+            'test_trades': 0,
+            'entries_today': 0,
+            'production_entries_today': 0,
+        }
+
+        try:
+            with open(TRADES_FILE, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    stats['total_trades'] += 1
+
+                    if self._is_test_trade(trade):
+                        stats['test_trades'] += 1
+                        continue
+
+                    stats['production_trades'] += 1
+
+                    # Count today's production entries
+                    if trade.get('event') == 'ENTRY':
+                        ts = trade.get('timestamp', '')
+                        if ts.startswith(today):
+                            stats['production_entries_today'] += 1
+
+        except Exception as e:
+            return {'error': f'Failed to read trade log: {e}'}
+
+        # Update state counters to match log
+        self.trade_count = stats['production_trades']
+        self.entries_today = stats['production_entries_today']
+
+        return stats
+
     def save_state(self):
         """Save current state to disk."""
         # Save positions

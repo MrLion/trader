@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.10] - 2026-04-10
+
+### Fixed
+- **Trade counters out of sync with trade log**
+  - `sync_state.py` hardcoded `trade_count: 0` and `entries_today: 0`, causing data loss
+  - Counters only incremented for trades through `PaperState.enter_position()`
+  - No reconciliation between account file and trade log ground truth
+  - Fix: Added `PaperState._reconcile_counters_from_log()` to count production trades from JSONL
+  - Fix: Added `paper_portfolio.py reconcile` CLI command for manual fixes
+  - Fix: Updated `sync_state.py` to preserve counts from trade log
+  - Test trades excluded via `_meta.test_mode` flag and known patterns (AAPL@150)
+
+### Changed
+- **`paper_portfolio.py status`** now shows end-of-day (EOD) closing prices
+  - Account Value = Cash + (positions × EOD close price)
+  - Available Cash displayed separately
+  - Position table shows EOD Close vs Entry price
+  - Unrealized P&L calculated using EOD prices
+- **`reconcile` command** defaults to $100,000 initial capital if non-standard value detected
+  - Warns if initial_capital is not $100,000
+  - Auto-corrects to standard value
+
 ## [0.3.9] - 2026-04-10
 
 ### Fixed

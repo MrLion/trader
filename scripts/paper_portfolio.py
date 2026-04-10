@@ -68,7 +68,9 @@ def format_pct(value: float) -> str:
 
 
 def cmd_status(args):
-    """Show current account and market status."""
+    """Show current account and market status using end-of-day prices."""
+    import yfinance as yf
+
     account = load_json_file(ACCOUNT_FILE)
     positions = load_json_file(POSITIONS_FILE)
 
@@ -87,43 +89,78 @@ def cmd_status(args):
             file=str(DATA_DIR / 'watchlist.csv')
         )
 
+    # Get cash (available for trade)
+    cash = account.get('cash', 0)
+    initial_capital = account.get('initial_capital', 0)
+
+    # Calculate account value using end-of-day closing prices
+    account_value = cash  # Start with cash
+    position_values = {}
+
+    if positions:
+        pos_dict = {}
+        if isinstance(positions, list):
+            for p in positions:
+                ticker = p.get('symbol') or p.get('ticker')
+                if ticker:
+                    pos_dict[ticker] = p
+        else:
+            pos_dict = positions
+
+        # Fetch end-of-day closing prices (previous day's close)
+        for ticker, pos in pos_dict.items():
+            try:
+                stock = yf.Ticker(ticker)
+                # Get daily data to find previous day's close
+                hist = stock.history(period="5d", interval="1d")
+                if len(hist) > 0:
+                    # Use the most recent closing price (end of day)
+                    eod_close = hist['Close'].iloc[-1]
+                else:
+                    eod_close = pos.get('entry_price', 0)  # Fallback to entry
+            except Exception:
+                eod_close = pos.get('entry_price', 0)  # Fallback to entry
+
+            shares = pos.get('shares') or pos.get('qty', 0)
+            position_market_value = eod_close * shares
+            position_values[ticker] = {
+                'eod_close': eod_close,
+                'market_value': position_market_value,
+                'entry_price': pos.get('entry_price') or pos.get('avg_entry_price', 0),
+                'shares': shares
+            }
+            account_value += position_market_value
+
     print("\n" + "=" * 60)
-    print("📊 PAPER TRADING ACCOUNT STATUS")
+    print("📊 PAPER TRADING ACCOUNT STATUS (EOD Prices)")
     print("=" * 60)
 
-    print(f"\n💰 CAPITAL")
-    print(f"   Initial: {format_currency(account.get('initial_capital', 0))}")
-    print(f"   Cash:    {format_currency(account.get('cash', 0))}")
-    print(f"   Equity:  {format_currency(account.get('equity', 0))}")
+    print(f"\n💰 ACCOUNT")
+    print(f"   Initial Capital:   {format_currency(initial_capital)}")
+    print(f"   Account Value:     {format_currency(account_value)}")
+    print(f"   Available Cash:    {format_currency(cash)}")
 
-    pnl = account.get('equity', 0) - account.get('initial_capital', 0)
-    pnl_pct = (pnl / account.get('initial_capital', 1)) * 100
-    print(f"   P&L:     {format_currency(pnl)} ({format_pct(pnl_pct)})")
+    pnl = account_value - initial_capital
+    pnl_pct = (pnl / initial_capital) * 100 if initial_capital else 0
+    print(f"   P&L:               {format_currency(pnl)} ({format_pct(pnl_pct)})")
 
     print(f"\n📈 DAILY PERFORMANCE")
     day_pnl = account.get('day_pnl', 0)
     day_return = account.get('day_return_pct', 0)
     print(f"   Day P&L: {format_currency(day_pnl)} ({format_pct(day_return)})")
 
-    # Calculate Unrealized P&L from open positions
+    # Calculate unrealized P&L using EOD prices
     unrealized_pnl = 0.0
-    if positions:
-        pos_list = positions if isinstance(positions, list) else list(positions.values())
-        for pos in pos_list:
-            # Alpaca provides unrealized_pl directly
-            pos_unrealized = pos.get('unrealized_pl', 0) or pos.get('unrealized_pnl', 0)
-            if pos_unrealized:
-                unrealized_pnl += float(pos_unrealized)
-            else:
-                # Calculate manually if not provided
-                entry = pos.get('avg_entry_price') or pos.get('entry_price', 0)
-                current = pos.get('current_price', 0)
-                shares = pos.get('qty') or pos.get('shares', 0)
-                if entry and current and shares:
-                    unrealized_pnl += (current - entry) * shares
+    if positions and position_values:
+        for ticker, pos in position_values.items():
+            entry_price = pos['entry_price']
+            eod_close = pos['eod_close']
+            shares = pos['shares']
+            if entry_price and eod_close and shares:
+                unrealized_pnl += (eod_close - entry_price) * shares
 
     if unrealized_pnl != 0:
-        unrealized_pct = (unrealized_pnl / account.get('initial_capital', 1)) * 100
+        unrealized_pct = (unrealized_pnl / initial_capital) * 100 if initial_capital else 0
         print(f"   Unrealized P&L: {format_currency(unrealized_pnl)} ({format_pct(unrealized_pct)})")
 
     print(f"\n📊 ACTIVITY")
@@ -141,8 +178,11 @@ def cmd_status(args):
         else:
             pos_dict = positions
 
-        print(f"\n📋 OPEN POSITIONS ({len(pos_dict)})")
-        print("-" * 60)
+        print(f"\n📋 OPEN POSITIONS ({len(pos_dict)}) - EOD Close Prices")
+        print("-" * 75)
+        print(f"{'Ticker':7} {'Sector':12} {'Shares':7} {'Entry':>10} {'EOD Close':>10} {'P&L $':>12} {'Stop':>10} {'Type'}")
+        print("-" * 75)
+
         for ticker, pos in pos_dict.items():
             # Handle both Alpaca format (avg_entry_price) and internal format (entry_price)
             entry = pos.get('entry_price') or pos.get('avg_entry_price', 0)
@@ -170,9 +210,15 @@ def cmd_status(args):
                         ticker=ticker
                     )
 
-            stop_str = f"${stop:.2f}" if stop > 0 else "N/A"
-            print(f"   {ticker:6} | {sector[:12]:12} | {shares:4} shares | "
-                  f"Entry: ${entry:.2f} | Stop: {stop_str} ({stop_type})")
+            # Get EOD price from fetched values
+            pos_value = position_values.get(ticker, {})
+            eod_close = pos_value.get('eod_close', entry)
+            pos_pnl = (eod_close - entry) * shares if eod_close and entry else 0
+
+            emoji = "🟢" if pos_pnl >= 0 else "🔴"
+            print(f"{emoji} {ticker:5} {sector[:12]:12} {shares:7} "
+                  f"${entry:>9.2f} ${eod_close:>9.2f} ${pos_pnl:>11,.2f} "
+                  f"${stop:>9.2f} {stop_type}")
 
     # Last update
     ts = account.get('timestamp')
@@ -449,6 +495,63 @@ def cmd_close(args):
         print(f"❌ Failed to close {args.ticker}")
 
 
+def cmd_reconcile(args):
+    """Reconcile counters with trade log."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from paper_state import PaperState
+
+    print("🔄 Reconciling counters with trade log...")
+    print()
+
+    # Load existing account to check initial_capital
+    existing_account = load_json_file(ACCOUNT_FILE)
+    DEFAULT_INITIAL_CAPITAL = 100000
+
+    if existing_account:
+        current_initial = existing_account.get('initial_capital', DEFAULT_INITIAL_CAPITAL)
+
+        # Check if initial_capital looks wrong (not a round number like 100000, 101293, etc.)
+        # or if it's the specific wrong value from before
+        if current_initial != DEFAULT_INITIAL_CAPITAL:
+            print(f"   ⚠️  Detected non-standard initial_capital: ${current_initial:,.2f}")
+            print(f"   🔄 Defaulting to standard value: ${DEFAULT_INITIAL_CAPITAL:,.2f}")
+            initial_capital = DEFAULT_INITIAL_CAPITAL
+        else:
+            initial_capital = current_initial
+            print(f"   ✓ initial_capital already correct: ${initial_capital:,.2f}")
+    else:
+        initial_capital = DEFAULT_INITIAL_CAPITAL
+        print(f"   Using default initial_capital: ${initial_capital:,.2f}")
+
+    # Initialize state with initial_capital
+    state = PaperState(initial_capital=initial_capital)
+
+    # Get the reconciliation stats
+    stats = state._reconcile_counters_from_log()
+
+    if 'error' in stats:
+        print(f"❌ {stats['error']}")
+        return
+
+    print()
+    print("=" * 60)
+    print("📊 RECONCILIATION RESULTS")
+    print("=" * 60)
+    print(f"   Total trades in log:     {stats['total_trades']}")
+    print(f"   Test trades filtered:    {stats['test_trades']}")
+    print(f"   Production trades:       {stats['production_trades']}")
+    print(f"   Entries today:           {stats['production_entries_today']}")
+    print()
+    print(f"✅ Counters updated:")
+    print(f"   trade_count:   {state.trade_count}")
+    print(f"   entries_today: {state.entries_today}")
+
+    # Save the reconciled state
+    state.save_state()
+    print()
+    print("💾 State saved.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Paper Trading Portfolio CLI',
@@ -456,11 +559,12 @@ def main():
         epilog="""
 Examples:
   python3 scripts/paper_portfolio.py status       # Account overview
-  python3 scripts/paper_portfolio.py live           # Live position prices
+  python3 scripts/paper_portfolio.py live         # Live position prices
   python3 scripts/paper_portfolio.py today         # Today's trades
   python3 scripts/paper_portfolio.py history       # Full trade log
   python3 scripts/paper_portfolio.py report        # Performance stats
-  python3 scripts/paper_portfolio.py close AAPL    # Emergency close
+  python3 scripts/paper_portfolio.py close AAPL  # Emergency close
+  python3 scripts/paper_portfolio.py reconcile   # Fix counter discrepancies
         """
     )
 
@@ -497,6 +601,10 @@ Examples:
     p_close.add_argument('--reason', help='Exit reason')
     p_close.add_argument('--force', action='store_true', help='Skip confirmation')
     p_close.set_defaults(func=cmd_close)
+
+    # reconcile
+    p_reconcile = subparsers.add_parser('reconcile', help='Reconcile counters with trade log')
+    p_reconcile.set_defaults(func=cmd_reconcile)
 
     args = parser.parse_args()
 
