@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [0.3.10] - 2026-04-10
 
 ### Fixed
+- **Split-Brain Vulnerability (FINDING-002)**
+  - Position created locally before Alpaca confirmed fill
+  - Crash between submit and fill = phantom position in local state
+  - Fix: Order now stores entry metadata (`target_price`, `sector`, `expected_entry_price`)
+  - Fix: Position creation moved to fill confirmation in `_process_pending_orders()`
+  - Fix: `_execute_entry()` no longer creates position immediately
+  - Impact: Eliminates phantom positions, ensures Alpaca is source of truth
+
 - **Trade counters out of sync with trade log**
   - `sync_state.py` hardcoded `trade_count: 0` and `entries_today: 0`, causing data loss
   - Counters only incremented for trades through `PaperState.enter_position()`

@@ -36,6 +36,10 @@ class Order:
     filled_qty: Optional[float] = None
     stop_price: Optional[float] = None
     reason: Optional[str] = None  # For exits
+    # Entry metadata (only for buy orders, used when creating position on fill)
+    target_price: Optional[float] = None
+    sector: Optional[str] = None
+    expected_entry_price: Optional[float] = None  # Used for position creation on fill
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -45,6 +49,10 @@ class Order:
     @classmethod
     def from_dict(cls, data: dict) -> 'Order':
         data['status'] = OrderStatus(data['status'])
+        # Handle optional fields that may not exist in older saved orders
+        for field in ['target_price', 'sector', 'expected_entry_price']:
+            if field not in data:
+                data[field] = None
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -104,13 +112,19 @@ class OrderManager:
         except Exception as e:
             print(f"⚠️ Error saving orders: {e}")
 
-    def submit_entry(self, ticker: str, shares: int, stop_price: float) -> Optional[Order]:
+    def submit_entry(self, ticker: str, shares: int, stop_price: float,
+                    target_price: Optional[float] = None,
+                    sector: Optional[str] = None,
+                    expected_entry_price: Optional[float] = None) -> Optional[Order]:
         """Submit a buy order.
 
         Args:
             ticker: Stock symbol
             shares: Number of shares to buy
             stop_price: Stop loss price
+            target_price: Target price for position (stored for position creation on fill)
+            sector: Stock sector (stored for position creation on fill)
+            expected_entry_price: Expected fill price (stored for position creation on fill)
 
         Returns:
             Order object or None if submission failed
@@ -122,7 +136,7 @@ class OrderManager:
             print(f"❌ Failed to submit entry order for {ticker}")
             return None
 
-        # Create local order record
+        # Create local order record with entry metadata for position creation on fill
         order = Order(
             id=result['id'],
             ticker=ticker,
@@ -130,11 +144,14 @@ class OrderManager:
             qty=shares,
             status=OrderStatus.SUBMITTED,
             submitted_at=datetime.now().isoformat(),
-            stop_price=stop_price
+            stop_price=stop_price,
+            target_price=target_price,
+            sector=sector,
+            expected_entry_price=expected_entry_price
         )
 
         self.pending_orders[order.id] = order
-        self.expected_positions[ticker] = shares
+        # Don't set expected_positions here - only set when order fills
         self._save_orders()
 
         print(f"📤 Order submitted: {ticker} {shares} shares @ market")

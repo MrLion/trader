@@ -622,29 +622,26 @@ class AlpacaPaperEngine:
 
         print(f"   🚀 {ticker}: Submitting order for {shares} shares...")
 
-        # Submit order via order manager
+        # Submit order via order manager with entry metadata
+        # Position will be created on fill confirmation, not immediately
         order = self.order_manager.submit_entry(
             ticker=ticker,
             shares=shares,
-            stop_price=stop_price
+            stop_price=stop_price,
+            target_price=target_price,
+            sector=sector,
+            expected_entry_price=entry_price
         )
 
         if order:
-            # Record locally (optimistic - will update on fill)
-            position = self.state.enter_position(
-                ticker=ticker,
-                entry_price=entry_price,
-                shares=shares,
-                stop_price=stop_price,
-                target_price=target_price,
-                sector=sector
-            )
-
+            # DO NOT create position here - prevents split-brain on crash
+            # Position will be created when order fills in _process_pending_orders
             self.signaled_tickers.add(ticker)
 
             print(f"\n🚀 AUTO-ENTRY: {ticker} at ${entry_price:.2f} x {shares} shares")
             print(f"   Order ID: {order.id}")
             print(f"   Stop: ${stop_price:.2f} | Target: ${target_price:.2f}")
+            print(f"   ⏳ Waiting for fill confirmation...")
         else:
             print(f"   ❌ {ticker}: Order submission failed (check Alpaca API)")
 
@@ -691,8 +688,30 @@ class AlpacaPaperEngine:
             if order.side == 'buy':
                 print(f"✅ Entry filled: {order.ticker} "
                       f"@${order.filled_price:.2f} x {order.filled_qty}")
-                # Update position with actual fill price
-                if order.ticker in self.state.positions:
+
+                # SPLIT-BRAIN FIX: Create position ONLY when order is confirmed filled
+                # This prevents phantom positions if crash occurs between submit and fill
+                if order.ticker not in self.state.positions:
+                    # Position doesn't exist yet - create it with fill data
+                    actual_fill = order.filled_price or order.expected_entry_price
+                    filled_qty = int(order.filled_qty) if order.filled_qty else order.qty
+
+                    # Use stored metadata from order submission
+                    target_price = order.target_price or (actual_fill * 1.05)
+                    stop_price = order.stop_price or (actual_fill * 0.95)
+                    sector = order.sector or 'Unknown'
+
+                    position = self.state.enter_position(
+                        ticker=order.ticker,
+                        entry_price=actual_fill,
+                        shares=filled_qty,
+                        stop_price=stop_price,
+                        target_price=target_price,
+                        sector=sector
+                    )
+                    print(f"   📝 Created position: ${actual_fill:.2f} x {filled_qty} shares")
+                else:
+                    # Position already exists (shouldn't happen with new flow, but handle gracefully)
                     actual_fill = order.filled_price
                     if actual_fill:
                         pos = self.state.positions[order.ticker]
@@ -706,6 +725,7 @@ class AlpacaPaperEngine:
                         self.state.save_state()
                         print(f"   📝 Updated entry price: ${old_entry:.2f} → ${actual_fill:.2f}")
             else:
+                # Exit orders - position is closed by order_manager or elsewhere
                 print(f"✅ Exit filled: {order.ticker} "
                       f"(${order.reason})")
 
