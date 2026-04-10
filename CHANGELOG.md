@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.4] - 2026-04-10
+
+### Fixed
+- **Trade log validation blocking high-priced stocks** (`71c5324`)
+  - `MAX_ENTRY_PRICE` was hardcoded to $500, silently skipping log entries for stocks like CAT ($788), MU ($413+), AVGO ($357+)
+  - Order was still submitted to Alpaca but trade went unrecorded locally
+  - Raised ceiling to $5000 (overridable via `PAPER_MAX_ENTRY_PRICE` env var)
+
 ## [0.3.3] - 2026-04-10
 
 ### Fixed
