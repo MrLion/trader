@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [0.3.9] - 2026-04-10
 
+### Fixed
+- **Order manager: stale test-order cleanup** (`fc84e37`)
+  - `check_order_status` only matched IDs starting with `test-order-` (hyphen)
+  - Exact-match `test-order` IDs (from some test files) were never cleaned up
+  - Fix: also catch exact-match `test-order`, plus existing `test-order-*` and `mock-*` patterns
+
 ### Tests
 - **paper_engine.py coverage: 66% → 88%** (`8021a6a`)
   - `_fetch_spy_data`: insufficient 5m history, <2 daily bars branch
