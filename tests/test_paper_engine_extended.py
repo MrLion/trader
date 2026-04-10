@@ -307,6 +307,8 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
         """Test entry blocked by risk validation (sector limit reached)."""
         # Mock can_enter_position to simulate sector limit reached
         self.engine.state.can_enter_position = Mock(return_value=(False, "Sector limit reached (3 in Technology)"))
+        # Prevent cross-test OrderManager disk pollution from blocking before can_enter_position
+        self.engine.order_manager.has_pending_order = Mock(return_value=False)
 
         analysis = {
             'ticker': 'AAPL',
