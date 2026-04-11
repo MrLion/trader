@@ -46,9 +46,14 @@ class TestMissingAccountFile(unittest.TestCase):
             positions_file.write_text('{}')
             # account file is MISSING
 
+            daily_tracker = data_dir / 'daily_tracker.json'
+            daily_tracker.write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
+            }))
+
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', positions_file):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'nonexistent_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', daily_tracker):
                         # Should not raise error
                         state = PaperState(initial_capital=50000.0)
 
@@ -66,9 +71,8 @@ class TestMissingAccountFile(unittest.TestCase):
                             sector='Technology'
                         )
 
-                        # Account file should now exist
-                        account_file = data_dir / 'nonexistent_account.json'
-                        self.assertTrue(account_file.exists())
+                        # Position should be saved to positions file
+                        self.assertTrue(positions_file.exists())
 
                         # Load new state - should restore from saved
                         state2 = PaperState(initial_capital=50000.0)
@@ -91,14 +95,11 @@ class TestMissingAccountFile(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             data_dir = Path(tmpdir)
 
-            # Start with existing account
+            # Start with existing state
             positions_file = data_dir / 'paper_positions.json'
             positions_file.write_text('{}')
-            account_file = data_dir / 'paper_account.json'
-            account_file.write_text(json.dumps({
-                'cash': 75000.0,
-                'equity': 80000.0,
-                'entries_today': 2,
+            daily_tracker = data_dir / 'daily_tracker.json'
+            daily_tracker.write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
 
@@ -126,13 +127,12 @@ class TestMissingAccountFile(unittest.TestCase):
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', positions_file):
-                    with patch('paper_state.ACCOUNT_FILE', account_file):
+                    with patch('paper_state.DAILY_TRACKER_FILE', daily_tracker):
                         with patch('paper_state.TRADES_FILE', trades_file):
                             state = PaperState(initial_capital=100000.0)
 
-                            # Verify loaded values
-                            self.assertEqual(state.cash, 75000.0)
-                            # entries_today reconciled from trade log (2 production entries)
+                            # Verify entries_today reconciled from trade log (2 production entries)
+                            # Cash now comes from Alpaca API, not stored locally
                             self.assertEqual(state.entries_today, 2)
 
                             # Add another position (should work fine)
@@ -145,12 +145,12 @@ class TestMissingAccountFile(unittest.TestCase):
                                 sector='Technology'
                             )
 
-                            # Delete account file AFTER adding position
-                            account_file.unlink()
+                            # Delete daily tracker AFTER adding position
+                            daily_tracker.unlink()
 
-                            # Save should recreate file
+                            # Save should recreate daily tracker
                             state.save_state()
-                            self.assertTrue(account_file.exists())
+                            self.assertTrue(daily_tracker.exists())
 
         print("✅ Deleted mid-session: Recovery and recreation works")
 
@@ -171,16 +171,13 @@ class TestZeroEquityHandling(unittest.TestCase):
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 0.0,
-                'equity': 0.0,
-                'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         state = PaperState(initial_capital=0.0)
 
                         self.assertEqual(state.get_equity(), 0.0)
@@ -209,16 +206,13 @@ class TestZeroEquityHandling(unittest.TestCase):
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 50000.0,
-                'equity': 50000.0,
-                'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         state = PaperState(initial_capital=100000.0)
 
                         # Enter position
@@ -260,14 +254,13 @@ class TestZeroEquityHandling(unittest.TestCase):
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0,
-                'equity': 100000.0
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         state = PaperState(initial_capital=100000.0)
 
                         # Enter large position
@@ -327,13 +320,13 @@ class TestCorruptedStateRecovery(unittest.TestCase):
                 }
             }))
 
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 50000.0, 'equity': 65000.0
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', positions_file):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         # This may or may not raise an error depending on implementation
                         # The important thing is it doesn't crash the system
                         try:
@@ -374,13 +367,13 @@ class TestCorruptedStateRecovery(unittest.TestCase):
                 }
             }))
 
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 50000.0, 'equity': 65000.0
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', positions_file):
-                    with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                    with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         state = PaperState(initial_capital=100000.0)
 
                         # Position should load

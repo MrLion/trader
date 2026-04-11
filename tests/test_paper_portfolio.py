@@ -156,66 +156,51 @@ class TestFormatFunctions:
 class TestCmdStatus:
     """Test cmd_status function."""
 
-    def test_status_no_account_data(self, capsys):
-        """Test status when no account file exists."""
-        with patch('paper_portfolio.load_json_file', return_value=None):
+    def test_status_shows_alpaca_data(self, capsys):
+        """Test status shows Alpaca real-time data."""
+        # Mock Alpaca client
+        mock_alpaca = Mock()
+        mock_alpaca.get_account.return_value = {
+            'cash': 95000.0,
+            'portfolio_value': 97500.0,
+            'equity': 97500.0
+        }
+        mock_alpaca.list_positions.return_value = []
+
+        with patch('alpaca_client.AlpacaClient', return_value=mock_alpaca):
             cmd_status(Mock())
             captured = capsys.readouterr()
 
-        assert 'No account data found' in captured.out
-
-    def test_status_with_account_data(self, capsys):
-        """Test status with valid account data."""
-        account = {
-            'initial_capital': 100000.0,
-            'cash': 95000.0,
-            'equity': 97500.0,
-            'day_pnl': 500.0,
-            'day_return_pct': 0.5,
-            'open_positions': 2,
-            'entries_today': 1,
-            'trade_count': 5,
-            'timestamp': '2024-01-15T10:00:00'
-        }
-
-        with patch('paper_portfolio.load_json_file', side_effect=[account, None]):
-            with patch('paper_portfolio.DATA_DIR'):
-                cmd_status(Mock())
-                captured = capsys.readouterr()
-
         assert 'PAPER TRADING ACCOUNT STATUS' in captured.out
+        assert 'Alpaca Real-Time' in captured.out
         assert '$100,000.00' in captured.out  # Initial capital
-        assert '$95,000.00' in captured.out   # Cash (Available Cash)
-        # FINDING-002/008: Status now shows EOD Prices - Account Value = Cash + (positions × EOD close)
-        # With 2 open positions worth $2500 unrealized loss: $100,000 - $5,000 = $95,000
-        assert '$95,000.00' in captured.out   # Account Value (EOD pricing)
+        assert '$95,000.00' in captured.out   # Cash from Alpaca
 
     def test_status_with_positions(self, capsys):
         """Test status with open positions."""
-        account = {
-            'initial_capital': 100000.0,
+        mock_alpaca = Mock()
+        mock_alpaca.get_account.return_value = {
             'cash': 90000.0,
-            'equity': 99500.0,
-            'day_pnl': 0.0,
-            'day_return_pct': 0.0,
-            'open_positions': 1,
-            'entries_today': 0,
-            'trade_count': 1,
-            'timestamp': '2024-01-15T10:00:00'
+            'portfolio_value': 99500.0,
+            'equity': 99500.0
         }
-        positions = {
+        mock_alpaca.get_latest_price.return_value = 155.0
+
+        # Positions are loaded from local file, not Alpaca API
+        mock_positions = {
             'AAPL': {
                 'ticker': 'AAPL',
+                'status': 'OPEN',
                 'entry_price': 150.0,
                 'shares': 10,
                 'stop_price': 140.0,
-                'current_stop_type': 'HARD',
-                'unrealized_pl': 500.0
+                'target_price': 165.0
             }
         }
 
-        with patch('paper_portfolio.load_json_file', side_effect=[account, positions]):
-            with patch('paper_portfolio.DATA_DIR'):
+        with patch('alpaca_client.AlpacaClient') as mock_class:
+            mock_class.return_value = mock_alpaca
+            with patch('paper_portfolio.load_json_file', return_value=mock_positions):
                 cmd_status(Mock())
                 captured = capsys.readouterr()
 
@@ -224,29 +209,29 @@ class TestCmdStatus:
 
     def test_status_with_alpaca_format_positions(self, capsys):
         """Test status with Alpaca API format positions."""
-        account = {
-            'initial_capital': 100000.0,
+        mock_alpaca = Mock()
+        mock_alpaca.get_account.return_value = {
             'cash': 90000.0,
-            'equity': 99500.0,
-            'day_pnl': 0.0,
-            'day_return_pct': 0.0,
-            'open_positions': 1,
-            'entries_today': 0,
-            'trade_count': 1,
-            'timestamp': '2024-01-15T10:00:00'
+            'portfolio_value': 99500.0,
+            'equity': 99500.0
         }
-        # Alpaca format uses symbol, avg_entry_price, qty
-        positions = [
+        mock_alpaca.get_latest_price.return_value = 195.0
+
+        # Positions are loaded from local file with Alpaca API format
+        mock_positions = [
             {
                 'symbol': 'TSLA',
                 'avg_entry_price': 200.0,
                 'qty': 5,
-                'unrealized_pl': -250.0
+                'current_price': 195.0,
+                'market_value': 975.0,
+                'unrealized_pl': -25.0
             }
         ]
 
-        with patch('paper_portfolio.load_json_file', side_effect=[account, positions]):
-            with patch('paper_portfolio.DATA_DIR'):
+        with patch('alpaca_client.AlpacaClient') as mock_class:
+            mock_class.return_value = mock_alpaca
+            with patch('paper_portfolio.load_json_file', return_value=mock_positions):
                 cmd_status(Mock())
                 captured = capsys.readouterr()
 

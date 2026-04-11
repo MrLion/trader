@@ -191,12 +191,9 @@ class TestEntrySignalE2E(unittest.TestCase):
             watchlist_path = data_dir / 'watchlist.csv'
             watchlist_data.to_csv(watchlist_path, index=False)
 
-            # Create empty positions file
+            # Create empty positions file and daily tracker
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0,
-                'day_pnl': 0.0,
-                'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
 
@@ -205,7 +202,7 @@ class TestEntrySignalE2E(unittest.TestCase):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
                     with patch('paper_state.DATA_DIR', data_dir):
                         with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                            with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                            with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                                 from paper_engine_alpaca import AlpacaPaperEngine
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
@@ -293,7 +290,7 @@ class TestPositionSync(unittest.TestCase):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
                     with patch('paper_state.DATA_DIR', data_dir):
                         with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                            with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                            with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                                 from paper_engine_alpaca import AlpacaPaperEngine
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
@@ -357,7 +354,7 @@ class TestAlpacaTimeout(unittest.TestCase):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
                     with patch('paper_state.DATA_DIR', data_dir):
                         with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                            with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                            with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                                 from paper_engine_alpaca import AlpacaPaperEngine
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
@@ -428,15 +425,15 @@ class TestSPYCache(unittest.TestCase):
             watchlist_data.to_csv(watchlist_path, index=False)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'day_pnl': 0.0, 'entries_today': 0, 'last_entry_reset': '2024-04-08'
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'entries_today': 0, 'last_entry_reset': '2024-04-08'
             }))
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
                     with patch('paper_state.DATA_DIR', data_dir):
                         with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                            with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                            with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                                 from paper_engine_alpaca import AlpacaPaperEngine
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
@@ -512,7 +509,7 @@ class TestSectorLimit(unittest.TestCase):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
                     with patch('paper_state.DATA_DIR', data_dir):
                         with patch('paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
-                            with patch('paper_state.ACCOUNT_FILE', data_dir / 'paper_account.json'):
+                            with patch('paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                                 from paper_engine_alpaca import AlpacaPaperEngine
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
