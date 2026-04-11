@@ -20,6 +20,10 @@ import yfinance as yf
 from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.trading_exceptions import TradingExceptionHandler
 
+# Report output directory
+REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
+
+
 def generate_html_report(report_data, output_path):
     """Generate standalone HTML report with embedded CSS"""
 
@@ -1040,7 +1044,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     if output_format == 'html':
         if not output_path:
             datetime_str = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-            output_path = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_{datetime_str}.html")
+            output_path = REPORTS_DIR / f"premarket_report_{datetime_str}.html"
         else:
             output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
