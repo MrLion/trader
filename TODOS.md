@@ -33,7 +33,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 ### Engineering
 - [ ] **FINDING-001**: Circular import risk — Refactor to proper package structure
 - [ ] **FINDING-003**: WebSocket task lifecycle — Add restart limits, supervisor pattern
-- [ ] **FINDING-006**: Stale price cache poisoning — Track price staleness, reject old prices *(Partial: Only Alpaca WebSocket cache needs fix; ExitEngine cache is for reports/tools only)*
+- [x] **FINDING-006**: Stale price cache poisoning — Track price staleness, reject old prices *(Completed 2026-04-11)*
 - [ ] **FINDING-007**: Weekend/holiday market hours — Integrate `pandas_market_calendars`
 - [x] **FINDING-009**: Concurrent file writes — Use atomic write pattern (temp + rename) *(Completed 2026-04-11)*
 - [ ] **FINDING-011**: Input validation on tickers — Add regex `^[A-Z]{1,5}$`

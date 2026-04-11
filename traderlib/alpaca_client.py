@@ -63,6 +63,10 @@ class AlpacaClient:
         # WebSocket stream (initialized on demand)
         self.stream: Optional[StockDataStream] = None
         self.price_cache: Dict[str, Dict] = {}
+
+        # FINDING-006: Stale price cache protection
+        # Max age in seconds before price is considered stale (30s for WebSocket data)
+        self.price_cache_max_age = 30
         self._trade_handlers: List[Callable] = []
         self._order_handlers: List[Callable] = []
 
@@ -489,19 +493,92 @@ class AlpacaClient:
         elapsed = (datetime.now() - self.last_ws_message).total_seconds()
         return elapsed < 60
 
-    def get_cached_price(self, ticker: str) -> Optional[float]:
-        """Get price from WebSocket cache."""
-        if ticker in self.price_cache:
-            return self.price_cache[ticker]['price']
-        return None
+    def get_cached_price(self, ticker: str, max_age_seconds: Optional[int] = None) -> Optional[float]:
+        """Get price from WebSocket cache with staleness check.
+
+        Args:
+            ticker: Stock symbol
+            max_age_seconds: Maximum age before rejecting (default: self.price_cache_max_age)
+
+        Returns:
+            Price if fresh, None if stale or missing
+        """
+        if ticker not in self.price_cache:
+            return None
+
+        cache_entry = self.price_cache[ticker]
+        cache_time = cache_entry.get('timestamp')
+
+        if not cache_time:
+            # No timestamp - treat as stale for safety
+            return None
+
+        # Check staleness
+        max_age = max_age_seconds if max_age_seconds is not None else self.price_cache_max_age
+        age_seconds = (datetime.now() - cache_time).total_seconds()
+
+        if age_seconds > max_age:
+            # FINDING-006: Stale price - reject to prevent bad trading decisions
+            return None
+
+        return cache_entry['price']
+
+    def is_price_fresh(self, ticker: str, max_age_seconds: Optional[int] = None) -> bool:
+        """Check if cached price is fresh (not stale).
+
+        Args:
+            ticker: Stock symbol
+            max_age_seconds: Maximum acceptable age (default: self.price_cache_max_age)
+
+        Returns:
+            True if price exists and is fresh, False otherwise
+        """
+        return self.get_cached_price(ticker, max_age_seconds) is not None
+
+    def get_cache_staleness(self, ticker: str) -> Optional[float]:
+        """Get age of cached price in seconds.
+
+        Args:
+            ticker: Stock symbol
+
+        Returns:
+            Age in seconds, or None if not in cache
+        """
+        if ticker not in self.price_cache:
+            return None
+
+        cache_time = self.price_cache[ticker].get('timestamp')
+        if not cache_time:
+            return None
+
+        return (datetime.now() - cache_time).total_seconds()
 
     def check_health(self) -> Dict:
-        """Check client health."""
+        """Check client health including cache staleness."""
+        # FINDING-006: Track stale price cache entries
+        fresh_count = 0
+        stale_count = 0
+        stale_tickers = []
+
+        for ticker, entry in self.price_cache.items():
+            cache_time = entry.get('timestamp')
+            if cache_time:
+                age = (datetime.now() - cache_time).total_seconds()
+                if age <= self.price_cache_max_age:
+                    fresh_count += 1
+                else:
+                    stale_count += 1
+                    stale_tickers.append(ticker)
+
         return {
             'ws_connected': self.ws_connected,
             'ws_healthy': self.is_ws_healthy(),
             'api_errors': self.api_error_count,
             'cache_size': len(self.price_cache),
+            'cache_fresh': fresh_count,
+            'cache_stale': stale_count,
+            'stale_tickers': stale_tickers[:10],  # Limit to 10 for readability
+            'cache_max_age_seconds': self.price_cache_max_age,
             'rate_limiter': self.rate_limiter.get_status(),
             'health_monitor': health_monitor.get_status()
         }

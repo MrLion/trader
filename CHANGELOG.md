@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **FINDING-006: Stale price cache poisoning — Added staleness rejection**
+  - Added `price_cache_max_age = 30` (30 second staleness threshold) to `AlpacaClient`
+  - Modified `get_cached_price()` to check timestamp before returning cached price
+  - Prices older than 30 seconds return `None` instead of stale data
+  - Added `is_price_fresh()` method to check cache freshness
+  - Added `get_cache_staleness()` method to get cache age in seconds
+  - Updated `check_health()` to report fresh/stale cache counts and stale tickers
+  - Impact: Prevents trading decisions based on stale WebSocket price data
+
 - **FINDING-014: Async/thread safety — Added threading locks**
   - Added `self._lock = threading.Lock()` to `RateLimiter` class
   - Added `self._lock = threading.Lock()` to `APIHealthMonitor` class
