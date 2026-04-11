@@ -717,7 +717,14 @@ class AlpacaPaperEngine:
                 if order.ticker not in self.state.positions:
                     # Position doesn't exist yet - create it with fill data
                     actual_fill = order.filled_price or order.expected_entry_price
-                    filled_qty = int(order.filled_qty) if order.filled_qty else order.qty
+
+                    # PARTIAL FILL FIX: Use actual filled_qty, not order.qty
+                    # filled_qty accumulates across partial fills
+                    if order.filled_qty and order.filled_qty > 0:
+                        filled_qty = int(order.filled_qty)
+                    else:
+                        print(f"   ⚠️  {order.ticker}: No filled_qty recorded - using order qty")
+                        filled_qty = order.qty
 
                     # DANGEROUS FALLBACK FIX: Require explicit stop_price from order
                     # Don't silently default to 5% below fill

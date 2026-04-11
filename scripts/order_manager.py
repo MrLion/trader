@@ -226,13 +226,20 @@ class OrderManager:
         old_status = order.status
         new_status = self._map_alpaca_status(alpaca_order['status'])
 
+        # PARTIAL FILL FIX: Always update filled_qty from Alpaca (accumulates across checks)
+        alpaca_filled_qty = alpaca_order.get('filled_qty')
+        if alpaca_filled_qty is not None:
+            order.filled_qty = float(alpaca_filled_qty)
+        alpaca_filled_price = alpaca_order.get('filled_avg_price') or alpaca_order.get('filled_price')
+        if alpaca_filled_price is not None:
+            order.filled_price = float(alpaca_filled_price)
+
         if new_status != old_status:
             order.status = new_status
 
             if new_status == OrderStatus.FILLED:
                 order.filled_at = datetime.now().isoformat()
-                order.filled_price = alpaca_order.get('filled_price')
-                order.filled_qty = alpaca_order.get('filled_qty')
+                # filled_qty and filled_price already captured above
 
                 # Move to filled orders
                 self.filled_orders[order.id] = order
@@ -240,6 +247,12 @@ class OrderManager:
 
                 print(f"✅ Order filled: {order.ticker} "
                       f"@${order.filled_price:.2f} x {order.filled_qty}")
+
+            elif new_status == OrderStatus.PARTIAL_FILL:
+                # PARTIAL FILL FIX: Update fill info but keep order pending
+                # Position creation only happens when fully filled
+                print(f"⏳ Order partially filled: {order.ticker} "
+                      f"{order.filled_qty}/{order.qty} shares @ ${order.filled_price or 0:.2f}")
 
             elif new_status in [OrderStatus.CANCELED, OrderStatus.EXPIRED, OrderStatus.REJECTED]:
                 # Move to filled with error status

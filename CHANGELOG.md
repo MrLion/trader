@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [0.3.10] - 2026-04-10
 
 ### Fixed
+- **Partial Fill Handling Not Implemented (FINDING-008)**
+  - `PARTIAL_FILL` status existed but logic assumed full fills
+  - Position created with full `order.qty` even if only partially filled
+  - Fix: `check_order_status()` now captures `filled_qty` on every Alpaca check
+  - Fix: `filled_qty` accumulates across partial fill events
+  - Fix: Position creation uses actual `filled_qty` not `order.qty`
+  - Fix: Partial fills logged with progress: "50/100 shares filled"
+
 - **Dangerous Fallback Defaults (FINDING-005)**
   - `Position.from_dict()` silently defaulted `stop_price` to 5% below entry
   - Misrepresented actual risk when stop data unavailable
