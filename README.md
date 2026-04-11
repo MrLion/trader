@@ -245,7 +245,7 @@ python3 scripts/paper_portfolio.py close AAPL --reason "manual"
 
 **Status Report Fields:**
 - **Cash:** Available buying power
-- **Equity:** Cash + position values
+- **Account Value:** Cash + position values
 - **Day P&L:** Realized gains from closed positions today
 - **Unrealized P&L:** Current gains/losses from open positions
 
