@@ -89,9 +89,8 @@ class EntrySignalScanner:
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions."""
         try:
-            import yfinance as yf
-            hist = yf.Ticker("SPY").history(period="2d")
-            if len(hist) >= 2:
+            hist = self.alpaca.get_historical_bars('SPY', days=5)
+            if hist is not None and len(hist) >= 2:
                 change_pct = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
 
                 if change_pct < self.risk_config.market.max_spy_decline_pct:

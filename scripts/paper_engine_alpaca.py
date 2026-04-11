@@ -375,12 +375,10 @@ class AlpacaPaperEngine:
         if spy_price is None:
             return False, "Cannot fetch SPY"
 
-        # Get yesterday's close from yfinance for comparison
+        # Get yesterday's close from Alpaca for comparison
         try:
-            import yfinance as yf
-            spy = yf.Ticker("SPY")
-            hist = spy.history(period="2d")
-            if len(hist) >= 2:
+            hist = self.alpaca.get_historical_bars('SPY', days=5)
+            if hist is not None and len(hist) >= 2:
                 prev_close = hist['Close'].iloc[-2]
                 change_pct = ((spy_price / prev_close) - 1) * 100
 

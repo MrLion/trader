@@ -186,50 +186,6 @@ class TestAlpacaClientFallbacks(unittest.TestCase):
              patch('alpaca_client.StockHistoricalDataClient'):
             self.client = AlpacaClient(mode='paper')
 
-    def test_yfinance_fallback_price(self):
-        """Test yfinance fallback for price (mocked import)."""
-        with patch.dict('sys.modules', {'yfinance': MagicMock()}):
-            import sys
-            mock_yf = sys.modules['yfinance']
-            mock_ticker = Mock()
-            mock_hist = pd.DataFrame({'Close': [150.0, 151.0, 152.0]})
-            mock_ticker.history.return_value = mock_hist
-            mock_yf.Ticker.return_value = mock_ticker
-
-            price = self.client._yfinance_fallback_price('AAPL')
-            self.assertEqual(price, 152.0)
-
-    def test_yfinance_fallback_price_failure(self):
-        """Test yfinance fallback when it also fails."""
-        with patch.dict('sys.modules', {'yfinance': MagicMock()}):
-            import sys
-            mock_yf = sys.modules['yfinance']
-            mock_yf.Ticker.side_effect = Exception('yfinance error')
-
-            price = self.client._yfinance_fallback_price('AAPL')
-            self.assertIsNone(price)
-
-    def test_yfinance_fallback_bars(self):
-        """Test yfinance fallback for historical bars."""
-        with patch.dict('sys.modules', {'yfinance': MagicMock()}):
-            import sys
-            mock_yf = sys.modules['yfinance']
-            mock_ticker = Mock()
-            mock_hist = pd.DataFrame({
-                'Open': [100, 101],
-                'High': [102, 103],
-                'Low': [99, 100],
-                'Close': [101, 102],
-                'Volume': [1000, 2000]
-            })
-            mock_ticker.history.return_value = mock_hist
-            mock_yf.Ticker.return_value = mock_ticker
-
-            bars = self.client._yfinance_fallback_bars('AAPL', days=30)
-            self.assertIsNotNone(bars)
-            self.assertEqual(len(bars), 2)
-
-
 class TestAlpacaClientOrderMethods(unittest.TestCase):
     """Test order submission and management."""
 

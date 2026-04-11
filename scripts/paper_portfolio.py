@@ -314,7 +314,9 @@ def cmd_status(args):
 
 def cmd_live(args):
     """Show real-time position values."""
-    import yfinance as yf
+    sys.path.insert(0, str(Path(__file__).parent))
+    from traderlib.alpaca_client import AlpacaClient
+    alpaca = AlpacaClient(mode='paper')
 
     positions = load_json_file(POSITIONS_FILE)
 
@@ -343,14 +345,11 @@ def cmd_live(args):
 
     for ticker, pos in pos_dict.items():
         try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="1d", interval="5m")
+            current = alpaca.get_latest_price(ticker)
 
-            if len(hist) == 0:
+            if current is None:
                 print(f"{ticker:<8} <no data>")
                 continue
-
-            current = hist['Close'].iloc[-1]
             entry = pos.get('entry_price', 0) or pos.get('avg_entry_price', 0)
             shares = pos.get('shares', 0) or pos.get('qty', 0)
             stop = pos.get('stop_price', 0)
@@ -539,9 +538,10 @@ def cmd_close(args):
         print("❌ Ticker required. Use: python3 scripts/paper_portfolio.py close TICKER")
         return
 
-    import yfinance as yf
     sys.path.insert(0, str(Path(__file__).parent))
     from traderlib.paper_state import PaperState
+    from traderlib.alpaca_client import AlpacaClient
+    alpaca = AlpacaClient(mode='paper')
 
     positions = load_json_file(POSITIONS_FILE)
 
@@ -551,9 +551,9 @@ def cmd_close(args):
 
     # Get current price
     try:
-        stock = yf.Ticker(args.ticker)
-        hist = stock.history(period="1d", interval="5m")
-        current_price = hist['Close'].iloc[-1] if len(hist) > 0 else 0
+        current_price = alpaca.get_latest_price(args.ticker)
+        if current_price is None:
+            raise ValueError("No price available")
     except Exception:
         print(f"⚠️ Could not fetch price for {args.ticker}")
         if not args.force:

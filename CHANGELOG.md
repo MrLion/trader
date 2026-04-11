@@ -13,7 +13,38 @@ All notable changes to this project will be documented in this file.
   - Update `traderlib/paper_exits.py` to use configured values instead of hardcoded
   - Impact: Users can now customize trailing stop EMA periods, cache duration, and fallback targets
 
+### Changed
+- **Trading engine migrated to Alpaca-only (yfinance fallback removed)**
+  - Removed `_yfinance_fallback_price()` and `_yfinance_fallback_bars()` from `AlpacaClient`
+  - Removed `use_fallback` parameter from `get_latest_price()` and `get_historical_bars()`
+  - Trading engine now uses Alpaca API exclusively — no yfinance fallback
+  - Updated `scripts/entry_signals.py`: SPY regime check uses Alpaca instead of yfinance
+  - Updated `scripts/paper_engine_alpaca.py`: Yesterday's close from Alpaca instead of yfinance
+  - Updated `scripts/paper_portfolio.py`: Position prices from Alpaca position/quotes API
+  - Impact: Single data source for trading execution, consistent real-time pricing, backtesting support
+
+- **ExitEngine refactored to support data injection**
+  - Added optional `historical_data: Optional[pd.DataFrame]` parameter to `evaluate_exit()`
+  - Modified `_get_ema_values()` to calculate EMAs from injected data when provided
+  - Falls back to yfinance when `historical_data` is None (backward compatible for reports/tools)
+  - Impact: Enables backtesting with historical data and Alpaca-only trading mode
+
+- **Updated tests for Alpaca-only operation**
+  - Removed `test_yfinance_fallback_*` tests from `test_alpaca_client_extended.py`
+  - `ExitEngine` tests remain compatible (yfinance path still available when data not injected)
+  - Impact: Tests reflect production code behavior
+
 ### Removed
+- **`docs/PRICE_SOURCE_ARCHITECTURE.md` and `docs/DATA_SOURCE_ARCHITECTURE_ANALYSIS.md`**
+  - Documents advocated hybrid yfinance/Alpaca approach for trading engine
+  - No longer accurate after migration to Alpaca-only trading
+  - Impact: Cleaner docs, no misleading architecture guidance
+
+- **`docs/YFINANCE_ELIMINATION_PLAN.md` and `memory/alpaca-migration-plan.md`**
+  - Planning documents for full yfinance elimination
+  - Superseded by actual implementation (trading engine Alpaca-only, reports/tools keep yfinance)
+  - Impact: Removed obsolete planning documents
+
 - **`scripts/midday_scan.py` eliminated — duplicate of `entry_signals.py`**
   - Both scripts performed Stage 2 scoring → entry score calculation → tier ranking → HTML/CSV export
   - `midday_scan.py` used stale yfinance data (15-min delayed); `entry_signals.py` uses real-time Alpaca API

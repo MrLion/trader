@@ -132,7 +132,7 @@ class AlpacaClient:
             self.api_error_count += 1
             raise
 
-    def get_latest_price(self, ticker: str, use_fallback: bool = True) -> Optional[float]:
+    def get_latest_price(self, ticker: str) -> Optional[float]:
         """Get current marked-to-market price.
 
         Uses position API current_price when position exists (most accurate),
@@ -140,7 +140,6 @@ class AlpacaClient:
 
         Args:
             ticker: Stock symbol
-            use_fallback: If True, fallback to yfinance on failure
 
         Returns:
             Current price or None if unavailable
@@ -156,8 +155,6 @@ class AlpacaClient:
             return float(position['current_price'])
 
         if not self.rate_limiter.can_make_request():
-            if use_fallback:
-                return self._yfinance_fallback_price(ticker)
             return None
 
         try:
@@ -189,44 +186,19 @@ class AlpacaClient:
         except Exception as e:
             self.rate_limiter.record_error()
             health_monitor.mark_failure('alpaca')
-
-            if use_fallback:
-                return self._yfinance_fallback_price(ticker)
             return None
 
-    def _yfinance_fallback_price(self, ticker: str) -> Optional[float]:
-        """Fallback to yfinance for price data."""
-        try:
-            import yfinance as yf
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="1d", interval="5m")
-            if len(hist) > 0:
-                price = float(hist['Close'].iloc[-1])
-                health_monitor.mark_success('yfinance')
-                return price
-        except Exception as e:
-            TradingExceptionHandler.log_exception(
-                "yfinance_price_fallback", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker
-            )
-        return None
-
-    def get_historical_bars(self, ticker: str, days: int = None,
-                           use_fallback: bool = True) -> Optional[pd.DataFrame]:
-        """Get historical daily bars with rate limiting and fallback.
+    def get_historical_bars(self, ticker: str, days: int = None) -> Optional[pd.DataFrame]:
+        """Get historical daily bars with rate limiting.
 
         Args:
             ticker: Stock symbol
             days: Number of days to fetch (default: uses configured historical_days)
-            use_fallback: If True, fallback to yfinance on failure
         """
         if days is None:
             days = self.historical_days
 
         if not self.rate_limiter.can_make_request():
-            if use_fallback:
-                return self._yfinance_fallback_bars(ticker, days)
             return None
 
         try:
@@ -245,8 +217,6 @@ class AlpacaClient:
             bars = self.data_client.get_stock_bars(request)
 
             if ticker not in bars.data:
-                if use_fallback:
-                    return self._yfinance_fallback_bars(ticker, days)
                 return None
 
             df = pd.DataFrame([{
@@ -266,27 +236,7 @@ class AlpacaClient:
         except Exception as e:
             self.rate_limiter.record_error()
             health_monitor.mark_failure('alpaca')
-
-            if use_fallback:
-                return self._yfinance_fallback_bars(ticker, days)
             return None
-
-    def _yfinance_fallback_bars(self, ticker: str, days: int = 252) -> Optional[pd.DataFrame]:
-        """Fallback to yfinance for historical bars."""
-        try:
-            import yfinance as yf
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=f"{days}d")
-            if len(hist) > 0:
-                health_monitor.mark_success('yfinance')
-                return hist
-        except Exception as e:
-            TradingExceptionHandler.log_exception(
-                "yfinance_hist_fallback", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker
-            )
-        return None
 
     def submit_market_order(self, ticker: str, shares: int, side: str,
                            stop_price: Optional[float] = None) -> Optional[Dict]:

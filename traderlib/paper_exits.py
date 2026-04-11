@@ -5,9 +5,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
+
+import pandas as pd
 from datetime import datetime
 import yfinance as yf
-import pandas as pd
 
 # Add scripts directory for local imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -100,16 +101,41 @@ class ExitEngine:
 
         return current_pnl / total_initial_risk if total_initial_risk > 0 else 0.0
 
-    def _get_ema_values(self, ticker: str) -> Tuple[Optional[float], Optional[float]]:
-        """Get current short and long EMA values."""
-        hist = self._get_cached_data(ticker)
-        ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
-        if hist is None or len(hist) < ema_long:
-            return None, None
+    def _get_ema_values(self, ticker: str,
+                        historical_data: Optional[pd.DataFrame] = None) -> Tuple[Optional[float], Optional[float]]:
+        """Get current short and long EMA values.
 
-        return hist['EMA10'].iloc[-1], hist['EMA21'].iloc[-1]
+        Args:
+            ticker: Stock symbol
+            historical_data: Optional DataFrame with OHLCV data. If provided,
+                           calculates EMAs from this data. Otherwise uses yfinance.
 
-    def evaluate_exit(self, position, current_price: float) -> ExitSignal:
+        Returns:
+            Tuple of (short_ema, long_ema) or (None, None) if data unavailable
+        """
+        if historical_data is not None:
+            # Use injected data (for backtesting or Alpaca-only mode)
+            ema_short = self.risk_config.profit_target.ema_short_period if self.risk_config else 10
+            ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+
+            if len(historical_data) < ema_long:
+                return None, None
+
+            # Calculate EMAs from injected data
+            short_ema = historical_data['Close'].ewm(span=ema_short, adjust=False).mean().iloc[-1]
+            long_ema = historical_data['Close'].ewm(span=ema_long, adjust=False).mean().iloc[-1]
+            return short_ema, long_ema
+        else:
+            # Use yfinance (legacy behavior for reports/tools)
+            hist = self._get_cached_data(ticker)
+            ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+            if hist is None or len(hist) < ema_long:
+                return None, None
+
+            return hist['EMA10'].iloc[-1], hist['EMA21'].iloc[-1]
+
+    def evaluate_exit(self, position, current_price: float,
+                      historical_data: Optional[pd.DataFrame] = None) -> ExitSignal:
         """
         Evaluate all exit conditions for a position.
 
@@ -117,6 +143,16 @@ class ExitEngine:
         1. Hard stop (initial 2xATR stop)
         2. Profit target (2R minimum)
         3. Trailing stops based on R multiple
+
+        Args:
+            position: Position object with ticker, entry_price, shares, stop_price
+            current_price: Current market price
+            historical_data: Optional DataFrame with OHLCV data for EMA calculation.
+                           If provided, uses this data (enables backtesting/Alpaca-only).
+                           If None, uses yfinance (legacy behavior).
+
+        Returns:
+            ExitSignal with exit decision
         """
         ticker = position.ticker
         entry_price = position.entry_price
@@ -141,7 +177,7 @@ class ExitEngine:
             )
 
         # 2. Get EMA values for trailing logic
-        ema10, ema21 = self._get_ema_values(ticker)
+        ema10, ema21 = self._get_ema_values(ticker, historical_data)
 
         # 3. Trailing stop logic based on R multiple (using config if available)
         new_stop = current_stop
