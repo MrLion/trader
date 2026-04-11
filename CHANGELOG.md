@@ -24,13 +24,13 @@ All notable changes to this project will be documented in this file.
 - **`daily_tracker.json` for daily reset tracking**
   - Stores only `last_entry_reset` date to persist across engine restarts
 
-### Fixed
-- **`paper_portfolio.py` activity counts included test trades**
-  - `_calculate_day_stats()` was counting all trades including test data
-  - Added `_is_test_trade()` filter with same logic as `paper_state.py`
-  - Filters: `_meta.test_mode`, AAPL@$150 pattern, validation_failed patterns
-  - Impact: Activity section now shows accurate production counts (was 28, now 17)
-  - Prevents daily counters from resetting on every engine restart
+### Added
+- **`scripts/clean_trade_log.py` - permanent test data removal**
+  - Removes test trades from `paper_trades.jsonl` at source
+  - Detects: `_meta.test_mode`, AAPL@$150 pattern, validation_failed patterns
+  - Creates timestamped backup before cleaning
+  - Eliminates need for runtime filtering; source is now clean
+  - Cleaned 11 test trades, 17 production trades remaining
 
 ## [0.3.13] - 2026-04-10
 
