@@ -34,7 +34,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [ ] **FINDING-001**: Circular import risk — Refactor to proper package structure
 - [ ] **FINDING-003**: WebSocket task lifecycle — Add restart limits, supervisor pattern
 - [x] **FINDING-006**: Stale price cache poisoning — Track price staleness, reject old prices *(Completed 2026-04-11)*
-- [ ] **FINDING-007**: Weekend/holiday market hours — Integrate `pandas_market_calendars`
+- [x] **FINDING-007**: Weekend/holiday market hours — Integrate `pandas_market_calendars` *(Completed 2026-04-11)*
 - [x] **FINDING-009**: Concurrent file writes — Use atomic write pattern (temp + rename) *(Completed 2026-04-11)*
 - [x] **FINDING-011**: Input validation on tickers — Add regex `^[A-Z]{1,5}$` *(Completed 2026-04-11)*
 - [ ] **FINDING-012**: YAML schema validation — Add Pydantic/Cerberus validation

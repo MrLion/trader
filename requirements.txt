@@ -20,6 +20,9 @@ beautifulsoup4>=4.12.0
 # Timezone handling
 pytz>=2023.3
 
+# Market hours and holidays
+pandas-market-calendars>=4.3.0
+
 # Environment configuration (for .env support)
 python-dotenv>=1.0.0
 

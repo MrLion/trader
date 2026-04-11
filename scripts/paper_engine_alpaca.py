@@ -25,6 +25,9 @@ from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
 from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
 
+# FINDING-007: Weekend/holiday market hours
+from traderlib.market_hours import market_hours, is_market_open, is_trading_day, format_market_status
+
 # Configurable paths - uses environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
@@ -262,18 +265,19 @@ class AlpacaPaperEngine:
         self.ws_running = False
 
     def _is_market_hours(self) -> bool:
-        """Check if market is open."""
-        et = pytz.timezone('US/Eastern')
-        now = datetime.now(et)
+        """Check if market is open.
 
-        if now.weekday() >= 5:
-            return False
-
-        current_time = (now.hour, now.minute)
-        return MARKET_OPEN <= current_time < MARKET_CLOSE
+        FINDING-007: Uses pandas_market_calendars for accurate market hours
+        including holidays and early closes.
+        """
+        return is_market_open()
 
     def _is_pre_market(self) -> bool:
-        """Check if pre-market hours."""
+        """Check if pre-market hours.
+
+        Note: Pre-market is not checked via market_hours module
+        as it focuses on regular trading hours.
+        """
         et = pytz.timezone('US/Eastern')
         now = datetime.now(et)
 
@@ -282,6 +286,19 @@ class AlpacaPaperEngine:
 
         current_time = (now.hour, now.minute)
         return (4, 0) <= current_time < MARKET_OPEN
+
+    def _check_market_hours_for_trading(self) -> tuple:
+        """Check if we should attempt trading based on market hours.
+
+        FINDING-007: Returns (should_trade, status_message)
+        """
+        if not is_trading_day():
+            return False, format_market_status()
+
+        if not is_market_open():
+            return False, format_market_status()
+
+        return True, "Market open"
 
     async def _ws_trade_handler(self, trade):
         """Handle WebSocket trade updates."""
@@ -593,6 +610,12 @@ class AlpacaPaperEngine:
         """Execute entry via Alpaca."""
         ticker = analysis['ticker']
 
+        # FINDING-007: Check market hours before entering
+        can_trade, status_msg = self._check_market_hours_for_trading()
+        if not can_trade:
+            print(f"   ⏸️  {ticker}: {status_msg}")
+            return
+
         # Check if already signaled today
         if ticker in self.signaled_tickers:
             print(f"   ⏸️  {ticker}: Already signaled today")
@@ -779,7 +802,8 @@ class AlpacaPaperEngine:
         print(f"\n{'='*60}")
         # DESIGN FIX: Add ET timezone suffix to timestamp
         print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
-        print(f"📈 Market: {'OPEN' if self._is_market_hours() else 'CLOSED'}")
+        # FINDING-007: Use detailed market status including holidays
+        print(f"📈 Market: {format_market_status()}")
 
         # WebSocket status
         if self.alpaca.is_ws_healthy():

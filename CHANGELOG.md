@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **FINDING-007: Weekend/holiday market hours**
+  - Integrated `pandas_market_calendars` for accurate market schedule
+  - Created `traderlib/market_hours.py` module with:
+    - `is_market_open()` - Check if market is currently open
+    - `is_trading_day()` - Check if date is a trading day (excludes weekends/holidays)
+    - `next_market_open()` - Get next trading session open time
+    - `format_market_status()` - Human-readable market status with next open info
+  - Updated `paper_engine_alpaca.py`:
+    - Added market hours check before entering positions
+    - Skips trading on weekends and market holidays
+    - Updated status display with detailed market info
+    - Falls back to basic weekday check if pandas_market_calendars not available
+  - Added `pandas-market-calendars>=4.3.0` to requirements.txt
+
 ## [0.3.16] - 2026-04-11
 
 ### Added
