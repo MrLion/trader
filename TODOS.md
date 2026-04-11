@@ -13,8 +13,8 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [x] **FINDING-005**: Dangerous fallback defaults — Require explicit stops, mark `UNSYNCED` if missing *(Completed 2026-04-10)*
 
 ### DX
-- [ ] **GS-001**: Python version check in `setup.sh`
-- [ ] **GS-002**: `make doctor` command for config validation
+- [x] **GS-001**: Python version check in `setup.sh` *(Completed 2026-04-11)*
+- [x] **GS-002**: `make doctor` command for config validation *(Completed 2026-04-11)*
 - [ ] ~~**CLI-003**: Sensible default for `midday_scan.py` (scan watchlist if exists)~~ *(Removed: midday_scan.py eliminated - duplicate of entry_signals.py)*
 - [x] **CLI-004**: `--dry-run` flags for destructive commands *(Completed 2026-04-11)*
 - [x] **EH-003**: Actionable API key error message *(Completed 2026-04-11)*

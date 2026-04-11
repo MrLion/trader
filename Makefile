@@ -1,7 +1,7 @@
 # Trader Makefile
 # A systematic stock trading workflow system
 
-.PHONY: help setup install test test-coverage clean lint format pre-commit pre-commit-all
+.PHONY: help setup install install-dev doctor test test-coverage clean lint format pre-commit pre-commit-all
 
 # Default target shows help
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "  setup          - Initial setup (creates directories, installs deps, copies .env, hooks)"
 	@echo "  install        - Install/update dependencies only"
 	@echo "  install-dev    - Install with dev dependencies (pre-commit, black, flake8)"
+	@echo "  doctor         - Check configuration and system health (GS-002)"
 	@echo "  test           - Run test suite with coverage"
 	@echo "  test-coverage  - Generate HTML coverage report"
 	@echo "  pre-commit     - Run pre-commit hooks on staged files"
@@ -40,6 +41,11 @@ install-dev:
 	@echo "Installing with dev dependencies..."
 	@pip3 install -e ".[dev]"
 	@echo "✅ Installed with dev dependencies (pre-commit, black, flake8, etc.)"
+
+# Doctor - Check configuration and system health
+doctor:
+	@echo "🔧 Running doctor checks..."
+	@python3 scripts/doctor.py
 
 # Run tests
 test:

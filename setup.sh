@@ -12,14 +12,35 @@ echo "Trader Setup"
 echo "=========================================="
 echo ""
 
-# Check Python version
+# GS-001: Python version check (3.11+)
 echo "Checking Python version..."
-PYTHON_VERSION=$(python3 --version 2>/dev/null || echo "not found")
-if [ "$PYTHON_VERSION" = "not found" ]; then
+PYTHON_VERSION=$(python3 --version 2>/dev/null | awk '{print $2}' || echo "")
+if [ -z "$PYTHON_VERSION" ]; then
     echo "❌ Python 3 is required but not installed."
+    echo ""
+    echo "Install Python 3.11+ from https://www.python.org/downloads/"
     exit 1
 fi
-echo "✅ Found $PYTHON_VERSION"
+
+# Extract major and minor version
+PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+
+# Check if version is 3.11+
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+    echo "❌ Python 3.11+ required, but found $PYTHON_VERSION"
+    echo ""
+    echo "Your current Python version is too old. Please upgrade:"
+    echo "  macOS:   brew install python@3.11"
+    echo "  Ubuntu:  sudo apt update && sudo apt install python3.11"
+    echo "  Windows: Download from https://python.org/downloads"
+    echo ""
+    echo "Or use a version manager:"
+    echo "  pyenv:   pyenv install 3.11 && pyenv global 3.11"
+    exit 1
+fi
+
+echo "✅ Found Python $PYTHON_VERSION (meets requirement 3.11+)"
 echo ""
 
 # Create directories

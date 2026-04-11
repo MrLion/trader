@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **GS-001: Python version check in setup.sh**
+  - Added strict Python 3.11+ version check
+  - Extracts major/minor version and validates
+  - Provides platform-specific upgrade instructions (macOS, Ubuntu, Windows)
+  - Suggests pyenv for version management
+  - Clear error messages with actionable next steps
+
+- **GS-002: `make doctor` command for config validation**
+  - Created `scripts/doctor.py` - comprehensive configuration checker
+  - Checks: Python version, dependencies, Alpaca credentials, directories
+  - Checks: Watchlist, Telegram (optional), git hooks
+  - Provides actionable fixes for each issue
+  - Returns exit code 0 if all checks pass, 1 otherwise
+  - Added `doctor` target to Makefile
+  - Color-coded output (respects NO_COLOR)
+
 - **NO_COLOR: Respect NO_COLOR environment variable**
   - Added `USE_COLOR` flag in `traderlib/validation.py`
   - Created emoji constants: `EMOJI_CHECK`, `EMOJI_CROSS`, `EMOJI_WARN`, `EMOJI_INFO`, etc.
