@@ -88,7 +88,7 @@ python3 scripts/entry_signals.py --help
 Deep analysis of individual stocks and your watchlist.
 
 | Script | Purpose | Example Command |
-|--------|---------|-----------------|
+|----------------------|--------------------------------------|----------------------------------------|
 | `entry_signals.py` | Find tickers meeting entry criteria | `python3 scripts/entry_signals.py` |
 
 **Entry Signals Scanner:**
@@ -122,7 +122,7 @@ python3 scripts/entry_signals.py --export-html
 Broad market screening for Stage 2 candidates and sector performance.
 
 | Script | Purpose | Example Command |
-|--------|---------|-----------------|
+|----------------------|--------------------------------------|----------------------------------------|
 | `sector_scan.py` | Daily sector ETF performance ranking | `python3 scripts/sector_scan.py` |
 | `sector_scan_comprehensive.py` | Extended sector scan | `python3 scripts/sector_scan_comprehensive.py` |
 | `stage2_rs_screen.py` | Stage 2 + RS candidates screen | `python3 scripts/stage2_rs_screen.py` |
@@ -132,7 +132,7 @@ Broad market screening for Stage 2 candidates and sector performance.
 Generate pre-market and post-market briefings (console or HTML).
 
 | Script | Purpose | Example Command |
-|--------|---------|-----------------|
+|----------------------|--------------------------------------|----------------------------------------|
 | `premarket_report.py` | Pre-market briefing | `python3 scripts/premarket_report.py --html` |
 | `postmarket_report.py` | Post-market analysis | `python3 scripts/postmarket_report.py --html` |
 | `deliver_report.py` | Deliver reports via Telegram | `python3 scripts/deliver_report.py --file report.html` |
@@ -168,7 +168,7 @@ python3 scripts/deliver_report.py --file report.html --dry-run --verbose
 Manage your trading universe and import external ideas.
 
 | Script | Purpose | Example Command |
-|--------|---------|-----------------|
+|----------------------|--------------------------------------|----------------------------------------|
 | `watchlist_manager.py` | Manage watchlist items | `python3 scripts/watchlist_manager.py add AAPL` |
 | `mcstock_scraper.py` | Scrape MC Stock Charts ideas | `python3 scripts/mcstock_scraper.py` |
 
@@ -199,7 +199,7 @@ python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 Execute trades automatically via Alpaca API with real-time WebSocket data.
 
 | Script | Purpose | Example Command |
-|--------|---------|-----------------|
+|----------------------|--------------------------------------|----------------------------------------|
 | `paper_engine_alpaca.py` | Trading engine (auto-entry/exit) | `python3 scripts/paper_engine_alpaca.py` |
 | `paper_portfolio.py` | Monitor positions and P&L | `python3 scripts/paper_portfolio.py status` |
 | `setup_alpaca.py` | Configure credentials | `python3 scripts/setup_alpaca.py` |
@@ -302,12 +302,12 @@ See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with
 
 The system uses the following data files:
 
-| File | Purpose |
-|------|---------|
-| `data/watchlist.csv` | Trading universe with scores, pivots, stops |
-| `data/paper_positions.json` | Current positions with entry, stops, targets |
-| `data/paper_trades.jsonl` | Trade log (entries/exits), JSON Lines format |
-| `data/daily_tracker.json` | Daily reset tracking |
+| File | Purpose | Format |
+|----------------------------------|--------------------------------------|----------------------------------------|
+| `data/watchlist.csv` | Trading universe | CSV |
+| `data/paper_positions.json` | Current positions | JSON |
+| `data/paper_trades.jsonl` | Trade log (entries/exits) | JSON Lines |
+| `data/daily_tracker.json` | Daily reset tracking | JSON |
 
 **Watchlist columns:** Ticker, Stage (0-7), RS_Rank, Pivot_Price, Stop_Level, ATR, Risk_%, Sector, Industry, Pattern_Type, Notes, Added_Date
 
@@ -327,7 +327,7 @@ ALPACA_SECRET_KEY=your_secret
 
 **Other Variables:**
 | Variable | Default | Purpose |
-|----------|---------|---------|
+|----------------------------------|--------------------------------------|----------------------------------------|
 | `PAPER_TRADING_DATA_DIR` | `./data` | Data directory |
 | `TRADER_WATCHLIST` | `./data/watchlist.csv` | Watchlist path |
 | `TRADER_OUTPUT` | `./reports` | Output directory |
@@ -339,7 +339,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing c
 ## External Integrations
 
 | Integration | Purpose | Fallback |
-|-------------|---------|----------|
+|----------------------------------|--------------------------------------|----------------------------------------|
 | **Alpaca API** | Real-time prices, trading | — |
 | **Yahoo Finance** | Historical data | When Alpaca unavailable |
 | **Telegram** | Report delivery | CLI reports |
@@ -367,7 +367,7 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 ### Essential Trading Guides
 
 | File | Purpose | Read Before |
-|------|---------|-------------|
+|----------------------------------|--------------------------------------|----------------------------------------|
 | **[AGENTS.MD](AGENTS.MD)** | Complete trading playbook | **Start here** |
 | **[docs/RISK_GUIDE.md](docs/RISK_GUIDE.md)** | Risk management, sizing, stops | Configuring engine |
 
@@ -375,20 +375,20 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 
 Troubleshooting guides for production issues:
 
-| Issue | Guide |
-|-------|-------|
-| API failures, timeouts | [API Outage](docs/runbooks/api_outage.md) |
-| Position size mismatch | [Partial Fill](docs/runbooks/partial_fill.md) |
-| Ticker halted/delisted | [Stuck Position](docs/runbooks/stuck_position.md) |
-| Wrong scores, bad data | [Data Quality](docs/runbooks/data_quality.md) |
+| Issue | Guide | Reference |
+|----------------------------------|--------------------------------------|----------------------------------------|
+| API failures, timeouts | [API Outage](docs/runbooks/api_outage.md) | Connection issues |
+| Position size mismatch | [Partial Fill](docs/runbooks/partial_fill.md) | Order fills |
+| Ticker halted/delisted | [Stuck Position](docs/runbooks/stuck_position.md) | Exit problems |
+| Wrong scores, bad data | [Data Quality](docs/runbooks/data_quality.md) | Data validation |
 
 ### Developer Resources
 
-| File | Purpose |
-|------|---------|
-| [CLAUDE.md](CLAUDE.md) | Dev operations, architecture |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, CI/CD |
-| [TOOLS.md](TOOLS.md) | yfinance documentation |
+| File | Purpose | Audience |
+|----------------------------------|--------------------------------------|----------------------------------------|
+| [CLAUDE.md](CLAUDE.md) | Dev operations, architecture | Developers |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, CI/CD | Contributors |
+| [TOOLS.md](TOOLS.md) | yfinance documentation | Users |
 
 ### Reference
 
