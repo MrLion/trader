@@ -68,6 +68,11 @@ scripts_dir = Path(__file__).parent.parent / 'scripts'
 if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
+# Add traderlib to path for library imports
+tradelib_dir = Path(__file__).parent.parent / 'traderlib'
+if str(tradelib_dir) not in sys.path:
+    sys.path.insert(0, str(tradelib_dir))
+
 # Standardize the Python path for all tests
 # We add the project root to the path. This allows tests to use
 # absolute imports like 'from scripts.alpaca_client import ...'
@@ -77,8 +82,8 @@ root_dir = Path(__file__).parent.parent.absolute()
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-# Note: We explicitly avoid adding 'scripts' or 'scripts/lib' directly to sys.path
-# to prevent 'alpaca_client.py' from shadowing the 'alpaca' package.
+# Note: We now use traderlib/ for library modules and scripts/ for CLI tools.
+# Imports should use: from traderlib.module_name import ...
 
 
 # =============================================================================

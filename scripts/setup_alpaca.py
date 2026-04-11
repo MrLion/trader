@@ -100,7 +100,7 @@ def test_connection():
     print()
 
     try:
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         client = AlpacaClient(mode='paper')
         account = client.get_account()

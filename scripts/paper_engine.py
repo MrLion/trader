@@ -16,8 +16,8 @@ import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score
 
-from paper_state import PaperState, Position
-from paper_exits import ExitEngine, ExitSignal
+from traderlib.paper_state import PaperState, Position
+from traderlib.paper_exits import ExitEngine, ExitSignal
 
 # Configurable paths
 DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')

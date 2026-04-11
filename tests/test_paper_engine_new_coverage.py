@@ -32,8 +32,8 @@ import pytz
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
-from paper_state import PaperState, Position
-from paper_exits import ExitSignal
+from traderlib.paper_state import PaperState, Position
+from traderlib.paper_exits import ExitSignal
 
 
 # ---------------------------------------------------------------------------

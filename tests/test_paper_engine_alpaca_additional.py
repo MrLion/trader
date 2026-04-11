@@ -16,8 +16,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from paper_engine_alpaca import AlpacaPaperEngine, MARKET_OPEN, MARKET_CLOSE
-from paper_state import PaperState, Position
-from order_manager import OrderStatus
+from traderlib.paper_state import PaperState, Position
+from traderlib.order_manager import OrderStatus
 
 
 @pytest.fixture

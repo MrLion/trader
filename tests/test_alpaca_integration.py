@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from traderlib.rate_limiter import RateLimiter, APIHealthMonitor
-from order_manager import OrderManager, Order, OrderStatus
+from traderlib.order_manager import OrderManager, Order, OrderStatus
 
 
 class MockAlpacaClient:

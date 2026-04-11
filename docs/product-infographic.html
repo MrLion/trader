@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader — Your Automated Trading Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0f1c;
+            --bg-card: #11182b;
+            --bg-card-hover: #161f38;
+            --border: #1e2948;
+            --text-primary: #e7ecff;
+            --text-secondary: #8b9dc3;
+            --text-tertiary: #5a6a8c;
+
+            /* Product color palette */
+            --c-time: #f472b6;      /* pink - time saving */
+            --c-freedom: #a78bfa;   /* violet - freedom */
+            --c-discipline: #34d399; /* emerald - discipline */
+            --c-signal: #f59e0b;    /* amber - signal */
+            --c-result: #38bdf8;    /* sky - results */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated gradient background */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(244, 114, 182, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(167, 139, 250, 0.12), transparent),
+                radial-gradient(ellipse 50% 30% at 50% 100%, rgba(52, 211, 153, 0.08), transparent);
+            pointer-events: none;
+            z-index: 0;
+            animation: pulse-bg 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 80px;
+            padding-top: 40px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(244, 114, 182, 0.1);
+            border: 1px solid rgba(244, 114, 182, 0.3);
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--c-time);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--c-freedom), var(--c-time));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Problem/Solution Section */
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .comparison { grid-template-columns: 1fr; }
+        }
+
+        .compare-card {
+            padding: 32px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .compare-card.before {
+            background: linear-gradient(180deg, rgba(100, 116, 139, 0.1) 0%, transparent 100%);
+        }
+
+        .compare-card.after {
+            background: linear-gradient(180deg, rgba(167, 139, 250, 0.1) 0%, transparent 100%);
+            border-color: rgba(167, 139, 250, 0.3);
+        }
+
+        .compare-label {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .before .compare-label { color: var(--text-tertiary); }
+        .after .compare-label { color: var(--c-freedom); }
+
+        .compare-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .compare-list {
+            list-style: none;
+        }
+
+        .compare-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .compare-list li::before {
+            content: '×';
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(100, 116, 139, 0.2);
+            border-radius: 50%;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .after .compare-list li::before {
+            content: '✓';
+            background: rgba(167, 139, 250, 0.2);
+            color: var(--c-freedom);
+        }
+
+        /* How It Works Timeline */
+        .section-title {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 40px;
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 80px;
+        }
+
+        .timeline-step {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 24px;
+            padding: 32px;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            position: relative;
+            background: var(--bg-card);
+        }
+
+        .timeline-step:first-child {
+            border-radius: 20px 20px 0 0;
+        }
+
+        .timeline-step:last-child {
+            border-bottom: 1px solid var(--border);
+            border-radius: 0 0 20px 20px;
+        }
+
+        @media (max-width: 600px) {
+            .timeline-step { grid-template-columns: 1fr; }
+        }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .step-1 .step-number { background: rgba(245, 158, 11, 0.15); color: var(--c-signal); }
+        .step-2 .step-number { background: rgba(56, 189, 248, 0.15); color: var(--c-result); }
+        .step-3 .step-number { background: rgba(52, 211, 153, 0.15); color: var(--c-discipline); }
+        .step-4 .step-number { background: rgba(244, 114, 182, 0.15); color: var(--c-time); }
+
+        .step-content h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step-content p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Benefits Grid */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 80px;
+        }
+
+        .benefit-card {
+            padding: 28px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            transition: transform 0.2s ease;
+        }
+
+        .benefit-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .benefit-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .benefit-card.time .benefit-icon { background: rgba(244, 114, 182, 0.15); }
+        .benefit-card.discipline .benefit-icon { background: rgba(52, 211, 153, 0.15); }
+        .benefit-card.signal .benefit-icon { background: rgba(245, 158, 11, 0.15); }
+        .benefit-card.peace .benefit-icon { background: rgba(167, 139, 250, 0.15); }
+
+        .benefit-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .benefit-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            padding: 40px;
+            background: linear-gradient(180deg, rgba(167, 139, 250, 0.08) 0%, transparent 100%);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            border-radius: 20px;
+            margin-bottom: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--c-freedom), var(--c-time));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+            padding: 60px 40px;
+            background: radial-gradient(ellipse at center, rgba(167, 139, 250, 0.1) 0%, transparent 70%);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            border-radius: 24px;
+        }
+
+        .cta-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .cta-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--c-freedom), var(--c-time));
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--bg-dark);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(167, 139, 250, 0.5);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding-top: 80px;
+            color: var(--text-tertiary);
+            font-size: 14px;
+        }
+
+        footer p {
+            margin-bottom: 16px;
+        }
+
+        .footer-highlight {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <div class="container">
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-badge">🎯 Built for Traders</div>
+            <h1>Trade Smarter.<br><span>Live More.</span></h1>
+            <p class="hero-subtitle">An automated trading system that executes your strategy while you focus on what matters — life outside the screens.</p>
+        </section>
+
+        <!-- Before / After -->
+        <div class="comparison">
+            <div class="compare-card before">
+                <div class="compare-label">Manual Trading</div>
+                <h2 class="compare-title">Trading takes over your life</h2>
+                <ul class="compare-list">
+                    <li>Wake up at 6:30 AM to check pre-market futures</li>
+                    <li>Stare at charts for 6+ hours during market hours</li>
+                    <li>Miss entries while you're away from the desk</li>
+                    <li>Emotional decisions — hold losers too long, sell winners too early</li>
+                    <li>No time for exercise, friends, or hobbies</li>
+                </ul>
+            </div>
+            <div class="compare-card after">
+                <div class="compare-label">With Automation</div>
+                <h2 class="compare-title">Your system works while you live</h2>
+                <ul class="compare-list">
+                    <li>Check your morning report at your leisure</li>
+                    <li>System monitors and executes while you're doing other things</li>
+                    <li>Never miss a setup — the bot doesn't blink</li>
+                    <li>Rules-based discipline — no emotion, no hesitation</li>
+                    <li>Trade with discipline AND have a life</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Section Title -->
+        <h2 class="section-title">How It Works</h2>
+
+        <!-- Timeline -->
+        <div class="timeline">
+            <div class="timeline-step step-1">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>You Set the Rules</h3>
+                    <p>Configure your watchlist with entry prices and stops. Set your risk tolerance. The system learns your strategy once — then executes it perfectly every time.</p>
+                </div>
+            </div>
+            <div class="timeline-step step-2">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>System Scans 24/7</h3>
+                    <p>Every 30 seconds, the system checks every stock on your list. It waits for your exact entry criteria — no FOMO, no chasing, no second-guessing.</p>
+                </div>
+            </div>
+            <div class="timeline-step step-3">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Auto-Execute with Discipline</h3>
+                    <p>When a setup triggers, the system calculates position size, places the order, and sets your stop — all in under a second. No hesitation. No emotion.</p>
+                </div>
+            </div>
+            <div class="timeline-step step-4">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>You Get Your Time Back</h3>
+                    <p>Check in when you want. Get alerts on your phone. Review performance on weekends. The heavy lifting is done — you just set the strategy and live your life.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-box">
+                <div class="stat-value">30s</div>
+                <div class="stat-label">Scan Interval</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">24/7</div>
+                <div class="stat-label">Monitoring</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">0.75%</div>
+                <div class="stat-label">Risk Per Trade</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">∞</div>
+                <div class="stat-label">Hours Saved</div>
+            </div>
+        </div>
+
+        <!-- Benefits -->
+        <h2 class="section-title">What You Get</h2>
+        <div class="benefits-grid">
+            <div class="benefit-card time">
+                <div class="benefit-icon">⏰</div>
+                <h3>Your Mornings Back</h3>
+                <p>No more 6:30 AM alarm clocks. Get a full briefing delivered to your phone. Review it with coffee, not adrenaline.</p>
+            </div>
+            <div class="benefit-card discipline">
+                <div class="benefit-icon">🎯</div>
+                <h3>Perfect Discipline</h3>
+                <p>The system never gets greedy. Never panics. Never holds a loser hoping it'll "come back." Your rules, executed flawlessly.</p>
+            </div>
+            <div class="benefit-card signal">
+                <div class="benefit-icon">⚡</div>
+                <h3>Never Miss a Setup</h3>
+                <p>Step away for lunch. Take a nap. Go surfing. The bot is watching — and it executes the moment your criteria hit.</p>
+            </div>
+            <div class="benefit-card peace">
+                <div class="benefit-icon">🧘</div>
+                <h3>Peace of Mind</h3>
+                <p>Stops are set automatically. Profits are protected. Circuit breakers prevent bad days from getting worse.</p>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-section">
+            <h2 class="cta-title">Trade the market. Live your life.</h2>
+            <p class="cta-text">Set up once. Execute with discipline. Get your time back for what really matters.</p>
+            <button class="cta-button">
+                Start Automating →
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p class="footer-highlight">Built by a trader, for traders.</p>
+            <p>Because the best trades are the ones that let you close your laptop and go outside.</p>
+        </footer>
+    </div>
+</body>
+</html>

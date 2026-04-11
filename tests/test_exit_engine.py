@@ -23,8 +23,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.paper_exits import ExitEngine
-from scripts.paper_state import Position
+from traderlib.paper_exits import ExitEngine
+from traderlib.paper_state import Position
 from traderlib.risk_config import RiskConfig, ProfitTargetConfig
 
 

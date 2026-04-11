@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader System Architecture — Visual Infographic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0f1c;
+            --bg-card: #11182b;
+            --bg-card-hover: #161f38;
+            --border: #1e2948;
+            --text-primary: #e7ecff;
+            --text-secondary: #8b9dc3;
+            --text-tertiary: #5a6a8c;
+
+            /* Category colors */
+            --c-external: #38bdf8;
+            --c-scan: #a78bfa;
+            --c-core: #f59e0b;
+            --c-engine: #34d399;
+            --c-state: #f472b6;
+            --c-report: #fb7185;
+            --c-watchlist: #facc15;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.04) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-grid::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(30, 41, 72, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 41, 72, 0.3) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-top: 20px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--c-engine);
+            margin-bottom: 24px;
+        }
+
+        .badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--c-engine);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--c-engine);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        h1 {
+            font-size: clamp(32px, 5vw, 56px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #fff 0%, #8b9dc3 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Flow diagram container */
+        .flow-diagram {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin: 40px 0;
+        }
+
+        /* Layer styling */
+        .layer {
+            position: relative;
+            padding: 30px;
+            margin-bottom: 40px;
+        }
+
+        .layer-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .layer-number {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+        }
+
+        /* Category colors for layer numbers */
+        .layer-external .layer-number { color: var(--c-external); border-color: var(--c-external); }
+        .layer-scan .layer-number { color: var(--c-scan); border-color: var(--c-scan); }
+        .layer-core .layer-number { color: var(--c-core); border-color: var(--c-core); }
+        .layer-engine .layer-number { color: var(--c-engine); border-color: var(--c-engine); }
+        .layer-state .layer-number { color: var(--c-state); border-color: var(--c-state); }
+        .layer-report .layer-number { color: var(--c-report); border-color: var(--c-report); }
+
+        .layer-title {
+            color: var(--text-primary);
+        }
+
+        /* Cards grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            opacity: 0.8;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            background: var(--bg-card-hover);
+            box-shadow: 0 20px 40px -20px rgba(0,0,0,0.5);
+        }
+
+        /* Category accent bars */
+        .cat-external::before { background: var(--c-external); box-shadow: 0 0 20px var(--c-external); }
+        .cat-scan::before { background: var(--c-scan); box-shadow: 0 0 20px var(--c-scan); }
+        .cat-core::before { background: var(--c-core); box-shadow: 0 0 20px var(--c-core); }
+        .cat-engine::before { background: var(--c-engine); box-shadow: 0 0 20px var(--c-engine); }
+        .cat-state::before { background: var(--c-state); box-shadow: 0 0 20px var(--c-state); }
+        .cat-report::before { background: var(--c-report); box-shadow: 0 0 20px var(--c-report); }
+        .cat-watchlist::before { background: var(--c-watchlist); box-shadow: 0 0 20px var(--c-watchlist); }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 16px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .cat-external .card-icon { color: var(--c-external); }
+        .cat-scan .card-icon { color: var(--c-scan); }
+        .cat-core .card-icon { color: var(--c-core); }
+        .cat-engine .card-icon { color: var(--c-engine); }
+        .cat-state .card-icon { color: var(--c-state); }
+        .cat-report .card-icon { color: var(--c-report); }
+        .cat-watchlist .card-icon { color: var(--c-watchlist); }
+
+        .card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .card p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .card-tag {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        /* Core section - special styling */
+        .core-section {
+            background: radial-gradient(ellipse at center top, rgba(245, 158, 11, 0.1) 0%, transparent 60%);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 24px;
+            padding: 40px;
+            margin: 40px 0;
+            position: relative;
+        }
+
+        .core-section::before {
+            content: 'SHARED CORE';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-dark);
+            padding: 4px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            color: var(--c-core);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 20px;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 40px 0;
+            padding: 30px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--c-engine), var(--c-core));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Trading rules section */
+        .rules-section {
+            margin: 40px 0;
+        }
+
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .rule-card {
+            background: rgba(52, 211, 153, 0.05);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .rule-card h4 {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--c-engine);
+            margin-bottom: 10px;
+        }
+
+        .rule-card p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Connection arrows */
+        .connector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 0;
+            position: relative;
+        }
+
+        .connector-line {
+            width: 2px;
+            height: 40px;
+            background: linear-gradient(to bottom, var(--border), var(--c-engine), var(--border));
+            position: relative;
+        }
+
+        .connector-arrow {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid var(--c-engine);
+            position: absolute;
+            bottom: -5px;
+        }
+
+        .connector-label {
+            position: absolute;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            background: var(--bg-dark);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 60px 20px;
+            border-top: 1px solid var(--border);
+            margin-top: 60px;
+        }
+
+        .footer-meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .footer-tag {
+            padding: 6px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .footer-note {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .layer {
+                padding: 20px;
+            }
+
+            .core-section {
+                padding: 30px 20px;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            .bg-grid { display: none; }
+            body { background: white; color: black; }
+            .card { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <div class="container">
+        <header>
+            <div class="badge">Live Architecture</div>
+            <h1>Trader System Architecture</h1>
+            <p class="subtitle">A systematic Stage 2 momentum trading system. From market data to automated execution — visualized.</p>
+        </header>
+
+        <!-- Layer 1: External Data -->
+        <div class="layer layer-external">
+            <div class="layer-header">
+                <div class="layer-number">1</div>
+                <div class="layer-title">External Data & Integrations</div>
+            </div>
+            <div class="cards-grid">
+                <div class="card cat-external">
+                    <div class="card-icon">📊</div>
+                    <h3>Yahoo Finance</h3>
+                    <p>Historical stock prices, company fundamentals, and sector data. The main source for finding stocks and analyzing trends.</p>
+                    <span class="card-tag">Market Data</span>
+                </div>
+                <div class="card cat-external">
+                    <div class="card-icon">🏦</div>
+                    <h3>Alpaca API</h3>
+                    <p>Real-time prices and trade execution. Connects to paper trading accounts and live brokerage.</p>
+                    <span class="card-tag">Broker</span>
+                </div>
+                <div class="card cat-external">
+                    <div class="card-icon">💡</div>
+                    <h3>MC Stock Charts</h3>
+                    <p>Imports daily trade ideas from external sources to expand the watchlist.</p>
+                    <span class="card-tag">Ideas Feed</span>
+                </div>
+                <div class="card cat-external">
+                    <div class="card-icon">📱</div>
+                    <h3>Telegram + OpenClaw</h3>
+                    <p>Sends morning briefings and trade alerts to your phone or team channels.</p>
+                    <span class="card-tag">Delivery</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="connector">
+            <div class="connector-line">
+                <div class="connector-arrow"></div>
+            </div>
+            <div class="connector-label">market data in</div>
+        </div>
+
+        <!-- Layer 2: Scanning & Analysis -->
+        <div class="layer layer-scan">
+            <div class="layer-header">
+                <div class="layer-number">2</div>
+                <div class="layer-title">Scanning & Analysis</div>
+            </div>
+            <div class="cards-grid">
+                <div class="card cat-scan">
+                    <div class="card-icon">📈</div>
+                    <h3>Sector Scan</h3>
+                    <p>Finds which sectors are leading the market. Helps focus on areas with strong momentum.</p>
+                </div>
+                <div class="card cat-scan">
+                    <div class="card-icon">🎯</div>
+                    <h3>Stage 2 + RS Screen</h3>
+                    <p>Finds stocks in uptrends with strong relative strength. Filters for quality setups only.</p>
+                </div>
+                <div class="card cat-scan">
+                    <div class="card-icon">🔍</div>
+                    <h3>Entry Signals</h3>
+                    <p>Identifies stocks ready to buy based on entry rules. Reports opportunities without placing trades.</p>
+                    <span class="card-tag">Tier 1 / Tier 2</span>
+                </div>
+                <div class="card cat-watchlist">
+                    <div class="card-icon">📝</div>
+                    <h3>Watchlist Manager</h3>
+                    <p>Builds a curated list of stocks to track. Organized by priority: A (ready now), B (developing), C (watching).</p>
+                    <span class="card-tag">data/watchlist.csv</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="connector">
+            <div class="connector-line">
+                <div class="connector-arrow"></div>
+            </div>
+            <div class="connector-label">shared scoring & risk</div>
+        </div>
+
+        <!-- Layer 3: Core Library -->
+        <div class="core-section">
+            <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                <div class="card cat-core">
+                    <div class="card-icon">🧠</div>
+                    <h3>Stage 2 Utils</h3>
+                    <p>Scores stocks on trend quality using 7 criteria. Higher scores mean better setups worth trading.</p>
+                </div>
+                <div class="card cat-core">
+                    <div class="card-icon">⚖️</div>
+                    <h3>Risk Config</h3>
+                    <p>Manages how much to risk on each trade. Limits position sizes and sets maximum loss thresholds.</p>
+                </div>
+                <div class="card cat-core">
+                    <div class="card-icon">🛡️</div>
+                    <h3>Shared Infrastructure</h3>
+                    <p>Logs errors and limits API calls to keep the system running smoothly without hitting rate limits.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="connector">
+            <div class="connector-line">
+                <div class="connector-arrow"></div>
+            </div>
+            <div class="connector-label">used by engine</div>
+        </div>
+
+        <!-- Layer 4: Trading Engine -->
+        <div class="layer layer-engine">
+            <div class="layer-header">
+                <div class="layer-number">4</div>
+                <div class="layer-title">Automated Trading Engine</div>
+            </div>
+            <div class="cards-grid">
+                <div class="card cat-engine">
+                    <div class="card-icon">⚙️</div>
+                    <h3>Paper Engine</h3>
+                    <p>The main controller. Checks prices every 30 seconds, decides when to enter or exit, and manages all positions.</p>
+                    <span class="card-tag">Orchestrator</span>
+                </div>
+                <div class="card cat-engine">
+                    <div class="card-icon">🔗</div>
+                    <h3>Alpaca Client</h3>
+                    <p>Connects to the broker. Handles login, gets prices, and sends orders with built-in rate limiting.</p>
+                </div>
+                <div class="card cat-engine">
+                    <div class="card-icon">📋</div>
+                    <h3>Order Manager</h3>
+                    <p>Tracks orders from submission through completion. Handles partial fills and status updates.</p>
+                </div>
+                <div class="card cat-engine">
+                    <div class="card-icon">🚪</div>
+                    <h3>Exit Engine</h3>
+                    <p>Manages when to sell. Moves stops up as profits grow to lock in gains and limit losses.</p>
+                </div>
+            </div>
+
+            <!-- Trading Rules -->
+            <div class="rules-section">
+                <div class="rules-grid">
+                    <div class="rule-card">
+                        <h4>Entry Gate</h4>
+                        <p>Buy when setup scores 60+, price is within 1% of target, volume is strong, and market conditions are good.</p>
+                    </div>
+                    <div class="rule-card">
+                        <h4>Position Size</h4>
+                        <p>Risk 0.75% of account per trade. No single position over 20%. Max 3 positions per sector.</p>
+                    </div>
+                    <div class="rule-card">
+                        <h4>Circuit Breakers</h4>
+                        <p>Stop after 5 trades in one day. Halt trading if daily loss exceeds 2%.</p>
+                    </div>
+                    <div class="rule-card">
+                        <h4>Exit Ladder</h4>
+                        <p>Move stop to breakeven at +1R profit. Trail EMAs as gains increase. Hard stop protects against major drops.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value">7</div>
+                <div class="stat-label">Stage 2 Criteria</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">110</div>
+                <div class="stat-label">Max Entry Score</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0.75%</div>
+                <div class="stat-label">Account Risk / Trade</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">30s</div>
+                <div class="stat-label">Scan Interval</div>
+            </div>
+        </div>
+
+        <div class="connector">
+            <div class="connector-line">
+                <div class="connector-arrow"></div>
+            </div>
+            <div class="connector-label">reads / writes state</div>
+        </div>
+
+        <!-- Layer 5: State Store -->
+        <div class="layer layer-state">
+            <div class="layer-header">
+                <div class="layer-number">5</div>
+                <div class="layer-title">State & Data Store</div>
+            </div>
+            <div class="cards-grid">
+                <div class="card cat-state">
+                    <div class="card-icon">💾</div>
+                    <h3>Paper State</h3>
+                    <p>Keeps track of open positions, account balance, and daily trading limits in real time.</p>
+                </div>
+                <div class="card cat-state">
+                    <div class="card-icon">📜</div>
+                    <h3>Trade Ledger</h3>
+                    <p>Records every trade made: entries, exits, profits, and losses. Used for performance review.</p>
+                </div>
+                <div class="card cat-watchlist">
+                    <div class="card-icon">📑</div>
+                    <h3>Watchlist</h3>
+                    <p>The master list of stocks being tracked with entry prices, stop levels, and pattern notes.</p>
+                </div>
+                <div class="card cat-state">
+                    <div class="card-icon">📊</div>
+                    <h3>Regime & Scans</h3>
+                    <p>Stores daily market conditions and scan results to see how the market is behaving over time.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="connector">
+            <div class="connector-line">
+                <div class="connector-arrow"></div>
+            </div>
+            <div class="connector-label">summarized for humans</div>
+        </div>
+
+        <!-- Layer 6: Reports -->
+        <div class="layer layer-report">
+            <div class="layer-header">
+                <div class="layer-number">6</div>
+                <div class="layer-title">Reports & Monitoring</div>
+            </div>
+            <div class="cards-grid">
+                <div class="card cat-report">
+                    <div class="card-icon">🌅</div>
+                    <h3>Pre-Market Report</h3>
+                    <p>Morning briefing with futures, fear index (VIX), economic events, and which stocks are setting up.</p>
+                </div>
+                <div class="card cat-report">
+                    <div class="card-icon">🌇</div>
+                    <h3>Post-Market Report</h3>
+                    <p>End-of-day summary showing what moved, any gaps, and what to watch tomorrow.</p>
+                </div>
+                <div class="card cat-report">
+                    <div class="card-icon">📊</div>
+                    <h3>Portfolio Monitor</h3>
+                    <p>Live view of open positions, current profit or loss, and stop levels. Command line interface.</p>
+                </div>
+                <div class="card cat-report">
+                    <div class="card-icon">✈️</div>
+                    <h3>Report Delivery</h3>
+                    <p>Sends HTML reports to Telegram channels or via OpenClaw for team distribution.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <div class="footer-meta">
+                <span class="footer-tag">Stage 2 Methodology</span>
+                <span class="footer-tag">Minervini Framework</span>
+                <span class="footer-tag">7-Point Trend Check</span>
+                <span class="footer-tag">R-Multiple Exits</span>
+            </div>
+            <p class="footer-note">
+                Source of truth: <strong>Shared Core Library</strong> · <strong>Risk Config</strong> · <strong>Watchlist</strong><br>
+                Built with Python, yfinance, Alpaca API, and systematic discipline.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

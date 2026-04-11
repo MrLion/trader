@@ -130,7 +130,7 @@ def _calculate_day_stats() -> Dict:
 
 def cmd_status(args):
     """Show current account and market status using Alpaca real-time prices."""
-    from alpaca_client import AlpacaClient
+    from traderlib.alpaca_client import AlpacaClient
 
     positions = load_json_file(POSITIONS_FILE)
 
@@ -541,7 +541,7 @@ def cmd_close(args):
 
     import yfinance as yf
     sys.path.insert(0, str(Path(__file__).parent))
-    from paper_state import PaperState
+    from traderlib.paper_state import PaperState
 
     positions = load_json_file(POSITIONS_FILE)
 
@@ -580,7 +580,7 @@ def cmd_close(args):
 def cmd_reconcile(args):
     """Reconcile counters with trade log."""
     sys.path.insert(0, str(Path(__file__).parent))
-    from paper_state import PaperState
+    from traderlib.paper_state import PaperState
 
     print("🔄 Reconciling counters with trade log...")
     print()

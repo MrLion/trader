@@ -31,8 +31,8 @@ python3 scripts/paper_portfolio.py status
 ```bash
 # View pending orders
 python3 -c "
-from order_manager import OrderManager
-from alpaca_client import AlpacaClient
+from traderlib.order_manager import OrderManager
+from traderlib.alpaca_client import AlpacaClient
 om = OrderManager(AlpacaClient())
 print(om.get_orders_summary())
 "

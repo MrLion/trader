@@ -21,7 +21,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 import pytz
 
-from scripts.paper_state import PaperState, Position
+from traderlib.paper_state import PaperState, Position
 
 
 class FrozenAlpacaClient:

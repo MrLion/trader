@@ -21,7 +21,7 @@
 ```bash
 # Check if ticker is trading
 python3 -c "
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 client = AlpacaClient()
 price = client.get_latest_price('TICKER')
 print(f'Price: {price}')
@@ -47,8 +47,8 @@ curl -s "https://paper-api.alpaca.markets/v2/assets/TICKER" \
 ```bash
 # List pending orders
 python3 -c "
-from order_manager import OrderManager
-from alpaca_client import AlpacaClient
+from traderlib.order_manager import OrderManager
+from traderlib.alpaca_client import AlpacaClient
 om = OrderManager(AlpacaClient())
 pending = om.get_pending_for_ticker('TICKER')
 print(f'Pending orders: {len(pending)}')
@@ -66,7 +66,7 @@ for o in pending:
 ```bash
 # Cancel pending order first
 python3 -c "
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 client = AlpacaClient()
 # Get order ID from logs or dashboard
 client.cancel_order('ORDER_ID')
@@ -130,7 +130,7 @@ except Exception as e:
 # 5. Update local state
 
 python3 -c "
-from paper_state import PaperState
+from traderlib.paper_state import PaperState
 state = PaperState()
 if 'TICKER' in state.positions:
     state.close_position('TICKER', exit_price=0, reason='MANUAL_CLOSE')

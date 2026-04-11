@@ -14,7 +14,7 @@ import pytz
 # Add scripts directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.risk_config import RiskConfigManager
 from traderlib.trading_exceptions import TradingExceptionHandler

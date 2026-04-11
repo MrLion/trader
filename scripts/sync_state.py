@@ -7,7 +7,7 @@ import sys
 
 # Add scripts to path
 sys.path.insert(0, str(Path(__file__).parent))
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 
 DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'

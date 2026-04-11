@@ -22,7 +22,7 @@
 ```bash
 # Check which data provider is active
 python3 -c "
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 client = AlpacaClient()
 print(f'Primary: {client.health.primary}')
 print(f'Current: {client.health.get_provider()}')
@@ -36,7 +36,7 @@ print(f'Current: {client.health.get_provider()}')
 ```bash
 # Verify data recency
 python3 -c "
-from alpaca_client import AlpacaClient
+from traderlib.alpaca_client import AlpacaClient
 import pandas as pd
 
 client = AlpacaClient()

@@ -71,7 +71,7 @@ class TestAlpacaClientConfig(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test-key', 'ALPACA_SECRET_KEY': 'test-secret'})
     def test_load_config_from_env(self):
         """Test loading config from environment variables."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -83,7 +83,7 @@ class TestAlpacaClientConfig(unittest.TestCase):
     def test_load_config_from_file(self):
         """Test loading config from file when env vars not set."""
         import tempfile
-        from alpaca_client import AlpacaClient, CONFIG_FILE
+        from traderlib.alpaca_client import AlpacaClient, CONFIG_FILE
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / 'config'
@@ -106,7 +106,7 @@ class TestAlpacaClientConfig(unittest.TestCase):
     @patch.dict('os.environ', {}, clear=True)
     def test_load_config_missing(self):
         """Test error when config is missing."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.CONFIG_FILE', Path('/nonexistent/config.json')):
             with self.assertRaises(ValueError) as ctx:
@@ -116,7 +116,7 @@ class TestAlpacaClientConfig(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def test_load_config_int_default(self):
         """Test loading integer config with default value."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'), \
@@ -132,7 +132,7 @@ class TestAlpacaClientRateLimiter(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient') as mock_trading, \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -180,7 +180,7 @@ class TestAlpacaClientFallbacks(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -236,7 +236,7 @@ class TestAlpacaClientOrderMethods(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient') as mock_trading, \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -363,7 +363,7 @@ class TestAlpacaClientWebSocket(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -410,7 +410,7 @@ class TestAlpacaClientHealth(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
@@ -450,7 +450,7 @@ class TestAlpacaClientHistoricalData(unittest.TestCase):
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def setUp(self):
         """Set up test fixtures."""
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):

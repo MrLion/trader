@@ -44,7 +44,7 @@ def validate_credentials():
     print("\n🔍 Checking Alpaca credentials...")
 
     import os
-    from alpaca_client import AlpacaClient
+    from traderlib.alpaca_client import AlpacaClient
 
     try:
         # Try to initialize client (will fail if no credentials)
@@ -66,7 +66,7 @@ def validate_account():
     print("\n🔍 Checking Alpaca account...")
 
     try:
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         client = AlpacaClient(mode='paper')
         account = client.get_account()
@@ -92,7 +92,7 @@ def validate_data_access():
     print("\n🔍 Testing data access...")
 
     try:
-        from alpaca_client import AlpacaClient
+        from traderlib.alpaca_client import AlpacaClient
 
         client = AlpacaClient(mode='paper')
 
@@ -124,8 +124,8 @@ def validate_order_manager():
     print("\n🔍 Testing order manager...")
 
     try:
-        from alpaca_client import AlpacaClient
-        from order_manager import OrderManager
+        from traderlib.alpaca_client import AlpacaClient
+        from traderlib.order_manager import OrderManager
 
         client = AlpacaClient(mode='paper')
         manager = OrderManager(client)

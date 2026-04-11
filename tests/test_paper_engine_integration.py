@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from paper_state import PaperState, Position
-from paper_exits import ExitSignal
+from traderlib.paper_exits import ExitSignal
 
 
 class TestEntryFillExitWorkflow(unittest.TestCase):

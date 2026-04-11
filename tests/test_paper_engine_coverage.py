@@ -27,8 +27,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
-from paper_state import PaperState, Position
-from paper_exits import ExitSignal
+from traderlib.paper_state import PaperState, Position
+from traderlib.paper_exits import ExitSignal
 
 
 def create_engine_with_full_mocks(mode='paper'):

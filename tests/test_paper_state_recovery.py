@@ -23,7 +23,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
-from paper_state import PaperState, Position
+from traderlib.paper_state import PaperState, Position
 
 
 class TestMissingAccountFile(unittest.TestCase):
