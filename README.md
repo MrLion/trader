@@ -1,15 +1,24 @@
 # Trader
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+
 A systematic stock trading workflow system for momentum-driven swing trading, built on Python with Alpaca API (real-time) and yfinance fallback.
 
 ## Table of Contents
 
 - [Features](#features)
-- [Quick Start](#quick-start)
 - [Prerequisites](#prerequisites)
-- [Usage](#usage)
+- [Quick Start](#quick-start)
+- [Scripts by Function](#scripts-by-function)
 - [Repository Structure](#repository-structure)
+- [Trading Framework](#trading-framework)
+- [Data Model](#data-model)
 - [Configuration](#configuration)
+- [Development](#development)
+- [External Integrations](#external-integrations)
+- [FAQ](#faq)
 - [Documentation](#documentation)
 - [License](#license)
 
@@ -28,7 +37,7 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 - Python 3.11+
 - pip or uv package manager
 - Make (optional, for convenience commands)
-- Alpaca API keys (only for automated trading - scanners work without)
+- Alpaca API keys (only for **automated trading** — scanners and reports work without them)
 
 ## Quick Start
 
@@ -62,18 +71,14 @@ python3 scripts/entry_signals.py --ticker AAPL
 ```
 </details>
 
-## Repository Structure
+### Verify Setup
 
-```
-scripts/          - Python CLI tools for analysis, scanning, and trading
-traderlib/        - Library modules (alpaca_client, order_manager, etc.)
-data/             - watchlist.csv, portfolio, and trade logs
-scans/            - Daily CSV outputs from sector/stock screens
-reports/          - Generated HTML market reports
-memory/           - Daily logs and curated memories
-.gstack/          - QA reports and analysis (gitignored)
-AGENTS.MD         - Complete trading playbook
-CLAUDE.md         - Development operations guide
+```bash
+# Run tests to verify everything works
+make test
+
+# Check entry signals scanner
+python3 scripts/entry_signals.py --help
 ```
 
 ## Scripts by Function
@@ -112,8 +117,6 @@ python3 scripts/entry_signals.py --export-html
 - Distance to Pivot within +/-1.0%
 - Market condition: SPY >= -0.3%
 
----
-
 ### Market Scans
 
 Broad market screening for Stage 2 candidates and sector performance.
@@ -123,8 +126,6 @@ Broad market screening for Stage 2 candidates and sector performance.
 | `sector_scan.py` | Daily sector ETF performance ranking | `python3 scripts/sector_scan.py` |
 | `sector_scan_comprehensive.py` | Extended sector scan with comprehensive data | `python3 scripts/sector_scan_comprehensive.py` |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates | `python3 scripts/stage2_rs_screen.py` |
-
----
 
 ### Reports
 
@@ -162,8 +163,6 @@ python3 scripts/deliver_report.py --file reports/premarket_report.html --caption
 python3 scripts/deliver_report.py --file report.html --dry-run --verbose
 ```
 
----
-
 ### Data & Watchlist
 
 Manage your trading universe and import external ideas.
@@ -195,8 +194,6 @@ python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 ```
 
----
-
 ### Automated Trading (Alpaca)
 
 Execute trades automatically via Alpaca API with real-time WebSocket data.
@@ -207,6 +204,7 @@ Execute trades automatically via Alpaca API with real-time WebSocket data.
 | `paper_portfolio.py` | Monitor positions and P&L | `python3 scripts/paper_portfolio.py status` |
 | `setup_alpaca.py` | Configure Alpaca credentials | `python3 scripts/setup_alpaca.py` |
 | `validate_alpaca.py` | Test connection and validation | `python3 scripts/validate_alpaca.py` |
+| `sync_state.py` | Sync local state with Alpaca API | `python3 scripts/sync_state.py` |
 
 **Setup:**
 ```bash
@@ -265,7 +263,19 @@ python3 scripts/paper_portfolio.py close AAPL --reason "manual"
 - **Day P&L:** Realized gains from closed positions today
 - **Unrealized P&L:** Current gains/losses from open positions
 
----
+## Repository Structure
+
+```
+scripts/          - Python CLI tools for analysis, scanning, and trading
+traderlib/        - Library modules (alpaca_client, order_manager, etc.)
+data/             - watchlist.csv, portfolio, and trade logs
+scans/            - Daily CSV outputs from sector/stock screens
+reports/          - Generated HTML market reports
+memory/           - Daily logs and curated memories
+.gstack/          - QA reports and analysis (gitignored)
+AGENTS.MD         - Complete trading playbook
+CLAUDE.md         - Development operations guide
+```
 
 ## Trading Framework
 
@@ -290,15 +300,16 @@ See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with
 
 ## Data Model
 
-The watchlist (`data/watchlist.csv`) tracks:
-- Ticker, Stage (0-7), RS_Rank
-- Pivot_Price, Stop_Level, ATR, Risk_%
-- Sector, Industry, Pattern_Type
-- Notes, Added_Date
+The system uses the following data files:
 
-## Development
+| File | Purpose |
+|------|---------|
+| `data/watchlist.csv` | Trading universe with Stage scores, pivot prices, stops |
+| `data/paper_positions.json` | Current open positions with entry prices, stops, targets |
+| `data/paper_trades.jsonl` | Trade log (entries/exits) in JSON Lines format |
+| `data/daily_tracker.json` | Daily reset tracking (entries_today, last_reset) |
 
-See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing commands, CI/CD workflow details, and contribution guidelines.
+**Watchlist columns:** Ticker, Stage (0-7), RS_Rank, Pivot_Price, Stop_Level, ATR, Risk_%, Sector, Industry, Pattern_Type, Notes, Added_Date
 
 ## Configuration
 
@@ -321,30 +332,35 @@ ALPACA_SECRET_KEY=your_secret
 | `TRADER_WATCHLIST` | `./data/watchlist.csv` | Custom watchlist path |
 | `TRADER_OUTPUT` | `./reports` | Output directory |
 
-## FAQ
+## Development
 
-**Do I need Alpaca API keys to use the scanners?**
-No. Scanners and reports work with Yahoo Finance data. Only automated trading requires Alpaca.
-
-**What's the difference between paper trading and the scanners?**
-Scanners analyze stocks and generate reports. The paper trading engine (`paper_engine_alpaca.py`) executes trades automatically based on scanner signals.
-
-**How do I reset my paper trading data?**
-Delete `data/paper_positions.json` and restart the engine. It will sync fresh data from Alpaca.
-
-**Where are my trade logs stored?**
-All trades are logged to `data/paper_trades.jsonl` (JSON Lines format, append-only).
-
-**Can I run this on a server?**
-Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with environment variables set.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing commands, CI/CD workflow details, and contribution guidelines.
 
 ## External Integrations
 
-- **Primary Data**: Alpaca API (WebSocket + REST) for real-time prices
-- **Fallback Data**: Yahoo Finance via `yfinance` (when Alpaca unavailable)
-- **Automated Trading**: Alpaca paper/live accounts
-- **Communications**: Telegram via `deliver_report.py` or `openclaw message send`
-- **Broker**: Alpaca (automated) or manual execution
+| Integration | Purpose | Fallback |
+|-------------|---------|----------|
+| **Alpaca API** | Real-time prices, automated trading | — |
+| **Yahoo Finance** | Historical data, scanners | Used when Alpaca unavailable |
+| **Telegram** | Report delivery | Manual CLI reports |
+| **Alpaca Broker** | Order execution | Manual brokerage |
+
+## FAQ
+
+**Do I need Alpaca API keys to use the scanners?**  
+No. Scanners and reports work with Yahoo Finance data. Only automated trading requires Alpaca.
+
+**What's the difference between paper trading and the scanners?**  
+Scanners analyze stocks and generate reports. The paper trading engine (`paper_engine_alpaca.py`) executes trades automatically based on scanner signals.
+
+**How do I reset my paper trading data?**  
+Delete `data/paper_positions.json` and restart the engine. It will sync fresh data from Alpaca.
+
+**Where are my trade logs stored?**  
+All trades are logged to `data/paper_trades.jsonl` (JSON Lines format, append-only).
+
+**Can I run this on a server?**  
+Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with environment variables set.
 
 ## Documentation
 
