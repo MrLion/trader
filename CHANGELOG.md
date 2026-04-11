@@ -23,6 +23,13 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **`daily_tracker.json` for daily reset tracking**
   - Stores only `last_entry_reset` date to persist across engine restarts
+
+### Fixed
+- **`paper_portfolio.py` activity counts included test trades**
+  - `_calculate_day_stats()` was counting all trades including test data
+  - Added `_is_test_trade()` filter with same logic as `paper_state.py`
+  - Filters: `_meta.test_mode`, AAPL@$150 pattern, validation_failed patterns
+  - Impact: Activity section now shows accurate production counts (was 28, now 17)
   - Prevents daily counters from resetting on every engine restart
 
 ## [0.3.13] - 2026-04-10
