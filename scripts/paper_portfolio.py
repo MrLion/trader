@@ -102,8 +102,21 @@ def cmd_status(args):
         print("❌ Failed to connect to Alpaca. Check API credentials.")
         return
 
-    # Get cash (available for trade)
-    cash = account.get('cash', 0)
+    # Get cash from Alpaca API (live) instead of local file (stale)
+    try:
+        alpaca_account = alpaca.get_account()
+        cash = alpaca_account['cash']
+        cash_source = "Alpaca Live"
+    except Exception as e:
+        # Fallback to local file if API fails
+        cash = account.get('cash', 0)
+        cash_source = "Local (stale)"
+        TradingExceptionHandler.log_exception(
+            "cash_fetch", e,
+            severity=TradingExceptionHandler.WARNING,
+            message="Failed to fetch cash from Alpaca, using local value"
+        )
+
     initial_capital = account.get('initial_capital', 0)
 
     # Calculate account value using Alpaca real-time prices
@@ -156,7 +169,7 @@ def cmd_status(args):
     print(f"\n💰 ACCOUNT")
     print(f"   Initial Capital:   {format_currency(initial_capital)}")
     print(f"   Account Value:     {format_currency(account_value)}")
-    print(f"   Available Cash:    {format_currency(cash)}")
+    print(f"   Available Cash:    {format_currency(cash)} ({cash_source})")
 
     pnl = account_value - initial_capital
     pnl_pct = (pnl / initial_capital) * 100 if initial_capital else 0

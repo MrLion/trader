@@ -12,6 +12,13 @@ All notable changes to this project will be documented in this file.
   - Fix: Calls `alpaca.get_latest_price(ticker, use_fallback=False)` for all positions
   - Impact: Portfolio status now shows Alpaca real-time prices; matches Alpaca UI exactly
 
+- **`paper_portfolio.py` cash now fetched from Alpaca API**
+  - Was using stale `cash` value from local `paper_account.json` file
+  - Caused $62.85 discrepancy ($9,664.27 local vs $9,727.12 Alpaca live)
+  - Fix: `cmd_status()` now calls `alpaca.get_account()['cash']` for live cash balance
+  - Fix: Shows `(Alpaca Live)` or `(Local (stale))` indicator next to cash display
+  - Impact: Account value now 100% accurate; no more stale cash discrepancies
+
 ## [0.3.12] - 2026-04-10
 
 ### Fixed
