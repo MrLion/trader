@@ -76,6 +76,15 @@ All notable changes to this project will be documented in this file.
   - Impact: Legitimate high-priced stock trades no longer filtered as test data
 
 ### Changed
+- **Reorganize library modules — proper package structure**
+  - `scripts/trading_exceptions.py` → `traderlib/trading_exceptions.py` (library module)
+  - `scripts/rate_limiter.py` → `traderlib/rate_limiter.py` (library module)
+  - `scripts/generate_fixtures.py` → `tests/generate_fixtures.py` (dev utility)
+  - `scripts/sync_state.py` — kept in scripts/ (user-facing utility)
+  - Updated all imports: 12 files referencing trading_exceptions, 10 files referencing rate_limiter
+  - Updated documentation: `docs/runbooks/api_outage.md`
+  - Impact: Clear separation between library code (`traderlib/`), user scripts (`scripts/`), and test utilities (`tests/`)
+
 - **Consolidate configuration files into single `config/` directory**
   - Moved `data/config/alpaca_config.json` → `config/secrets/alpaca_config.json`
   - Moved `data/config/example.alpaca_config.json` → `config/secrets/example.alpaca_config.json`
