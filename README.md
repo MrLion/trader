@@ -1,6 +1,6 @@
 # Trader
 
-A systematic stock trading workflow system for momentum-driven swing trading, built on Python and Yahoo Finance data.
+A systematic stock trading workflow system for momentum-driven swing trading, built on Python with Alpaca API (real-time) and yfinance fallback.
 
 ## Overview
 
@@ -43,14 +43,15 @@ mkdir -p data/config scans reports memory
 pre-commit install
 
 # 5. Run your first analysis
-python3 scripts/analyze_ticker.py AAPL
+python3 scripts/entry_signals.py --ticker AAPL
 ```
 
 ## Repository Structure
 
 ```
-scripts/          - Python tools for analysis and scanning
-data/             - watchlist.csv (live trading universe)
+scripts/          - Python CLI tools for analysis, scanning, and trading
+traderlib/        - Library modules (alpaca_client, order_manager, etc.)
+data/             - watchlist.csv, portfolio, and trade logs
 scans/            - Daily CSV outputs from sector/stock screens
 reports/          - Generated HTML market reports
 memory/           - Daily logs and curated memories
@@ -67,8 +68,6 @@ Deep analysis of individual stocks and your watchlist.
 
 | Script | Purpose | Example Command |
 |--------|---------|-----------------|
-| `analyze_ticker.py` | Full technical breakdown on a single stock | `python3 scripts/analyze_ticker.py AAPL` |
-| `analyze_watchlist.py` | Scan entire watchlist for setups | `python3 scripts/analyze_watchlist.py` |
 | `entry_signals.py` | Find tickers meeting entry criteria (no execution) | `python3 scripts/entry_signals.py` |
 
 **Entry Signals Scanner:**
@@ -79,11 +78,17 @@ python3 scripts/entry_signals.py
 # Include Tier 2 signals (score 40-59)
 python3 scripts/entry_signals.py --min-tier 2
 
+# Deep analysis on single ticker
+python3 scripts/entry_signals.py --ticker AAPL
+
 # Scan specific tickers
 python3 scripts/entry_signals.py --tickers AAPL MSFT NVDA
 
-# Export as JSON
-python3 scripts/entry_signals.py --export json
+# Export to CSV
+python3 scripts/entry_signals.py --export-csv
+
+# Export to HTML report
+python3 scripts/entry_signals.py --export-html
 ```
 
 **Entry Criteria:**
@@ -102,14 +107,6 @@ Broad market screening for Stage 2 candidates and sector performance.
 | `sector_scan.py` | Daily sector ETF performance ranking | `python3 scripts/sector_scan.py` |
 | `sector_scan_comprehensive.py` | Extended sector scan with comprehensive data | `python3 scripts/sector_scan_comprehensive.py` |
 | `stage2_rs_screen.py` | Screen universe for Stage 2 + RS candidates | `python3 scripts/stage2_rs_screen.py` |
-| `midday_scan.py` | Intraday scan for leading stocks | `python3 scripts/midday_scan.py --include-watchlist` |
-
-**Midday Scan Options:**
-```bash
-python3 scripts/midday_scan.py --include-watchlist
-python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt
-python3 scripts/midday_scan.py --include-watchlist --html
-```
 
 ---
 
@@ -342,7 +339,7 @@ The engine enters when **ALL** conditions are met:
 ## Data Model
 
 The watchlist (`data/watchlist.csv`) tracks:
-- Ticker, Stage (0-4), RS_Rank
+- Ticker, Stage (0-7), RS_Rank
 - Pivot_Price, Stop_Level, ATR, Risk_%
 - Sector, Industry, Pattern_Type
 - Notes, Added_Date
@@ -450,14 +447,14 @@ Coverage reports are uploaded to:
 
 To generate coverage locally:
 ```bash
-pytest tests/ --cov=scripts --cov-branch --cov-report=html
+pytest tests/ --cov=traderlib --cov=scripts --cov-branch --cov-report=html
 open htmlcov/index.html
 ```
 
 ## External Integrations
 
-- **Data Source**: Yahoo Finance via `yfinance`
-- **Real-Time Data**: Alpaca API (WebSocket + REST)
+- **Primary Data**: Alpaca API (WebSocket + REST) for real-time prices
+- **Fallback Data**: Yahoo Finance via `yfinance` (when Alpaca unavailable)
 - **Automated Trading**: Alpaca paper/live accounts
 - **Communications**: Telegram via `deliver_report.py` or `openclaw message send`
 - **Broker**: Alpaca (automated) or manual execution

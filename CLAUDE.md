@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Operations
 
 ### Common Commands
-- **Ticker Analysis:** `python3 scripts/analyze_ticker.py TICKER`
-- **Watchlist Analysis:** `python3 scripts/analyze_watchlist.py`
+- **Entry Signals (Watchlist Scan):** `python3 scripts/entry_signals.py`
+- **Single Ticker Analysis:** `python3 scripts/entry_signals.py --ticker TICKER`
 - **Watchlist Management:**
     - Add: `python3 scripts/watchlist_manager.py add TICKER [NOTES]`
     - List: `python3 scripts/watchlist_manager.py list`
@@ -45,6 +45,7 @@ The system follows a strict trading operating rhythm:
 3. **Post-Market:** Trade logging $\rightarrow$ New scans $\rightarrow$ Breadth logging.
 
 ### Technical Dependencies
-- **Data Source:** Primarily `yfinance` for market data.
-- **Analysis Framework:** Based on Stage 2 (Price > 100 SMA > 200 SMA), Relative Strength (RS), and VCP patterns.
+- **Primary Data:** Alpaca API (real-time WebSocket + REST)
+- **Fallback Data:** `yfinance` when Alpaca unavailable
+- **Analysis Framework:** Based on Stage 2 (7-point system), Relative Strength (RS), and VCP patterns.
 - **Watchlist Tiering:** A (Actionable), B (Developing), C (Radar).
