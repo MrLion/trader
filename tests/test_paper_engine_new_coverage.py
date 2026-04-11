@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""Additional coverage tests for paper_engine.py and paper_engine_alpaca.py.
+"""Additional coverage tests for paper_engine_alpaca.py.
 
 Targets uncovered paths identified in the coverage report:
-paper_engine.py    (~66% → higher):
-  - _fetch_spy_data: insufficient 5m history, < 2 daily bars branch
-  - _analyze_ticker: NaN pivot, spy=None RS path, exception handler
-  - _check_entries: full scan loop (all filter branches + success)
-  - _check_exits:   exit triggered, price fetch failure
-  - _print_status
-
 paper_engine_alpaca.py (~64% → higher):
   - _get_current_price: stale cache fallback
   - _check_entries: no watchlist, score rejected, dist rejected, stop rejected
@@ -39,31 +32,6 @@ from traderlib.paper_exits import ExitSignal
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-def make_hist(rows=250, base=100.0):
-    """Minimal price history DataFrame."""
-    closes = [base + i * 0.2 for i in range(rows)]
-    return pd.DataFrame({
-        'Open':   [c - 0.5 for c in closes],
-        'High':   [c + 1.0 for c in closes],
-        'Low':    [c - 1.0 for c in closes],
-        'Close':  closes,
-        'Volume': [1_500_000] * rows,
-    })
-
-
-def make_pe_engine(initial_capital=100_000):
-    """Create PaperEngine (yfinance) with minimal mocks."""
-    from paper_engine import PaperEngine
-    with patch.object(PaperState, '_load_state', return_value=None):
-        with patch('builtins.print'):
-            engine = PaperEngine(initial_capital=initial_capital)
-    engine.state.positions = {}
-    engine.state.cash = initial_capital
-    engine.spy_data = None
-    engine.spy_last_fetch = None
-    return engine
-
 
 def make_alpaca_engine():
     """Create AlpacaPaperEngine with all external calls mocked."""
@@ -146,304 +114,7 @@ class TestSectorLimitWithConfig(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 1 — paper_engine.py: _fetch_spy_data uncovered branches
-# ---------------------------------------------------------------------------
-
-class TestPaperEngineFetchSPYBranches(unittest.TestCase):
-
-    def setUp(self):
-        self.engine = make_pe_engine()
-
-    @patch('paper_engine.yf.Ticker')
-    def test_insufficient_5m_history_returns_none(self, mock_ticker_class):
-        """< 2 bars in 5m history → returns None, no cache stored."""
-        mock_ticker = MagicMock()
-        mock_ticker.history.return_value = pd.DataFrame({'Close': [460.0]})  # 1 row
-        mock_ticker_class.return_value = mock_ticker
-
-        result = self.engine._fetch_spy_data()
-        self.assertIsNone(result)
-        self.assertIsNone(self.engine.spy_data)
-
-    @patch('paper_engine.yf.Ticker')
-    def test_daily_hist_less_than_2_rows_uses_current_as_prev(self, mock_ticker_class):
-        """When daily_hist has < 2 rows, prev_close = current → change_pct = 0."""
-        mock_ticker = MagicMock()
-        hist_5m  = pd.DataFrame({'Close': [455.0, 460.0]})
-        hist_2d  = pd.DataFrame({'Close': [460.0]})  # only 1 row — branch NOT taken
-        mock_ticker.history.side_effect = [hist_5m, hist_2d]
-        mock_ticker_class.return_value = mock_ticker
-
-        result = self.engine._fetch_spy_data()
-
-        self.assertIsNotNone(result)
-        self.assertAlmostEqual(result['change_pct'], 0.0)  # current == prev_close
-
-    @patch('paper_engine.yf.Ticker')
-    def test_daily_hist_2_rows_updates_prev_close(self, mock_ticker_class):
-        """When daily_hist has >= 2 rows, prev_close = iloc[-2]."""
-        mock_ticker = MagicMock()
-        hist_5m  = pd.DataFrame({'Close': [450.0, 459.0]})
-        hist_2d  = pd.DataFrame({'Close': [450.0, 459.0]})  # prev = 450 → change +2%
-        mock_ticker.history.side_effect = [hist_5m, hist_2d]
-        mock_ticker_class.return_value = mock_ticker
-
-        result = self.engine._fetch_spy_data()
-        self.assertIsNotNone(result)
-        expected_pct = ((459.0 / 450.0) - 1) * 100
-        self.assertAlmostEqual(result['change_pct'], expected_pct, places=4)
-
-
-# ---------------------------------------------------------------------------
-# Group 2 — paper_engine.py: _analyze_ticker uncovered branches
-# ---------------------------------------------------------------------------
-
-class TestPaperEngineAnalyzeTickerBranches(unittest.TestCase):
-
-    def setUp(self):
-        self.engine = make_pe_engine()
-
-    @patch('paper_engine.yf.Ticker')
-    def test_nan_pivot_uses_recent_high(self, mock_ticker_class):
-        """NaN Pivot_Price → pivot calculated from hist['High'].tail(5).max()."""
-        hist = make_hist(250)
-        mock_ticker = MagicMock()
-        mock_ticker.history.return_value = hist
-        mock_ticker.info = {'sector': 'Technology'}
-        mock_ticker_class.return_value = mock_ticker
-
-        self.engine.spy_data = None
-        with patch.object(self.engine, '_fetch_spy_data', return_value=None):
-            result = self.engine._analyze_ticker({
-                'Ticker': 'AAPL',
-                'Pivot_Price': float('nan'),  # NaN pivot
-                'Sector': 'Technology',
-            })
-
-        # Should succeed and use high-based pivot
-        self.assertIsNotNone(result)
-        expected_pivot = hist['High'].tail(5).max()
-        self.assertAlmostEqual(result['pivot'], expected_pivot, places=2)
-
-    @patch('paper_engine.yf.Ticker')
-    def test_spy_none_sets_rs_to_zero(self, mock_ticker_class):
-        """When _fetch_spy_data returns None, rs_6m = 0 and analysis still completes."""
-        hist = make_hist(250)
-        mock_ticker = MagicMock()
-        mock_ticker.history.return_value = hist
-        mock_ticker.info = {'sector': 'Technology'}
-        mock_ticker_class.return_value = mock_ticker
-
-        with patch.object(self.engine, '_fetch_spy_data', return_value=None):
-            result = self.engine._analyze_ticker({
-                'Ticker': 'AAPL',
-                'Pivot_Price': 120.0,
-                'Sector': 'Technology',
-            })
-
-        self.assertIsNotNone(result)
-        # entry_score should be computed (rs_6m = 0 used as fallback)
-        self.assertIn('entry_score', result)
-
-    @patch('paper_engine.yf.Ticker')
-    def test_exception_in_analyze_returns_none(self, mock_ticker_class):
-        """yfinance exception in _analyze_ticker → returns None gracefully."""
-        mock_ticker = MagicMock()
-        mock_ticker.history.side_effect = RuntimeError('network failure')
-        mock_ticker_class.return_value = mock_ticker
-
-        result = self.engine._analyze_ticker({'Ticker': 'AAPL', 'Pivot_Price': 120.0})
-        self.assertIsNone(result)
-
-
-# ---------------------------------------------------------------------------
-# Group 3 — paper_engine.py: _check_entries filter branches
-# ---------------------------------------------------------------------------
-
-class TestPaperEngineCheckEntriesBranches(unittest.TestCase):
-
-    def setUp(self):
-        self.engine = make_pe_engine()
-
-    def _make_analysis(self, **overrides):
-        base = {
-            'ticker': 'AAPL',
-            'current': 150.0,
-            'pivot': 150.0,
-            'dist_to_pivot': 0.0,
-            'stop': 140.0,
-            'target': 170.0,
-            'stage2': 6,
-            'volume_ratio': 2.0,
-            'entry_score': 80,
-            'atr': 3.0,
-            'sector': 'Technology',
-        }
-        base.update(overrides)
-        return base
-
-    def test_market_blocked_aborts_scan(self):
-        """Market condition failure → no analysis."""
-        with patch.object(self.engine, '_check_market_conditions', return_value=(False, 'SPY down')):
-            with patch.object(self.engine, '_analyze_ticker') as mock_analyze:
-                self.engine._check_entries()
-        mock_analyze.assert_not_called()
-
-    def test_empty_watchlist_aborts_scan(self):
-        """Empty watchlist → no analysis."""
-        with patch.object(self.engine, '_check_market_conditions', return_value=(True, 'SPY OK')):
-            with patch.object(self.engine, '_load_watchlist', return_value=[]):
-                with patch.object(self.engine, '_analyze_ticker') as mock_analyze:
-                    self.engine._check_entries()
-        mock_analyze.assert_not_called()
-
-    def test_low_score_skipped(self):
-        """Entry score below threshold → _execute_entry not called."""
-        analysis = self._make_analysis(entry_score=30)  # below 60
-
-        with patch.object(self.engine, '_check_market_conditions', return_value=(True, 'OK')):
-            with patch.object(self.engine, '_load_watchlist', return_value=[{'Ticker': 'AAPL'}]):
-                with patch.object(self.engine, '_analyze_ticker', return_value=analysis):
-                    with patch.object(self.engine, '_execute_entry') as mock_exec:
-                        self.engine._check_entries()
-
-        mock_exec.assert_not_called()
-
-    def test_too_far_from_pivot_skipped(self):
-        """Distance > MAX_DIST_TO_PIVOT → skipped."""
-        analysis = self._make_analysis(dist_to_pivot=5.0, entry_score=80)
-
-        with patch.object(self.engine, '_check_market_conditions', return_value=(True, 'OK')):
-            with patch.object(self.engine, '_load_watchlist', return_value=[{'Ticker': 'AAPL'}]):
-                with patch.object(self.engine, '_analyze_ticker', return_value=analysis):
-                    with patch.object(self.engine, '_execute_entry') as mock_exec:
-                        self.engine._check_entries()
-
-        mock_exec.assert_not_called()
-
-    def test_low_volume_ratio_skipped(self):
-        """volume_ratio < MIN_VOLUME_RATIO → skipped."""
-        analysis = self._make_analysis(volume_ratio=0.5, entry_score=80, dist_to_pivot=0.0)
-
-        with patch.object(self.engine, '_check_market_conditions', return_value=(True, 'OK')):
-            with patch.object(self.engine, '_load_watchlist', return_value=[{'Ticker': 'AAPL'}]):
-                with patch.object(self.engine, '_analyze_ticker', return_value=analysis):
-                    with patch.object(self.engine, '_execute_entry') as mock_exec:
-                        self.engine._check_entries()
-
-        mock_exec.assert_not_called()
-
-    def test_all_filters_pass_executes_entry(self):
-        """All criteria met → _execute_entry called once."""
-        analysis = self._make_analysis(entry_score=80, dist_to_pivot=0.0, volume_ratio=2.0)
-
-        with patch.object(self.engine, '_check_market_conditions', return_value=(True, 'OK')):
-            with patch.object(self.engine, '_load_watchlist', return_value=[{'Ticker': 'AAPL'}]):
-                with patch.object(self.engine, '_analyze_ticker', return_value=analysis):
-                    with patch.object(self.engine, '_execute_entry') as mock_exec:
-                        with patch('builtins.print'):
-                            self.engine._check_entries()
-
-        mock_exec.assert_called_once_with(analysis)
-
-
-# ---------------------------------------------------------------------------
-# Group 4 — paper_engine.py: _check_exits
-# ---------------------------------------------------------------------------
-
-class TestPaperEngineCheckExits(unittest.TestCase):
-
-    def setUp(self):
-        self.engine = make_pe_engine()
-
-    def _add_position(self, ticker='AAPL'):
-        pos = Position(
-            ticker=ticker,
-            status='OPEN',
-            entry_date='2026-01-01',
-            entry_price=150.0,
-            shares=100,
-            stop_price=140.0,
-            target_price=170.0,
-            initial_risk=1000.0,
-            sector='Technology',
-        )
-        self.engine.state.positions[ticker] = pos
-        return pos
-
-    @patch('paper_engine.yf.Ticker')
-    def test_exit_triggered_calls_execute_exit(self, mock_ticker_class):
-        """When exit signal fires, _execute_exit is called."""
-        pos = self._add_position()
-        hist = pd.DataFrame({'Close': [138.0]})  # below stop
-        mock_ticker_class.return_value.history.return_value = hist
-
-        with patch.object(self.engine, '_execute_exit') as mock_exit:
-            with patch('builtins.print'):
-                self.engine._check_exits()
-
-        mock_exit.assert_called_once()
-        signal_arg = mock_exit.call_args[0][1]
-        self.assertTrue(signal_arg.should_exit)
-
-    @patch('paper_engine.yf.Ticker')
-    def test_hold_shows_position_status(self, mock_ticker_class):
-        """No exit signal → position status printed, _execute_exit not called."""
-        pos = self._add_position()
-        hist = pd.DataFrame({'Close': [155.0]})  # above stop, below target
-        mock_ticker_class.return_value.history.return_value = hist
-
-        with patch.object(self.engine, '_execute_exit') as mock_exit:
-            with patch('builtins.print') as mock_print:
-                self.engine._check_exits()
-
-        mock_exit.assert_not_called()
-        # At least one print with ticker info
-        printed = ' '.join(str(c) for c in mock_print.call_args_list)
-        self.assertIn('AAPL', printed)
-
-    @patch('paper_engine.yf.Ticker')
-    def test_empty_history_skips_position(self, mock_ticker_class):
-        """Empty price history → position skipped, no exit triggered."""
-        pos = self._add_position()
-        mock_ticker_class.return_value.history.return_value = pd.DataFrame({'Close': []})
-
-        with patch.object(self.engine, '_execute_exit') as mock_exit:
-            with patch('builtins.print'):
-                self.engine._check_exits()
-
-        mock_exit.assert_not_called()
-
-    def test_no_positions_returns_immediately(self):
-        """No open positions → check loop is a no-op."""
-        self.engine.state.positions = {}
-        with patch('builtins.print') as mock_print:
-            self.engine._check_exits()
-        # Only the header print (if any)
-        for call in mock_print.call_args_list:
-            self.assertNotIn('Error', str(call))
-
-
-# ---------------------------------------------------------------------------
-# Group 5 — paper_engine.py: _print_status
-# ---------------------------------------------------------------------------
-
-class TestPaperEnginePrintStatus(unittest.TestCase):
-
-    def test_print_status_smoke(self):
-        """_print_status runs without raising."""
-        engine = make_pe_engine()
-        with patch('paper_engine.datetime') as mock_dt:
-            et = pytz.timezone('US/Eastern')
-            mock_dt.now.return_value = et.localize(datetime(2024, 4, 8, 10, 30, 0))
-            mock_dt.strftime = datetime.strftime
-            # Should not raise
-            with patch('builtins.print'):
-                engine._print_status()
-
-
-# ---------------------------------------------------------------------------
-# Group 6 — paper_engine_alpaca.py: _get_current_price stale cache fallback
+# Group 1 — paper_engine_alpaca.py: _get_current_price stale cache fallback
 # ---------------------------------------------------------------------------
 
 class TestAlpacaGetCurrentPrice(unittest.TestCase):
@@ -474,7 +145,7 @@ class TestAlpacaGetCurrentPrice(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 7 — paper_engine_alpaca.py: _check_entries filter branches
+# Group 2 — paper_engine_alpaca.py: _check_entries filter branches
 # ---------------------------------------------------------------------------
 
 class TestAlpacaCheckEntriesBranches(unittest.TestCase):
@@ -564,7 +235,7 @@ class TestAlpacaCheckEntriesBranches(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 8 — paper_engine_alpaca.py: _execute_entry paths
+# Group 3 — paper_engine_alpaca.py: _execute_entry paths
 # ---------------------------------------------------------------------------
 
 class TestAlpacaExecuteEntry(unittest.TestCase):
@@ -664,7 +335,7 @@ class TestAlpacaExecuteEntry(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 9 — paper_engine_alpaca.py: _execute_exit (async)
+# Group 4 — paper_engine_alpaca.py: _execute_exit (async)
 # ---------------------------------------------------------------------------
 
 class TestAlpacaExecuteExit(unittest.TestCase):
@@ -734,7 +405,7 @@ class TestAlpacaExecuteExit(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 10 — paper_engine_alpaca.py: _check_exit_async
+# Group 5 — paper_engine_alpaca.py: _check_exit_async
 # ---------------------------------------------------------------------------
 
 class TestAlpacaCheckExitAsync(unittest.TestCase):
@@ -798,7 +469,7 @@ class TestAlpacaCheckExitAsync(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 11 — paper_engine_alpaca.py: _process_pending_orders buy fill path
+# Group 6 — paper_engine_alpaca.py: _process_pending_orders buy fill path
 # ---------------------------------------------------------------------------
 
 class TestAlpacaProcessPendingOrders(unittest.TestCase):
@@ -872,7 +543,7 @@ class TestAlpacaProcessPendingOrders(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Group 12 — paper_engine_alpaca.py: _print_status with open positions
+# Group 7 — paper_engine_alpaca.py: _print_status with open positions
 # ---------------------------------------------------------------------------
 
 class TestAlpacaPrintStatusWithPositions(unittest.TestCase):

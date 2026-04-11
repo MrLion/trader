@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comprehensive tests for paper_engine.py.
+"""Comprehensive tests for paper_engine_alpaca.py.
 
 Tests cover:
 - Market hours edge cases
@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitEngine, ExitSignal
-from paper_engine import PaperEngine
+from paper_engine_alpaca import AlpacaPaperEngine
 
 
 class MockTicker:
@@ -72,7 +72,7 @@ def create_engine_with_mocks(initial_capital=100000):
 
     with patch.object(PaperState, '_load_state', return_value=None):
         with patch('builtins.print'):  # Suppress output
-            engine = PaperEngine(initial_capital=initial_capital)
+            engine = AlpacaPaperEngine(initial_capital=initial_capital)
             # Ensure clean state
             engine.state.positions = {}
             engine.state.cash = initial_capital
@@ -82,15 +82,15 @@ def create_engine_with_mocks(initial_capital=100000):
             return engine
 
 
-class TestPaperEngineInitialization(unittest.TestCase):
-    """Test PaperEngine initialization."""
+class TestAlpacaPaperEngineInitialization(unittest.TestCase):
+    """Test AlpacaPaperEngine initialization."""
 
     def test_default_initialization(self):
         """Test engine initializes with default capital."""
         with patch.object(PaperState, '_load_state', return_value=None):
             with patch('builtins.print'):
-                with patch.object(PaperEngine, '_signal_handler'):
-                    engine = PaperEngine()
+                with patch.object(AlpacaPaperEngine, '_signal_handler'):
+                    engine = AlpacaPaperEngine()
 
         self.assertEqual(engine.state.initial_capital, 100000.0)
         self.assertEqual(engine.state.cash, 100000.0)
@@ -103,13 +103,13 @@ class TestPaperEngineInitialization(unittest.TestCase):
         """Test engine initializes with custom capital."""
         with patch.object(PaperState, '_load_state', return_value=None):
             with patch('builtins.print'):
-                engine = PaperEngine(initial_capital=50000)
+                engine = AlpacaPaperEngine(initial_capital=50000)
 
         self.assertEqual(engine.state.initial_capital, 50000.0)
         self.assertEqual(engine.state.cash, 50000.0)
 
 
-class TestPaperEngineMarketHours(unittest.TestCase):
+class TestAlpacaPaperEngineMarketHours(unittest.TestCase):
     """Test market hours checking."""
 
     def setUp(self):
@@ -166,7 +166,7 @@ class TestPaperEngineMarketHours(unittest.TestCase):
             self.assertFalse(self.engine._is_market_hours())
 
 
-class TestPaperEngineMarketStatus(unittest.TestCase):
+class TestAlpacaPaperEngineMarketStatus(unittest.TestCase):
     """Test market status formatting."""
 
     def setUp(self):
@@ -208,7 +208,7 @@ class TestPaperEngineMarketStatus(unittest.TestCase):
             self.assertEqual(status, "CLOSED")
 
 
-class TestPaperEngineSPYData(unittest.TestCase):
+class TestAlpacaPaperEngineSPYData(unittest.TestCase):
     """Test SPY data fetching and caching."""
 
     def setUp(self):
@@ -280,7 +280,7 @@ class TestPaperEngineSPYData(unittest.TestCase):
         self.assertEqual(result['price'], 460)
 
 
-class TestPaperEngineMarketConditions(unittest.TestCase):
+class TestAlpacaPaperEngineMarketConditions(unittest.TestCase):
     """Test market conditions check."""
 
     def setUp(self):
@@ -316,7 +316,7 @@ class TestPaperEngineMarketConditions(unittest.TestCase):
             self.assertIn("Cannot fetch", msg)
 
 
-class TestPaperEngineWatchlist(unittest.TestCase):
+class TestAlpacaPaperEngineWatchlist(unittest.TestCase):
     """Test watchlist loading."""
 
     def setUp(self):
@@ -359,7 +359,7 @@ class TestPaperEngineWatchlist(unittest.TestCase):
         self.assertEqual(result, [])
 
 
-class TestPaperEngineAnalyzeTicker(unittest.TestCase):
+class TestAlpacaPaperEngineAnalyzeTicker(unittest.TestCase):
     """Test ticker analysis."""
 
     def setUp(self):
@@ -422,7 +422,7 @@ class TestPaperEngineAnalyzeTicker(unittest.TestCase):
         self.assertEqual(result['ticker'], 'AAPL')
 
 
-class TestPaperEngineDailySignals(unittest.TestCase):
+class TestAlpacaPaperEngineDailySignals(unittest.TestCase):
     """Test daily signal reset."""
 
     def setUp(self):
@@ -452,20 +452,20 @@ class TestPaperEngineDailySignals(unittest.TestCase):
         self.assertEqual(self.engine.signaled_tickers, {'AAPL', 'MSFT'})
 
 
-class TestPaperEngineRunOnce(unittest.TestCase):
+class TestAlpacaPaperEngineRunOnce(unittest.TestCase):
     """Test run_once functionality."""
 
     def setUp(self):
         self.engine = create_engine_with_mocks()
 
-    @patch.object(PaperEngine, '_is_market_hours', return_value=True)
-    @patch.object(PaperEngine, '_check_exits')
-    @patch.object(PaperEngine, '_check_entries')
-    @patch.object(PaperEngine, '_print_status')
-    @patch.object(PaperEngine, '_reset_daily_signals')
+    @patch.object(AlpacaPaperEngine, '_is_market_hours', return_value=True)
+    @patch.object(AlpacaPaperEngine, '_check_exits')
+    @patch.object(AlpacaPaperEngine, '_check_entries')
+    @patch.object(AlpacaPaperEngine, '_print_status')
+    @patch.object(AlpacaPaperEngine, '_reset_daily_signals')
     def test_run_once_market_open(self, mock_reset, mock_print, mock_entries, mock_exits, mock_hours):
         """Test run_once during market hours."""
-        engine = PaperEngine.__new__(PaperEngine)
+        engine = AlpacaPaperEngine.__new__(AlpacaPaperEngine)
         engine._reset_daily_signals = mock_reset
         engine._print_status = mock_print
         engine._check_exits = mock_exits
@@ -479,12 +479,12 @@ class TestPaperEngineRunOnce(unittest.TestCase):
         mock_exits.assert_called_once()
         mock_entries.assert_called_once()
 
-    @patch.object(PaperEngine, '_is_market_hours', return_value=False)
-    @patch.object(PaperEngine, '_print_status')
-    @patch.object(PaperEngine, '_reset_daily_signals')
+    @patch.object(AlpacaPaperEngine, '_is_market_hours', return_value=False)
+    @patch.object(AlpacaPaperEngine, '_print_status')
+    @patch.object(AlpacaPaperEngine, '_reset_daily_signals')
     def test_run_once_market_closed(self, mock_reset, mock_print, mock_hours):
         """Test run_once when market closed."""
-        engine = PaperEngine.__new__(PaperEngine)
+        engine = AlpacaPaperEngine.__new__(AlpacaPaperEngine)
         engine._reset_daily_signals = mock_reset
         engine._print_status = mock_print
         engine._is_market_hours = mock_hours
@@ -497,14 +497,14 @@ class TestPaperEngineRunOnce(unittest.TestCase):
         mock_bprint.assert_called()  # Should print "market closed" message
 
 
-class TestPaperEngineSignalHandling(unittest.TestCase):
+class TestAlpacaPaperEngineSignalHandling(unittest.TestCase):
     """Test signal handling."""
 
     def test_signal_handler_sets_running_false(self):
         """Test SIGINT handler sets running to False."""
         with patch.object(PaperState, '_load_state', return_value=None):
             with patch('builtins.print'):
-                engine = PaperEngine.__new__(PaperEngine)
+                engine = AlpacaPaperEngine.__new__(AlpacaPaperEngine)
                 engine.state = Mock()
                 engine.state.initial_capital = 100000
                 engine.state.cash = 100000
@@ -522,7 +522,7 @@ class TestPaperEngineSignalHandling(unittest.TestCase):
                 self.assertFalse(engine.running)
 
 
-class TestPaperEngineExitExecution(unittest.TestCase):
+class TestAlpacaPaperEngineExitExecution(unittest.TestCase):
     """Test exit execution."""
 
     def setUp(self):
@@ -577,7 +577,7 @@ class TestPaperEngineExitExecution(unittest.TestCase):
         self.assertNotIn('AUTO-EXIT', printed)
 
 
-class TestPaperEngineEntryExecution(unittest.TestCase):
+class TestAlpacaPaperEngineEntryExecution(unittest.TestCase):
     """Test entry execution."""
 
     def setUp(self):
