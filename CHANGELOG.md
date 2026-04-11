@@ -57,6 +57,14 @@ All notable changes to this project will be documented in this file.
   - Files removed: 3
   - Impact: Clean data directory, no stale files
 
+- **`scripts/paper_engine.py` eliminated — superseded by `paper_engine_alpaca.py`**
+  - Legacy yfinance-based engine (prototype) replaced by Alpaca-powered production engine
+  - `paper_engine.py` used stale yfinance data (15-min delay) vs Alpaca real-time API
+  - `paper_engine_alpaca.py` has all modern features: WebSocket, order manager, FINDING fixes
+  - Per `YFINANCE_ELIMINATION_PLAN.md`: "Refactor to use `paper_engine_alpaca.py`"
+  - Lines removed: ~443
+  - Impact: Single production trading engine using real-time Alpaca data
+
 ### Added
 - **Order Storm Protection (FINDING-004) in `order_manager.py`**
   - Submission queue with TPS limiting to prevent rate limit 429 errors during signal bursts
