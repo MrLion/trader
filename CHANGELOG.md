@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- **`scripts/midday_scan.py` eliminated — duplicate of `entry_signals.py`**
+  - Both scripts performed Stage 2 scoring → entry score calculation → tier ranking → HTML/CSV export
+  - `midday_scan.py` used stale yfinance data (15-min delayed); `entry_signals.py` uses real-time Alpaca API
+  - Unique feature (dollar volume filter) not worth separate script maintenance
+  - Consolidated all scanning to single source of truth
+  - Lines removed: 557
+  - Impact: Cleaner codebase, real-time data only, no duplication
+
+- **`scripts/analyze_ticker.py` and `scripts/analyze_watchlist.py` consolidated into `entry_signals.py`**
+  - Both scripts duplicated analysis logic already present in `entry_signals.py`
+  - Used yfinance (15-min delay) instead of Alpaca real-time API
+  - Migration: `analyze_ticker.py TICKER` → `entry_signals.py --ticker TICKER`
+  - Migration: `analyze_watchlist.py --csv` → `entry_signals.py --export-csv`
+  - Migration: `analyze_watchlist.py --html` → `entry_signals.py --export-html`
+  - Lines removed: 472 (142 + 330)
+  - Lines added to `entry_signals.py`: 168
+  - Impact: Single source of truth, real-time data, consistent risk config integration
+  - Both scripts performed Stage 2 scoring → entry score calculation → tier ranking → HTML/CSV export
+  - `midday_scan.py` used stale yfinance data (15-min delayed); `entry_signals.py` uses real-time Alpaca API
+  - Unique feature (dollar volume filter) not worth separate script maintenance
+  - Consolidated all scanning to single source of truth
+  - Lines removed: 557
+  - Impact: Cleaner codebase, real-time data only, no duplication
+
 ### Changed
 - **Consolidate configuration files into single `config/` directory**
   - Moved `data/config/alpaca_config.json` → `config/secrets/alpaca_config.json`
