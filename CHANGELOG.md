@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.15] - 2026-04-10
 
 ### Fixed
 - **`paper_engine_alpaca.py` using stale Equity value instead of live Account Value**
