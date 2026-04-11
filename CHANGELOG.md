@@ -22,12 +22,13 @@ All notable changes to this project will be documented in this file.
   - Lines removed: 472 (142 + 330)
   - Lines added to `entry_signals.py`: 168
   - Impact: Single source of truth, real-time data, consistent risk config integration
-  - Both scripts performed Stage 2 scoring → entry score calculation → tier ranking → HTML/CSV export
-  - `midday_scan.py` used stale yfinance data (15-min delayed); `entry_signals.py` uses real-time Alpaca API
-  - Unique feature (dollar volume filter) not worth separate script maintenance
-  - Consolidated all scanning to single source of truth
-  - Lines removed: 557
-  - Impact: Cleaner codebase, real-time data only, no duplication
+
+- **`scripts/migrate_watchlist_stages.py` eliminated — one-time migration complete**
+  - Migrated watchlist from 4-point to 7-point Stage 2 scoring system
+  - Migration was already completed; all current entries use 7-point system
+  - `watchlist_manager.py` and `entry_signals.py` now use `calculate_stage2_score()` natively
+  - Lines removed: 69
+  - Impact: Removed obsolete one-time utility script
 
 ### Changed
 - **Consolidate configuration files into single `config/` directory**
