@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **Consolidate configuration files into single `config/` directory**
+  - Moved `data/config/alpaca_config.json` → `config/secrets/alpaca_config.json`
+  - Moved `data/config/example.alpaca_config.json` → `config/secrets/example.alpaca_config.json`
+  - App settings remain at `config/risk_config.yaml`
+  - Updated `alpaca_client.py` and `setup_alpaca.py` CONFIG_DIR paths
+  - Updated `.gitignore` to ignore credentials in new location
+  - Deleted empty `data/config/` directory
+  - Benefits: Single config location, clear secrets/ subdir separation
+  - Impact: Cleaner project structure, easier to find all configuration
+
 ## [0.3.15] - 2026-04-10
 
 ### Fixed
