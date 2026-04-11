@@ -2,49 +2,65 @@
 
 A systematic stock trading workflow system for momentum-driven swing trading, built on Python with Alpaca API (real-time) and yfinance fallback.
 
-## Overview
+## Table of Contents
 
-This is a command center for Stage 2 trading methodology (Mark Minervini's approach). The system helps you:
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Prerequisites](#prerequisites)
+- [Usage](#usage)
+- [Repository Structure](#repository-structure)
+- [Configuration](#configuration)
+- [Documentation](#documentation)
+- [License](#license)
 
-1. **Scan** markets for Stage 2 candidates (stocks in uptrends with strong relative strength)
-2. **Manage** a tiered watchlist (A=actionable, B=developing, C=radar)
-3. **Generate** pre-market and post-market reports
-4. **Execute** with discipline via entry/exit protocols
+## Features
+
+- **Real-time Trading Engine** - Automated entry/exit via Alpaca API with WebSocket data
+- **Stage 2 Screening** - 7-point momentum scoring system for trend identification
+- **Risk Management** - Position sizing, sector limits, trailing stops, daily loss limits
+- **Entry Signal Scanner** - Tier 1/2/3 rankings with proximity to pivot analysis
+- **Pre/Post Market Reports** - HTML reports with futures, VIX, economic calendar
+- **Watchlist Management** - Tier A/B/C tracking with automated scoring
+- **Paper Trading** - Test strategies with simulated or Alpaca paper accounts
+
+## Prerequisites
+
+- Python 3.11+
+- pip or uv package manager
+- Make (optional, for convenience commands)
+- Alpaca API keys (only for automated trading - scanners work without)
 
 ## Quick Start
 
 ### One-Command Setup
 
 ```bash
-# Run the setup script (creates directories, installs deps, copies .env, installs pre-commit hooks)
-./setup.sh
-
-# Or use Make
-make setup
+# Clone and setup
+git clone https://github.com/MrLion/trader.git
+cd trader
+./setup.sh        # Or: make setup
 ```
 
 ### Manual Setup
 
+<details>
+<summary>Click to expand manual setup steps</summary>
+
 ```bash
-# 1. Install package in editable mode (recommended)
+# 1. Install package
 pip install -e .
 
-# Or install dependencies only
-pip install -r requirements.txt
-
-# 2. Copy environment template and configure
+# 2. Configure environment
 cp .env.example .env
-# Edit .env with your API keys (optional, for Telegram and Alpaca)
+# Edit .env with your API keys (optional)
 
-# 3. Create required directories
-mkdir -p data/config scans reports memory
+# 3. Create directories
+mkdir -p data scans reports memory
 
-# 4. (Optional) Install pre-commit hooks
-pre-commit install
-
-# 5. Run your first analysis
+# 4. Run first analysis
 python3 scripts/entry_signals.py --ticker AAPL
 ```
+</details>
 
 ## Repository Structure
 
@@ -253,88 +269,22 @@ python3 scripts/paper_portfolio.py close AAPL --reason "manual"
 
 ## Trading Framework
 
-### Stage 2 Criteria (7-Point System)
+The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.MD) for complete trading playbook.
 
-| Criterion | Points | Description |
-|-----------|--------|-------------|
-| Price > 50 MA | 1 pt | Short-term trend confirmation |
-| Price > 100 MA | 1 pt | Medium-term trend confirmation |
-| Price > 200 MA | 1 pt | Long-term trend confirmation |
-| MA Stacking (50 > 100 > 200) | 1 pt | Proper moving average alignment |
-| 200 MA Rising (20+ days) | 1 pt | Sustained uptrend confirmation |
-| Within 25% of 52-week high | 1 pt | Proximity to highs |
-| >= 1.25x 52-week low | 1 pt | Recovery from lows |
+### Quick Reference
 
-**Compliance Thresholds:**
-- 6-7 pts: Excellent Stage 2 (Tier 1 quality)
-- 4-5 pts: Good Stage 2 (Tier 2 quality)
-- <4 pts: Developing (Tier 3)
+**Stage 2 Criteria (7-Point):** Price > 50/100/200 MA, MA stacking, rising 200 MA, within 25% of high, 1.25x from low
 
-### Universe Filter
+**Entry Score Tiers:**
+- **Tier 1 (>=60 pts):** Best setups - Price within +/-1% of pivot, Stage 2 >=6/7, Volume >=1.5x avg
+- **Tier 2 (40-59 pts):** Good setups - Wait for better entry
+- **Tier 3 (<40 pts):** Monitor only
 
-- Price >= $10
-- Average daily dollar volume >= $20M
-- Market cap >= $1B
-- NYSE/NASDAQ only
-
-### Entry Score Tiers
-
-Calculated using scoring formulae (max 110 pts):
-
-| Component | Max Points | Criteria |
-|-----------|------------|----------|
-| Stage 2 Score | 30 pts | >=6/7 = +30, >=5/7 = +25, >=4/7 = +20, >=3/7 = +10, >=2/7 = +5, <2 = +0 |
-| Risk % | 30 pts | <10% = +30, <15% = +20, <20% = +10, <25% = +5, >=25% = +0 |
-| Proximity | 25 pts | Within +/-3% of pivot = +25, +/-5% = +15, +/-10% = +5 |
-| Momentum | 15 pts | 6M return >50% = +15, >25% = +10, <=25% = +0 |
-| Relative Strength | 10 pts | RS 6M >20% = +10, >10% = +5, <=10% = +0 |
-
-| Tier | Score | Stage 2 Min | Meaning |
-|------|-------|-------------|---------|
-| Tier 1 | >= 60 pts | 6/7 | Best entry setups -- ready now |
-| Tier 2 | 40-59 pts | 4/7 | Good setups -- wait for better entry |
-| Tier 3 | < 40 pts | <4/7 | Monitor only -- too far or too wide |
-
-### Entry Protocol (Manual)
-
-1. **Trigger:** Price within +/-1% of pivot
-2. **Volume:** Tracking >= 1.5x 50-day average
-3. **Market:** SPY/QQQ green or <= 0.3% down
-4. **Risk Calc:** Account risk = 0.75% equity; Shares = Account risk / Risk per share
-5. **Execute:** Limit buy with stop-market placed immediately
-
-### Auto-Entry Rules (Alpaca Engine)
-
-The engine enters when **ALL** conditions are met:
-
-| Rule | Threshold |
-|------|-----------|
-| Entry Score | >= 60 (Tier 1) |
-| Distance to Pivot | +/- 1% (symmetric) |
-| Volume | >= 1.5x average |
-| Market Condition | SPY >= -0.3% |
-| Sector Limit | < 3 positions/sector |
-| Position Size | < 20% equity |
-| Daily Entries | <= 5 per day (circuit breaker) |
-| Daily Loss | > -2% equity (stop trading) |
-
-### Auto-Exit Rules
-
-| R Multiple | Stop Type | Trigger |
-|------------|-----------|---------|
-| +1R | BREAKEVEN | Move to entry price |
-| +1.5-2R | EMA10 | Trail 10-day EMA |
-| +3R+ | EMA21 | Trail 21-day EMA |
-| Hard Stop | Initial | Price hits 2xATR stop |
-| Target | 2R+ | Profit target hit |
-
-### Position Management
-
-- Max 3 positions per GICS sector
-- Position size < 20% of equity
-- Trailing stops: +1R -> breakeven, +1.5-2R -> 10 EMA, +3R+ -> 21 EMA
-- Profit target: Min 2R
-- Account risk per trade: 0.75%
+**Risk Rules:**
+- 0.75% account risk per trade
+- Max 3 positions per sector
+- Position size < 20% equity
+- Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
 
 ## Data Model
 
@@ -346,42 +296,45 @@ The watchlist (`data/watchlist.csv`) tracks:
 
 ## Development
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing commands, CI/CD workflow details, and contribution guidelines.
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing commands, CI/CD workflow details, and contribution guidelines.
 
 ## Configuration
 
-### Environment Variables (.env)
+Copy `.env.example` to `.env` and configure:
 
-All API credentials can be configured via a `.env` file in the project root (copied from `.env.example`):
-
+**Required for Trading:**
 ```bash
-# Alpaca API (required for paper/live trading)
-ALPACA_API_KEY=your_alpaca_api_key_here
-ALPACA_SECRET_KEY=your_alpaca_secret_key_here
-
-# Telegram (optional - for report delivery)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=-4872065090
-
-# MC Stock Charts (optional - for scraper)
-MCSTOCK_USER=your_username_here
-MCSTOCK_PASS=your_password_here
+ALPACA_API_KEY=your_key
+ALPACA_SECRET_KEY=your_secret
 ```
 
-### Other Environment Variables
+**Optional:**
+- `TELEGRAM_BOT_TOKEN` - For report delivery
+- `MCSTOCK_USER/PASS` - For MC Stock Charts scraper
 
-| Variable | Purpose | Default |
+**Other Variables:**
+| Variable | Default | Purpose |
 |----------|---------|---------|
-| `PAPER_TRADING_DATA_DIR` | Data directory for paper trading state | `./data` |
-| `TRADER_WATCHLIST` | Path to custom watchlist CSV | `./data/watchlist.csv` |
-| `TRADER_OUTPUT` | Path to custom output directory | `./reports` |
+| `PAPER_TRADING_DATA_DIR` | `./data` | Data directory for state |
+| `TRADER_WATCHLIST` | `./data/watchlist.csv` | Custom watchlist path |
+| `TRADER_OUTPUT` | `./reports` | Output directory |
 
-**Example:**
-```bash
-# Use custom data directory (useful for testing)
-export PAPER_TRADING_DATA_DIR=/path/to/test/data
-python3 scripts/paper_engine_alpaca.py
-```
+## FAQ
+
+**Do I need Alpaca API keys to use the scanners?**
+No. Scanners and reports work with Yahoo Finance data. Only automated trading requires Alpaca.
+
+**What's the difference between paper trading and the scanners?**
+Scanners analyze stocks and generate reports. The paper trading engine (`paper_engine_alpaca.py`) executes trades automatically based on scanner signals.
+
+**How do I reset my paper trading data?**
+Delete `data/paper_positions.json` and restart the engine. It will sync fresh data from Alpaca.
+
+**Where are my trade logs stored?**
+All trades are logged to `data/paper_trades.jsonl` (JSON Lines format, append-only).
+
+**Can I run this on a server?**
+Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with environment variables set.
 
 ## External Integrations
 
