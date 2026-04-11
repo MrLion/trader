@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.12] - 2026-04-10
+
+### Fixed
+- **`get_latest_price()` using wrong endpoint**
+  - Was using `StockTradesRequest` which returned stale/after-hours trade prices
+  - Caused $142 account value discrepancy vs Alpaca UI (e.g., AMD $236.35 vs $245.50)
+  - Fix: Now uses position API `current_price` first (marked-to-market) for held positions
+  - Fix: Falls back to `StockLatestQuoteRequest` (bid/ask midpoint) for non-positions
+  - Impact: All prices now match Alpaca UI exactly; eliminated price source discrepancy
+
 ## [0.3.11] - 2026-04-10
 
 ### Fixed

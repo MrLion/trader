@@ -133,16 +133,27 @@ class AlpacaClient:
             raise
 
     def get_latest_price(self, ticker: str, use_fallback: bool = True) -> Optional[float]:
-        """Get latest trade price with rate limiting and fallback.
+        """Get current marked-to-market price.
+
+        Uses position API current_price when position exists (most accurate),
+        falls back to quotes API for non-positions.
 
         Args:
             ticker: Stock symbol
             use_fallback: If True, fallback to yfinance on failure
+
+        Returns:
+            Current price or None if unavailable
         """
         # Check WebSocket cache first
         cached = self.get_cached_price(ticker)
         if cached:
             return cached
+
+        # 1. If we have a position, use position API's current_price (marked to market)
+        position = self.get_position(ticker)
+        if position and position.get('current_price'):
+            return float(position['current_price'])
 
         if not self.rate_limiter.can_make_request():
             if use_fallback:
@@ -150,14 +161,25 @@ class AlpacaClient:
             return None
 
         try:
+            # 2. Use quotes API (bid/ask midpoint) for non-positions
             self.rate_limiter.record_request()
-            from alpaca.data.requests import StockTradesRequest
+            from alpaca.data.requests import StockLatestQuoteRequest
 
-            request = StockTradesRequest(symbol_or_symbols=ticker)
-            trades = self.data_client.get_stock_trades(request)
+            request = StockLatestQuoteRequest(symbol_or_symbols=ticker)
+            quotes = self.data_client.get_stock_latest_quote(request)
 
-            if ticker in trades.data and len(trades.data[ticker]) > 0:
-                price = float(trades.data[ticker][0].price)
+            if ticker in quotes.data:
+                quote = quotes.data[ticker]
+                # Use bid/ask midpoint for fair value
+                if quote.bid_price and quote.ask_price:
+                    price = float((quote.bid_price + quote.ask_price) / 2)
+                elif quote.bid_price:
+                    price = float(quote.bid_price)
+                elif quote.ask_price:
+                    price = float(quote.ask_price)
+                else:
+                    return None
+
                 self.rate_limiter.record_success()
                 health_monitor.mark_success('alpaca')
                 return price
