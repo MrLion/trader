@@ -348,24 +348,35 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 
 ## Documentation
 
-- `AGENTS.MD` - Complete trading playbook with operating rhythm, entry/exit protocols, and journaling guidelines
-- `CLAUDE.md` - Development operations and architecture notes
-- `TOOLS.md` - Technical documentation for yfinance and script usage
-- `docs/DEVELOPMENT.md` - Development setup, testing, and CI/CD guide
-- `docs/RISK_GUIDE.md` - Risk management configuration and position sizing
+### Essential Trading Guides
 
-## Operational Runbooks
+| File | What It Covers | When to Read |
+|------|----------------|--------------|
+| **[AGENTS.MD](AGENTS.MD)** | Complete trading playbook, operating rhythm, entry/exit protocols | **Start here** - Read before trading |
+| **[docs/RISK_GUIDE.md](docs/RISK_GUIDE.md)** | Risk management, position sizing, stop rules, daily loss limits | Before configuring the engine |
 
-Failure mode documentation for production incidents:
+### Operational Runbooks
 
-- [API Outage](docs/runbooks/api_outage.md) - Alpaca API down, connection timeouts
-- [Partial Fill](docs/runbooks/partial_fill.md) - Position size doesn't match order
-- [Stuck Position](docs/runbooks/stuck_position.md) - Can't exit, ticker halted/delisted
-- [Data Quality](docs/runbooks/data_quality.md) - Entry scores wrong, Stage 2 miscalculated
+Troubleshooting guides for production issues:
 
-## Recent Changes
+| Issue | Guide |
+|-------|-------|
+| API connection failures, timeouts | [API Outage](docs/runbooks/api_outage.md) |
+| Position size doesn't match order | [Partial Fill](docs/runbooks/partial_fill.md) |
+| Can't exit, ticker halted/delisted | [Stuck Position](docs/runbooks/stuck_position.md) |
+| Wrong entry scores, bad data | [Data Quality](docs/runbooks/data_quality.md) |
 
-See [CHANGELOG.md](CHANGELOG.md) for a complete history of changes.
+### Developer Resources
+
+| File | Purpose |
+|------|---------|
+| [CLAUDE.md](CLAUDE.md) | Development operations and architecture notes |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, CI/CD workflows |
+| [TOOLS.md](TOOLS.md) | yfinance technical documentation |
+
+### Reference
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history and recent changes
 
 ## License
 
