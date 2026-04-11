@@ -55,11 +55,16 @@ class ExitEngine:
             self.risk_config = None
 
     def _get_cached_data(self, ticker: str) -> Optional[pd.DataFrame]:
-        """Fetch and cache price data with 5-minute TTL."""
+        """Fetch and cache price data with configurable TTL."""
         now = datetime.now()
 
-        # Clear cache if older than 5 minutes
-        if self.cache_timestamp and (now - self.cache_timestamp).seconds > 300:
+        # Get cache TTL from config (default 5 minutes = 300 seconds)
+        cache_ttl = 300
+        if self.risk_config:
+            cache_ttl = self.risk_config.cache.ttl_seconds
+
+        # Clear cache if older than TTL
+        if self.cache_timestamp and (now - self.cache_timestamp).seconds > cache_ttl:
             self.price_cache = {}
             self.cache_timestamp = None
 
@@ -69,9 +74,11 @@ class ExitEngine:
                 # Get 60 days for EMA calculations
                 hist = stock.history(period="60d", interval="1d")
                 if len(hist) >= 50:
-                    # Calculate EMAs
-                    hist['EMA10'] = hist['Close'].ewm(span=10, adjust=False).mean()
-                    hist['EMA21'] = hist['Close'].ewm(span=21, adjust=False).mean()
+                    # Calculate EMAs using configured periods
+                    ema_short = self.risk_config.profit_target.ema_short_period if self.risk_config else 10
+                    ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+                    hist['EMA10'] = hist['Close'].ewm(span=ema_short, adjust=False).mean()
+                    hist['EMA21'] = hist['Close'].ewm(span=ema_long, adjust=False).mean()
                     self.price_cache[ticker] = hist
                     self.cache_timestamp = now
                 else:
@@ -94,9 +101,10 @@ class ExitEngine:
         return current_pnl / total_initial_risk if total_initial_risk > 0 else 0.0
 
     def _get_ema_values(self, ticker: str) -> Tuple[Optional[float], Optional[float]]:
-        """Get current EMA10 and EMA21 values."""
+        """Get current short and long EMA values."""
         hist = self._get_cached_data(ticker)
-        if hist is None or len(hist) < 21:
+        ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+        if hist is None or len(hist) < ema_long:
             return None, None
 
         return hist['EMA10'].iloc[-1], hist['EMA21'].iloc[-1]
@@ -305,8 +313,9 @@ class ExitEngine:
 
         risk = entry_price - stop_price
         if risk <= 0:
-            # Fallback: 10% above entry
-            return round(entry_price * 1.10, 2)
+            # Fallback: configurable % above entry (default 10%)
+            fallback_pct = self.risk_config.profit_target.fallback_target_pct if self.risk_config else 0.10
+            return round(entry_price * (1 + fallback_pct), 2)
 
         target = entry_price + (risk * r_multiple)
         return round(target, 2)

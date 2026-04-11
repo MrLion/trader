@@ -59,17 +59,32 @@ stop_loss:
   fallback_pct: 0.07  # 7% below entry
 
 # =============================================================================
+# CACHE CONFIGURATION
+# =============================================================================
+cache:
+  # Price data cache TTL in seconds
+  ttl_seconds: 300  # 5 minutes
+
+# =============================================================================
 # PROFIT TARGET CONFIGURATION
 # =============================================================================
 profit_target:
   # Minimum R multiple to take profit
   min_r_multiple: 2.0  # At least 2:1 reward/risk
 
+  # Fallback target if R calculation fails (decimal pct)
+  fallback_target_pct: 0.10  # 10% above entry
+
   # Trailing stop activation levels
   trailing_stops:
     breakeven_at_r: 1.0      # Move to breakeven at +1R
     ema10_at_r: 1.5        # Trail 10 EMA starting at +1.5R
     ema21_at_r: 3.0        # Trail 21 EMA starting at +3R
+
+  # EMA periods for trailing stops (days)
+  ema_periods:
+    short: 10    # EMA for early trailing (+1.5R)
+    long: 21     # EMA for late trailing (+3R)
 
 # =============================================================================
 # ENTRY SCORE THRESHOLDS

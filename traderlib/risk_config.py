@@ -45,9 +45,18 @@ class StopLossConfig:
 class ProfitTargetConfig:
     """Profit target and trailing stop settings."""
     min_r_multiple: float = 2.0
+    fallback_target_pct: float = 0.10  # 10% above entry
     breakeven_at_r: float = 1.0
     ema10_at_r: float = 1.5
     ema21_at_r: float = 3.0
+    ema_short_period: int = 10  # EMA for early trailing
+    ema_long_period: int = 21   # EMA for late trailing
+
+
+@dataclass
+class CacheConfig:
+    """Cache settings."""
+    ttl_seconds: int = 300  # 5 minutes
 
 
 @dataclass
@@ -74,6 +83,7 @@ class RiskConfig:
     profit_target: ProfitTargetConfig = field(default_factory=ProfitTargetConfig)
     entry: EntryConfig = field(default_factory=EntryConfig)
     market: MarketFilterConfig = field(default_factory=MarketFilterConfig)
+    cache: CacheConfig = field(default_factory=CacheConfig)
 
 
 class RiskConfigManager:
@@ -170,6 +180,19 @@ class RiskConfigManager:
                     config.profit_target.ema21_at_r = ts['ema21_at_r']
             if 'min_r_multiple' in pt_data:
                 config.profit_target.min_r_multiple = pt_data['min_r_multiple']
+            if 'fallback_target_pct' in pt_data:
+                config.profit_target.fallback_target_pct = pt_data['fallback_target_pct']
+            if 'ema_periods' in pt_data:
+                ema = pt_data['ema_periods']
+                if 'short' in ema:
+                    config.profit_target.ema_short_period = ema['short']
+                if 'long' in ema:
+                    config.profit_target.ema_long_period = ema['long']
+
+        if 'cache' in data:
+            for key, val in data['cache'].items():
+                if hasattr(config.cache, key):
+                    setattr(config.cache, key, val)
 
         if 'entry' in data:
             for key, val in data['entry'].items():
@@ -234,6 +257,8 @@ class RiskConfigManager:
         print(f"Min Stop Distance:  {cfg.stop_loss.min_stop_distance_pct*100:.2f}%")
         print(f"Min R Target:       {cfg.profit_target.min_r_multiple}")
         print(f"Entry Threshold:    {cfg.entry.min_entry_score}")
+        print(f"EMA Periods:        {cfg.profit_target.ema_short_period}/{cfg.profit_target.ema_long_period}")
+        print(f"Cache TTL:          {cfg.cache.ttl_seconds}s")
         print("="*50)
 
 
