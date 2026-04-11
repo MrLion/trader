@@ -28,7 +28,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 
 # Config path
-CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/config')
+CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/secrets')
 CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 
 # Import rate limiter

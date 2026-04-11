@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/config')
+CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/secrets')
 CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 
 

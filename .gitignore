@@ -10,7 +10,7 @@ reports/*.html
 .gstack/
 
 # Alpaca API credentials (never commit these!)
-data/config/alpaca_config.json
+config/secrets/alpaca_config.json
 
 # Alpaca order data (runtime state)
 data/alpaca_orders.json
