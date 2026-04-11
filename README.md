@@ -286,6 +286,8 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - Position size < 20% equity
 - Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
 
+See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with examples.
+
 ## Data Model
 
 The watchlist (`data/watchlist.csv`) tracks:
