@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **FINDING-009: Concurrent file writes — Added atomic write protection**
+  - Added `_atomic_write_json()` function to `traderlib/paper_state.py`
+  - Added `_atomic_write_json()` function to `traderlib/order_manager.py`
+  - Updated `save_state()`, `_save_daily_tracker()`, and `_save_orders()` to use atomic writes
+  - Pattern: Write to temp file → atomic rename → replaces target only if write succeeds
+  - Prevents data corruption if process crashes during file write
+  - Impact: Data integrity guaranteed even on crashes or power failures
+
 - **Fixed failing GitHub Actions test suite**
   - Updated `tests/test_paper_engine.py`: Changed import from removed `paper_engine` to `paper_engine_alpaca`
   - Updated `tests/test_paper_engine_new_coverage.py`: Removed tests for deprecated `paper_engine` module (Groups 1-5), kept `paper_engine_alpaca` tests (Groups 6-12)

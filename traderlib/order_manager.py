@@ -4,6 +4,7 @@
 import json
 import os
 import queue
+import tempfile
 import threading
 import time
 from datetime import datetime
@@ -11,6 +12,28 @@ from pathlib import Path
 from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, asdict, field
 from enum import Enum
+
+
+def _atomic_write_json(filepath: Path, data: dict) -> None:
+    """Write JSON atomically using temp file + rename.
+
+    Prevents data corruption if process crashes during write.
+    FINDING-009: Concurrent file writes protection.
+    """
+    filepath = Path(filepath)
+    dir_name = filepath.parent
+
+    fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(data, f, indent=2)
+        os.replace(temp_path, filepath)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 class OrderStatus(Enum):
@@ -228,7 +251,10 @@ class OrderManager:
                 print(f"⚠️ Error loading orders: {e}")
 
     def _save_orders(self):
-        """Save orders to disk."""
+        """Save orders to disk atomically.
+
+        FINDING-009: Concurrent file writes protection.
+        """
         try:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             data = {
@@ -236,8 +262,7 @@ class OrderManager:
                 'filled': {k: v.to_dict() for k, v in self.filled_orders.items()},
                 'timestamp': datetime.now().isoformat()
             }
-            with open(self.orders_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            _atomic_write_json(self.orders_file, data)
         except Exception as e:
             print(f"⚠️ Error saving orders: {e}")
 

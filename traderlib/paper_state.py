@@ -3,10 +3,36 @@
 
 import json
 import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
+
+
+def _atomic_write_json(filepath: Path, data: dict) -> None:
+    """Write JSON atomically using temp file + rename.
+
+    Prevents data corruption if process crashes during write.
+    FINDING-009: Concurrent file writes protection.
+    """
+    filepath = Path(filepath)
+    dir_name = filepath.parent
+
+    # Write to temp file in same directory (atomic rename requires same filesystem)
+    fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(data, f, indent=2)
+        # Atomic rename - replaces target file only if write succeeds
+        os.replace(temp_path, filepath)
+    except Exception:
+        # Clean up temp file on any error
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
@@ -252,23 +278,28 @@ class PaperState:
         return stats
 
     def save_state(self):
-        """Save current state to disk (positions + daily tracker only)."""
-        # Save positions
-        positions_dict = {ticker: pos.to_dict() for ticker, pos in self.positions.items()}
-        with open(POSITIONS_FILE, 'w') as f:
-            json.dump(positions_dict, f, indent=2)
+        """Save current state to disk (positions + daily tracker only).
 
-        # Save daily tracker (only thing that needs persistence)
+        Uses atomic writes to prevent corruption if process crashes.
+        FINDING-009: Concurrent file writes protection.
+        """
+        # Save positions atomically
+        positions_dict = {ticker: pos.to_dict() for ticker, pos in self.positions.items()}
+        _atomic_write_json(POSITIONS_FILE, positions_dict)
+
+        # Save daily tracker atomically
         self._save_daily_tracker()
 
     def _save_daily_tracker(self):
-        """Save daily tracking data."""
+        """Save daily tracking data atomically.
+
+        FINDING-009: Concurrent file writes protection.
+        """
         daily_data = {
             'last_entry_reset': self.last_entry_reset,
             'timestamp': datetime.now().isoformat()
         }
-        with open(DAILY_TRACKER_FILE, 'w') as f:
-            json.dump(daily_data, f, indent=2)
+        _atomic_write_json(DAILY_TRACKER_FILE, daily_data)
 
     def get_equity(self) -> float:
         """Calculate total equity (cash + position values)."""
