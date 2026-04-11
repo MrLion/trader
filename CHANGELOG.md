@@ -18,6 +18,13 @@ All notable changes to this project will be documented in this file.
   - Fixed all 3 test mocks to include correct keys: `'added'`, `'removed'`, `'discrepancies'`, `'synced'`
   - Impact: Tests no longer generate false exception log entries
 
+- **CI/CD test failures after `paper_account.json` elimination (v0.3.14)**
+  - Tests still referenced `paper_state.ACCOUNT_FILE` which no longer exists
+  - Fixed 4 occurrences in `test_integration_paper_engine.py`
+  - Fixed 7 occurrences in `test_paper_state_recovery.py`
+  - Updated `test_paper_portfolio.py` to mock AlpacaClient and `load_json_file` properly
+  - Impact: All 417 tests now pass in CI/CD pipeline
+
 ## [0.3.14] - 2026-04-10
 
 ### Removed
