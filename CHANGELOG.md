@@ -30,6 +30,51 @@ All notable changes to this project will be documented in this file.
   - Lines removed: 69
   - Impact: Removed obsolete one-time utility script
 
+- **`scripts/clean_trade_log.py` consolidated into `clean_test_trades.py`**
+  - Merged detection rules: test_mode flag, AAPL@$150 pattern, validation_failed + test tickers
+  - Added `--auto` flag to `clean_test_trades.py` for non-interactive mode (replaces `clean_trade_log.py`)
+  - Simplified backup to always create `.jsonl.backup` extension
+  - Lines removed: 68
+  - Impact: Single cleanup script with all detection patterns
+
+- **`scripts/temp_portfolio_status.py` eliminated**
+  - Duplicated `paper_portfolio.py status` command functionality
+  - Used deprecated yfinance (15-min delay) vs Alpaca real-time API
+  - Had hardcoded account values, no trade log integration
+  - Lines removed: ~50
+  - Impact: Use `python3 scripts/paper_portfolio.py status` instead
+
+- **`RELEASE_NOTES.md` eliminated**
+  - Outdated release notes (v0.3.1 from 2026-04-09) vs current CHANGELOG.md (v0.3.15)
+  - Avoids duplication and maintenance burden of dual files
+  - Lines removed: 64
+  - Impact: Single source of truth for release history
+
+- **Orphaned JSON data files removed**
+  - `data/portfolio.json` — Stale, superseded by `paper_positions.json`
+  - `data/regime_tracker.json` — Stale, regime tracked in `memory/` now
+  - `data/screening_criteria.json` — Orphaned, scanners use `risk_config.yaml`
+  - Files removed: 3
+  - Impact: Clean data directory, no stale files
+
+### Added
+- **Order Storm Protection (FINDING-004) in `order_manager.py`**
+  - Submission queue with TPS limiting to prevent rate limit 429 errors during signal bursts
+  - QueuedOrder dataclass with priority support for urgent orders
+  - Background worker thread for async queue processing
+  - Configurable max orders per second (default 2.0 TPS)
+  - Graceful shutdown with `wait_for_queue_empty()`
+  - Queue stats tracking: submitted, queued, rejected, errors
+  - Lines added: ~310
+  - Impact: Prevents API rate limits during high-frequency signals, prioritizes critical orders
+
+### Fixed
+- **`clean_test_trades.py` unrealistic price threshold raised**
+  - Changed from $400 to $5000 to prevent false flagging of legitimate high-priced stocks
+  - CAT (~$788), META, AMZN were incorrectly flagged as test data
+  - Now only flags extreme test data errors while preserving legitimate entries
+  - Impact: Legitimate high-priced stock trades no longer filtered as test data
+
 ### Changed
 - **Consolidate configuration files into single `config/` directory**
   - Moved `data/config/alpaca_config.json` → `config/secrets/alpaca_config.json`
