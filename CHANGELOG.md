@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **FINDING-013: R-multiple drift — Store initial_stop_price as immutable**
+  - Added `initial_stop_price` field to Position dataclass (immutable after entry)
+  - Updated R-multiple calculation in `ExitEngine.evaluate_exit()` to use `initial_stop_price`
+  - Priority order: `initial_stop_price` → `initial_risk` → `current_stop` (last resort)
+  - Updated `Position.from_dict()` to migrate legacy positions (derives from stop_price if missing)
+  - Updated `PaperState.enter_position()` to set `initial_stop_price` at creation
+  - Updated `paper_engine_alpaca.py` Position creation to include `initial_stop_price`
+  - Impact: Prevents R-multiple calculation drift when stops ratchet (breakeven/EMA trailing)
+
 - **FINDING-006: Stale price cache poisoning — Added staleness rejection**
   - Added `price_cache_max_age = 30` (30 second staleness threshold) to `AlpacaClient`
   - Modified `get_cached_price()` to check timestamp before returning cached price

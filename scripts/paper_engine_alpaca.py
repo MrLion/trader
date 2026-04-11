@@ -157,7 +157,8 @@ class AlpacaPaperEngine:
                         target_price=target_price,
                         initial_risk=(pos['avg_price'] - stop_price) * pos['qty'] if stop_price else 0,
                         sector=sector,
-                        current_stop_type='UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD'
+                        current_stop_type='UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD',
+                        initial_stop_price=stop_price  # FINDING-013: Immutable initial stop
                     )
                     self.state.positions[ticker] = position
 

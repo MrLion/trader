@@ -72,6 +72,9 @@ class Position:
     exit_date: Optional[str] = None
     exit_reason: Optional[str] = None
     realized_pnl: Optional[float] = None
+    # FINDING-013: Immutable initial stop - never changes after entry
+    # Used for accurate R-multiple calculation regardless of stop ratcheting
+    initial_stop_price: Optional[float] = None
 
     @property
     def position_value(self) -> float:
@@ -135,6 +138,15 @@ class Position:
                 mapped_data['initial_risk'] = calculated_risk
             elif 'initial_risk' not in mapped_data:
                 mapped_data['initial_risk'] = 0.0
+
+        # FINDING-013: Migration - set initial_stop_price if missing
+        # Use stop_price as the source of truth for initial stop
+        # This handles legacy positions created before this field existed
+        if 'initial_stop_price' not in mapped_data or mapped_data['initial_stop_price'] is None:
+            if stop and stop > 0:
+                mapped_data['initial_stop_price'] = stop
+            else:
+                mapped_data['initial_stop_price'] = None
 
         return cls(**mapped_data)
 
@@ -378,7 +390,8 @@ class PaperState:
             stop_price=stop_price,
             target_price=target_price,
             initial_risk=initial_risk,
-            sector=sector
+            sector=sector,
+            initial_stop_price=stop_price  # FINDING-013: Immutable initial stop
         )
 
         self.positions[ticker] = position

@@ -159,11 +159,21 @@ class ExitEngine:
         shares = position.shares
         current_stop = position.stop_price
 
-        # Calculate R multiple using stored initial_risk so it stays correct
-        # after stop ratchets (current stop != original stop after breakeven/EMA trailing)
-        if getattr(position, 'initial_risk', 0) > 0:
+        # FINDING-013: Use immutable initial_stop_price for accurate R-multiple
+        # This prevents R-multiple drift when stop ratchets up (breakeven/EMA trailing)
+        initial_stop = getattr(position, 'initial_stop_price', None)
+        if initial_stop is None and position.stop_price > 0:
+            # Migration: derive from current stop if initial not stored (legacy positions)
+            initial_stop = position.stop_price
+
+        if initial_stop and initial_stop > 0:
+            r_multiple = self._calculate_r_multiple(current_price, entry_price,
+                                                     initial_stop, shares)
+        elif getattr(position, 'initial_risk', 0) > 0:
+            # Fallback: use pre-calculated initial_risk
             r_multiple = ((current_price - entry_price) * shares) / position.initial_risk
         else:
+            # Last resort: may have drift if stop has ratcheted
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
                                                      current_stop, shares)
 
