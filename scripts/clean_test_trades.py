@@ -6,7 +6,7 @@ CLEAN TEST TRADES - Phase 1: Data Cleanup Utility
 Removes test/development entries from production paper_trades.jsonl.
 
 Test entries are identified by:
-- Unrealistic entry prices (> $400 for most stocks)
+- Unrealistic entry prices (> $5000 - extreme test data errors)
 - Unusually high share counts (> 500 shares)
 - Missing required fields
 - Duplicate entries from repeated test runs
@@ -74,8 +74,9 @@ def is_test_entry(trade: Dict, strict: bool = False, seen_signatures: set = None
     if entry_price == 200.0 and shares == 100 and ticker == 'AAPL':
         return True, "known_test_pattern_200_100"
 
-    # Realistic price check (most stocks are under $500)
-    if entry_price > 400:
+    # Realistic price check (flag extreme prices that are likely test data errors)
+    # Note: Many legitimate stocks trade above $400 (CAT, META, AMZN, etc.)
+    if entry_price > 5000:
         return True, f"unrealistic_price_{entry_price}"
 
     # Realistic position size check
