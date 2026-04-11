@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.16] - 2026-04-11
+
 ### Added
 - **GS-001: Python version check in setup.sh**
   - Added strict Python 3.11+ version check
