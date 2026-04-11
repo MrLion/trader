@@ -41,6 +41,8 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 
 ## Quick Start
 
+**New user?** See the [Getting Started Guide](docs/getting-started.md) for complete onboarding with first workflow, daily rhythm, and troubleshooting.
+
 ### One-Command Setup
 
 ```bash
@@ -50,36 +52,20 @@ cd trader
 ./setup.sh        # Or: make setup
 ```
 
-### Manual Setup
-
-<details>
-<summary>Click to expand manual setup steps</summary>
-
-```bash
-# 1. Install package
-pip install -e .
-
-# 2. Configure environment
-cp .env.example .env
-# Edit .env with your API keys (optional)
-
-# 3. Create directories
-mkdir -p data scans reports memory
-
-# 4. Run first analysis
-python3 scripts/entry_signals.py --ticker AAPL
-```
-</details>
-
 ### Verify Setup
 
 ```bash
+# Check everything is configured
+make doctor       # GS-002: Config validation
+
 # Run tests to verify everything works
 make test
 
 # Check entry signals scanner
 python3 scripts/entry_signals.py --help
 ```
+
+**Next steps:** See [docs/getting-started.md](docs/getting-started.md) for your first workflow.
 
 ## Scripts by Function
 
