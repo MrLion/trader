@@ -344,50 +344,9 @@ The watchlist (`data/watchlist.csv`) tracks:
 - Sector, Industry, Pattern_Type
 - Notes, Added_Date
 
-## Development Commands
+## Development
 
-Use the Makefile for common development tasks:
-
-```bash
-# Setup (run once)
-make setup              # Full setup (directories, deps, .env, pre-commit hooks)
-
-# Testing
-make test               # Run test suite with coverage
-make test-coverage      # Generate HTML coverage report
-
-# Code Quality (pre-commit hooks)
-pre-commit run          # Run hooks on staged files
-pre-commit run --all-files  # Run hooks on all files
-make lint               # Run linter (flake8)
-make format             # Format code with black
-
-# Maintenance
-make clean              # Remove cache files
-```
-
-### Pre-commit Hooks
-
-Pre-commit hooks automatically check code quality before each commit:
-
-```bash
-# Install hooks (one-time setup)
-pre-commit install
-
-# Run manually
-pre-commit run
-
-# Skip hooks for a specific commit (emergency only)
-git commit -m "message" --no-verify
-```
-
-Hooks configured:
-- **trailing-whitespace** - Removes trailing whitespace
-- **end-of-file-fixer** - Ensures files end with a newline
-- **black** - Python code formatting
-- **isort** - Import sorting
-- **flake8** - Python linting
-- **check-yaml/json/toml** - Syntax validation
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing commands, CI/CD workflow details, and contribution guidelines.
 
 ## Configuration
 
@@ -424,33 +383,6 @@ export PAPER_TRADING_DATA_DIR=/path/to/test/data
 python3 scripts/paper_engine_alpaca.py
 ```
 
-## CI/CD
-
-This project uses **GitHub Actions** for automated testing.
-
-### Workflow Features
-- **Multi-version testing:** Python 3.11, 3.12, 3.13
-- **Coverage enforcement:** Fails if coverage drops below 50%
-- **Automatic triggers:** Runs on every push to `main`/`develop` and all pull requests
-- **Artifacts:** Coverage reports uploaded for each run
-
-### Viewing Results
-Check the **Actions** tab in GitHub to see:
-- Test results per Python version
-- Coverage reports
-- Build status
-
-### Coverage Reporting
-Coverage reports are uploaded to:
-- **Codecov** (if configured)
-- **GitHub Artifacts** (retained for 7 days)
-
-To generate coverage locally:
-```bash
-pytest tests/ --cov=traderlib --cov=scripts --cov-branch --cov-report=html
-open htmlcov/index.html
-```
-
 ## External Integrations
 
 - **Primary Data**: Alpaca API (WebSocket + REST) for real-time prices
@@ -464,6 +396,8 @@ open htmlcov/index.html
 - `AGENTS.MD` - Complete trading playbook with operating rhythm, entry/exit protocols, and journaling guidelines
 - `CLAUDE.md` - Development operations and architecture notes
 - `TOOLS.md` - Technical documentation for yfinance and script usage
+- `docs/DEVELOPMENT.md` - Development setup, testing, and CI/CD guide
+- `docs/RISK_GUIDE.md` - Risk management configuration and position sizing
 
 ## Operational Runbooks
 
