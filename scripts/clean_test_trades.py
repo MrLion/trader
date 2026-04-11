@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 """
-CLEAN TEST TRADES - Phase 1: Data Cleanup Utility
-===================================================
+CLEAN TEST TRADES - Trade Log Cleanup Utility
+==============================================
 
 Removes test/development entries from production paper_trades.jsonl.
+Consolidates functionality from clean_trade_log.py and clean_test_trades.py.
 
 Test entries are identified by:
+- Explicit test_mode flag in metadata
+- Known test patterns (AAPL at $150, validation_failed with test tickers)
 - Unrealistic entry prices (> $5000 - extreme test data errors)
 - Unusually high share counts (> 500 shares)
 - Missing required fields
 - Duplicate entries from repeated test runs
-- Known test patterns (e.g., AAPL at $500)
+- Old dates (2024, 2025 in 2026)
+- Known test tickers (DELISTED, STOCK0-2)
 
 USAGE:
-    python3 scripts/clean_test_trades.py [--dry-run] [--backup]
+    python3 scripts/clean_test_trades.py [options]
 
 OPTIONS:
     --dry-run    Show what would be removed without making changes
-    --backup     Create timestamped backup before cleaning
+    --auto       Non-interactive mode (auto-backup + no confirmation)
     --strict     Use stricter filtering (removes more potentially suspect entries)
 """
 
@@ -37,19 +41,32 @@ TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 def is_test_entry(trade: Dict, strict: bool = False, seen_signatures: set = None) -> Tuple[bool, str]:
     """
     Determine if a trade entry is test data.
+    Combines detection from both clean_test_trades.py and clean_trade_log.py
 
     Returns: (is_test, reason)
     """
+    meta = trade.get('_meta', {})
+    entry_price = trade.get('entry_price', 0)
+    shares = trade.get('shares', 0)
+    ticker = trade.get('ticker', '')
+    timestamp = trade.get('timestamp', '')
+
+    # === From clean_trade_log.py - Explicit test markers ===
+    if meta.get('test_mode'):
+        return True, "test_mode_flag"
+
+    if ticker == 'AAPL' and entry_price == 150.0:
+        return True, "test_pattern_aapl_150"
+
+    if meta.get('validation_failed') and ticker in ('MSFT', 'GOOGL', 'STOCK0', 'STOCK1', 'STOCK2'):
+        return True, "validation_failed_test"
+
+    # === Original clean_test_trades.py checks ===
     # Check for required fields
     required = ['event', 'ticker', 'timestamp', 'entry_price', 'shares']
     for field in required:
         if field not in trade:
             return True, f"missing_{field}"
-
-    entry_price = trade.get('entry_price', 0)
-    shares = trade.get('shares', 0)
-    ticker = trade.get('ticker', '')
-    timestamp = trade.get('timestamp', '')
 
     # Known test patterns - AAPL/MSFT/GOOGL at exact prices from test data
     if ticker in ('AAPL', 'MSFT', 'GOOGL', 'DELISTED'):
@@ -75,7 +92,6 @@ def is_test_entry(trade: Dict, strict: bool = False, seen_signatures: set = None
         return True, "known_test_pattern_200_100"
 
     # Realistic price check (flag extreme prices that are likely test data errors)
-    # Note: Many legitimate stocks trade above $400 (CAT, META, AMZN, etc.)
     if entry_price > 5000:
         return True, f"unrealistic_price_{entry_price}"
 
@@ -181,15 +197,14 @@ def save_trades(trades: List[Dict], filepath: Path):
 
 
 def create_backup(filepath: Path) -> Path:
-    """Create timestamped backup of trades file."""
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_path = filepath.parent / f"paper_trades_backup_{timestamp}.jsonl"
+    """Create backup of trades file with .jsonl.backup extension."""
+    backup_path = filepath.with_suffix('.jsonl.backup')
 
     if filepath.exists():
         with open(filepath, 'r') as src:
             with open(backup_path, 'w') as dst:
                 dst.write(src.read())
-        print(f"📁 Backup created: {backup_path}")
+        print(f"💾 Original log backed up to: {backup_path}")
 
     return backup_path
 
@@ -201,14 +216,14 @@ def main():
         epilog="""
 Examples:
   python3 scripts/clean_test_trades.py --dry-run     # Preview changes
-  python3 scripts/clean_test_trades.py --backup     # Clean with backup
+  python3 scripts/clean_test_trades.py --auto         # Non-interactive mode
   python3 scripts/clean_test_trades.py --strict     # Aggressive filtering
         """
     )
     parser.add_argument('--dry-run', action='store_true',
                        help='Preview changes without modifying file')
-    parser.add_argument('--backup', action='store_true',
-                       help='Create backup before cleaning')
+    parser.add_argument('--auto', action='store_true',
+                       help='Non-interactive mode (auto-backup + no confirmation)')
     parser.add_argument('--strict', action='store_true',
                        help='Use stricter filtering criteria')
     parser.add_argument('--file', type=Path, default=TRADES_FILE,
@@ -272,11 +287,17 @@ Examples:
         print("✅ No test entries found - file is clean!")
         return 0
 
-    # Create backup if requested
-    if args.backup:
+    # Auto mode: non-interactive with automatic backup
+    if args.auto:
         create_backup(args.file)
+        save_trades(production, args.file)
+        print(f"\n✅ Cleaned {stats['test']} test trades")
+        print(f"✅ {len(production)} production trades remaining")
+        return 0
 
-    # Confirm before proceeding
+    # Interactive mode: Create backup and confirm before proceeding
+    create_backup(args.file)
+
     print("⚠️  WARNING: This will permanently remove test entries")
     print(f"   {stats['test']} entries will be deleted")
     print()
