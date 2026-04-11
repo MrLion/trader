@@ -3,10 +3,13 @@
 
 import json
 import os
+import queue
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Optional, Callable
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 
@@ -56,14 +59,38 @@ class Order:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
-class OrderManager:
-    """Manages order lifecycle and position synchronization."""
+@dataclass
+class QueuedOrder:
+    """Represents an order waiting in the submission queue."""
+    order_type: str  # 'entry' or 'exit'
+    ticker: str
+    shares: int
+    callback: Optional[Callable] = None  # Callback with result
+    # Entry-specific fields
+    stop_price: Optional[float] = None
+    target_price: Optional[float] = None
+    sector: Optional[str] = None
+    expected_entry_price: Optional[float] = None
+    # Exit-specific fields
+    reason: Optional[str] = None
+    # Queue metadata
+    queued_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    priority: int = 0  # Higher = processed first
 
-    def __init__(self, alpaca_client):
+
+class OrderManager:
+    """Manages order lifecycle and position synchronization.
+
+    Includes order storm protection via submission queue with TPS limiting.
+    """
+
+    def __init__(self, alpaca_client, max_tps: float = 2.0, max_queue_size: int = 50):
         """Initialize order manager.
 
         Args:
             alpaca_client: Instance of AlpacaClient
+            max_tps: Maximum transactions per second (order submission rate)
+            max_queue_size: Maximum number of orders in queue before rejection
         """
         self.alpaca = alpaca_client
 
@@ -79,8 +106,110 @@ class OrderManager:
         self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', default_data_dir))
         self.orders_file = self.data_dir / 'alpaca_orders.json'
 
+        # Order storm protection - TPS limiting
+        self.max_tps = max_tps
+        self.min_interval = 1.0 / max_tps  # Minimum seconds between orders
+        self.last_submit_time = 0.0
+        self.submit_lock = threading.Lock()
+
+        # Submission queue for burst protection
+        self.submission_queue: queue.PriorityQueue = queue.PriorityQueue(maxsize=max_queue_size)
+        self.queue_stats = {
+            'submitted': 0,
+            'queued': 0,
+            'rejected': 0,
+            'errors': 0
+        }
+
+        # Start background worker thread
+        self._stop_worker = threading.Event()
+        self._worker_thread = threading.Thread(target=self._process_queue, daemon=True)
+        self._worker_thread.start()
+
         # Load existing orders
         self._load_orders()
+
+    def _process_queue(self):
+        """Background worker to process queued orders with TPS limiting."""
+        while not self._stop_worker.is_set():
+            try:
+                # Get order from queue with timeout to allow checking stop event
+                priority, queued_order = self.submission_queue.get(timeout=0.5)
+
+                # Enforce TPS limiting
+                with self.submit_lock:
+                    elapsed = time.time() - self.last_submit_time
+                    if elapsed < self.min_interval:
+                        wait_time = self.min_interval - elapsed
+                        time.sleep(wait_time)
+
+                    self.last_submit_time = time.time()
+
+                # Process the order
+                self._execute_queued_order(queued_order)
+
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"⚠️ Queue processing error: {e}")
+                self.queue_stats['errors'] += 1
+
+    def _execute_queued_order(self, queued: QueuedOrder) -> Optional[Order]:
+        """Execute a queued order based on type."""
+        try:
+            if queued.order_type == 'entry':
+                result = self._submit_entry_direct(
+                    ticker=queued.ticker,
+                    shares=queued.shares,
+                    stop_price=queued.stop_price,
+                    target_price=queued.target_price,
+                    sector=queued.sector,
+                    expected_entry_price=queued.expected_entry_price
+                )
+            else:  # exit
+                result = self._submit_exit_direct(
+                    ticker=queued.ticker,
+                    shares=queued.shares,
+                    reason=queued.reason
+                )
+
+            # Call callback if provided
+            if queued.callback:
+                try:
+                    queued.callback(result)
+                except Exception as e:
+                    print(f"⚠️ Callback error for {queued.ticker}: {e}")
+
+            if result:
+                self.queue_stats['submitted'] += 1
+            else:
+                self.queue_stats['errors'] += 1
+
+            return result
+
+        except Exception as e:
+            print(f"❌ Error executing queued order for {queued.ticker}: {e}")
+            self.queue_stats['errors'] += 1
+            if queued.callback:
+                try:
+                    queued.callback(None)
+                except Exception:
+                    pass
+            return None
+
+    def _can_submit_directly(self) -> bool:
+        """Check if we can submit directly or need to queue."""
+        with self.submit_lock:
+            elapsed = time.time() - self.last_submit_time
+            return elapsed >= self.min_interval and self.submission_queue.empty()
+
+    def _submit_entry_direct(self, **kwargs) -> Optional[Order]:
+        """Submit entry order directly (bypasses queue - internal use only)."""
+        return self._submit_entry_to_alpaca(**kwargs)
+
+    def _submit_exit_direct(self, **kwargs) -> Optional[Order]:
+        """Submit exit order directly (bypasses queue - internal use only)."""
+        return self._submit_exit_to_alpaca(**kwargs)
 
     def _load_orders(self):
         """Load orders from disk."""
@@ -115,28 +244,70 @@ class OrderManager:
     def submit_entry(self, ticker: str, shares: int, stop_price: float,
                     target_price: Optional[float] = None,
                     sector: Optional[str] = None,
-                    expected_entry_price: Optional[float] = None) -> Optional[Order]:
-        """Submit a buy order.
+                    expected_entry_price: Optional[float] = None,
+                    priority: int = 0,
+                    callback: Optional[Callable] = None) -> Optional[Order]:
+        """Submit a buy order (with storm protection queue).
 
         Args:
             ticker: Stock symbol
             shares: Number of shares to buy
             stop_price: Stop loss price
-            target_price: Target price for position (stored for position creation on fill)
-            sector: Stock sector (stored for position creation on fill)
-            expected_entry_price: Expected fill price (stored for position creation on fill)
+            target_price: Target price for position
+            sector: Stock sector
+            expected_entry_price: Expected fill price
+            priority: Higher priority orders processed first (default 0)
+            callback: Optional callback function(order_result) called when processed
 
         Returns:
-            Order object or None if submission failed
+            Order object if submitted directly, None if queued or failed
         """
-        # Submit to Alpaca
+        # Check if we can submit directly (no recent orders and queue empty)
+        if self._can_submit_directly():
+            result = self._submit_entry_to_alpaca(
+                ticker, shares, stop_price, target_price, sector, expected_entry_price
+            )
+            if callback:
+                try:
+                    callback(result)
+                except Exception as e:
+                    print(f"⚠️ Callback error for {ticker}: {e}")
+            return result
+
+        # Queue the order for later submission
+        try:
+            queued = QueuedOrder(
+                order_type='entry',
+                ticker=ticker,
+                shares=shares,
+                stop_price=stop_price,
+                target_price=target_price,
+                sector=sector,
+                expected_entry_price=expected_entry_price,
+                priority=priority,
+                callback=callback
+            )
+            self.submission_queue.put((-priority, queued), block=False)  # Negative for highest first
+            self.queue_stats['queued'] += 1
+            print(f"⏳ Order queued: {ticker} {shares} shares (position {self.submission_queue.qsize()} in queue)")
+            return None  # Will be processed asynchronously
+
+        except queue.Full:
+            self.queue_stats['rejected'] += 1
+            print(f"❌ Order rejected: {ticker} - submission queue full (max {self.submission_queue.maxsize})")
+            return None
+
+    def _submit_entry_to_alpaca(self, ticker: str, shares: int, stop_price: float,
+                                target_price: Optional[float] = None,
+                                sector: Optional[str] = None,
+                                expected_entry_price: Optional[float] = None) -> Optional[Order]:
+        """Internal: Submit entry directly to Alpaca."""
         result = self.alpaca.submit_market_order(ticker, shares, 'buy', stop_price)
 
         if not result:
             print(f"❌ Failed to submit entry order for {ticker}")
             return None
 
-        # Create local order record with entry metadata for position creation on fill
         order = Order(
             id=result['id'],
             ticker=ticker,
@@ -151,31 +322,64 @@ class OrderManager:
         )
 
         self.pending_orders[order.id] = order
-        # Don't set expected_positions here - only set when order fills
         self._save_orders()
 
         print(f"📤 Order submitted: {ticker} {shares} shares @ market")
         return order
 
-    def submit_exit(self, ticker: str, shares: int, reason: str) -> Optional[Order]:
-        """Submit a sell order.
+    def submit_exit(self, ticker: str, shares: int, reason: str,
+                   priority: int = 0,
+                   callback: Optional[Callable] = None) -> Optional[Order]:
+        """Submit a sell order (with storm protection queue).
 
         Args:
             ticker: Stock symbol
             shares: Number of shares to sell
             reason: Exit reason (e.g., 'STOP_HIT', 'TARGET_HIT')
+            priority: Higher priority orders processed first (default 0)
+            callback: Optional callback function(order_result) called when processed
 
         Returns:
-            Order object or None if submission failed
+            Order object if submitted directly, None if queued or failed
         """
-        # Submit to Alpaca
+        # Check if we can submit directly
+        if self._can_submit_directly():
+            result = self._submit_exit_to_alpaca(ticker, shares, reason)
+            if callback:
+                try:
+                    callback(result)
+                except Exception as e:
+                    print(f"⚠️ Callback error for {ticker}: {e}")
+            return result
+
+        # Queue the exit order
+        try:
+            queued = QueuedOrder(
+                order_type='exit',
+                ticker=ticker,
+                shares=shares,
+                reason=reason,
+                priority=priority,
+                callback=callback
+            )
+            self.submission_queue.put((-priority, queued), block=False)
+            self.queue_stats['queued'] += 1
+            print(f"⏳ Exit queued: {ticker} ({reason}) - position {self.submission_queue.qsize()} in queue")
+            return None
+
+        except queue.Full:
+            self.queue_stats['rejected'] += 1
+            print(f"❌ Exit rejected: {ticker} - submission queue full")
+            return None
+
+    def _submit_exit_to_alpaca(self, ticker: str, shares: int, reason: str) -> Optional[Order]:
+        """Internal: Submit exit directly to Alpaca."""
         result = self.alpaca.close_position(ticker)
 
         if not result:
             print(f"❌ Failed to submit exit order for {ticker}")
             return None
 
-        # Create local order record
         order = Order(
             id=result['id'],
             ticker=ticker,
@@ -365,8 +569,57 @@ class OrderManager:
         return {
             'pending': len(self.pending_orders),
             'filled': len(self.filled_orders),
-            'pending_tickers': [o.ticker for o in self.pending_orders.values()]
+            'pending_tickers': [o.ticker for o in self.pending_orders.values()],
+            'queue_size': self.submission_queue.qsize(),
+            'queue_stats': self.queue_stats.copy()
         }
+
+    def get_queue_status(self) -> Dict:
+        """Get order storm protection queue status."""
+        return {
+            'queue_size': self.submission_queue.qsize(),
+            'max_size': self.submission_queue.maxsize,
+            'tps_limit': self.max_tps,
+            'min_interval': self.min_interval,
+            'stats': self.queue_stats.copy(),
+            'worker_alive': self._worker_thread.is_alive()
+        }
+
+    def wait_for_queue_empty(self, timeout: Optional[float] = None) -> bool:
+        """Wait for submission queue to empty.
+
+        Args:
+            timeout: Maximum seconds to wait (None = wait forever)
+
+        Returns:
+            True if queue empty, False if timeout reached
+        """
+        start = time.time()
+        while not self.submission_queue.empty():
+            if timeout and (time.time() - start) > timeout:
+                return False
+            time.sleep(0.1)
+        return True
+
+    def shutdown(self, wait_for_queue: bool = True, timeout: float = 30.0):
+        """Shutdown the order manager and stop queue worker.
+
+        Args:
+            wait_for_queue: Whether to wait for pending queue items
+            timeout: Max seconds to wait for queue to empty
+        """
+        if wait_for_queue and not self.submission_queue.empty():
+            print(f"⏳ Waiting for {self.submission_queue.qsize()} queued orders...")
+            if not self.wait_for_queue_empty(timeout=timeout):
+                print(f"⚠️ Timeout waiting for queue ({timeout}s)")
+
+        self._stop_worker.set()
+        self._worker_thread.join(timeout=5.0)
+        if self._worker_thread.is_alive():
+            print("⚠️ Queue worker thread did not terminate gracefully")
+
+        # Final save
+        self._save_orders()
 
 
 if __name__ == "__main__":
@@ -380,12 +633,19 @@ if __name__ == "__main__":
 
     try:
         alpaca = AlpacaClient(mode='paper')
-        manager = OrderManager(alpaca)
+        manager = OrderManager(alpaca, max_tps=2.0)
 
         print(f"\n📋 Current Orders:")
         summary = manager.get_orders_summary()
         print(f"   Pending: {summary['pending']}")
         print(f"   Filled: {summary['filled']}")
+
+        # Show storm protection status
+        queue_status = manager.get_queue_status()
+        print(f"\n🛡️ Order Storm Protection:")
+        print(f"   TPS Limit: {queue_status['tps_limit']:.1f} orders/sec")
+        print(f"   Queue: {queue_status['queue_size']}/{queue_status['max_size']}")
+        print(f"   Worker: {'✅ Running' if queue_status['worker_alive'] else '❌ Dead'}")
 
         if summary['pending'] > 0:
             print(f"\n   Processing pending orders...")
@@ -394,6 +654,35 @@ if __name__ == "__main__":
 
         print("\n✅ Order manager initialized successfully")
 
+        # Test queue functionality
+        print("\n🧪 Testing order storm protection...")
+
+        # Simulate multiple simultaneous orders
+        def test_callback(result):
+            if result:
+                print(f"   ✅ Callback: Order {result.ticker} processed")
+
+        # Queue some test orders (won't actually submit)
+        for i in range(3):
+            manager.submit_entry(
+                ticker=f"TEST{i}",
+                shares=10,
+                stop_price=90.0,
+                priority=3-i,  # Higher priority first
+                callback=test_callback
+            )
+
+        # Show queue status
+        time.sleep(0.5)
+        status = manager.get_queue_status()
+        print(f"\n   Queue stats: {status['stats']}")
+
+        # Shutdown gracefully
+        manager.shutdown(wait_for_queue=True, timeout=5.0)
+        print("\n✅ Shutdown complete")
+
     except Exception as e:
         print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)

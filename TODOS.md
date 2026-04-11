@@ -7,7 +7,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 
 ### Engineering
 - [x] **FINDING-002**: Split-brain vulnerability — Add `PENDING` status, track order IDs separately *(Completed 2026-04-10)*
-- [ ] **FINDING-004**: Order storm protection — Add submission queue with TPS limiting
+- [x] **FINDING-004**: Order storm protection — Add submission queue with TPS limiting *(Completed 2026-04-11)*
 - [x] **FINDING-008**: Partial fill handling — Track `filled_qty` separately, accumulate before position creation *(Completed 2026-04-10)*
 - [ ] **FINDING-010**: Plaintext API keys — Use env vars or macOS Keychain, remove JSON credential storage
 - [x] **FINDING-005**: Dangerous fallback defaults — Require explicit stops, mark `UNSYNCED` if missing *(Completed 2026-04-10)*
