@@ -18,7 +18,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [ ] **CLI-003**: Sensible default for `midday_scan.py` (scan watchlist if exists)
 - [ ] **CLI-004**: `--dry-run` flags for destructive commands
 - [x] **EH-003**: Actionable API key error message *(Completed 2026-04-11)*
-- [ ] **DOC-001**: Create `docs/getting-started.md`
+- [x] **DOC-001**: Create `docs/getting-started.md` *(Completed 2026-04-11)*
 - [ ] **NO_COLOR**: Respect `NO_COLOR` env var
 
 ### Design

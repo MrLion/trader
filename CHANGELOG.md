@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **DOC-001: Create `docs/getting-started.md`**
+  - Comprehensive quick-start guide for new users
+  - Covers: installation, first workflow, daily rhythm, common commands
+  - Includes troubleshooting section for common errors
+  - Quick reference tables for entry scores, Stage 2 criteria, risk rules
+  - Step-by-step setup for automated trading
+
 ### Fixed
 - **Critical Design Fixes**
   - **Timezone suffix**: Added "ET" (Eastern Time) suffix to timestamp displays in:
