@@ -790,7 +790,8 @@ class AlpacaPaperEngine:
         stats = self.state.get_stats()
         orders = self.order_manager.get_orders_summary()
 
-        # Calculate Unrealized PnL for open positions
+        # Calculate Account Value and Unrealized PnL using live prices
+        account_value = stats['cash']
         unrealized_pnl = 0.0
         for ticker, pos in self.state.positions.items():
             if pos.status == 'OPEN':
@@ -801,9 +802,10 @@ class AlpacaPaperEngine:
                 if current_price is None:
                     current_price = self.alpaca.get_latest_price(ticker, use_fallback=False)
                 if current_price:
+                    account_value += current_price * pos.shares
                     unrealized_pnl += (current_price - pos.entry_price) * pos.shares
 
-        print(f"💰 Equity: ${stats['equity']:,.2f} | Cash: ${stats['cash']:,.2f}")
+        print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}")
         print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}")
         print(f"📋 Pending Orders: {orders['pending']} | Health: {self.alpaca.get_health_summary()}")
         print(f"{'='*60}")

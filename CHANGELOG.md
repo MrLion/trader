@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`paper_engine_alpaca.py` using stale Equity value instead of live Account Value**
+  - Was using `get_equity()` which calculated position values using stale `entry_price`
+  - Caused discrepancy between engine status and actual market values
+  - Fix: Calculate Account Value using live prices from Alpaca API (WebSocket cache → cached price → live price)
+  - Also renamed label from "Equity" to "Account Value" for consistency with `paper_portfolio.py`
+  - Impact: Status now shows real-time account value matching Alpaca UI
+
+- **Test mocks missing 'discrepancies' and 'synced' keys in `test_paper_engine_coverage.py`**
+  - Tests were returning incomplete `sync_positions` mock data with `'modified'` instead of `'synced'`
+  - Caused `KeyError: 'discrepancies'` when `_sync_with_alpaca()` tried to access the missing keys
+  - Fixed all 3 test mocks to include correct keys: `'added'`, `'removed'`, `'discrepancies'`, `'synced'`
+  - Impact: Tests no longer generate false exception log entries
+
 ## [0.3.14] - 2026-04-10
 
 ### Removed

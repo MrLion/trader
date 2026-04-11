@@ -90,7 +90,8 @@ class TestSyncWithAlpaca(unittest.TestCase):
         engine.order_manager.sync_positions.return_value = {
             'added': [{'ticker': 'AAPL', 'qty': 100, 'avg_price': 150.0}],
             'removed': [],
-            'modified': []
+            'discrepancies': [],
+            'synced': []
         }
 
         with patch('paper_engine_alpaca.pd.read_csv', return_value=mock_df):
@@ -116,7 +117,8 @@ class TestSyncWithAlpaca(unittest.TestCase):
         engine.order_manager.sync_positions.return_value = {
             'added': [],
             'removed': ['TSLA'],
-            'modified': []
+            'discrepancies': [],
+            'synced': []
         }
 
         with patch.object(engine, '_get_current_price', return_value=210.0):
@@ -134,7 +136,8 @@ class TestSyncWithAlpaca(unittest.TestCase):
         engine.order_manager.sync_positions.return_value = {
             'added': [],
             'removed': [],
-            'modified': []
+            'discrepancies': [],
+            'synced': []
         }
 
         with patch('paper_engine_alpaca.pd.read_csv', side_effect=FileNotFoundError()):
