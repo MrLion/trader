@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Critical Design Fixes**
+  - **Timezone suffix**: Added "ET" (Eastern Time) suffix to timestamp displays in:
+    - `paper_portfolio.py`: `format_et_timestamp()` helper, used in `status` command
+    - `paper_engine_alpaca.py`: Status header showing current time
+  - **Portfolio overlap**: Added `[IN PORTFOLIO]` indicator to `watchlist_manager.py list`
+    - Loads portfolio positions and shows "✓ IN PORTFOLIO" column
+    - Helps prevent accidental double-positions
+  - **Signal age**: Added timestamp and age column to entry signals in `entry_signals.py`
+    - Each signal now records timestamp at creation
+    - Age displayed as "Xs ago", "Xm ago", or "Xh ago"
+    - Helps identify stale signals when re-running scans
+  - **Market filter context**: Expanded "Market filter blocking entries" message with:
+    - Reason: SPY decline threshold exceeded
+    - Reset condition: SPY closes above prior day high
+    - Override note: Reference to `--i-know-what-im-doing` flag
+  - **Empty watchlist guidance**: Added "HOW TO POPULATE" help text when watchlist is empty
+    - Lists 4 ways to populate (from CSV, single add, midday scan, sector scan)
+    - Links to docs/getting-started.md for full workflow
+
 - **EH-003: Actionable API key error message**
   - Created `APIKeyError` exception class in `traderlib/trading_exceptions.py`
   - Follows problem+cause+fix+docs pattern for clear user guidance

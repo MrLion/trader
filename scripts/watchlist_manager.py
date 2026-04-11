@@ -231,11 +231,42 @@ def list_watchlist():
     df = load_watchlist()
 
     if df.empty:
-        print("Watchlist is empty")
+        # DESIGN FIX: Empty watchlist guidance - add how to populate help text
+        print("📭 Watchlist is empty")
+        print("\n💡 HOW TO POPULATE:")
+        print("   1. From scan CSV: python3 scripts/watchlist_manager.py populate scans/leading_stocks_YYYY-MM-DD.csv")
+        print("   2. Add single ticker: python3 scripts/watchlist_manager.py add AAPL")
+        print("   3. Run midday scan: python3 scripts/midday_scan.py")
+        print("   4. Sector scan: python3 scripts/sector_scan.py")
+        print("\n   See docs/getting-started.md for full workflow")
         return
 
+    # DESIGN FIX: Portfolio overlap - Add [IN PORTFOLIO] indicator
+    # Load portfolio positions to check overlap
+    import json
+    from pathlib import Path
+    portfolio_file = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/paper_positions.json')
+    portfolio_tickers = set()
+    if portfolio_file.exists():
+        try:
+            with open(portfolio_file) as f:
+                positions = json.load(f)
+                if isinstance(positions, dict):
+                    portfolio_tickers = set(positions.keys())
+                elif isinstance(positions, list):
+                    portfolio_tickers = {p.get('ticker', '') for p in positions}
+        except (json.JSONDecodeError, IOError):
+            pass  # Portfolio file might be corrupted or empty
+
+    # Add portfolio indicator column
+    display_df = df[['Ticker', 'Stage', 'RS_Rank', 'Sector', 'Notes']].copy()
+    if portfolio_tickers:
+        display_df['Portfolio'] = display_df['Ticker'].apply(
+            lambda t: '✓ IN PORTFOLIO' if t in portfolio_tickers else ''
+        )
+
     print(f"\n📋 WATCHLIST ({len(df)} total)\n")
-    print(df[['Ticker', 'Stage', 'RS_Rank', 'Sector', 'Notes']].to_string(index=False))
+    print(display_df.to_string(index=False))
     print(f"\n💡 Run `python3 scripts/analyze_watchlist.py` to see entry scores (Tier 1/2/3)")
     print(f"   Stage 2 Score: 0-7 (7 = Price > 50/100/200 MA, proper stacking, 200MA rising, within 25% of high, above 1.25x low)")
 

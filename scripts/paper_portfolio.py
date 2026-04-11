@@ -18,6 +18,16 @@ from traderlib.validation import validate_ticker
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+
+
+def format_et_timestamp(dt: datetime = None) -> str:
+    """Format datetime with ET timezone suffix.
+
+    DESIGN FIX: Timezone suffix - Add ET to timestamp displays.
+    """
+    if dt is None:
+        dt = datetime.now()
+    return dt.strftime('%Y-%m-%d %H:%M:%S') + ' ET'
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
 DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
@@ -309,8 +319,8 @@ def cmd_status(args):
                   f"${entry:>9.2f} ${current_price:>9.2f} ${pos_pnl:>11,.2f} "
                   f"${stop:>9.2f} {stop_type}")
 
-    # Last update
-    print(f"\n🕐 Last Update: {datetime.now().isoformat()}")
+    # Last update (DESIGN FIX: Add ET timezone suffix)
+    print(f"\n🕐 Last Update: {format_et_timestamp()}")
 
 
 def cmd_live(args):

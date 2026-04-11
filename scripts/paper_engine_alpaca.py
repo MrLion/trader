@@ -777,7 +777,8 @@ class AlpacaPaperEngine:
     def _print_status(self):
         """Print current status."""
         print(f"\n{'='*60}")
-        print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        # DESIGN FIX: Add ET timezone suffix to timestamp
+        print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
         print(f"📈 Market: {'OPEN' if self._is_market_hours() else 'CLOSED'}")
 
         # WebSocket status

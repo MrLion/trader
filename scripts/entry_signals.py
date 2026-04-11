@@ -198,7 +198,8 @@ class EntrySignalScanner:
                 'risk_pct': risk_pct,
                 'ret_6m': ret_6m,
                 'rs_6m': rs_6m,
-                'atr': atr
+                'atr': atr,
+                'timestamp': datetime.now()  # DESIGN FIX: Add signal timestamp for age tracking
             }
 
         except Exception as e:
@@ -237,7 +238,11 @@ class EntrySignalScanner:
         market_ok, market_msg = self._check_market_conditions()
         print(f"\n📊 Market Condition: {market_msg}")
         if not market_ok:
+            # DESIGN FIX: Market filter context - explain reason and reset condition
             print(f"⚠️  Market filter blocking entries")
+            print(f"   Reason: SPY declined more than {self.risk_config.market.max_spy_decline_pct}% from prior close")
+            print(f"   Resets when: SPY closes above prior day high or filter threshold adjusted")
+            print(f"   Note: Use --i-know-what-im-doing flag to override (not recommended during downtrends)")
 
         entry_threshold = self.risk_config.entry.min_entry_score
         max_dist = self.risk_config.entry.max_dist_to_pivot_pct
@@ -298,12 +303,29 @@ class EntrySignalScanner:
             icon = "📈" if d > 0 else "📉" if d < 0 else "➡️"
             return f"{sign}{abs(d):.1f}% {icon}"
 
+        def _format_age(timestamp):
+            """Format signal age from timestamp.
+
+            DESIGN FIX: Signal age - Add timestamp/age column to entry signals.
+            """
+            if not timestamp:
+                return "—"
+            age_seconds = (datetime.now() - timestamp).total_seconds()
+            if age_seconds < 60:
+                return f"{int(age_seconds)}s ago"
+            elif age_seconds < 3600:
+                return f"{int(age_seconds / 60)}m ago"
+            else:
+                return f"{int(age_seconds / 3600)}h ago"
+
         if ready_now:
             print(f"\n🔥 READY NOW - Entry Signals (Score ≥{entry_threshold}, Within ±{max_dist}%)")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Price':<10} {'→ Pivot':<10}")
-            print("-" * 90)
+            # DESIGN FIX: Added Age column for signal staleness visibility
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Price':<10} {'→ Pivot':<10} {'Age':<10}")
+            print("-" * 100)
             for a in ready_now:
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                age_str = _format_age(a.get('timestamp'))
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/7    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
 
         if close_pivot:
             print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{entry_threshold}, Distance 1-3%)")

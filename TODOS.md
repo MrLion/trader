@@ -22,11 +22,11 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [ ] **NO_COLOR**: Respect `NO_COLOR` env var
 
 ### Design
-- [ ] **Timezone suffix**: Add "ET" to timestamp displays
-- [ ] **Portfolio overlap**: Add `[IN PORTFOLIO]` indicator to watchlist
-- [ ] **Signal age**: Add timestamp/age column to entry signals
-- [ ] **Market filter context**: Expand message with reason and reset condition
-- [ ] **Empty watchlist guidance**: Add "how to populate" help text
+- [x] **Timezone suffix**: Add "ET" to timestamp displays *(Completed 2026-04-11)*
+- [x] **Portfolio overlap**: Add `[IN PORTFOLIO]` indicator to watchlist *(Completed 2026-04-11)*
+- [x] **Signal age**: Add timestamp/age column to entry signals *(Completed 2026-04-11)*
+- [x] **Market filter context**: Expand message with reason and reset condition *(Completed 2026-04-11)*
+- [x] **Empty watchlist guidance**: Add "how to populate" help text *(Completed 2026-04-11)*
 
 ## Medium Priority (Do Soon)
 
