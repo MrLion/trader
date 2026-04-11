@@ -452,6 +452,65 @@ Once you're in profit, the stop automatically moves up:
 
 ---
 
+## Configurable Parameters (New)
+
+### EMA Periods for Trailing Stops
+
+**Configuration:** `profit_target.ema_periods`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `short` | 10 | EMA period for early trailing (+1.5R) |
+| `long` | 21 | EMA period for late trailing (+3R) |
+
+**Example - Using 8/20 EMAs instead of 10/21:**
+```yaml
+profit_target:
+  ema_periods:
+    short: 8     # Trail 8 EMA at +1.5R
+    long: 20     # Trail 20 EMA at +3R
+```
+
+**Why customize:** Faster EMAs (8/20) react quicker to price changes, slower EMAs (12/26) smooth out volatility.
+
+---
+
+### Cache TTL
+
+**Configuration:** `cache.ttl_seconds`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `ttl_seconds` | 300 | Price data cache lifetime (5 minutes) |
+
+**Example - Shorter cache for faster updates:**
+```yaml
+cache:
+  ttl_seconds: 60  # 1 minute cache
+```
+
+**Why customize:** Lower values = fresher price data but more API calls. Higher values = less API usage but slightly stale data.
+
+---
+
+### Fallback Target
+
+**Configuration:** `profit_target.fallback_target_pct`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `fallback_target_pct` | 0.10 | Target % above entry when R calculation fails |
+
+**Example - Higher fallback target:**
+```yaml
+profit_target:
+  fallback_target_pct: 0.15  # 15% above entry
+```
+
+**When it applies:** If the stop distance calculation fails (e.g., invalid stop price), the system falls back to a fixed percentage target above entry instead of an R-based target.
+
+---
+
 ## Real Example Walkthrough
 
 **Account:** $10,000  
@@ -561,6 +620,16 @@ This is correct and safe!
 
 Edit this to change defaults or create new profiles.
 
+**Key Sections:**
+- `account` - Account-level risk (risk per trade, daily loss limit)
+- `position` - Position sizing constraints (min/max position %)
+- `stop_loss` - Stop calculation method and limits
+- `profit_target` - R multiples, trailing stop levels, EMA periods
+- `entry` - Entry score thresholds
+- `market` - Market environment filters (SPY, VIX)
+- `cache` - Price data cache TTL
+- `profiles` - Named risk profiles (conservative, aggressive, etc.)
+
 ### View Current Config
 ```bash
 python3 scripts/paper_engine_alpaca.py --risk-summary
@@ -604,6 +673,8 @@ python3 scripts/risk_config_demo.py
 | Daily Loss | -2% | -2% | -2% |
 | Sector Limit | 3 | 3 | 3 |
 | Entry Threshold | 60 | 65 | 60 |
+| EMA Periods | 10/21 | 10/21 | 8/20 |
+| Cache TTL | 300s | 300s | 60s |
 
 **Usage:**
 ```bash

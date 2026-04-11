@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Configurable EMA periods, cache TTL, and fallback target in `risk_config.yaml`**
+  - `profit_target.ema_periods.short/long`: Configure EMA periods for trailing stops (default: 10/21)
+  - `profit_target.fallback_target_pct`: Target % above entry when R calculation fails (default: 10%)
+  - `cache.ttl_seconds`: Price data cache TTL in seconds (default: 300 = 5 minutes)
+  - Update `traderlib/risk_config.py` dataclasses to load new parameters
+  - Update `traderlib/paper_exits.py` to use configured values instead of hardcoded
+  - Impact: Users can now customize trailing stop EMA periods, cache duration, and fallback targets
+
 ### Removed
 - **`scripts/midday_scan.py` eliminated — duplicate of `entry_signals.py`**
   - Both scripts performed Stage 2 scoring → entry score calculation → tier ranking → HTML/CSV export
