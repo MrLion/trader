@@ -403,7 +403,7 @@ class TestGetCachedData(unittest.TestCase):
             'Volume': [1_000_000] * rows,
         })
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_cache_miss_fetches_and_returns_data(self, mock_ticker_class):
         """On first call, fetches from yfinance and caches result."""
         engine = ExitEngine()
@@ -417,7 +417,7 @@ class TestGetCachedData(unittest.TestCase):
         self.assertIn('EMA21', result.columns)
         self.assertIn('AAPL', engine.price_cache)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_cache_hit_does_not_refetch(self, mock_ticker_class):
         """Second call returns cached data without calling yfinance again."""
         engine = ExitEngine()
@@ -429,7 +429,7 @@ class TestGetCachedData(unittest.TestCase):
 
         mock_ticker_class.return_value.history.assert_called_once()
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_insufficient_history_returns_none(self, mock_ticker_class):
         """Fewer than 50 rows → returns None, nothing cached."""
         engine = ExitEngine()
@@ -440,7 +440,7 @@ class TestGetCachedData(unittest.TestCase):
         self.assertIsNone(result)
         self.assertNotIn('AAPL', engine.price_cache)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_yfinance_exception_returns_none(self, mock_ticker_class):
         """yfinance error → returns None gracefully."""
         engine = ExitEngine()
@@ -450,7 +450,7 @@ class TestGetCachedData(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_expired_cache_is_cleared_and_refetched(self, mock_ticker_class):
         """Cache older than 5 minutes is invalidated and data is refetched."""
         engine = ExitEngine()
@@ -466,7 +466,7 @@ class TestGetCachedData(unittest.TestCase):
         # Should have refetched — called once after cache cleared
         mock_ticker_class.return_value.history.assert_called_once()
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_get_ema_values_returns_last_row(self, mock_ticker_class):
         """_get_ema_values returns the most recent EMA10 and EMA21."""
         engine = ExitEngine()
@@ -480,7 +480,7 @@ class TestGetCachedData(unittest.TestCase):
         self.assertAlmostEqual(ema10, 101.0)
         self.assertAlmostEqual(ema21, 99.0)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_get_ema_values_returns_none_when_no_data(self, mock_ticker_class):
         """_get_ema_values returns (None, None) when cache returns None."""
         engine = ExitEngine()
@@ -593,7 +593,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         stop = engine.calculate_initial_stop('FAKE', 200.0)
         self.assertAlmostEqual(stop, 190.0)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_insufficient_history_falls_back_to_percent(self, mock_ticker_class):
         """< 14 bars → fallback to fallback_pct."""
         mock_ticker_class.return_value.history.return_value = self._make_hist(5)
@@ -603,7 +603,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         stop = engine.calculate_initial_stop('FAKE', 100.0)
         self.assertAlmostEqual(stop, 93.0)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_atr_method_returns_stop_below_entry(self, mock_ticker_class):
         """Pure ATR method: stop should be below entry price."""
         mock_ticker_class.return_value.history.return_value = self._make_hist(60)
@@ -613,7 +613,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         stop = engine.calculate_initial_stop('FAKE', 100.0)
         self.assertLess(stop, 100.0)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_atr_or_support_returns_stop_below_entry(self, mock_ticker_class):
         """atr_or_support: stop should be below entry price."""
         mock_ticker_class.return_value.history.return_value = self._make_hist(60)
@@ -621,7 +621,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         stop = engine.calculate_initial_stop('FAKE', 100.0)
         self.assertLess(stop, 100.0)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_min_stop_distance_enforced(self, mock_ticker_class):
         """Stop too close to entry gets pushed down to min distance."""
         # ATR is tiny — stop would be very close to entry without enforcement
@@ -637,7 +637,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         # Must be at most entry * (1 - min_pct)
         self.assertLessEqual(stop, 100.0 * (1 - 0.03) + 0.01)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_max_stop_distance_enforced(self, mock_ticker_class):
         """Stop too far from entry gets clamped to max distance."""
         # Very wide ATR
@@ -652,7 +652,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         stop = engine.calculate_initial_stop('FAKE', 100.0)
         self.assertGreaterEqual(stop, 100.0 * (1 - 0.10) - 0.01)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_no_risk_config_applies_default_bounds(self, mock_ticker_class):
         """Without risk_config, default 3-15% bounds are applied."""
         closes = [100.0] * 60
@@ -665,7 +665,7 @@ class TestCalculateInitialStop(unittest.TestCase):
         self.assertLessEqual(stop, 97.0 + 0.01)
         self.assertGreaterEqual(stop, 85.0 - 0.01)
 
-    @patch('scripts.paper_exits.yf.Ticker')
+    @patch('traderlib.paper_exits.yf.Ticker')
     def test_exception_falls_back_to_percent(self, mock_ticker_class):
         """yfinance exception → fallback to fallback_pct."""
         mock_ticker_class.return_value.history.side_effect = Exception('boom')

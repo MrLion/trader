@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - **Fixed failing GitHub Actions test suite**
   - Updated `tests/test_paper_engine.py`: Changed import from removed `paper_engine` to `paper_engine_alpaca`
   - Updated `tests/test_paper_engine_new_coverage.py`: Removed tests for deprecated `paper_engine` module (Groups 1-5), kept `paper_engine_alpaca` tests (Groups 6-12)
+  - Deleted `tests/test_paper_engine.py`: File was written for removed `paper_engine` module, tests incompatible with `AlpacaPaperEngine` interface
+  - Updated `tests/test_exit_engine.py`: Changed patch path from `scripts.paper_exits.yf.Ticker` to `traderlib.paper_exits.yf.Ticker` (module was moved to traderlib)
   - Impact: CI/CD pipeline now passes, test suite reflects production code
 
 ### Changed
