@@ -19,8 +19,11 @@ from trading_exceptions import TradingExceptionHandler
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
-ACCOUNT_FILE = DATA_DIR / 'paper_account.json'
+DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
+
+# Constants
+DEFAULT_INITIAL_CAPITAL = 100000.0
 
 
 def load_json_file(filepath: Path) -> Optional[Dict]:
@@ -67,16 +70,43 @@ def format_pct(value: float) -> str:
     return f"{color} {value:+.2f}%"
 
 
+def _calculate_day_stats() -> Dict:
+    """Calculate day stats from trade log (source of truth)."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    trades = load_trades(limit=1000)  # Load enough to cover the day
+
+    day_pnl = 0.0
+    entries_today = 0
+    total_trades = 0
+
+    for trade in trades:
+        total_trades += 1
+        ts = trade.get('timestamp', '')
+
+        if trade.get('event') == 'EXIT':
+            realized = trade.get('realized_pnl', 0) or 0
+            if isinstance(ts, str) and ts.startswith(today):
+                day_pnl += realized
+
+        if trade.get('event') == 'ENTRY':
+            if isinstance(ts, str) and ts.startswith(today):
+                entries_today += 1
+
+    day_return = (day_pnl / DEFAULT_INITIAL_CAPITAL) * 100 if DEFAULT_INITIAL_CAPITAL else 0
+
+    return {
+        'day_pnl': day_pnl,
+        'day_return': day_return,
+        'entries_today': entries_today,
+        'total_trades': total_trades
+    }
+
+
 def cmd_status(args):
     """Show current account and market status using Alpaca real-time prices."""
     from alpaca_client import AlpacaClient
 
-    account = load_json_file(ACCOUNT_FILE)
     positions = load_json_file(POSITIONS_FILE)
-
-    if not account:
-        print("❌ No account data found. Engine may not be running.")
-        return
 
     # Load watchlist for sector lookup
     watchlist_df = None
@@ -102,22 +132,22 @@ def cmd_status(args):
         print("❌ Failed to connect to Alpaca. Check API credentials.")
         return
 
-    # Get cash from Alpaca API (live) instead of local file (stale)
+    # Get cash from Alpaca API (live)
     try:
         alpaca_account = alpaca.get_account()
         cash = alpaca_account['cash']
         cash_source = "Alpaca Live"
     except Exception as e:
-        # Fallback to local file if API fails
-        cash = account.get('cash', 0)
-        cash_source = "Local (stale)"
+        # Fallback if API fails
+        cash = 0
+        cash_source = "Unavailable"
         TradingExceptionHandler.log_exception(
             "cash_fetch", e,
             severity=TradingExceptionHandler.WARNING,
-            message="Failed to fetch cash from Alpaca, using local value"
+            message="Failed to fetch cash from Alpaca"
         )
 
-    initial_capital = account.get('initial_capital', 0)
+    initial_capital = DEFAULT_INITIAL_CAPITAL
 
     # Calculate account value using Alpaca real-time prices
     account_value = cash  # Start with cash
@@ -176,9 +206,9 @@ def cmd_status(args):
     print(f"   P&L:               {format_currency(pnl)} ({format_pct(pnl_pct)})")
 
     print(f"\n📈 DAILY PERFORMANCE")
-    day_pnl = account.get('day_pnl', 0)
-    day_return = account.get('day_return_pct', 0)
-    print(f"   Day P&L: {format_currency(day_pnl)} ({format_pct(day_return)})")
+    # Calculate from trade log instead of stale account file
+    day_stats = _calculate_day_stats()
+    print(f"   Day P&L: {format_currency(day_stats['day_pnl'])} ({format_pct(day_stats['day_return'])})")
 
     # Calculate unrealized P&L using Alpaca real-time prices
     unrealized_pnl = 0.0
@@ -195,9 +225,10 @@ def cmd_status(args):
         print(f"   Unrealized P&L: {format_currency(unrealized_pnl)} ({format_pct(unrealized_pct)})")
 
     print(f"\n📊 ACTIVITY")
-    print(f"   Open Positions: {account.get('open_positions', 0)}")
-    print(f"   Entries Today:  {account.get('entries_today', 0)}")
-    print(f"   Total Trades:   {account.get('trade_count', 0)}")
+    open_count = len(pos_dict) if positions else 0
+    print(f"   Open Positions: {open_count}")
+    print(f"   Entries Today:  {day_stats['entries_today']}")
+    print(f"   Total Trades:   {day_stats['total_trades']}")
 
     if positions:
         pos_dict = {}
@@ -252,9 +283,7 @@ def cmd_status(args):
                   f"${stop:>9.2f} {stop_type}")
 
     # Last update
-    ts = account.get('timestamp')
-    if ts:
-        print(f"\n🕐 Last Update: {ts}")
+    print(f"\n🕐 Last Update: {datetime.now().isoformat()}")
 
 
 def cmd_live(args):
@@ -262,7 +291,6 @@ def cmd_live(args):
     import yfinance as yf
 
     positions = load_json_file(POSITIONS_FILE)
-    account = load_json_file(ACCOUNT_FILE)
 
     if not positions:
         print("📭 No open positions")
@@ -321,12 +349,10 @@ def cmd_live(args):
     print("-" * 80)
     print(f"{'TOTAL':<8} {'':<8} {'':<10} {'':<10} "
           f"${total_pnl:<11,.2f}")
+    print(f"\n💰 Total Position Value: {format_currency(total_value)}")
 
-    if account:
-        cash = account.get('cash', 0)
-        total_equity = cash + total_value
-        print(f"\n💰 Cash: {format_currency(cash)}")
-        print(f"📊 Equity: {format_currency(total_equity)}")
+
+
 
 
 def cmd_today(args):
@@ -414,7 +440,6 @@ def cmd_history(args):
 def cmd_report(args):
     """Generate performance report."""
     trades = load_trades(limit=1000)
-    account = load_json_file(ACCOUNT_FILE)
 
     if not trades:
         print("📭 No trades to report")
@@ -534,25 +559,9 @@ def cmd_reconcile(args):
     print("🔄 Reconciling counters with trade log...")
     print()
 
-    # Load existing account to check initial_capital
-    existing_account = load_json_file(ACCOUNT_FILE)
-    DEFAULT_INITIAL_CAPITAL = 100000
-
-    if existing_account:
-        current_initial = existing_account.get('initial_capital', DEFAULT_INITIAL_CAPITAL)
-
-        # Check if initial_capital looks wrong (not a round number like 100000, 101293, etc.)
-        # or if it's the specific wrong value from before
-        if current_initial != DEFAULT_INITIAL_CAPITAL:
-            print(f"   ⚠️  Detected non-standard initial_capital: ${current_initial:,.2f}")
-            print(f"   🔄 Defaulting to standard value: ${DEFAULT_INITIAL_CAPITAL:,.2f}")
-            initial_capital = DEFAULT_INITIAL_CAPITAL
-        else:
-            initial_capital = current_initial
-            print(f"   ✓ initial_capital already correct: ${initial_capital:,.2f}")
-    else:
-        initial_capital = DEFAULT_INITIAL_CAPITAL
-        print(f"   Using default initial_capital: ${initial_capital:,.2f}")
+    # Use default initial capital (no longer stored in account file)
+    initial_capital = DEFAULT_INITIAL_CAPITAL
+    print(f"   Using initial_capital: ${initial_capital:,.2f}")
 
     # Initialize state with initial_capital
     state = PaperState(initial_capital=initial_capital)

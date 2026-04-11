@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.14] - 2026-04-10
+
+### Removed
+- **`paper_account.json` eliminated**
+  - File stored stale cash values that caused discrepancies with Alpaca
+  - All cash now fetched live from Alpaca API (`get_account()['cash']`)
+  - Daily counters (entries_today, trade_count) now calculated from trade log
+  - `last_entry_reset` moved to new `daily_tracker.json` file
+  - Impact: No more stale local state; account value always matches Alpaca UI
+
+### Changed
+- **`paper_portfolio.py` refactored to remove account file dependency**
+  - All commands now use Alpaca API or trade log as source of truth
+  - `cmd_status()`: Cash from Alpaca, day stats calculated from trades
+  - `cmd_live()`: Removed stale account reference
+  - `cmd_report()`: Stats calculated from trade log only
+  - `cmd_reconcile()`: Uses constant initial_capital, reconciles from log
+
+### Added
+- **`daily_tracker.json` for daily reset tracking**
+  - Stores only `last_entry_reset` date to persist across engine restarts
+  - Prevents daily counters from resetting on every engine restart
+
 ## [0.3.13] - 2026-04-10
 
 ### Fixed

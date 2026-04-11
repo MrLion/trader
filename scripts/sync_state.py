@@ -11,6 +11,7 @@ from alpaca_client import AlpacaClient
 
 DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
+DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
 
 
 def _is_test_trade(trade: dict) -> bool:
@@ -80,34 +81,27 @@ def sync():
         print(f"   Found {counts['trade_count']} production trades, "
               f"{counts['entries_today']} entries today")
 
-        # 1. Sync Account
-        account = client.get_account()
+        # 1. Sync Positions
+        positions = client.list_positions()
+
+        # 2. Sync Daily Tracker (preserve last_entry_reset, update if new day)
         today = datetime.now().strftime('%Y-%m-%d')
-        account_data = {
-            "initial_capital": 100000.0,
-            "cash": account['cash'],
-            "equity": account['equity'],
-            "day_pnl": 0.0,
-            "trade_count": counts['trade_count'],
-            "entries_today": counts['entries_today'],
+        daily_tracker = {
             "last_entry_reset": today,
-            "open_positions": len(client.list_positions()),
             "timestamp": datetime.now().isoformat()
         }
-
-        # 2. Sync Positions
-        positions = client.list_positions()
 
         # Save to files
         data_dir = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 
-        with open(data_dir / 'paper_account.json', 'w') as f:
-            json.dump(account_data, f, indent=2)
-
         with open(data_dir / 'paper_positions.json', 'w') as f:
             json.dump(positions, f, indent=2)
 
-        print(f"✅ Successfully synced: {len(positions)} positions and account data.")
+        with open(data_dir / 'daily_tracker.json', 'w') as f:
+            json.dump(daily_tracker, f, indent=2)
+
+        print(f"✅ Successfully synced: {len(positions)} positions.")
+        print(f"   Daily tracker: last_entry_reset = {today}")
         print(f"   Trade count: {counts['trade_count']}, Entries today: {counts['entries_today']}")
         print("🗑️  Test trades filtered from counters (identified by _meta.test_mode or validation patterns).")
 

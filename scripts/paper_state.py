@@ -12,7 +12,7 @@ from dataclasses import dataclass, asdict
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
-ACCOUNT_FILE = DATA_DIR / 'paper_account.json'
+DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 
 # Trading limits - configurable via environment variables
@@ -114,12 +114,16 @@ class Position:
 
 
 class PaperState:
-    """Manages paper trading state - positions, account, and persistence."""
+    """Manages paper trading state - positions, account, and persistence.
+
+    Note: Cash is fetched from Alpaca API, not stored locally (avoids stale data).
+    Only daily tracker (last_entry_reset) is persisted.
+    """
 
     def __init__(self, initial_capital: float = 100000):
         self.initial_capital = initial_capital
         self.positions: Dict[str, Position] = {}
-        self.cash = initial_capital
+        self.cash = initial_capital  # Will be fetched from API when needed
         self.day_pnl = 0.0
         self.trade_count = 0
         self.entries_today = 0
@@ -132,7 +136,7 @@ class PaperState:
         self._load_state()
 
     def _load_state(self):
-        """Load positions and account from disk."""
+        """Load positions from disk and daily tracker."""
         # Load positions
         if POSITIONS_FILE.exists():
             try:
@@ -152,18 +156,14 @@ class PaperState:
             except Exception as e:
                 print(f"⚠️ Error loading positions: {e}")
 
-        # Load account
-        if ACCOUNT_FILE.exists():
+        # Load daily tracker (for last_entry_reset only)
+        if DAILY_TRACKER_FILE.exists():
             try:
-                with open(ACCOUNT_FILE, 'r') as f:
+                with open(DAILY_TRACKER_FILE, 'r') as f:
                     data = json.load(f)
-                    self.cash = data.get('cash', self.initial_capital)
-                    self.day_pnl = data.get('day_pnl', 0.0)
-                    self.trade_count = data.get('trade_count', 0)
-                    self.entries_today = data.get('entries_today', 0)
                     self.last_entry_reset = data.get('last_entry_reset', datetime.now().strftime('%Y-%m-%d'))
             except Exception as e:
-                print(f"⚠️ Error loading account: {e}")
+                print(f"⚠️ Error loading daily tracker: {e}")
 
         # Reset daily counters if new day
         current_date = datetime.now().strftime('%Y-%m-%d')
@@ -171,8 +171,9 @@ class PaperState:
             self.day_pnl = 0.0
             self.entries_today = 0
             self.last_entry_reset = current_date
+            self._save_daily_tracker()
 
-        # Reconcile counters with trade log to fix any sync issues
+        # Reconcile counters with trade log (source of truth)
         self._reconcile_counters_from_log()
 
     def _is_test_trade(self, trade: dict) -> bool:
@@ -251,27 +252,23 @@ class PaperState:
         return stats
 
     def save_state(self):
-        """Save current state to disk."""
+        """Save current state to disk (positions + daily tracker only)."""
         # Save positions
         positions_dict = {ticker: pos.to_dict() for ticker, pos in self.positions.items()}
         with open(POSITIONS_FILE, 'w') as f:
             json.dump(positions_dict, f, indent=2)
 
-        # Save account
-        account_data = {
-            'initial_capital': self.initial_capital,
-            'cash': self.cash,
-            'equity': self.get_equity(),
-            'day_pnl': self.day_pnl,
-            'day_return_pct': (self.day_pnl / self.initial_capital) * 100 if self.initial_capital else 0,
-            'trade_count': self.trade_count,
-            'entries_today': self.entries_today,
+        # Save daily tracker (only thing that needs persistence)
+        self._save_daily_tracker()
+
+    def _save_daily_tracker(self):
+        """Save daily tracking data."""
+        daily_data = {
             'last_entry_reset': self.last_entry_reset,
-            'open_positions': len(self.positions),
             'timestamp': datetime.now().isoformat()
         }
-        with open(ACCOUNT_FILE, 'w') as f:
-            json.dump(account_data, f, indent=2)
+        with open(DAILY_TRACKER_FILE, 'w') as f:
+            json.dump(daily_data, f, indent=2)
 
     def get_equity(self) -> float:
         """Calculate total equity (cash + position values)."""
