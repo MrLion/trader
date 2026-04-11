@@ -102,31 +102,55 @@ class TestMissingAccountFile(unittest.TestCase):
                 'last_entry_reset': '2024-04-08'
             }))
 
+            # Create trade log with 2 entries for reconciliation
+            trades_file = data_dir / 'paper_trades.jsonl'
+            with open(trades_file, 'w') as f:
+                # Two ENTRY events from today (production trades)
+                # Use realistic prices that don't match test patterns (AAPL@150.00 is test pattern)
+                f.write(json.dumps({
+                    'event': 'ENTRY',
+                    'timestamp': '2024-04-08T09:30:00',
+                    'ticker': 'TSLA',
+                    'entry_price': 175.5,
+                    'shares': 10,
+                    '_meta': {'test_mode': False}
+                }) + '\n')
+                f.write(json.dumps({
+                    'event': 'ENTRY',
+                    'timestamp': '2024-04-08T10:00:00',
+                    'ticker': 'NVDA',
+                    'entry_price': 485.25,
+                    'shares': 5,
+                    '_meta': {'test_mode': False}
+                }) + '\n')
+
             with patch('paper_state.DATA_DIR', data_dir):
                 with patch('paper_state.POSITIONS_FILE', positions_file):
                     with patch('paper_state.ACCOUNT_FILE', account_file):
-                        state = PaperState(initial_capital=100000.0)
+                        with patch('paper_state.TRADES_FILE', trades_file):
+                            state = PaperState(initial_capital=100000.0)
 
-                        # Verify loaded values
-                        self.assertEqual(state.cash, 75000.0)
-                        self.assertEqual(state.entries_today, 2)
+                            # Verify loaded values
+                            self.assertEqual(state.cash, 75000.0)
+                            # entries_today reconciled from trade log (2 production entries)
+                            self.assertEqual(state.entries_today, 2)
 
-                        # Add another position (should work fine)
-                        state.enter_position(
-                            ticker='MSFT',
-                            entry_price=300.0,
-                            shares=50,
-                            stop_price=280.0,
-                            target_price=330.0,
-                            sector='Technology'
-                        )
+                            # Add another position (should work fine)
+                            state.enter_position(
+                                ticker='MSFT',
+                                entry_price=300.0,
+                                shares=50,
+                                stop_price=280.0,
+                                target_price=330.0,
+                                sector='Technology'
+                            )
 
-                        # Delete account file AFTER adding position
-                        account_file.unlink()
+                            # Delete account file AFTER adding position
+                            account_file.unlink()
 
-                        # Save should recreate file
-                        state.save_state()
-                        self.assertTrue(account_file.exists())
+                            # Save should recreate file
+                            state.save_state()
+                            self.assertTrue(account_file.exists())
 
         print("✅ Deleted mid-session: Recovery and recreation works")
 

@@ -622,8 +622,12 @@ class TestAlpacaExecuteEntry(unittest.TestCase):
 
         self.assertNotIn('AAPL', self.engine.state.positions)
 
-    def test_order_success_records_position_and_signals(self):
-        """Successful order → position recorded, ticker added to signaled set."""
+    def test_order_success_records_order_and_signals(self):
+        """Successful order submission → order recorded, ticker added to signaled set.
+
+        FINDING-002: Position is NOT created immediately - only on fill confirmation.
+        The split-brain fix defers position creation to _process_pending_orders().
+        """
         mock_order = Mock()
         mock_order.id = 'order-123'
 
@@ -640,7 +644,9 @@ class TestAlpacaExecuteEntry(unittest.TestCase):
                             with patch('builtins.print'):
                                 self.engine._execute_entry(self._make_analysis())
 
-        self.assertIn('AAPL', self.engine.state.positions)
+        # FINDING-002: No immediate position creation - position created on fill
+        self.assertNotIn('AAPL', self.engine.state.positions)
+        # But ticker IS added to signaled set to prevent duplicate entries
         self.assertIn('AAPL', self.engine.signaled_tickers)
 
     def test_rejected_by_constraints_aborts(self):

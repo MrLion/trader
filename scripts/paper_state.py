@@ -96,13 +96,18 @@ class Position:
                 # No target without valid stop
                 mapped_data['target_price'] = 0.0
 
-        if 'initial_risk' not in mapped_data:
-            entry = mapped_data.get('entry_price', 0)
-            stop = mapped_data.get('stop_price', 0)
-            shares = mapped_data.get('shares', 0)
-            if entry and stop and stop > 0:
-                mapped_data['initial_risk'] = (entry - stop) * shares
-            else:
+        # Validate/recalculate initial_risk
+        entry = mapped_data.get('entry_price', 0)
+        stop = mapped_data.get('stop_price', 0)
+        shares = mapped_data.get('shares', 0)
+
+        if 'initial_risk' not in mapped_data or mapped_data['initial_risk'] == 0:
+            # Recalculate if missing or zero (but only if we have valid data)
+            if entry and stop and shares and stop > 0:
+                calculated_risk = (entry - stop) * shares
+                # Only update if we calculated a non-zero value, or if entry == stop (breakeven)
+                mapped_data['initial_risk'] = calculated_risk
+            elif 'initial_risk' not in mapped_data:
                 mapped_data['initial_risk'] = 0.0
 
         return cls(**mapped_data)

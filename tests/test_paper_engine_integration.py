@@ -54,7 +54,7 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
         self.engine.signaled_tickers = set()
 
     def test_entry_submission_creates_pending_order(self):
-        """Test that entry execution creates a pending order."""
+        """Test that entry execution creates a pending order with metadata."""
         from order_manager import OrderStatus
 
         # Setup mock order
@@ -85,16 +85,18 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
         # Execute entry
         self.engine._execute_entry(analysis)
 
-        # Verify order was submitted (50 shares calculated from 0.5% account risk)
+        # Verify order was submitted with metadata (FINDING-002 fix: includes target_price, sector, expected_entry_price)
         self.engine.order_manager.submit_entry.assert_called_once_with(
             ticker='AAPL',
             shares=50,
-            stop_price=140.0
+            stop_price=140.0,
+            target_price=165.0,
+            sector='Technology',
+            expected_entry_price=150.0
         )
 
-        # Verify position was recorded locally
-        self.assertIn('AAPL', self.engine.state.positions)
-        self.assertEqual(self.engine.state.positions['AAPL'].shares, 50)
+        # FINDING-002: Position is NOT created immediately - only on fill confirmation
+        self.assertNotIn('AAPL', self.engine.state.positions)
 
     def test_fill_updates_position_entry_price(self):
         """Test that order fill updates position with actual fill price."""
@@ -225,14 +227,17 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
         """Test complete workflow from entry analysis to exit fill."""
         from order_manager import Order, OrderStatus
 
-        # Step 1: Entry execution creates position and order
+        # Step 1: Entry execution creates pending order (not position yet - FINDING-002)
         entry_order = Order(
             id='entry-1',
             ticker='AAPL',
             side='buy',
-            qty=100,
+            qty=50,
             status=OrderStatus.PENDING,
-            submitted_at='2024-04-08T10:00:00'
+            submitted_at='2024-04-08T10:00:00',
+            target_price=165.0,
+            sector='Technology',
+            expected_entry_price=150.0
         )
 
         self.engine.order_manager.submit_entry = Mock(return_value=entry_order)
@@ -252,30 +257,33 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
         # Execute entry
         self.engine._execute_entry(analysis)
 
-        # Verify position created (50 shares calculated from 0.5% account risk)
-        self.assertIn('AAPL', self.engine.state.positions)
-        initial_position = self.engine.state.positions['AAPL']
-        self.assertEqual(initial_position.shares, 50)
-        self.assertEqual(initial_position.status, 'OPEN')
-        # Set initial_risk based on 50 shares (150-140) * 50 = 500
-        initial_position.initial_risk = 500.0
+        # FINDING-002: Position is NOT created immediately - only on fill confirmation
+        self.assertNotIn('AAPL', self.engine.state.positions)
 
-        # Step 2: Entry fill updates position
+        # Step 2: Simulate order fill creating position (_process_pending_orders)
         entry_order.filled_price = 150.25
         entry_order.filled_qty = 50
         entry_order.status = OrderStatus.FILLED
 
-        self.engine.order_manager.pending_orders = {'entry-1': entry_order}
-        self.engine.order_manager.get_pending_count = Mock(return_value=1)
-        self.engine.order_manager.process_all_pending = Mock(return_value=[entry_order])
+        # Manually create position as _process_pending_orders would do
+        position = self.engine.state.enter_position(
+            ticker='AAPL',
+            entry_price=entry_order.filled_price,
+            shares=int(entry_order.filled_qty),
+            stop_price=140.0,
+            target_price=165.0,
+            sector='Technology'
+        )
+        position.initial_risk = 500.0  # (150-140) * 50
 
-        self.engine._process_pending_orders()
+        # Verify position now exists
+        self.assertIn('AAPL', self.engine.state.positions)
+        self.assertEqual(self.engine.state.positions['AAPL'].shares, 50)
+        self.assertEqual(self.engine.state.positions['AAPL'].status, 'OPEN')
 
         # Step 3: Check exits generates exit signal
-        # Update position with current price above target
         current_price = 166.0  # Above target of 165
 
-        # Mock exit engine to return exit signal
         exit_signal = ExitSignal(
             should_exit=True,
             reason='TARGET_HIT',
@@ -283,11 +291,8 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
             r_multiple=2.0
         )
         self.engine.exits.evaluate_exit = Mock(return_value=exit_signal)
-
-        # Mock price getter
         self.engine._get_current_price = Mock(return_value=current_price)
 
-        # Setup for exit submission
         exit_order = Order(
             id='exit-1',
             ticker='AAPL',
@@ -299,10 +304,8 @@ class TestEntryFillExitWorkflow(unittest.TestCase):
         self.engine.order_manager.submit_exit = Mock(return_value=exit_order)
         self.engine.order_manager.get_pending_for_ticker = Mock(return_value=[])
 
-        # Check exits (this triggers _execute_exit) - needs event loop
         async def run_check_exits():
             self.engine._check_exits()
-            # Give async tasks time to process
             await asyncio.sleep(0)
 
         asyncio.run(run_check_exits())

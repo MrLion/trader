@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.11] - 2026-04-10
+
+### Fixed
+- **`initial_risk: 0` bug in positions**
+  - All 11 open positions had `initial_risk: 0` stored in JSON, breaking R-multiple calculations
+  - Root cause: Position creation during sync wasn't properly persisting calculated `initial_risk`
+  - Fix: Added validation/recalculation in `Position.from_dict()` - if `initial_risk` is 0 but valid entry/stop/shares exist, recalculate it
+  - Fix: Data migration script recalculated and fixed all existing positions
+  - Impact: Trailing stop logic (breakeven, +1.5R, +3R) now works correctly
+
+### Tests
+- **Updated 5 tests to align with security fixes**
+  - `test_entry_submission_creates_pending_order`: Updated for new `submit_entry` signature with metadata
+  - `test_full_workflow_entry_to_exit`: Updated to simulate fill confirmation before position creation
+  - `test_order_success_records_order_and_signals`: Renamed and updated for deferred position creation
+  - `test_status_with_account_data`: Updated assertion for EOD pricing format
+  - `test_deleted_mid_session`: Fixed trade log data to use realistic tickers/prices
+
 ## [0.3.10] - 2026-04-10
 
 ### Fixed

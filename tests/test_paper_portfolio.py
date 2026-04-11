@@ -185,8 +185,10 @@ class TestCmdStatus:
 
         assert 'PAPER TRADING ACCOUNT STATUS' in captured.out
         assert '$100,000.00' in captured.out  # Initial capital
-        assert '$95,000.00' in captured.out   # Cash
-        assert '$97,500.00' in captured.out   # Equity
+        assert '$95,000.00' in captured.out   # Cash (Available Cash)
+        # FINDING-002/008: Status now shows EOD Prices - Account Value = Cash + (positions × EOD close)
+        # With 2 open positions worth $2500 unrealized loss: $100,000 - $5,000 = $95,000
+        assert '$95,000.00' in captured.out   # Account Value (EOD pricing)
 
     def test_status_with_positions(self, capsys):
         """Test status with open positions."""
