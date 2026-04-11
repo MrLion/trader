@@ -17,7 +17,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [ ] **GS-002**: `make doctor` command for config validation
 - [ ] **CLI-003**: Sensible default for `midday_scan.py` (scan watchlist if exists)
 - [ ] **CLI-004**: `--dry-run` flags for destructive commands
-- [ ] **EH-003**: Actionable API key error message
+- [x] **EH-003**: Actionable API key error message *(Completed 2026-04-11)*
 - [ ] **DOC-001**: Create `docs/getting-started.md`
 - [ ] **NO_COLOR**: Respect `NO_COLOR` env var
 

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **EH-003: Actionable API key error message**
+  - Created `APIKeyError` exception class in `traderlib/trading_exceptions.py`
+  - Follows problem+cause+fix+docs pattern for clear user guidance
+  - Applied to `AlpacaClient.__init__()` when keys are missing
+  - Applied to API calls (401/403 auth errors) with specific guidance
+  - Error message includes:
+    - **Problem**: API keys not configured
+    - **Cause**: Where the system looked (env vars, config file)
+    - **Fix**: Three options (env vars, setup script, .env file)
+    - **Docs**: Links to runbook and Alpaca dashboard
+  - Impact: Users get clear actionable steps instead of generic "keys not found"
+
 - **FINDING-011: Input validation on tickers — Added regex validation**
   - Created `traderlib/validation.py` with `validate_ticker()` and `validate_tickers()` functions
   - Ticker format: `^[A-Z]{1,5}$` (1-5 uppercase letters, US equity standard)

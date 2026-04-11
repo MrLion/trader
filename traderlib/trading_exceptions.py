@@ -201,3 +201,66 @@ def info(operation: str, default_return: Any = None):
         severity=TradingExceptionHandler.INFO,
         default_return=default_return
     )
+
+
+class APIKeyError(ValueError):
+    """Raised when API keys are missing or invalid.
+
+    EH-003: Actionable API key error message
+    Follows problem+cause+fix+docs pattern for clear user guidance.
+    """
+
+    def __init__(self, provider: str = "Alpaca", details: str = ""):
+        self.provider = provider
+
+        # Problem: What went wrong
+        problem = f"{provider} API keys not configured"
+
+        # Cause: Why it happened
+        cause = (
+            "\n\nCAUSE:\n"
+            "  The system could not find valid API credentials.\n"
+            "  Tried in order:\n"
+            "    1. Environment variables (ALPACA_API_KEY, ALPACA_SECRET_KEY)\n"
+            "    2. Config file (config/secrets/alpaca_config.json)"
+        )
+
+        # Fix: How to resolve
+        fix = (
+            "\n\nFIX - Choose one:\n"
+            "  Option 1 - Environment variables (Recommended):\n"
+            "    export ALPACA_API_KEY='your_api_key'\n"
+            "    export ALPACA_SECRET_KEY='your_secret_key'\n\n"
+            "  Option 2 - Config file:\n"
+            "    python3 scripts/setup_alpaca.py\n\n"
+            "  Option 3 - .env file in project root:\n"
+            "    echo 'ALPACA_API_KEY=your_api_key' > .env\n"
+            "    echo 'ALPACA_SECRET_KEY=your_secret_key' >> .env"
+        )
+
+        # Docs: Where to learn more
+        docs = (
+            "\n\nDOCS:\n"
+            "  See docs/runbooks/api_credentials.md for detailed setup instructions\n"
+            "  Alpaca dashboard: https://app.alpaca.markets/paper"
+        )
+
+        message = f"{problem}{cause}{fix}{docs}"
+        if details:
+            message = f"{problem}: {details}{cause}{fix}{docs}"
+
+        super().__init__(message)
+
+
+class ConfigurationError(ValueError):
+    """Raised when configuration is missing or invalid."""
+
+    def __init__(self, component: str, issue: str, fix_instructions: str):
+        message = (
+            f"CONFIGURATION ERROR: {component}\n"
+            f"\n"
+            f"PROBLEM: {issue}\n"
+            f"\n"
+            f"FIX: {fix_instructions}"
+        )
+        super().__init__(message)

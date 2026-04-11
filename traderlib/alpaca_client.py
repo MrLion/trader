@@ -34,7 +34,7 @@ CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 # Import rate limiter
 sys.path.insert(0, str(Path(__file__).parent))
 from traderlib.rate_limiter import RateLimiter, health_monitor
-from traderlib.trading_exceptions import TradingExceptionHandler
+from traderlib.trading_exceptions import TradingExceptionHandler, APIKeyError
 
 
 class AlpacaClient:
@@ -51,7 +51,7 @@ class AlpacaClient:
         self.secret_key = os.getenv('ALPACA_SECRET_KEY') or self._load_config('secret_key')
 
         if not self.api_key or not self.secret_key:
-            raise ValueError("Alpaca API keys not found. Set ALPACA_API_KEY and ALPACA_SECRET_KEY env vars.")
+            raise APIKeyError("Alpaca")
 
         # Historical data configuration (default 365 days for full Stage 2 scoring)
         self.historical_days = self._load_config_int('historical_days', default=365)
@@ -130,6 +130,12 @@ class AlpacaClient:
             self.rate_limiter.record_error(is_rate_limit=e.status_code == 429)
             health_monitor.mark_failure('alpaca')
             self.api_error_count += 1
+            # EH-003: Provide actionable error for auth failures
+            if e.status_code in (401, 403):
+                raise APIKeyError(
+                    "Alpaca",
+                    f"Authentication failed ({e.status_code}). Keys may be invalid or expired."
+                ) from e
             raise
         except Exception as e:
             health_monitor.mark_failure('alpaca')
@@ -294,7 +300,14 @@ class AlpacaClient:
             is_rate_limit = e.status_code == 429
             self.rate_limiter.record_error(is_rate_limit=is_rate_limit)
             health_monitor.mark_failure('alpaca')
-            print(f"❌ Order submission failed: {e}")
+            # EH-003: Provide actionable error for auth failures
+            if e.status_code in (401, 403):
+                print(f"\n❌ Order submission failed: Authentication error ({e.status_code})")
+                print("   Your API keys may be invalid or expired.")
+                print("   Run: python3 scripts/setup_alpaca.py")
+                print("   Docs: docs/runbooks/api_credentials.md")
+            else:
+                print(f"❌ Order submission failed: {e}")
             return None
         except Exception as e:
             self.rate_limiter.record_error()
