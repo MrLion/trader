@@ -169,11 +169,12 @@ assistant: Done. Files are live.
 
 | File | Purpose |
 |------|---------|
-| `data/trade_log.csv` | Every trade entry, exit, R-multiple, execution notes |
+| `data/paper_trades.jsonl` | Every trade entry, exit, R-multiple, execution notes |
 | `data/watchlist.csv` | Tier A/B/C tracking with setups, pivots, stops |
-| `data/regime_tracker.json` | Market regime, breadth readings, macro events |
-| `data/portfolio.json` | Real-time P&L, portfolio heat, position count |
-| `data/screening_criteria.json` | All your scan parameters in one place |
+| `data/paper_positions.json` | Current open positions with stop/target data |
+| `data/alpaca_orders.json` | Order lifecycle tracking (pending → filled) |
+| `data/daily_tracker.json` | Daily reset tracking (entries_today, last_reset) |
+| `config/risk_config.yaml` | Risk parameters and scan criteria |
 | `memory/2026-04-05.md` | Today's setup log |
 
 **You're ready for your first pre-market session.** 
