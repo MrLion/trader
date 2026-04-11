@@ -23,7 +23,7 @@ from paper_exits import ExitEngine, ExitSignal
 from order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
-from trading_exceptions import TradingExceptionHandler, critical, error, warning
+from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
 
 # Configurable paths - uses environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')

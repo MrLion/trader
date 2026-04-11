@@ -11,7 +11,7 @@ import pandas as pd
 
 # Add scripts directory for local imports
 sys.path.insert(0, str(Path(__file__).parent))
-from trading_exceptions import TradingExceptionHandler
+from traderlib.trading_exceptions import TradingExceptionHandler
 
 # Add parent directory to path for traderlib imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

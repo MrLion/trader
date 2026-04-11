@@ -13,7 +13,7 @@ import pandas as pd
 # Add scripts directory to path for local imports
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from trading_exceptions import TradingExceptionHandler
+from traderlib.trading_exceptions import TradingExceptionHandler
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')

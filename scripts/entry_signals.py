@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from alpaca_client import AlpacaClient
 from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.risk_config import RiskConfigManager
-from trading_exceptions import TradingExceptionHandler
+from traderlib.trading_exceptions import TradingExceptionHandler
 
 # Configurable paths
 DATA_DIR = Path(__file__).parent.parent / 'data'

@@ -76,10 +76,10 @@ If circuit breaker opened and won't close:
 
 ```bash
 # Check circuit status
-python3 -c "from rate_limiter import RateLimiter; r = RateLimiter(); print(r.get_status())"
+python3 -c "from traderlib.rate_limiter import RateLimiter; r = RateLimiter(); print(r.get_status())"
 
 # Force reset (only if you're sure API is healthy)
-python3 -c "from rate_limiter import RateLimiter; r = RateLimiter(); r._close_circuit()"
+python3 -c "from traderlib.rate_limiter import RateLimiter; r = RateLimiter(); r._close_circuit()"
 ```
 
 ### Option D: Switch to Manual Trading

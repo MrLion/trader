@@ -148,7 +148,7 @@ def validate_rate_limiter():
     print("\n🔍 Testing rate limiter...")
 
     try:
-        from rate_limiter import RateLimiter, health_monitor
+        from traderlib.rate_limiter import RateLimiter, health_monitor
 
         limiter = RateLimiter()
         status = limiter.get_status()

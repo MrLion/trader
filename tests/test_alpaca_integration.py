@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
-from rate_limiter import RateLimiter, APIHealthMonitor
+from traderlib.rate_limiter import RateLimiter, APIHealthMonitor
 from order_manager import OrderManager, Order, OrderStatus
 
 

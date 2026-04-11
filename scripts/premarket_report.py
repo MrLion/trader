@@ -18,7 +18,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score
-from trading_exceptions import TradingExceptionHandler
+from traderlib.trading_exceptions import TradingExceptionHandler
 
 def generate_html_report(report_data, output_path):
     """Generate standalone HTML report with embedded CSS"""

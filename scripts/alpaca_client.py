@@ -33,8 +33,8 @@ CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 
 # Import rate limiter
 sys.path.insert(0, str(Path(__file__).parent))
-from rate_limiter import RateLimiter, health_monitor
-from trading_exceptions import TradingExceptionHandler
+from traderlib.rate_limiter import RateLimiter, health_monitor
+from traderlib.trading_exceptions import TradingExceptionHandler
 
 
 class AlpacaClient:

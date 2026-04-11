@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from paper_state import PaperState, Position
-from rate_limiter import RateLimiter
+from traderlib.rate_limiter import RateLimiter
 
 
 class FailingAlpacaClient:
