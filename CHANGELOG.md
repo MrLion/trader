@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **NO_COLOR: Respect NO_COLOR environment variable**
+  - Added `USE_COLOR` flag in `traderlib/validation.py`
+  - Created emoji constants: `EMOJI_CHECK`, `EMOJI_CROSS`, `EMOJI_WARN`, `EMOJI_INFO`, etc.
+  - When `NO_COLOR` is set, emojis are replaced with ASCII equivalents: `[OK]`, `[ERR]`, `[WARN]`
+  - Updated `watchlist_manager.py` to use new constants
+  - Follows https://no-color.org/ standard for CLI toolscolor
+- **CLI-004: `--dry-run` flags for destructive commands**
+  - Added `--dry-run` to `watchlist_manager.py remove <ticker>`
+  - Added `--dry-run` to `watchlist_manager.py remove-all`
+  - Added `--dry-run` to `paper_portfolio.py close <ticker>`
+  - Shows what would be done without executing
+  - Helps users preview destructive operations
+
 - **DOC-001: Create `docs/getting-started.md`**
   - Comprehensive quick-start guide for new users
   - Covers: installation, first workflow, daily rhythm, common commands

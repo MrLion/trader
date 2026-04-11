@@ -83,7 +83,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score
-from traderlib.validation import validate_ticker
+from traderlib.validation import validate_ticker, EMOJI_CHECK, EMOJI_CROSS, EMOJI_WARN, EMOJI_INFO
 
 WATCHLIST_PATH = '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'
 SCAN_DIR = '/Users/mintmrlion/.openclaw/workspaces/trader/scans'
@@ -270,25 +270,36 @@ def list_watchlist():
     print(f"\n💡 Run `python3 scripts/analyze_watchlist.py` to see entry scores (Tier 1/2/3)")
     print(f"   Stage 2 Score: 0-7 (7 = Price > 50/100/200 MA, proper stacking, 200MA rising, within 25% of high, above 1.25x low)")
 
-def remove_ticker(ticker):
-    """Remove a ticker from watchlist."""
+def remove_ticker(ticker, dry_run=False):
+    """Remove a ticker from watchlist.
+
+    CLI-004: Added --dry-run flag for destructive commands.
+    """
     df = load_watchlist()
 
     if ticker.upper() not in df['Ticker'].values:
-        print(f"❌ {ticker} not in watchlist")
+        print(f"{EMOJI_CROSS} {ticker} not in watchlist")
+        return
+
+    if dry_run:
+        print(f"{EMOJI_INFO} DRY RUN: Would remove {ticker} from watchlist")
+        print(f"   (Use without --dry-run to actually remove)")
         return
 
     df = df[df['Ticker'] != ticker.upper()]
     df.to_csv(WATCHLIST_PATH, index=False)
-    print(f"✅ Removed {ticker} from watchlist")
+    print(f"{EMOJI_CHECK} Removed {ticker} from watchlist")
 
 
-def remove_all_tickers(force=False):
-    """Remove all tickers from watchlist with confirmation."""
+def remove_all_tickers(force=False, dry_run=False):
+    """Remove all tickers from watchlist with confirmation.
+
+    CLI-004: Added --dry-run flag for destructive commands.
+    """
     df = load_watchlist()
 
     if df.empty:
-        print("⚠️ Watchlist is already empty")
+        print(f"{EMOJI_WARN} Watchlist is already empty")
         return
 
     count = len(df)
@@ -296,25 +307,33 @@ def remove_all_tickers(force=False):
     # Backup before clearing (always created)
     from datetime import datetime
     backup_path = Path(WATCHLIST_PATH).parent / f"watchlist_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+    if dry_run:
+        print(f"{EMOJI_INFO} DRY RUN: Would remove all {count} tickers from watchlist")
+        print(f"   Would create backup at: {backup_path}")
+        print(f"   (Use without --dry-run to actually remove)")
+        return
+
+    # Create backup
     df.to_csv(backup_path, index=False)
 
     if not force:
-        print(f"\n⚠️  WARNING: You are about to delete ALL {count} tickers from your watchlist.")
-        print(f"\n📁 A backup will be created at: {backup_path}")
+        print(f"\n{EMOJI_WARN} WARNING: You are about to delete ALL {count} tickers from your watchlist.")
+        print(f"\n{EMOJI_INFO} A backup will be created at: {backup_path}")
         print("   You can restore it manually if needed.")
         print("\nType 'DELETE ALL' to confirm, or anything else to cancel:")
         confirmation = input("> ")
 
         if confirmation.strip() != "DELETE ALL":
-            print("❌ Cancelled. No tickers were removed.")
-            print(f"📁 Backup kept at: {backup_path}")
+            print(f"{EMOJI_CROSS} Cancelled. No tickers were removed.")
+            print(f"{EMOJI_INFO} Backup kept at: {backup_path}")
             return
 
     # Clear watchlist
     empty_df = pd.DataFrame(columns=df.columns)
     empty_df.to_csv(WATCHLIST_PATH, index=False)
-    print(f"✅ Removed all {count} tickers from watchlist")
-    print(f"📁 Backup saved to: {backup_path}")
+    print(f"{EMOJI_CHECK} Removed all {count} tickers from watchlist")
+    print(f"{EMOJI_INFO} Backup saved to: {backup_path}")
 
 if __name__ == '__main__':
     import sys
@@ -324,8 +343,8 @@ if __name__ == '__main__':
         print("  python watchlist_manager.py populate <scan_file>")
         print("  python watchlist_manager.py add <ticker> [notes] [-force|--force]")
         print("  python watchlist_manager.py list")
-        print("  python watchlist_manager.py remove <ticker>")
-        print("  python watchlist_manager.py remove-all [-force|--force]")
+        print("  python watchlist_manager.py remove <ticker> [--dry-run]")
+        print("  python watchlist_manager.py remove-all [-force|--force] [--dry-run]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -341,7 +360,7 @@ if __name__ == '__main__':
         try:
             ticker = validate_ticker(raw_ticker)
         except ValueError as e:
-            print(f"❌ {e}")
+            print(f"{EMOJI_CROSS} {e}")
             sys.exit(1)
         notes_args = [a for a in args[1:] if a not in ('--force', '-force')]
         notes = ' '.join(notes_args) if notes_args else ''
@@ -349,15 +368,17 @@ if __name__ == '__main__':
     elif cmd == 'list':
         list_watchlist()
     elif cmd == 'remove' and len(sys.argv) >= 3:
+        dry_run = '--dry-run' in sys.argv
         # FINDING-011: Validate ticker format
         try:
             ticker = validate_ticker(sys.argv[2])
         except ValueError as e:
-            print(f"❌ {e}")
+            print(f"{EMOJI_CROSS} {e}")
             sys.exit(1)
-        remove_ticker(ticker)
+        remove_ticker(ticker, dry_run=dry_run)
     elif cmd == 'remove-all':
         force = '--force' in sys.argv or '-force' in sys.argv
-        remove_all_tickers(force=force)
+        dry_run = '--dry-run' in sys.argv
+        remove_all_tickers(force=force, dry_run=dry_run)
     else:
         print("Invalid command")

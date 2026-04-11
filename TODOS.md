@@ -15,11 +15,11 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 ### DX
 - [ ] **GS-001**: Python version check in `setup.sh`
 - [ ] **GS-002**: `make doctor` command for config validation
-- [ ] **CLI-003**: Sensible default for `midday_scan.py` (scan watchlist if exists)
-- [ ] **CLI-004**: `--dry-run` flags for destructive commands
+- [ ] ~~**CLI-003**: Sensible default for `midday_scan.py` (scan watchlist if exists)~~ *(Removed: midday_scan.py eliminated - duplicate of entry_signals.py)*
+- [x] **CLI-004**: `--dry-run` flags for destructive commands *(Completed 2026-04-11)*
 - [x] **EH-003**: Actionable API key error message *(Completed 2026-04-11)*
 - [x] **DOC-001**: Create `docs/getting-started.md` *(Completed 2026-04-11)*
-- [ ] **NO_COLOR**: Respect `NO_COLOR` env var
+- [x] **NO_COLOR**: Respect `NO_COLOR` env var *(Completed 2026-04-11)*
 
 ### Design
 - [x] **Timezone suffix**: Add "ET" to timestamp displays *(Completed 2026-04-11)*

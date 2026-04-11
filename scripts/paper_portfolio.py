@@ -544,7 +544,10 @@ def cmd_report(args):
 
 
 def cmd_close(args):
-    """Manually close a position."""
+    """Manually close a position.
+
+    CLI-004: Added --dry-run flag for destructive commands.
+    """
     if not args.ticker:
         print("❌ Ticker required. Use: python3 scripts/paper_portfolio.py close TICKER")
         return
@@ -565,6 +568,21 @@ def cmd_close(args):
 
     if not positions or ticker not in positions:
         print(f"❌ Position {ticker} not found in open positions")
+        return
+
+    # CLI-004: Handle dry-run mode
+    if getattr(args, 'dry_run', False):
+        # Get current price for display
+        try:
+            current_price = alpaca.get_latest_price(ticker)
+        except Exception:
+            current_price = None
+
+        print(f"\nℹ️ DRY RUN: Would close position {ticker}")
+        if current_price:
+            print(f"   Current price: ${current_price:.2f}")
+        print(f"   Reason: {args.reason or 'manual_close'}")
+        print(f"   (Use without --dry-run to actually close)")
         return
 
     # Get current price
@@ -684,6 +702,7 @@ Examples:
     p_close.add_argument('ticker', help='Ticker to close')
     p_close.add_argument('--reason', help='Exit reason')
     p_close.add_argument('--force', action='store_true', help='Skip confirmation')
+    p_close.add_argument('--dry-run', action='store_true', help='Show what would be done without executing (CLI-004)')
     p_close.set_defaults(func=cmd_close)
 
     # reconcile
