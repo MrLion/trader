@@ -75,23 +75,35 @@ class Position:
             mapped_data['status'] = 'OPEN'
         if 'entry_date' not in mapped_data:
             mapped_data['entry_date'] = datetime.now().isoformat()
-        if 'stop_price' not in mapped_data:
-            # Default to 5% below entry (will be recalculated properly)
-            entry = mapped_data.get('entry_price', 0)
-            mapped_data['stop_price'] = entry * 0.95 if entry else 0
-        if 'target_price' not in mapped_data:
-            # Default to 2x risk (will be recalculated properly)
-            entry = mapped_data.get('entry_price', 0)
-            stop = mapped_data.get('stop_price', entry * 0.95)
-            risk = entry - stop if entry and stop else entry * 0.05
-            mapped_data['target_price'] = entry + (risk * 2) if entry else entry
-        if 'initial_risk' not in mapped_data:
-            entry = mapped_data.get('entry_price', 0)
-            stop = mapped_data.get('stop_price', entry * 0.95)
-            shares = mapped_data.get('shares', 0)
-            mapped_data['initial_risk'] = (entry - stop) * shares if entry and stop else 0
         if 'sector' not in mapped_data:
             mapped_data['sector'] = 'Unknown'
+
+        # DANGEROUS FALLBACK FIX: Don't silently default stop_price to 5% below entry
+        # Missing stop_price means position is UNSYNCED - must be explicitly set
+        if 'stop_price' not in mapped_data or mapped_data['stop_price'] is None:
+            # Mark as UNSYNCED - requires manual review or explicit stop setting
+            mapped_data['stop_price'] = 0.0
+            mapped_data['current_stop_type'] = 'UNSYNCED'
+
+        # Only calculate target/initial_risk if stop_price is valid
+        if 'target_price' not in mapped_data:
+            entry = mapped_data.get('entry_price', 0)
+            stop = mapped_data.get('stop_price', 0)
+            if entry and stop and stop > 0:
+                risk = entry - stop
+                mapped_data['target_price'] = entry + (risk * 2)
+            else:
+                # No target without valid stop
+                mapped_data['target_price'] = 0.0
+
+        if 'initial_risk' not in mapped_data:
+            entry = mapped_data.get('entry_price', 0)
+            stop = mapped_data.get('stop_price', 0)
+            shares = mapped_data.get('shares', 0)
+            if entry and stop and stop > 0:
+                mapped_data['initial_risk'] = (entry - stop) * shares
+            else:
+                mapped_data['initial_risk'] = 0.0
 
         return cls(**mapped_data)
 

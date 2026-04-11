@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [0.3.10] - 2026-04-10
 
 ### Fixed
+- **Dangerous Fallback Defaults (FINDING-005)**
+  - `Position.from_dict()` silently defaulted `stop_price` to 5% below entry
+  - Misrepresented actual risk when stop data unavailable
+  - Fix: Positions with missing stops now marked as `UNSYNCED`
+  - Fix: Sync from Alpaca now looks up stops from watchlist
+  - Fix: Order fill requires explicit stop_price (no silent defaults)
+  - Impact: No more hidden 5% stop assumptions
+
 - **Split-Brain Vulnerability (FINDING-002)**
   - Position created locally before Alpaca confirmed fill
   - Crash between submit and fill = phantom position in local state

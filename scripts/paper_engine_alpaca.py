@@ -125,16 +125,39 @@ class AlpacaPaperEngine:
                     # Get sector from watchlist, fallback to 'Unknown'
                     sector = watchlist_sectors.get(ticker, 'Unknown')
 
+                    # DANGEROUS FALLBACK FIX: Don't estimate stop_price from Alpaca
+                    # Look up stop from watchlist or mark as UNSYNCED
+                    stop_price = pos['avg_price'] * 0.95  # Temporary until watchlist lookup
+                    target_price = pos['avg_price'] * 1.1
+
+                    # Try to get proper stop from watchlist
+                    try:
+                        row = watchlist_df[watchlist_df['Ticker'] == ticker]
+                        if not row.empty and 'Stop_Level' in row.columns:
+                            stop_val = row['Stop_Level'].values[0]
+                            if pd.notna(stop_val) and stop_val > 0:
+                                stop_price = float(stop_val)
+                                # Recalculate target based on actual stop
+                                risk = pos['avg_price'] - stop_price
+                                target_price = pos['avg_price'] + (2 * risk) if risk > 0 else pos['avg_price'] * 1.05
+                                print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
+                    except Exception:
+                        pass
+
+                    if stop_price == pos['avg_price'] * 0.95:
+                        print(f"   ⚠️  {ticker}: No watchlist stop found - marking UNSYNCED")
+
                     position = Position(
                         ticker=ticker,
                         status='OPEN',
                         entry_date=datetime.now().isoformat(),
                         entry_price=pos['avg_price'],
                         shares=pos['qty'],
-                        stop_price=pos['avg_price'] * 0.95,  # Estimate
-                        target_price=pos['avg_price'] * 1.1,
-                        initial_risk=0,
-                        sector=sector
+                        stop_price=stop_price,
+                        target_price=target_price,
+                        initial_risk=(pos['avg_price'] - stop_price) * pos['qty'] if stop_price else 0,
+                        sector=sector,
+                        current_stop_type='UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD'
                     )
                     self.state.positions[ticker] = position
 
@@ -696,10 +719,18 @@ class AlpacaPaperEngine:
                     actual_fill = order.filled_price or order.expected_entry_price
                     filled_qty = int(order.filled_qty) if order.filled_qty else order.qty
 
-                    # Use stored metadata from order submission
-                    target_price = order.target_price or (actual_fill * 1.05)
-                    stop_price = order.stop_price or (actual_fill * 0.95)
+                    # DANGEROUS FALLBACK FIX: Require explicit stop_price from order
+                    # Don't silently default to 5% below fill
+                    if not order.stop_price or order.stop_price <= 0:
+                        print(f"   ⚠️  {order.ticker}: No stop_price in order - cannot create position")
+                        continue  # Skip position creation - missing stop is a critical error
+
+                    stop_price = order.stop_price
                     sector = order.sector or 'Unknown'
+
+                    # Calculate target from actual stop (2R)
+                    risk = actual_fill - stop_price
+                    target_price = order.target_price or (actual_fill + (2 * risk) if risk > 0 else actual_fill * 1.05)
 
                     position = self.state.enter_position(
                         ticker=order.ticker,
