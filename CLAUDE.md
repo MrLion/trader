@@ -46,6 +46,7 @@ The system follows a strict trading operating rhythm:
 
 ### Technical Dependencies
 - **Primary Data:** Alpaca API (real-time WebSocket + REST)
-- **Fallback Data:** `yfinance` when Alpaca unavailable
+- **Trading Data:** Alpaca API exclusively (real-time, no fallback)
+- **Reports/Tools:** `yfinance` allowed for analysis (15-min delay)
 - **Analysis Framework:** Based on Stage 2 (7-point system), Relative Strength (RS), and VCP patterns.
 - **Watchlist Tiering:** A (Actionable), B (Developing), C (Radar).

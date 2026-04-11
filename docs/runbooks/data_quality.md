@@ -28,7 +28,7 @@ print(f'Primary: {client.health.primary}')
 print(f'Current: {client.health.get_provider()}')
 "
 
-# If "yfinance": Using fallback (may be stale)
+# Check provider status via AlpacaClient health status
 ```
 
 ### Step 2: Check Historical Data Freshness
@@ -222,4 +222,4 @@ Before trading each day:
 
 - [API Outage Runbook](./api_outage.md) - Data source failures
 - Entry Score Documentation: README.md
-- yfinance fallback: Automatic when Alpaca fails
+- Data source: Alpaca API (trading engine), yfinance allowed for reports/tools only

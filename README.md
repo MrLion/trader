@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
-A systematic stock trading workflow system for momentum-driven swing trading, built on Python with Alpaca API (real-time) and yfinance fallback.
+A systematic stock trading workflow system for momentum-driven swing trading, built on Python with Alpaca API (real-time trading) and yfinance for reports/analysis.
 
 ## Table of Contents
 
@@ -338,12 +338,12 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup instructions, testing c
 
 ## External Integrations
 
-| Integration | Purpose | Fallback |
+| Integration | Purpose | Data Quality |
 |----------------------------------|--------------------------------------|----------------------------------------|
-| **Alpaca API** | Real-time prices, trading | — |
-| **Yahoo Finance** | Historical data | When Alpaca unavailable |
-| **Telegram** | Report delivery | CLI reports |
-| **Alpaca Broker** | Order execution | Manual |
+| **Alpaca API** | Real-time prices, trading engine | Live, real-time |
+| **Yahoo Finance** | Reports, scanners, analysis | 15-min delayed |
+| **Telegram** | Report delivery | — |
+| **Alpaca Broker** | Order execution | — |
 
 ## FAQ
 
@@ -388,7 +388,7 @@ Troubleshooting guides for production issues:
 |----------------------------------|--------------------------------------|----------------------------------------|
 | [CLAUDE.md](CLAUDE.md) | Dev operations, architecture | Developers |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, CI/CD | Contributors |
-| [TOOLS.md](TOOLS.md) | yfinance documentation | Users |
+| [TOOLS.md](TOOLS.md) | yfinance documentation (reports/scanners) | Users |
 
 ### Reference
 

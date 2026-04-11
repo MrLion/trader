@@ -1,7 +1,7 @@
 # Runbook: Stuck Position (Cannot Exit)
 
-**Last Updated:** 2026-04-08  
-**Severity:** Critical - Risk exposure  
+**Last Updated:** 2026-04-11
+**Severity:** Critical - Risk exposure
 **Estimated Recovery Time:** 5-30 minutes
 
 ---
@@ -82,13 +82,19 @@ python3 scripts/paper_portfolio.py close AAPL --reason "stuck_recovery" --order-
 **Symptoms:** No price updates, "halted" status
 
 ```bash
-# Check halt type
+# Check halt status via Alpaca API
 python3 -c "
-import yfinance as yf
-ticker = yf.Ticker('TICKER')
-info = ticker.info
-print(f'Halt status: {info.get("halted")}')
-print(f'Resumption time: {info.get("resumptionTime")}')
+from traderlib.alpaca_client import AlpacaClient
+client = AlpacaClient()
+# Get asset status from Alpaca
+try:
+    from alpaca.trading.client import TradingClient
+    trading_client = TradingClient(client.api_key, client.secret_key, paper=(client.mode == 'paper'))
+    asset = trading_client.get_asset('TICKER')
+    print(f'Status: {asset.status}')
+    print(f'Tradeable: {asset.tradable}')
+except Exception as e:
+    print(f'Could not get status: {e}')
 "
 ```
 
@@ -102,12 +108,16 @@ print(f'Resumption time: {info.get("resumptionTime")}')
 **Symptoms:** Ticker no longer exists, position shows $0 value
 
 ```bash
-# Check if ticker exists
+# Check if ticker exists via Alpaca
 python3 -c "
-import yfinance as yf
+from traderlib.alpaca_client import AlpacaClient
+client = AlpacaClient()
 try:
-    data = yf.Ticker('TICKER').history(period='1d')
-    print('Ticker exists')
+    price = client.get_latest_price('TICKER')
+    if price:
+        print('Ticker exists and trading')
+    else:
+        print('No price data - may be delisted')
 except Exception as e:
     print(f'Ticker issue: {e}')
 "

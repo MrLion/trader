@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Documentation updated to reflect Alpaca-only trading architecture**
+  - Updated `CLAUDE.md`: Clarified trading uses Alpaca exclusively; reports/tools may use yfinance
+  - Updated `README.md`: Changed data source description, updated integrations table
+  - Updated `memory/paper-trading-engine-plan.md`: Changed yfinance dependency to Alpaca
+  - Updated `docs/runbooks/api_outage.md`: Removed references to yfinance fallback (no longer exists)
+  - Updated `docs/runbooks/stuck_position.md`: Replaced yfinance examples with Alpaca API
+  - Updated `docs/runbooks/data_quality.md`: Clarified data sources (Alpaca for trading, yfinance for reports)
+  - Impact: Documentation accurately reflects single-source trading architecture
+
 ### Added
 - **Configurable EMA periods, cache TTL, and fallback target in `risk_config.yaml`**
   - `profit_target.ema_periods.short/long`: Configure EMA periods for trailing stops (default: 10/21)

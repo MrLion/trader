@@ -46,29 +46,20 @@ curl -I https://paper-api.alpaca.markets/v2/account
 
 ## Recovery
 
-### Option A: Automatic Fallback (Recommended)
+### Option A: Wait for Recovery (Recommended)
 
-The engine automatically falls back to yfinance after 3 consecutive Alpaca failures.
+The engine uses Alpaca API exclusively. When Alpaca is unavailable, the engine pauses and retries automatically.
 
 ```
-⚠️ Alpaca failed (3/3), switching to yfinance fallback
-✅ Using yfinance for price data
+⚠️ Alpaca connection failed, retrying in 30 seconds...
+✅ Alpaca connection restored
 ```
 
-**Action Required:** None. Monitor for data quality.
+**Action Required:** None. The engine will auto-recover when Alpaca is back.
 
-### Option B: Manual Fallback
+### Option B: Circuit Breaker Reset
 
-If automatic fallback didn't trigger:
-
-```bash
-# Stop the engine
-Ctrl+C
-
-# Restart with explicit fallback mode
-export ALPACA_FALLBACK_MODE=yfinance
-python3 scripts/paper_engine_alpaca.py
-```
+If circuit breaker opened and won't close:
 
 ### Option C: Circuit Breaker Reset
 

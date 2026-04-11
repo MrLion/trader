@@ -232,18 +232,18 @@ python3 scripts/paper_portfolio.py close TICKER [--reason "manual"] [--force]
 
 ---
 
-## Open Questions (To Resolve)
+## Architecture Decisions (Resolved)
 
-1. **Data Source:** yfinance (free, 15min delay) or Alpaca (real-time, possible cost)?
-2. **Notifications:** Telegram alerts on entries/exits or console-only?
-3. **Pre-market:** Check for gap-up entries before 9:30 open?
-4. **Partial Positions:** Auto-trim if position grows >20% of equity?
+1. **Data Source:** ✅ Alpaca API (real-time) — Trading engine uses Alpaca exclusively
+2. **Notifications:** ✅ Telegram alerts on entries/exits
+3. **Pre-market:** Gap-up entries checked via Alpaca pre-market data
+4. **Partial Positions:** Auto-trim at >20% of equity
 
 ---
 
 ## Dependencies
 
-- yfinance (market data)
+- alpaca-py (real-time market data and trading)
 - pandas (calculations)
 - pytz (timezone handling)
 - schedule (market hours)
