@@ -14,6 +14,7 @@ import pandas as pd
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 from traderlib.trading_exceptions import TradingExceptionHandler
+from traderlib.validation import validate_ticker
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
@@ -538,6 +539,13 @@ def cmd_close(args):
         print("❌ Ticker required. Use: python3 scripts/paper_portfolio.py close TICKER")
         return
 
+    # FINDING-011: Validate ticker format
+    try:
+        ticker = validate_ticker(args.ticker)
+    except ValueError as e:
+        print(f"❌ {e}")
+        return
+
     sys.path.insert(0, str(Path(__file__).parent))
     from traderlib.paper_state import PaperState
     from traderlib.alpaca_client import AlpacaClient
@@ -545,17 +553,17 @@ def cmd_close(args):
 
     positions = load_json_file(POSITIONS_FILE)
 
-    if not positions or args.ticker not in positions:
-        print(f"❌ Position {args.ticker} not found in open positions")
+    if not positions or ticker not in positions:
+        print(f"❌ Position {ticker} not found in open positions")
         return
 
     # Get current price
     try:
-        current_price = alpaca.get_latest_price(args.ticker)
+        current_price = alpaca.get_latest_price(ticker)
         if current_price is None:
             raise ValueError("No price available")
     except Exception:
-        print(f"⚠️ Could not fetch price for {args.ticker}")
+        print(f"⚠️ Could not fetch price for {ticker}")
         if not args.force:
             confirm = input(f"Force close at last known price? (y/n): ")
             if confirm.lower() != 'y':
@@ -566,15 +574,15 @@ def cmd_close(args):
     state = PaperState()
     reason = args.reason or "manual_close"
 
-    pos = state.close_position(args.ticker, current_price, reason)
+    pos = state.close_position(ticker, current_price, reason)
 
     if pos:
-        print(f"\n✅ CLOSED {args.ticker}")
+        print(f"\n✅ CLOSED {ticker}")
         print(f"   Exit Price: ${current_price:.2f}" if current_price else "   Exit: Manual")
         print(f"   Reason: {reason}")
         print(f"   Realized P&L: ${pos.realized_pnl:,.2f}" if pos.realized_pnl else "")
     else:
-        print(f"❌ Failed to close {args.ticker}")
+        print(f"❌ Failed to close {ticker}")
 
 
 def cmd_reconcile(args):

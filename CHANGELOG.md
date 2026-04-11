@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **FINDING-011: Input validation on tickers — Added regex validation**
+  - Created `traderlib/validation.py` with `validate_ticker()` and `validate_tickers()` functions
+  - Ticker format: `^[A-Z]{1,5}$` (1-5 uppercase letters, US equity standard)
+  - Added false positive rejection (common words like "THE", "AND", "BEST")
+  - Applied validation to CLI entry points:
+    - `watchlist_manager.py`: `add` and `remove` commands
+    - `entry_signals.py`: `--ticker` and `--tickers` arguments
+    - `paper_portfolio.py`: `close` command
+  - Validation occurs at entry point - rejects invalid tickers before API calls
+  - Impact: Prevents invalid ticker symbols from reaching trading engine or external APIs
+
 - **FINDING-013: R-multiple drift — Store initial_stop_price as immutable**
   - Added `initial_stop_price` field to Position dataclass (immutable after entry)
   - Updated R-multiple calculation in `ExitEngine.evaluate_exit()` to use `initial_stop_price`

@@ -75,6 +75,7 @@ DATE: 2026-04-06
 """
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -82,6 +83,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score
+from traderlib.validation import validate_ticker
 
 WATCHLIST_PATH = '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'
 SCAN_DIR = '/Users/mintmrlion/.openclaw/workspaces/trader/scans'
@@ -303,14 +305,26 @@ if __name__ == '__main__':
         force = '--force' in sys.argv or '-force' in sys.argv
         # Extract notes (everything after ticker that's not --force or -force)
         args = sys.argv[2:]
-        ticker = args[0]
+        raw_ticker = args[0]
+        # FINDING-011: Validate ticker format
+        try:
+            ticker = validate_ticker(raw_ticker)
+        except ValueError as e:
+            print(f"❌ {e}")
+            sys.exit(1)
         notes_args = [a for a in args[1:] if a not in ('--force', '-force')]
         notes = ' '.join(notes_args) if notes_args else ''
         add_to_watchlist(ticker, notes, force=force)
     elif cmd == 'list':
         list_watchlist()
     elif cmd == 'remove' and len(sys.argv) >= 3:
-        remove_ticker(sys.argv[2])
+        # FINDING-011: Validate ticker format
+        try:
+            ticker = validate_ticker(sys.argv[2])
+        except ValueError as e:
+            print(f"❌ {e}")
+            sys.exit(1)
+        remove_ticker(ticker)
     elif cmd == 'remove-all':
         force = '--force' in sys.argv or '-force' in sys.argv
         remove_all_tickers(force=force)

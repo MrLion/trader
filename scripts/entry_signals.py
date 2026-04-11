@@ -18,6 +18,7 @@ from traderlib.alpaca_client import AlpacaClient
 from traderlib import calculate_stage2_score, get_entry_score
 from traderlib.risk_config import RiskConfigManager
 from traderlib.trading_exceptions import TradingExceptionHandler
+from traderlib.validation import validate_ticker, validate_tickers
 
 # Configurable paths
 DATA_DIR = Path(__file__).parent.parent / 'data'
@@ -547,16 +548,31 @@ Examples:
 
     args = parser.parse_args()
 
-    # Single ticker analysis mode
+    # FINDING-011: Validate ticker inputs
     if args.ticker:
+        try:
+            ticker = validate_ticker(args.ticker)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
         scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
-        result = scanner.analyze_single(args.ticker.upper())
+        result = scanner.analyze_single(ticker)
         return 0 if result else 1
+
+    # Validate tickers list if provided
+    if args.tickers:
+        try:
+            validated_tickers = validate_tickers(args.tickers)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
+    else:
+        validated_tickers = None
 
     # Run scan
     scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
     signals = scanner.scan(
-        tickers=args.tickers,
+        tickers=validated_tickers,
         min_tier=args.min_tier
     )
 
