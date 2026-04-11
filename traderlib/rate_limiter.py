@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rate limiter for Alpaca API with exponential backoff."""
 
+import threading
 import time
 from collections import deque
 from datetime import datetime, timedelta
@@ -8,7 +9,11 @@ from typing import Optional, Dict
 
 
 class RateLimiter:
-    """Track API calls and enforce rate limits with backoff."""
+    """Track API calls and enforce rate limits with backoff.
+
+    Thread-safe: All mutable state protected by self._lock.
+    FINDING-014: Async/thread safety fix.
+    """
 
     def __init__(self, max_requests: int = 200, window_seconds: int = 60):
         """Initialize rate limiter.
@@ -32,23 +37,32 @@ class RateLimiter:
         self.max_delay = 60.0
         self.current_delay = 0.0
 
+        # Thread safety lock for all mutable state
+        self._lock = threading.Lock()
+
     def _clean_old_requests(self):
         """Remove requests outside the time window."""
         cutoff = datetime.now() - timedelta(seconds=self.window_seconds)
-        while self.requests and self.requests[0] < cutoff:
-            self.requests.popleft()
+        with self._lock:
+            while self.requests and self.requests[0] < cutoff:
+                self.requests.popleft()
 
     def can_make_request(self) -> bool:
         """Check if a request can be made within rate limits."""
-        if self.circuit_open:
-            return False
+        with self._lock:
+            if self.circuit_open:
+                return False
 
+        # Clean old requests (acquires lock internally)
         self._clean_old_requests()
-        return len(self.requests) < self.max_requests
+
+        with self._lock:
+            return len(self.requests) < self.max_requests
 
     def record_request(self):
         """Record that a request was made."""
-        self.requests.append(datetime.now())
+        with self._lock:
+            self.requests.append(datetime.now())
 
     def record_error(self, is_rate_limit: bool = False):
         """Record an API error.
@@ -56,42 +70,53 @@ class RateLimiter:
         Args:
             is_rate_limit: True if error was a 429 rate limit
         """
-        self.error_count += 1
-        self.last_error_time = datetime.now()
+        with self._lock:
+            self.error_count += 1
+            self.last_error_time = datetime.now()
 
-        if is_rate_limit:
-            self._increase_backoff()
+            if is_rate_limit:
+                self._increase_backoff()
 
-        # Circuit breaker: open after 5 errors in 1 minute
-        if self.error_count >= 5:
-            recent_errors = sum(1 for t in self.requests
-                              if datetime.now() - t < timedelta(minutes=1))
-            if recent_errors >= 5:
-                self._open_circuit()
+            # Circuit breaker: open after 5 errors in 1 minute
+            if self.error_count >= 5:
+                recent_errors = sum(1 for t in self.requests
+                                  if datetime.now() - t < timedelta(minutes=1))
+                if recent_errors >= 5:
+                    self._open_circuit()
 
     def record_success(self):
         """Record a successful request."""
-        self.error_count = max(0, self.error_count - 1)
-        self.current_delay = max(0, self.current_delay * 0.5)
+        with self._lock:
+            self.error_count = max(0, self.error_count - 1)
+            self.current_delay = max(0, self.current_delay * 0.5)
 
-        if self.circuit_open and self._should_close_circuit():
-            self._close_circuit()
+            if self.circuit_open and self._should_close_circuit():
+                self._close_circuit()
 
     def _increase_backoff(self):
-        """Increase backoff delay exponentially."""
+        """Increase backoff delay exponentially.
+
+        Lock must be held by caller.
+        """
         if self.current_delay == 0:
             self.current_delay = self.base_delay
         else:
             self.current_delay = min(self.current_delay * 2, self.max_delay)
 
     def _open_circuit(self):
-        """Open circuit breaker."""
+        """Open circuit breaker.
+
+        Lock must be held by caller.
+        """
         self.circuit_open = True
         self.circuit_opened_at = datetime.now()
         print(f"⚠️ CIRCUIT BREAKER OPENED at {self.circuit_opened_at}")
 
     def _close_circuit(self):
-        """Close circuit breaker."""
+        """Close circuit breaker.
+
+        Lock must be held by caller.
+        """
         self.circuit_open = False
         self.circuit_opened_at = None
         self.error_count = 0
@@ -99,7 +124,10 @@ class RateLimiter:
         print(f"✅ CIRCUIT BREAKER CLOSED")
 
     def _should_close_circuit(self) -> bool:
-        """Check if circuit should be closed (cooldown period passed)."""
+        """Check if circuit should be closed (cooldown period passed).
+
+        Lock must be held by caller.
+        """
         if not self.circuit_opened_at:
             return True
         elapsed = (datetime.now() - self.circuit_opened_at).total_seconds()
@@ -107,36 +135,46 @@ class RateLimiter:
 
     def get_wait_time(self) -> float:
         """Get recommended wait time before next request."""
-        if self.circuit_open:
-            if self._should_close_circuit():
-                return 0.0
-            return 60.0  # Wait for circuit cooldown
+        with self._lock:
+            if self.circuit_open:
+                if self._should_close_circuit():
+                    return 0.0
+                return 60.0  # Wait for circuit cooldown
 
+        # Clean old requests (acquires lock internally)
         self._clean_old_requests()
 
-        if len(self.requests) < self.max_requests:
-            return self.current_delay
+        with self._lock:
+            if len(self.requests) < self.max_requests:
+                return self.current_delay
 
-        # Wait until oldest request expires
-        oldest = self.requests[0]
-        wait = (oldest + timedelta(seconds=self.window_seconds) - datetime.now()).total_seconds()
-        return max(wait, self.current_delay)
+            # Wait until oldest request expires
+            oldest = self.requests[0]
+            wait = (oldest + timedelta(seconds=self.window_seconds) - datetime.now()).total_seconds()
+            return max(wait, self.current_delay)
 
     def get_status(self) -> Dict:
         """Get current rate limiter status."""
+        # Clean old requests (acquires lock internally)
         self._clean_old_requests()
-        return {
-            'requests_in_window': len(self.requests),
-            'max_requests': self.max_requests,
-            'error_count': self.error_count,
-            'circuit_open': self.circuit_open,
-            'current_delay': self.current_delay,
-            'can_request': self.can_make_request()
-        }
+
+        with self._lock:
+            return {
+                'requests_in_window': len(self.requests),
+                'max_requests': self.max_requests,
+                'error_count': self.error_count,
+                'circuit_open': self.circuit_open,
+                'current_delay': self.current_delay,
+                'can_request': len(self.requests) < self.max_requests and not self.circuit_open
+            }
 
 
 class APIHealthMonitor:
-    """Monitor API health and manage failover."""
+    """Monitor API health and manage failover.
+
+    Thread-safe: All mutable state protected by self._lock.
+    FINDING-014: Async/thread safety fix.
+    """
 
     def __init__(self):
         self.providers = {
@@ -146,46 +184,54 @@ class APIHealthMonitor:
         self.primary = 'alpaca'
         self.fallback = 'yfinance'
 
+        # Thread safety lock for all mutable state
+        self._lock = threading.Lock()
+
     def mark_success(self, provider: str):
         """Mark provider as healthy."""
-        if provider in self.providers:
-            self.providers[provider]['healthy'] = True
-            self.providers[provider]['failures'] = 0
-            self.providers[provider]['last_check'] = datetime.now()
+        with self._lock:
+            if provider in self.providers:
+                self.providers[provider]['healthy'] = True
+                self.providers[provider]['failures'] = 0
+                self.providers[provider]['last_check'] = datetime.now()
 
     def mark_failure(self, provider: str):
         """Mark provider as potentially unhealthy."""
-        if provider not in self.providers:
-            return
+        with self._lock:
+            if provider not in self.providers:
+                return
 
-        self.providers[provider]['failures'] += 1
-        self.providers[provider]['last_check'] = datetime.now()
+            self.providers[provider]['failures'] += 1
+            self.providers[provider]['last_check'] = datetime.now()
 
-        # Mark unhealthy after 3 consecutive failures
-        if self.providers[provider]['failures'] >= 3:
-            self.providers[provider]['healthy'] = False
-            print(f"⚠️ Provider {provider} marked unhealthy")
+            # Mark unhealthy after 3 consecutive failures
+            if self.providers[provider]['failures'] >= 3:
+                self.providers[provider]['healthy'] = False
+                print(f"⚠️ Provider {provider} marked unhealthy")
 
     def get_provider(self) -> str:
         """Get current data provider."""
-        if self.providers[self.primary]['healthy']:
-            return self.primary
-        if self.providers[self.fallback]['healthy']:
-            return self.fallback
-        return self.primary  # Return primary even if unhealthy (last resort)
+        with self._lock:
+            if self.providers[self.primary]['healthy']:
+                return self.primary
+            if self.providers[self.fallback]['healthy']:
+                return self.fallback
+            return self.primary  # Return primary even if unhealthy (last resort)
 
     def should_fallback(self) -> bool:
         """Check if should use fallback provider."""
-        return not self.providers[self.primary]['healthy']
+        with self._lock:
+            return not self.providers[self.primary]['healthy']
 
     def get_status(self) -> Dict:
         """Get health status of all providers."""
-        return {
-            'primary': self.primary,
-            'fallback': self.fallback,
-            'current': self.get_provider(),
-            'providers': self.providers.copy()
-        }
+        with self._lock:
+            return {
+                'primary': self.primary,
+                'fallback': self.fallback,
+                'current': self.get_provider(),
+                'providers': self.providers.copy()
+            }
 
 
 # Global rate limiters

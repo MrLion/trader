@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **FINDING-014: Async/thread safety — Added threading locks**
+  - Added `self._lock = threading.Lock()` to `RateLimiter` class
+  - Added `self._lock = threading.Lock()` to `APIHealthMonitor` class
+  - Protected all mutable state access with `with self._lock:` blocks
+  - Methods protected: `can_make_request()`, `record_request()`, `record_error()`, `record_success()`, `get_wait_time()`, `get_status()`
+  - Health monitor protected: `mark_success()`, `mark_failure()`, `get_provider()`, `get_status()`
+  - Impact: Thread-safe operation under concurrent access from multiple threads
+
 - **FINDING-009: Concurrent file writes — Added atomic write protection**
   - Added `_atomic_write_json()` function to `traderlib/paper_state.py`
   - Added `_atomic_write_json()` function to `traderlib/order_manager.py`
