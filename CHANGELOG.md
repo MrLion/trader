@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.13] - 2026-04-10
+
+### Fixed
+- **`paper_portfolio.py` using yfinance instead of Alpaca**
+  - Was using yfinance for EOD prices, bypassing the fixed `get_latest_price()`
+  - Caused $62.85 account value discrepancy (position values correct, cash sync stale)
+  - Fix: Now imports and uses `AlpacaClient` for real-time pricing
+  - Fix: Calls `alpaca.get_latest_price(ticker, use_fallback=False)` for all positions
+  - Impact: Portfolio status now shows Alpaca real-time prices; matches Alpaca UI exactly
+
 ## [0.3.12] - 2026-04-10
 
 ### Fixed

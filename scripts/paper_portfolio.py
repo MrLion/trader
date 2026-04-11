@@ -68,8 +68,8 @@ def format_pct(value: float) -> str:
 
 
 def cmd_status(args):
-    """Show current account and market status using end-of-day prices."""
-    import yfinance as yf
+    """Show current account and market status using Alpaca real-time prices."""
+    from alpaca_client import AlpacaClient
 
     account = load_json_file(ACCOUNT_FILE)
     positions = load_json_file(POSITIONS_FILE)
@@ -89,11 +89,24 @@ def cmd_status(args):
             file=str(DATA_DIR / 'watchlist.csv')
         )
 
+    # Initialize Alpaca client for real-time pricing
+    try:
+        alpaca = AlpacaClient(mode='paper')
+        price_source = "Alpaca Real-Time"
+    except Exception as e:
+        TradingExceptionHandler.log_exception(
+            "alpaca_init", e,
+            severity=TradingExceptionHandler.WARNING,
+            message="Failed to initialize Alpaca client for pricing"
+        )
+        print("❌ Failed to connect to Alpaca. Check API credentials.")
+        return
+
     # Get cash (available for trade)
     cash = account.get('cash', 0)
     initial_capital = account.get('initial_capital', 0)
 
-    # Calculate account value using end-of-day closing prices
+    # Calculate account value using Alpaca real-time prices
     account_value = cash  # Start with cash
     position_values = {}
 
@@ -107,24 +120,29 @@ def cmd_status(args):
         else:
             pos_dict = positions
 
-        # Fetch end-of-day closing prices (previous day's close)
+        # Fetch real-time prices from Alpaca
         for ticker, pos in pos_dict.items():
+            current_price = None
+            price_source_detail = 'POSITION'
+
             try:
-                stock = yf.Ticker(ticker)
-                # Get daily data to find previous day's close
-                hist = stock.history(period="5d", interval="1d")
-                if len(hist) > 0:
-                    # Use the most recent closing price (end of day)
-                    eod_close = hist['Close'].iloc[-1]
-                else:
-                    eod_close = pos.get('entry_price', 0)  # Fallback to entry
+                # Use AlpacaClient.get_latest_price() which uses:
+                # 1. Position API current_price (marked to market) when position exists
+                # 2. Quotes API (bid/ask midpoint) for non-positions
+                current_price = alpaca.get_latest_price(ticker, use_fallback=False)
+                if current_price is None:
+                    # Fallback to entry price if Alpaca returns None
+                    current_price = pos.get('entry_price', 0) or pos.get('avg_entry_price', 0)
+                    price_source_detail = 'ENTRY'
             except Exception:
-                eod_close = pos.get('entry_price', 0)  # Fallback to entry
+                current_price = pos.get('entry_price', 0) or pos.get('avg_entry_price', 0)
+                price_source_detail = 'ENTRY'
 
             shares = pos.get('shares') or pos.get('qty', 0)
-            position_market_value = eod_close * shares
+            position_market_value = current_price * shares
             position_values[ticker] = {
-                'eod_close': eod_close,
+                'current_price': current_price,
+                'price_source': price_source_detail,
                 'market_value': position_market_value,
                 'entry_price': pos.get('entry_price') or pos.get('avg_entry_price', 0),
                 'shares': shares
@@ -132,7 +150,7 @@ def cmd_status(args):
             account_value += position_market_value
 
     print("\n" + "=" * 60)
-    print("📊 PAPER TRADING ACCOUNT STATUS (EOD Prices)")
+    print(f"📊 PAPER TRADING ACCOUNT STATUS ({price_source})")
     print("=" * 60)
 
     print(f"\n💰 ACCOUNT")
@@ -149,15 +167,15 @@ def cmd_status(args):
     day_return = account.get('day_return_pct', 0)
     print(f"   Day P&L: {format_currency(day_pnl)} ({format_pct(day_return)})")
 
-    # Calculate unrealized P&L using EOD prices
+    # Calculate unrealized P&L using Alpaca real-time prices
     unrealized_pnl = 0.0
     if positions and position_values:
         for ticker, pos in position_values.items():
             entry_price = pos['entry_price']
-            eod_close = pos['eod_close']
+            current_price = pos['current_price']
             shares = pos['shares']
-            if entry_price and eod_close and shares:
-                unrealized_pnl += (eod_close - entry_price) * shares
+            if entry_price and current_price and shares:
+                unrealized_pnl += (current_price - entry_price) * shares
 
     if unrealized_pnl != 0:
         unrealized_pct = (unrealized_pnl / initial_capital) * 100 if initial_capital else 0
@@ -178,9 +196,9 @@ def cmd_status(args):
         else:
             pos_dict = positions
 
-        print(f"\n📋 OPEN POSITIONS ({len(pos_dict)}) - EOD Close Prices")
+        print(f"\n📋 OPEN POSITIONS ({len(pos_dict)}) - Alpaca Prices")
         print("-" * 75)
-        print(f"{'Ticker':7} {'Sector':12} {'Shares':7} {'Entry':>10} {'EOD Close':>10} {'P&L $':>12} {'Stop':>10} {'Type'}")
+        print(f"{'Ticker':7} {'Sector':12} {'Shares':7} {'Entry':>10} {'Current':>10} {'P&L $':>12} {'Stop':>10} {'Type'}")
         print("-" * 75)
 
         for ticker, pos in pos_dict.items():
@@ -210,14 +228,14 @@ def cmd_status(args):
                         ticker=ticker
                     )
 
-            # Get EOD price from fetched values
+            # Get current price from Alpaca fetched values
             pos_value = position_values.get(ticker, {})
-            eod_close = pos_value.get('eod_close', entry)
-            pos_pnl = (eod_close - entry) * shares if eod_close and entry else 0
+            current_price = pos_value.get('current_price', entry)
+            pos_pnl = (current_price - entry) * shares if current_price and entry else 0
 
             emoji = "🟢" if pos_pnl >= 0 else "🔴"
             print(f"{emoji} {ticker:5} {sector[:12]:12} {shares:7} "
-                  f"${entry:>9.2f} ${eod_close:>9.2f} ${pos_pnl:>11,.2f} "
+                  f"${entry:>9.2f} ${current_price:>9.2f} ${pos_pnl:>11,.2f} "
                   f"${stop:>9.2f} {stop_type}")
 
     # Last update
