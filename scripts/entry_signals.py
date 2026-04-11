@@ -364,15 +364,152 @@ class EntrySignalScanner:
                 json.dump(signals, f, indent=2, default=str)
             print(f"\n💾 Exported to: {filepath}")
 
+        elif format == 'html':
+            filepath = SCANS_DIR / f'entry_signals_{timestamp}.html'
+            self._export_html(signals, filepath)
+            print(f"\n💾 Exported to: {filepath}")
+
+    def _export_html(self, signals: List[Dict], filepath: Path):
+        """Generate HTML report."""
+        tier1 = [s for s in signals if s['entry_score'] >= 60]
+        tier2 = [s for s in signals if 40 <= s['entry_score'] < 60]
+        tier3 = [s for s in signals if s['entry_score'] < 40]
+
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Entry Signals — {datetime.now().strftime('%Y-%m-%d')}</title>
+    <style>
+        :root {{ --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #f8fafc;
+                --accent-green: #4ade80; --accent-yellow: #facc15; --accent-red: #f87171; }}
+        body {{ font-family: -apple-system, sans-serif; background: var(--bg-primary);
+               color: var(--text-primary); padding: 20px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #334155; }}
+        th {{ background: var(--bg-secondary); }}
+        .tier1 {{ color: var(--accent-green); }}
+        .tier2 {{ color: var(--accent-yellow); }}
+        .tier3 {{ color: var(--accent-red); }}
+    </style>
+</head>
+<body>
+    <h1>🎯 Entry Signals — {datetime.now().strftime('%Y-%m-%d')}</h1>
+
+    <h2 class="tier1">🟢 Ready Now (Score ≥60)</h2>
+    <table>
+        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/7</td><td>{s["sector"]}</td></tr>' for s in tier1)}
+    </table>
+
+    <h2 class="tier2">🟡 Tier 2 (Score 40-59)</h2>
+    <table>
+        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier2"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/7</td><td>{s["sector"]}</td></tr>' for s in tier2)}
+    </table>
+</body>
+</html>"""
+
+        with open(filepath, 'w') as f:
+            f.write(html_content)
+
+    def analyze_single(self, ticker: str) -> Optional[Dict]:
+        """Deep analysis of single ticker (like old analyze_ticker.py)."""
+        print(f"\n🔍 Analyzing {ticker.upper()}...")
+
+        analysis = self._analyze_ticker(ticker)
+        if not analysis:
+            print(f"❌ Could not analyze {ticker}")
+            return None
+
+        # Get additional data for deep dive
+        try:
+            hist = self.alpaca.get_historical_bars(ticker, days=252)  # 1 year
+            if hist is not None and len(hist) >= 200:
+                current = analysis['current']
+
+                # Returns
+                ret_1m = (current / hist['Close'].iloc[-20] - 1) * 100
+                ret_3m = (current / hist['Close'].iloc[-65] - 1) * 100 if len(hist) >= 65 else 0
+                ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
+
+                # Moving averages
+                ma20 = hist['Close'].rolling(20).mean().iloc[-1]
+                ma50 = hist['Close'].rolling(50).mean().iloc[-1]
+                ma150 = hist['Close'].rolling(150).mean().iloc[-1]
+                ma200 = hist['Close'].rolling(200).mean().iloc[-1]
+
+                # 52-week high
+                high_52w = hist['Close'].max()
+                from_high = ((high_52w - current) / high_52w) * 100
+
+                # Above MAs check
+                above_20 = '✓' if current > ma20 else '✗'
+                above_50 = '✓' if current > ma50 else '✗'
+                above_150 = '✓' if current > ma150 else '✗'
+                above_200 = '✓' if current > ma200 else '✗'
+
+                # Stage 2 status
+                score = analysis['stage2']
+                status = '🟢' if score >= 5 else '🟡' if score >= 3 else '🔴'
+
+                print(f"\n{ticker.upper()} — ${current:.2f}\n")
+                print("| Metric | Value |")
+                print("|:-------|:------|")
+                print(f"| Sector | {analysis['sector']} |")
+                print(f"| 1M Return | {ret_1m:+.1f}% |")
+                print(f"| 3M Return | {ret_3m:+.1f}% |")
+                print(f"| 6M Return | {ret_6m:+.1f}% |")
+                print(f"| Stage 2 Score | {score}/7 {status} |")
+                print(f"| From 52W High | {from_high:.1f}% |")
+                print(f"| Above All MAs | {above_20} {above_50} {above_150} {above_200} 20/50/150/200 |")
+
+                print(f"\n---\n\nENTRY SETUP\n")
+                print("| Level | Price |")
+                print("|:------|:------|")
+                print(f"| Pivot | ${analysis['pivot']:.2f} |")
+                print(f"| Stop | ${analysis['stop']:.2f} |")
+                print(f"| Target | ${analysis['target']:.2f} |")
+                print(f"| Risk % | {analysis['risk_pct']:.1f}% |")
+
+                # Verdict
+                if score >= 6 and analysis['risk_pct'] < 10:
+                    verdict = "🟢 A-TIER — Strong setup. Watch for volume-confirmed breakout."
+                elif score >= 5:
+                    verdict = "🟡 TIER B — Developing Stage 2 setup. Promote to A on breakout."
+                elif score >= 4:
+                    verdict = "🔵 TIER C — On radar, monitor for improvement."
+                else:
+                    verdict = "⚪ PASS — Below Stage 2 criteria."
+
+                print(f"\n**Verdict:** {verdict}")
+
+                return analysis
+        except Exception as e:
+            print(f"⚠️ Error getting additional data: {e}")
+
+        return analysis
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Scan watchlist for entry signals'
+        description='Scan watchlist for entry signals or analyze single ticker',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 entry_signals.py                    # Scan full watchlist
+  python3 entry_signals.py --ticker AAPL      # Deep dive single ticker
+  python3 entry_signals.py --export-csv         # Scan and export to CSV
+  python3 entry_signals.py --export-html        # Scan and export to HTML
+        """
     )
     parser.add_argument(
         '--tickers', '-t',
         nargs='+',
         help='Specific tickers to scan (default: watchlist)'
+    )
+    parser.add_argument(
+        '--ticker',
+        help='Analyze single ticker in detail (replaces analyze_ticker.py)'
     )
     parser.add_argument(
         '--min-tier', '-m',
@@ -384,8 +521,18 @@ def main():
     parser.add_argument(
         '--export', '-e',
         choices=['csv', 'json', 'none'],
-        default='csv',
+        default='none',
         help='Export format for results'
+    )
+    parser.add_argument(
+        '--export-csv',
+        action='store_true',
+        help='Export results to CSV (replaces analyze_watchlist.py --csv)'
+    )
+    parser.add_argument(
+        '--export-html',
+        action='store_true',
+        help='Export results to HTML (replaces analyze_watchlist.py --html)'
     )
     parser.add_argument(
         '--mode',
@@ -401,6 +548,12 @@ def main():
 
     args = parser.parse_args()
 
+    # Single ticker analysis mode
+    if args.ticker:
+        scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
+        result = scanner.analyze_single(args.ticker.upper())
+        return 0 if result else 1
+
     # Run scan
     scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
     signals = scanner.scan(
@@ -408,9 +561,16 @@ def main():
         min_tier=args.min_tier
     )
 
+    # Determine export format
+    export_format = args.export
+    if args.export_csv:
+        export_format = 'csv'
+    elif args.export_html:
+        export_format = 'html'
+
     # Export if requested
-    if args.export != 'none' and signals:
-        scanner.export_signals(signals, format=args.export)
+    if export_format != 'none' and signals:
+        scanner.export_signals(signals, format=export_format)
 
     # Summary
     if signals:
