@@ -70,8 +70,30 @@ def format_pct(value: float) -> str:
     return f"{color} {value:+.2f}%"
 
 
+def _is_test_trade(trade: dict) -> bool:
+    """Detect test trades using same logic as paper_state.py."""
+    meta = trade.get('_meta', {})
+    ticker = trade.get('ticker', '')
+    price = trade.get('entry_price', 0)
+
+    # Explicit test mode flag
+    if meta.get('test_mode'):
+        return True
+
+    # Known test pattern: AAPL at exactly $150.00 (synthetic test price)
+    if ticker == 'AAPL' and price == 150.0:
+        return True
+
+    # Known test patterns in validation failures
+    if meta.get('validation_failed'):
+        if ticker in ('MSFT', 'GOOGL', 'STOCK0', 'STOCK1', 'STOCK2'):
+            return True
+
+    return False
+
+
 def _calculate_day_stats() -> Dict:
-    """Calculate day stats from trade log (source of truth)."""
+    """Calculate day stats from trade log (source of truth), excluding test data."""
     today = datetime.now().strftime('%Y-%m-%d')
     trades = load_trades(limit=1000)  # Load enough to cover the day
 
@@ -80,6 +102,10 @@ def _calculate_day_stats() -> Dict:
     total_trades = 0
 
     for trade in trades:
+        # Skip test trades
+        if _is_test_trade(trade):
+            continue
+
         total_trades += 1
         ts = trade.get('timestamp', '')
 
