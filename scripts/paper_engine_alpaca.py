@@ -382,7 +382,7 @@ class AlpacaPaperEngine:
                 return cache_entry['price']
 
         # Always try REST as primary source for entry decisions
-        price = self.alpaca.get_latest_price(ticker, use_fallback=True)
+        price = self.alpaca.get_latest_price(ticker)
         if price:
             self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
             return price
@@ -602,10 +602,11 @@ class AlpacaPaperEngine:
         if signal.should_exit:
             await self._execute_exit(ticker, signal)
 
-    def _check_exits(self):
+    async def _check_exits(self):
         """Check all open positions for exits."""
         for ticker in list(self.state.positions.keys()):
-            current_price = self._get_current_price(ticker)
+            # Run blocking price fetch in thread
+            current_price = await asyncio.to_thread(self._get_current_price, ticker)
             if current_price is None:
                 continue
 
@@ -615,7 +616,7 @@ class AlpacaPaperEngine:
             if signal.should_exit:
                 asyncio.create_task(self._execute_exit(ticker, signal))
 
-    def _check_entries(self):
+    async def _check_entries(self):
         """Scan for entry opportunities using configured thresholds."""
         market_ok, market_msg = self._check_market_conditions()
         if not market_ok:
@@ -642,7 +643,7 @@ class AlpacaPaperEngine:
 
         for ticker in watchlist:
             checked += 1
-            analysis = self._analyze_ticker(ticker)
+            analysis = await asyncio.to_thread(self._analyze_ticker, ticker)
             if not analysis:
                 continue
 
@@ -806,12 +807,13 @@ class AlpacaPaperEngine:
                 realized_pnl = position.realized_pnl or 0.0
                 self._record_position_exit(ticker, realized_pnl)
 
-    def _process_pending_orders(self):
+    async def _process_pending_orders(self):
         """Check status of all pending orders."""
         if self.order_manager.get_pending_count() == 0:
             return
 
-        filled = self.order_manager.process_all_pending()
+        # Run blocking API calls in thread pool
+        filled = await asyncio.to_thread(self.order_manager.process_all_pending)
         for order in filled:
             if order.side == 'buy':
                 print(f"✅ Entry filled: {order.ticker} "
@@ -885,7 +887,7 @@ class AlpacaPaperEngine:
 
             print(f"\n📅 New day: Reset entry signals and cooldown tracking")
 
-    def _print_status(self):
+    async def _print_status(self):
         """Print current status."""
         print(f"\n{'='*60}")
         # DESIGN FIX: Add ET timezone suffix to timestamp
@@ -902,25 +904,28 @@ class AlpacaPaperEngine:
         stats = self.state.get_stats()
         orders = self.order_manager.get_orders_summary()
 
-        # Calculate Account Value and Unrealized PnL using live prices
+        # Calculate Account Value and Unrealized PnL
+        # Fetch prices asynchronously if not in cache
         account_value = stats['cash']
         unrealized_pnl = 0.0
         for ticker, pos in self.state.positions.items():
             if pos.status == 'OPEN':
-                # Try WebSocket cache first, then Alpaca cached price
+                # Try cache first
                 current_price = self.price_cache.get(ticker, {}).get('price')
                 if current_price is None:
                     current_price = self.alpaca.get_cached_price(ticker)
+                # Fetch via REST if not cached (non-blocking)
                 if current_price is None:
-                    current_price = self.alpaca.get_latest_price(ticker, use_fallback=False)
+                    current_price = await asyncio.to_thread(self.alpaca.get_latest_price, ticker)
                 if current_price:
                     account_value += current_price * pos.shares
                     unrealized_pnl += (current_price - pos.entry_price) * pos.shares
 
-        print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}")
-        print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}")
-        print(f"📋 Pending Orders: {orders['pending']} | Health: {self.alpaca.get_health_summary()}")
-        print(f"{'='*60}")
+        print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}", flush=True)
+        print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}", flush=True)
+        print(f"📋 Pending Orders: {orders['pending']}", flush=True)
+        # Skip health summary for now - potential deadlock in rate limiter
+        print(f"{'='*60}", flush=True)
 
     async def run(self):
         """Main event loop."""
@@ -955,12 +960,12 @@ class AlpacaPaperEngine:
                 self._refresh_spy_cache()
 
                 self._reset_daily_signals()
-                self._print_status()
-                self._process_pending_orders()
+                await self._print_status()
+                await self._process_pending_orders()
 
                 if self._is_market_hours():
-                    self._check_exits()
-                    self._check_entries()
+                    await self._check_exits()
+                    await self._check_entries()
                 else:
                     print("   ⏳ Market closed - monitoring only")
 
@@ -979,11 +984,21 @@ class AlpacaPaperEngine:
                 traceback.print_exc()
                 await asyncio.sleep(30)
 
-        # Cleanup
+        # Cleanup - Cancel task first, then cleanup resources
         print("\n🛑 Stopping WebSocket...")
-        await self.alpaca.stop_price_stream()
         if ws_task:
             ws_task.cancel()
+            try:
+                await asyncio.wait_for(ws_task, timeout=3.0)
+            except asyncio.CancelledError:
+                print("   ✓ WebSocket task cancelled")
+            except asyncio.TimeoutError:
+                print("   ⚠ WebSocket task timeout (forcing)")
+        # Stop the stream after task is cancelled
+        try:
+            await asyncio.wait_for(self.alpaca.stop_price_stream(), timeout=2.0)
+        except Exception:
+            pass  # Ignore cleanup errors
         print("✅ Engine stopped gracefully")
 
 

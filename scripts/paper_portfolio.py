@@ -209,7 +209,7 @@ def cmd_status(args):
                 # Use AlpacaClient.get_latest_price() which uses:
                 # 1. Position API current_price (marked to market) when position exists
                 # 2. Quotes API (bid/ask midpoint) for non-positions
-                current_price = alpaca.get_latest_price(ticker, use_fallback=False)
+                current_price = alpaca.get_latest_price(ticker)
                 if current_price is None:
                     # Fallback to entry price if Alpaca returns None
                     current_price = pos.get('entry_price', 0) or pos.get('avg_entry_price', 0)
