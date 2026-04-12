@@ -55,7 +55,7 @@ def check_dependencies() -> Tuple[bool, str, str]:
             missing.append(pkg)
 
     if missing:
-        return False, f"Missing: {', '.join(missing)}", "Run: pip3 install -r requirements.txt"
+        return False, f"Missing: {', '.join(missing)}", "Run: pip3 install -r requirements/requirements.txt"
     return True, "All required packages installed", "OK"
 
 

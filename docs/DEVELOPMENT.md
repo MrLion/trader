@@ -23,7 +23,7 @@ make setup
 pip install -e .
 
 # Or install dependencies only
-pip install -r requirements.txt
+pip install -r requirements/requirements.txt
 
 # 2. Copy environment template and configure
 cp .env.example .env

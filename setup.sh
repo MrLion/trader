@@ -72,11 +72,12 @@ fi
 
 # Install dependencies
 echo "Installing dependencies..."
-if [ -f requirements.txt ]; then
-    pip3 install -r requirements.txt --quiet
+REQ_FILE="requirements/requirements.txt"
+if [ -f "$REQ_FILE" ]; then
+    pip3 install -r "$REQ_FILE" --quiet
     echo "✅ Dependencies installed"
 else
-    echo "❌ requirements.txt not found"
+    echo "❌ $REQ_FILE not found"
     exit 1
 fi
 echo ""
