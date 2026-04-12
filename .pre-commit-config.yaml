@@ -56,6 +56,6 @@ repos:
     rev: v1.33.0
     hooks:
       - id: yamllint
-        args: ['-c', '.yamllint.yml']
+        args: ['-c', '.github/yamllint.yml']
         files: \.(yaml|yml)$
         exclude: ^(.github/)
