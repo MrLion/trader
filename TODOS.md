@@ -73,9 +73,15 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 ### CEO Phase Recommendations
 - [ ] **Strategy Health Monitor**: Track hit rate by setup type, auto-suspend underperformers
 - [ ] **Trade Journal Analysis Engine**: Ingest actual trade data, identify working setups
-- [ ] **Manual vs Automated comparison**: Track system-suggested vs system-executed P&L
+- [ [ ] **Manual vs Automated comparison**: Track system-suggested vs system-executed P&L
 - [ ] **Paper Performance Gate**: Require 3 months Sharpe > 1.0 before live trading work
 - [ ] **Live Trading MVP**: Strip 80%, manual execution only, prove edge first
+
+### Risk Management Enhancements
+- [x] **Re-entry Cooldown**: Configurable cooldown periods to prevent immediate re-entry after losses
+  - Implemented: 2026-04-11 (FLY case study)
+  - Files: `traderlib/risk_config.py`, `config/risk_config.yaml`, `scripts/paper_engine_alpaca.py`
+  - Features: Base cooldown (60min), exponential backoff (2x consecutive losses), daily reset
 
 ### Architecture
 - [ ] WebSocket supervisor pattern with `asyncio.gather()`

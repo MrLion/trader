@@ -75,6 +75,25 @@ class MarketFilterConfig:
 
 
 @dataclass
+class CooldownConfig:
+    """Re-entry cooldown settings to prevent chasing losses.
+
+    See: memory/2026-04-11-fly-reentry-lesson.md - FLY case study
+    """
+    # Minutes to wait before re-entering same ticker after exit
+    reentry_cooldown_minutes: int = 60  # 1 hour default
+
+    # Only apply cooldown if previous trade was a loss (set to 0.0 to always apply)
+    min_loss_to_trigger_cooldown_pct: float = 0.0  # 0% = any loss triggers cooldown
+
+    # Maximum cooldown after consecutive losses (exponential backoff)
+    max_cooldown_minutes: int = 240  # 4 hours cap
+
+    # Increase cooldown multiplier after each consecutive loss on same ticker
+    consecutive_loss_multiplier: float = 2.0
+
+
+@dataclass
 class RiskConfig:
     """Complete risk configuration."""
     account: AccountRiskConfig = field(default_factory=AccountRiskConfig)
@@ -84,6 +103,7 @@ class RiskConfig:
     entry: EntryConfig = field(default_factory=EntryConfig)
     market: MarketFilterConfig = field(default_factory=MarketFilterConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
+    cooldown: CooldownConfig = field(default_factory=CooldownConfig)
 
 
 class RiskConfigManager:
@@ -204,6 +224,11 @@ class RiskConfigManager:
                 if hasattr(config.market, key):
                     setattr(config.market, key, val)
 
+        if 'cooldown' in data:
+            for key, val in data['cooldown'].items():
+                if hasattr(config.cooldown, key):
+                    setattr(config.cooldown, key, val)
+
     def _apply_env_overrides(self, config: RiskConfig):
         """Apply environment variable overrides.
 
@@ -259,6 +284,7 @@ class RiskConfigManager:
         print(f"Entry Threshold:    {cfg.entry.min_entry_score}")
         print(f"EMA Periods:        {cfg.profit_target.ema_short_period}/{cfg.profit_target.ema_long_period}")
         print(f"Cache TTL:          {cfg.cache.ttl_seconds}s")
+        print(f"Cooldown:           {cfg.cooldown.reentry_cooldown_minutes}min (loss threshold: {cfg.cooldown.min_loss_to_trigger_cooldown_pct*100:.1f}%)")
         print("="*50)
 
 

@@ -66,6 +66,13 @@ class AlpacaPaperEngine:
         self.signaled_tickers: Set[str] = set()
         self.last_signal_reset = datetime.now().strftime('%Y-%m-%d')
 
+        # Cooldown tracking (FLY case study - prevents same-day re-entry after loss)
+        # Format: {ticker: exit_timestamp}
+        self.last_exit_time: Dict[str, datetime] = {}
+        # Track consecutive losses per ticker for exponential backoff
+        # Format: {ticker: consecutive_loss_count}
+        self.consecutive_losses: Dict[str, int] = {}
+
         # Market data
         self.spy_data = None
 
@@ -387,6 +394,72 @@ class AlpacaPaperEngine:
 
         return None
 
+    def _check_cooldown(self, ticker: str) -> tuple[bool, Optional[str]]:
+        """Check if ticker is in re-entry cooldown period.
+
+        Args:
+            ticker: Ticker symbol to check
+
+        Returns:
+            Tuple of (can_enter: bool, reason: Optional[str])
+            - can_enter: True if entry is allowed, False if in cooldown
+            - reason: Explanation if entry blocked, None if allowed
+
+        See: memory/2026-04-11-fly-reentry-lesson.md - FLY case study
+        """
+        cooldown_cfg = self.risk_config.cooldown
+
+        # Check if we have exit history for this ticker
+        if ticker not in self.last_exit_time:
+            return True, None
+
+        last_exit = self.last_exit_time[ticker]
+        elapsed_minutes = (datetime.now() - last_exit).total_seconds() / 60
+
+        # Calculate effective cooldown with exponential backoff
+        consecutive_count = self.consecutive_losses.get(ticker, 0)
+        base_cooldown = cooldown_cfg.reentry_cooldown_minutes
+        multiplier = cooldown_cfg.consecutive_loss_multiplier ** consecutive_count
+        effective_cooldown = min(
+            base_cooldown * multiplier,
+            cooldown_cfg.max_cooldown_minutes
+        )
+
+        if elapsed_minutes < effective_cooldown:
+            remaining = effective_cooldown - elapsed_minutes
+            return False, f"Cooldown: {remaining:.0f}min remaining ({consecutive_count} consecutive losses)"
+
+        return True, None
+
+    def _record_position_exit(self, ticker: str, realized_pnl: float):
+        """Record position exit for cooldown tracking.
+
+        Args:
+            ticker: Ticker symbol that was exited
+            realized_pnl: P&L from the trade (positive = profit, negative = loss)
+        """
+        cooldown_cfg = self.risk_config.cooldown
+
+        # Record exit time
+        self.last_exit_time[ticker] = datetime.now()
+
+        # Check if this was a losing trade
+        min_loss_pct = cooldown_cfg.min_loss_to_trigger_cooldown_pct
+        # Determine if it's a loss based on dollar amount
+        is_loss = realized_pnl < 0
+
+        if is_loss:
+            # Increment consecutive loss count
+            current_count = self.consecutive_losses.get(ticker, 0)
+            self.consecutive_losses[ticker] = current_count + 1
+            print(f"   ⏱️  {ticker}: Exit recorded (loss ${realized_pnl:.2f}), "
+                  f"consecutive losses: {self.consecutive_losses[ticker]}")
+        else:
+            # Reset consecutive loss count on profit
+            if ticker in self.consecutive_losses:
+                del self.consecutive_losses[ticker]
+                print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
+
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions using configured thresholds."""
         spy_price = self._get_current_price('SPY')
@@ -621,6 +694,12 @@ class AlpacaPaperEngine:
             print(f"   ⏸️  {ticker}: Already signaled today")
             return
 
+        # Check re-entry cooldown (prevents FLY-style immediate re-entry after loss)
+        can_enter, cooldown_reason = self._check_cooldown(ticker)
+        if not can_enter:
+            print(f"   ⏸️  {ticker}: {cooldown_reason}")
+            return
+
         # Check if already have pending order
         if self.order_manager.has_pending_order(ticker):
             print(f"   ⏸️  {ticker}: Order already pending")
@@ -723,6 +802,10 @@ class AlpacaPaperEngine:
                 print(f"   Reason: {signal.reason}")
                 print(f"   P&L: ${position.realized_pnl:,.2f}")
 
+                # Record exit for cooldown tracking (FLY case study)
+                realized_pnl = position.realized_pnl or 0.0
+                self._record_position_exit(ticker, realized_pnl)
+
     def _process_pending_orders(self):
         """Check status of all pending orders."""
         if self.order_manager.get_pending_count() == 0:
@@ -795,7 +878,12 @@ class AlpacaPaperEngine:
         if self.last_signal_reset != current_date:
             self.signaled_tickers.clear()
             self.last_signal_reset = current_date
-            print(f"\n📅 New day: Reset entry signals")
+
+            # Clear cooldown tracking for fresh start (exits from yesterday don't block today)
+            self.last_exit_time.clear()
+            self.consecutive_losses.clear()
+
+            print(f"\n📅 New day: Reset entry signals and cooldown tracking")
 
     def _print_status(self):
         """Print current status."""

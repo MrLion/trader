@@ -2,7 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.17] - 2026-04-11
+
+### Added
+- **Re-entry Cooldown Protection (FLY Case Study)**
+  - Configurable cooldown periods to prevent immediate re-entry after losses
+  - Based on FLY trade analysis where re-entry 2 minutes after loss caused -$769 total loss
+  - Configuration in `config/risk_config.yaml` under `cooldown` section:
+    - `reentry_cooldown_minutes`: Base cooldown (default: 60 minutes)
+    - `min_loss_to_trigger_cooldown_pct`: Loss threshold (default: 0.0 = any loss)
+    - `max_cooldown_minutes`: Maximum cooldown cap (default: 240 minutes / 4 hours)
+    - `consecutive_loss_multiplier`: Exponential backoff factor (default: 2.0x)
+  - Implementation in `scripts/paper_engine_alpaca.py`:
+    - `_check_cooldown()`: Validates if enough time has passed since last exit
+    - `_record_position_exit()`: Tracks exit time and consecutive loss count
+    - Cooldown automatically resets on new trading day
+  - Updated `traderlib/risk_config.py` with `CooldownConfig` dataclass
+  - Entry blocked with message like: "Cooldown: 45min remaining (2 consecutive losses)"
 
 ### Fixed
 - **FINDING-007: Weekend/holiday market hours**

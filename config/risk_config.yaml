@@ -110,6 +110,27 @@ market:
   # max_vix: 35  # Uncomment to enable
 
 # =============================================================================
+# RE-ENTRY COOLDOWN CONFIGURATION
+# =============================================================================
+# Prevents immediate re-entry after position closure (FLY case study)
+# See: memory/2026-04-11-fly-reentry-lesson.md
+cooldown:
+  # Minutes to wait before re-entering same ticker after exit
+  # Default: 60 minutes (1 hour) - prevents FLY-style double loss
+  reentry_cooldown_minutes: 60
+
+  # Minimum loss % to trigger cooldown (0.0 = any loss triggers cooldown)
+  # Set to 0.01 to only cooldown after 1%+ losses
+  min_loss_to_trigger_cooldown_pct: 0.0
+
+  # Maximum cooldown cap after consecutive losses
+  max_cooldown_minutes: 240  # 4 hours
+
+  # Multiply cooldown by this factor after each consecutive losing trade
+  # Example: 60min -> 120min -> 240min (capped)
+  consecutive_loss_multiplier: 2.0
+
+# =============================================================================
 # PRESET RISK PROFILES
 # =============================================================================
 # Use with: --risk-profile <name>
