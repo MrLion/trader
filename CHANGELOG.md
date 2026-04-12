@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.18] - 2026-04-11
+
+### Fixed
+- **Async blocking calls in paper trading engine**
+  - Fixed `TypeError: get_latest_price() got unexpected keyword argument 'use_fallback'`
+  - Made `_print_status()`, `_process_pending_orders()`, `_check_exits()`, `_check_entries()` async
+  - Wrapped blocking Alpaca API calls in `asyncio.to_thread()` to prevent event loop blocking
+  - Fixed 30-second countdown not appearing due to blocking HTTP calls
+  - Fixed shutdown hang by properly awaiting WebSocket task cancellation
+  - Fixed account value calculation to fetch missing prices via REST when not cached
+  - Removed health summary display (caused rate limiter deadlock)
+
 ## [0.3.17] - 2026-04-11
 
 ### Added
