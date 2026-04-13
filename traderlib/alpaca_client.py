@@ -290,6 +290,7 @@ class AlpacaClient:
         except Exception as e:
             self.rate_limiter.record_error()
             health_monitor.mark_failure('alpaca')
+            print(f"   ⚠️  Batch quotes API failed: {e}")
             for ticker in still_need_quotes:
                 if ticker not in result:
                     result[ticker] = None

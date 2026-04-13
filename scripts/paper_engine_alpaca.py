@@ -391,10 +391,12 @@ class AlpacaPaperEngine:
         # If batch pre-fetch already got this ticker, the cache hit above
         # would have returned it. Only try per-ticker REST for tickers
         # that the batch call didn't cover (e.g. newly added to watchlist).
-        price = self.alpaca.get_latest_price(ticker)
-        if price:
-            self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
-            return price
+        # Skip per-ticker REST if circuit breaker is open (avoid cascade).
+        if not self.alpaca.rate_limiter.circuit_open:
+            price = self.alpaca.get_latest_price(ticker)
+            if price:
+                self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
+                return price
 
         # Final fallback: use stale engine cache if available (better than nothing)
         if ticker in self.price_cache:
@@ -642,7 +644,10 @@ class AlpacaPaperEngine:
         print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
 
         # Pre-fetch prices in a single batch to avoid N individual REST calls
-        await asyncio.to_thread(self.alpaca.get_latest_prices_batch, watchlist)
+        batch_prices = await asyncio.to_thread(self.alpaca.get_latest_prices_batch, watchlist)
+        missing = [t for t, p in batch_prices.items() if p is None]
+        if missing:
+            print(f"   ℹ️  Batch pre-fetch: {len(watchlist) - len(missing)}/{len(watchlist)} prices fetched, {len(missing)} unavailable ({', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
 
         # Get thresholds from config
         entry_threshold = self.risk_config.entry.min_entry_score
