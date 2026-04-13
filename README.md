@@ -30,6 +30,7 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 - **Entry Signal Scanner** - Tier 1/2/3 rankings with proximity to pivot analysis
 - **Pre/Post Market Reports** - HTML reports with futures, VIX, economic calendar
 - **Watchlist Management** - Tier A/B/C tracking with automated scoring
+- **Backtesting Engine** - Simulate strategies against historical data with execution modeling
 - **Paper Trading** - Test strategies with simulated or Alpaca paper accounts
 
 ## Prerequisites
@@ -178,7 +179,38 @@ python3 scripts/watchlist_manager.py populate /path/to/scan.csv
 python3 scripts/mcstock_scraper.py
 python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
+python3 scripts/mcstock_scraper.py --config config/scraper_config.yaml
 ```
+
+### Backtesting
+
+Simulate the Stage 2 momentum strategy against historical data.
+
+| Script | Purpose | Example Command |
+|----------------------|--------------------------------------|----------------------------------------|
+| `backtest.py` | Run backtests with configurable parameters | `python3 scripts/backtest.py` |
+
+**Quick Start:**
+```bash
+# Run backtest with defaults (last 6 months, $100K capital)
+python3 scripts/backtest.py
+
+# Custom date range and capital
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
+
+# Use a specific watchlist and risk profile
+python3 scripts/backtest.py --watchlist data/watchlist.csv --risk-profile conservative
+
+# Limit concurrent positions
+python3 scripts/backtest.py --max-positions 5
+```
+
+**Backtest Features:**
+- Day-by-day simulation with next-bar fill and gap rejection
+- Deterministic slippage (5bps) and commissions ($0.005/share, $1 min)
+- SPY benchmark comparison with alpha calculation
+- Configurable via risk profiles (conservative, aggressive, default)
+- Survivorship bias disclaimer in reports
 
 ### Automated Trading (Alpaca)
 
@@ -254,9 +286,11 @@ python3 scripts/paper_portfolio.py close AAPL --reason "manual"
 ```
 scripts/          - Python CLI tools for analysis, scanning, and trading
 traderlib/        - Library modules (alpaca_client, order_manager, etc.)
+traderlib/backtest/ - Backtesting engine (data, execution, state, strategy, report)
 data/             - watchlist.csv, portfolio, and trade logs
 scans/            - Daily CSV outputs from sector/stock screens
 reports/          - Generated HTML market reports
+config/           - Configuration files (risk_config.yaml, scraper_config.yaml)
 memory/           - Daily logs and curated memories
 .gstack/          - QA reports and analysis (gitignored)
 AGENTS.MD         - Complete trading playbook
@@ -277,10 +311,11 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - **Tier 3 (<40 pts):** Monitor only
 
 **Risk Rules:**
-- 0.75% account risk per trade
+- 0.5% account risk per trade
 - Max 3 positions per sector
-- Position size < 20% equity
+- Position size < 5% equity (min 0.5%)
 - Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
+- Partial positions when cash is limited (no rejection for insufficient buying power)
 
 See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with examples.
 
@@ -310,6 +345,12 @@ ALPACA_SECRET_KEY=your_secret
 **Optional:**
 - `TELEGRAM_BOT_TOKEN` - For report delivery
 - `MCSTOCK_USER/PASS` - For MC Stock Charts scraper
+
+**Config Files:**
+| File | Purpose | Overrides |
+|----------------------------------|--------------------------------------|----------------------------------------|
+| `config/risk_config.yaml` | Position sizing, stop loss, profit targets | Env vars (`RISK_*`) |
+| `config/scraper_config.yaml` | Scraper validation thresholds | `--config` CLI flag |
 
 **Other Variables:**
 | Variable | Default | Purpose |
@@ -374,6 +415,7 @@ Troubleshooting guides for production issues:
 |----------------------------------|--------------------------------------|----------------------------------------|
 | [CLAUDE.md](CLAUDE.md) | Dev operations, architecture | Developers |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, CI/CD | Contributors |
+| [docs/BACKTESTING_ENGINE_FEASIBILITY.md](docs/BACKTESTING_ENGINE_FEASIBILITY.md) | Backtesting design rationale | Developers |
 | [TOOLS.md](TOOLS.md) | yfinance documentation (reports/scanners) | Users |
 
 ### Reference

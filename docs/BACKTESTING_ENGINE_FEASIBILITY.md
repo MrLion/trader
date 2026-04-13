@@ -1,5 +1,7 @@
 # Backtesting Engine Feasibility Analysis
 
+> **Status: IMPLEMENTED** — This analysis was completed and the backtesting module is now live in `traderlib/backtest/`. See `scripts/backtest.py` for the CLI entry point and the [CHANGELOG](../CHANGELOG.md) for v0.4.0 release notes.
+
 ## Executive Summary
 
 **Verdict: HIGHLY FEASIBLE and HIGHLY VALUABLE**

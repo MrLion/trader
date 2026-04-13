@@ -674,6 +674,24 @@ pip install requests beautifulsoup4
 - Environment variables: `MCSTOCK_USER`, `MCSTOCK_PASS`
 - Or copy `.env.example` to `.env` and fill in
 
+### Configuration
+
+Scraper validation thresholds are configured in `config/scraper_config.yaml`:
+
+```yaml
+validation:
+  min_price: 10                    # Minimum stock price
+  min_market_cap: 1000000000       # $1B minimum market cap
+  min_history_days: 200            # Minimum trading history (days)
+  min_dollar_volume: 20000000     # $20M minimum daily dollar volume
+extra_false_positives: []         # Tickers to skip (e.g. ETFs)
+```
+
+Override with `--config` flag:
+```bash
+python3 scripts/mcstock_scraper.py --config config/scraper_config.yaml
+```
+
 ### Usage
 
 ```bash
@@ -704,6 +722,7 @@ python3 scripts/mcstock_scraper.py --skip-validation
 | `--output` | Custom CSV output path | scans/mcstock_ideas_YYYY-MM-DD.csv |
 | `--populate-watchlist` | Auto-populate watchlist | False |
 | `--skip-validation` | Skip Yahoo Finance validation | False |
+| `--config` | Custom scraper config path | config/scraper_config.yaml |
 | `--dry-run` | Preview without saving | False |
 | `--verbose`, `-v` | Debug logging | False |
 
@@ -742,7 +761,70 @@ CSV with columns compatible with `watchlist_manager.py populate`:
 - `Ticker`, `Name`, `Sector`, `Industry`
 - `Stage2`, `6M_%`, `3M_%`, `1M_%`
 - `Entry_Breakout`, `Stop`, `Risk_%`
-- `$Vol_M`, `Source_Note`
+- `$Vol_M` (dollar volume in millions), `Source_Note`
+
+---
+
+## 🧪 Backtesting Engine
+
+**Script:** `scripts/backtest.py`
+**Module:** `traderlib/backtest/`
+
+**Purpose:** Simulate the Stage 2 momentum strategy against historical data to validate edge before live trading.
+
+### Architecture
+
+The backtesting engine mirrors the paper trading engine but replaces real-time data with historical simulation:
+
+| Module | Purpose |
+|--------|---------|
+| `data_provider.py` | `DataFrameProvider` protocol, `AlpacaDataProvider` (rate-limited), `DictDataProvider` (synthetic) |
+| `execution.py` | `ExecutionModel` with deterministic slippage (5bps) and commissions ($0.005/share, $1 min) |
+| `state.py` | `BacktestState` with sim_date clock, side-aware P&L, sector limits, max positions |
+| `strategy.py` | `Strategy` ABC, `Stage2MomentumStrategy` (mirrors paper engine entry logic) |
+| `engine.py` | `BacktestEngine` day-by-day simulation with next-bar fill and gap rejection |
+| `report.py` | `BacktestReporter` with return/risk metrics, alpha vs SPY, survivorship bias disclaimer |
+
+### Usage
+
+```bash
+# Default backtest (last 6 months, $100K capital)
+python3 scripts/backtest.py
+
+# Custom date range and capital
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
+
+# Specific watchlist
+python3 scripts/backtest.py --watchlist data/watchlist.csv
+
+# Risk profile (conservative or aggressive)
+python3 scripts/backtest.py --risk-profile conservative
+
+# Limit concurrent positions
+python3 scripts/backtest.py --max-positions 5
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--start` | Start date (YYYY-MM-DD) | 6 months ago |
+| `--end` | End date (YYYY-MM-DD) | Today |
+| `--capital` | Starting capital | $100,000 |
+| `--watchlist` | Path to watchlist CSV | data/watchlist.csv |
+| `--risk-profile` | Risk profile (default/conservative/aggressive) | default |
+| `--max-positions` | Maximum concurrent positions | 10 |
+
+### Report Output
+
+The backtest generates a summary including:
+- Total return, CAGR, max drawdown
+- Win rate, profit factor, Sharpe ratio
+- Average win/loss, avg holding period
+- Alpha vs SPY benchmark
+- Survivorship bias disclaimer
+
+**Note:** Backtesting results have inherent limitations. Past performance does not guarantee future results. The simulation uses deterministic slippage and next-bar fills, which may not reflect real market conditions.
 
 ---
 

@@ -87,6 +87,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [ ] WebSocket supervisor pattern with `asyncio.gather()`
 - [ ] Proper package structure with `__init__.py` files
 - [ ] Plugin system for custom entry/exit logic
+- [x] **Backtesting module** — Day-by-day simulation engine with execution modeling, SPY benchmark, and configurable risk profiles *(Completed 2026-04-13)*
 
 ### Documentation
 - [ ] Web dashboard alternative to CLI

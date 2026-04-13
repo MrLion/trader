@@ -171,8 +171,10 @@ trader/
 | `order_manager.py` | Order submission with rate limiting |
 | `paper_state.py` | Position and portfolio state management |
 | `paper_exits.py` | Exit rule engine (stops, trailing) |
+| `risk_config.py` | Risk configuration and position sizing |
 | `rate_limiter.py` | Rate limiting and circuit breaker |
 | `trading_exceptions.py` | Structured exception handling |
+| `backtest/` | Backtesting engine (data, execution, state, strategy, report) |
 
 ---
 
