@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.25] - 2026-04-13
+
+### Fixed
+- **Move batch price pre-fetch before market condition check** — SPY price
+  wasn't available on the first cycle because the batch pre-fetch ran after
+  the market condition gate. Now SPY is fetched first.
+- **Add API rate limit status to engine output** — shows requests/min usage
+  percentage and circuit breaker state in the status line.
+
 ## [0.3.24] - 2026-04-13
 
 ### Fixed

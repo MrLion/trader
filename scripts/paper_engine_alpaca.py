@@ -631,24 +631,24 @@ class AlpacaPaperEngine:
 
     async def _check_entries(self):
         """Scan for entry opportunities using configured thresholds."""
-        market_ok, market_msg = self._check_market_conditions()
-        if not market_ok:
-            print(f"⏸️  Market condition failed: {market_msg}")
-            return
-
         watchlist = self._load_watchlist_tickers()
         if not watchlist:
             print("⏸️  No tickers in watchlist")
             return
 
-        print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
-
-        # Pre-fetch prices in a single batch (include SPY for market condition check)
+        # Pre-fetch prices BEFORE market check (SPY needs a price for the gate)
         batch_tickers = list(set(watchlist + ['SPY']))
         batch_prices = await asyncio.to_thread(self.alpaca.get_latest_prices_batch, batch_tickers)
         missing = [t for t, p in batch_prices.items() if p is None]
         if missing:
-            print(f"   ℹ️  Batch pre-fetch: {len(watchlist) - len(missing)}/{len(watchlist)} prices fetched, {len(missing)} unavailable ({', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
+            print(f"   ℹ️  Batch pre-fetch: {len(batch_tickers) - len(missing)}/{len(batch_tickers)} prices fetched, {len(missing)} unavailable ({', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
+
+        market_ok, market_msg = self._check_market_conditions()
+        if not market_ok:
+            print(f"⏸️  Market condition failed: {market_msg}")
+            return
+
+        print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
 
         # Get thresholds from config
         entry_threshold = self.risk_config.entry.min_entry_score
@@ -943,6 +943,12 @@ class AlpacaPaperEngine:
 
         print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}", flush=True)
         print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}", flush=True)
+
+        # Rate limit status
+        rl = self.alpaca.rate_limiter.get_status()
+        rl_pct = rl['requests_in_window'] / rl['max_requests'] * 100 if rl['max_requests'] > 0 else 0
+        circuit = "🔴 OPEN" if rl['circuit_open'] else "🟢 closed"
+        print(f"📡 API: {rl['requests_in_window']}/{rl['max_requests']} requests/min ({rl_pct:.0f}%) | Circuit: {circuit}", flush=True)
         print(f"📋 Pending Orders: {orders['pending']}", flush=True)
         # Skip health summary for now - potential deadlock in rate limiter
         print(f"{'='*60}", flush=True)
