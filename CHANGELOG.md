@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.20] - 2026-04-13
+
+### Fixed
+- **Stale price cache mismatch causing "Using stale price from cache (REST failed)"**
+  - Eliminated duplicate price cache in paper_engine_alpaca (60s) vs AlpacaClient (30s)
+  - Added `get_latest_prices_batch()` to AlpacaClient for bulk price fetching (1-2 API calls instead of 2N)
+  - Pre-fetch all watchlist prices before entry scan loop to populate caches proactively
+  - Prevents circuit breaker cascade when scanning 27+ tickers simultaneously
+
 ## [0.3.19] - 2026-04-12
 
 ### Changed
