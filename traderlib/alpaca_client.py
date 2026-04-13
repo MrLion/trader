@@ -258,12 +258,21 @@ class AlpacaClient:
             from alpaca.data.requests import StockLatestQuoteRequest
 
             request = StockLatestQuoteRequest(symbol_or_symbols=still_need_quotes)
-            quotes = self.data_client.get_stock_latest_quote(request)
+            quotes_response = self.data_client.get_stock_latest_quote(request)
+
+            # Alpaca SDK returns Dict[str, Quote] for batch requests
+            # (not an object with .data attribute like single-symbol responses)
+            if hasattr(quotes_response, 'data'):
+                quotes_dict = quotes_response.data
+            elif isinstance(quotes_response, dict):
+                quotes_dict = quotes_response
+            else:
+                quotes_dict = {}
 
             fetched = 0
             for ticker in still_need_quotes:
-                if ticker in quotes.data:
-                    quote = quotes.data[ticker]
+                if ticker in quotes_dict:
+                    quote = quotes_dict[ticker]
                     if quote.bid_price and quote.ask_price:
                         price = float((quote.bid_price + quote.ask_price) / 2)
                     elif quote.bid_price:

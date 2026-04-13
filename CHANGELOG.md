@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.23] - 2026-04-13
+
+### Fixed
+- **Batch quotes API response format** — Alpaca SDK returns `Dict[str, Quote]`
+  for batch requests, not an object with `.data` attribute. This caused
+  `'dict' object has no attribute 'data'` errors and 5 tickers failing to get prices.
+  Now handles both single-symbol (`.data`) and batch (plain dict) response formats.
+
 ## [0.3.22] - 2026-04-13
 
 ### Fixed
