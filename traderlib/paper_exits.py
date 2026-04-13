@@ -37,6 +37,8 @@ class ExitSignal:
     reason: str
     exit_price: float
     r_multiple: float
+    new_stop: Optional[float] = None
+    new_stop_type: Optional[str] = None
 
 
 class ExitEngine:
@@ -166,7 +168,6 @@ class ExitEngine:
         if initial_stop is None and position.stop_price > 0:
             # Migration: derive from current stop if initial not stored (legacy positions)
             initial_stop = position.stop_price
-            position.initial_stop_price = initial_stop  # Store for subsequent calls
 
         if initial_stop and initial_stop > 0:
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
@@ -185,7 +186,9 @@ class ExitEngine:
                 should_exit=True,
                 reason=f"STOP_HIT",
                 exit_price=current_price,
-                r_multiple=r_multiple
+                r_multiple=r_multiple,
+                new_stop=None,
+                new_stop_type=None
             )
 
         # 2. Get EMA values for trailing logic
@@ -221,10 +224,8 @@ class ExitEngine:
                 new_stop = entry_price
                 new_stop_type = "BREAKEVEN"
 
-        # Update stop if improved
-        if new_stop > current_stop:
-            position.stop_price = new_stop
-            position.current_stop_type = new_stop_type
+        # Compute stop update (no mutation — caller applies)
+        stop_update = new_stop > current_stop
 
         # 4. Check profit target (target hit OR 2R minimum)
         target_price = position.target_price
@@ -234,7 +235,9 @@ class ExitEngine:
                 should_exit=True,
                 reason=reason,
                 exit_price=current_price,
-                r_multiple=r_multiple
+                r_multiple=r_multiple,
+                new_stop=new_stop if stop_update else None,
+                new_stop_type=new_stop_type if stop_update else None
             )
 
         # No exit signal
@@ -242,7 +245,9 @@ class ExitEngine:
             should_exit=False,
             reason="HOLD",
             exit_price=current_price,
-            r_multiple=r_multiple
+            r_multiple=r_multiple,
+            new_stop=new_stop if stop_update else None,
+            new_stop_type=new_stop_type if stop_update else None
         )
 
     def get_position_summary(self, position, current_price: float) -> dict:
