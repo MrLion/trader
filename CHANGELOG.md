@@ -2,9 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.26] - 2026-04-13
+## [0.4.0] - 2026-04-13
+
+### Added
+- **Backtesting module** — full simulation engine for validating the Stage 2 momentum strategy against historical data
+  - `traderlib/backtest/data_provider.py` — `DataFrameProvider` protocol, `AlpacaDataProvider` (Alpaca data with rate limiting), `DictDataProvider` (synthetic data for tests)
+  - `traderlib/backtest/execution.py` — `ExecutionModel` with deterministic slippage (5bps) and commissions ($0.005/share, $1 min)
+  - `traderlib/backtest/state.py` — `BacktestState` with sim_date clock (no datetime.now()), side-aware P&L, sector limits, max positions
+  - `traderlib/backtest/strategy.py` — `Strategy` ABC, `Stage2MomentumStrategy` (mirrors paper engine entry logic with injected data)
+  - `traderlib/backtest/engine.py` — `BacktestEngine` day-by-day simulation with next-bar fill, gap rejection, and SPY benchmark
+  - `traderlib/backtest/report.py` — `BacktestReporter` with return/risk metrics, alpha vs SPY, and survivorship bias disclaimer
+  - `scripts/backtest.py` — CLI entry point with `--start`, `--end`, `--capital`, `--watchlist`, `--risk-profile`, `--max-positions` options
+  - 84 new tests covering data slicing, execution model, state management, strategy, engine, and reporting
 
 ### Changed
+- **`evaluate_exit()` returns stop updates instead of mutating position** — `ExitSignal` now carries `new_stop` and `new_stop_type` fields; callers apply the update. This eliminates deepcopy requirements and enables clean backtest integration.
+- Paper engine updated to apply stop updates from `ExitSignal` return values instead of relying on position mutation.
 - **Partial position support when cash is limited** — position sizer now
   accepts `available_cash` as a third constraint alongside account risk and
   position cap. When cash is insufficient for the full position, shares are
@@ -22,53 +35,29 @@ All notable changes to this project will be documented in this file.
   and `extra_false_positives` list for skipping specific tickers.
 - **risk_config.yaml comment** — corrected risk_per_trade_pct comment from
   0.75% to 0.5%.
-
-## [0.3.25] - 2026-04-13
-
-### Fixed
 - **Move batch price pre-fetch before market condition check** — SPY price
   wasn't available on the first cycle because the batch pre-fetch ran after
   the market condition gate. Now SPY is fetched first.
 - **Add API rate limit status to engine output** — shows requests/min usage
   percentage and circuit breaker state in the status line.
-
-## [0.3.24] - 2026-04-13
-
-### Fixed
 - **Include SPY in batch price pre-fetch** — market condition check requires
   SPY current price but wasn't included in the batch, causing "Cannot fetch SPY"
   errors when WebSocket had limited coverage
-
-## [0.3.23] - 2026-04-13
-
-### Fixed
 - **Batch quotes API response format** — Alpaca SDK returns `Dict[str, Quote]`
   for batch requests, not an object with `.data` attribute. This caused
   `'dict' object has no attribute 'data'` errors and 5 tickers failing to get prices.
   Now handles both single-symbol (`.data`) and batch (plain dict) response formats.
-
-## [0.3.22] - 2026-04-13
-
-### Fixed
 - **Skip per-ticker REST calls when circuit breaker is open** (prevents API cascade)
 - **Log batch quotes API failures** for debugging price fetch issues
 - **Log batch pre-fetch summary** showing how many prices were fetched vs unavailable
 - Circuit breaker was causing per-ticker REST calls to fail silently, accumulating
   more errors and keeping the breaker open. Now skips per-ticker calls when breaker
   is open, allowing the batch pre-fetch to be the primary price source.
-
-## [0.3.21] - 2026-04-13
-
-### Fixed
 - **Stale price fallback improved for WebSocket-disconnected mode**
   - When WebSocket is disconnected, allow AlpacaClient cache up to 5 minutes (vs 30s normally)
   - Engine cache fallback also extended to 5 minutes for graceful degradation
   - Avoid per-ticker REST calls when batch pre-fetch already failed (prevents circuit breaker cascade)
   - Shows price age in stale cache warnings (e.g. "45s old")
-
-## [0.3.20] - 2026-04-13
-
-### Fixed
 - **Stale price cache mismatch causing "Using stale price from cache (REST failed)"**
   - Eliminated duplicate price cache in paper_engine_alpaca (60s) vs AlpacaClient (30s)
   - Added `get_latest_prices_batch()` to AlpacaClient for bulk price fetching (1-2 API calls instead of 2N)
