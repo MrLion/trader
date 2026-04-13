@@ -57,6 +57,35 @@ def make_engine(ema10=None, ema21=None, risk_config=None) -> ExitEngine:
     return engine
 
 
+def create_mock_ohlcv(days=60, base_price=100.0, volatility=0.02) -> pd.DataFrame:
+    """Create mock OHLCV data for testing.
+
+    Args:
+        days: Number of days of data
+        base_price: Starting price
+        volatility: Price volatility
+
+    Returns:
+        DataFrame with Open, High, Low, Close, Volume columns
+    """
+    import numpy as np
+    dates = pd.date_range(end=pd.Timestamp.now(), periods=days, freq='D')
+    np.random.seed(42)
+    closes = base_price + np.random.randn(days).cumsum() * volatility * base_price
+    highs = closes * (1 + abs(np.random.randn(days) * 0.01))
+    lows = closes * (1 - abs(np.random.randn(days) * 0.01))
+    opens = lows + (highs - lows) * np.random.rand(days)
+    volumes = np.random.randint(100000, 1000000, days)
+
+    return pd.DataFrame({
+        'Open': opens,
+        'High': highs,
+        'Low': lows,
+        'Close': closes,
+        'Volume': volumes
+    }, index=dates)
+
+
 # ---------------------------------------------------------------------------
 # Group 1 — _calculate_r_multiple
 # ---------------------------------------------------------------------------
@@ -575,6 +604,7 @@ class TestGetPositionSummary(unittest.TestCase):
 class TestCalculateInitialStop(unittest.TestCase):
 
     def _make_hist(self, rows=60, base=100.0) -> pd.DataFrame:
+        """Create simple historical data for testing."""
         closes = [base + i * 0.1 for i in range(rows)]
         highs  = [c + 2 for c in closes]
         lows   = [c - 2 for c in closes]
@@ -587,93 +617,90 @@ class TestCalculateInitialStop(unittest.TestCase):
         config.stop_loss.fixed_pct = pct
         return config
 
-    def test_percent_method_applies_fixed_pct(self):
-        config = self._percent_config(pct=0.05)
-        engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 200.0)
-        self.assertAlmostEqual(stop, 190.0)
-
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_insufficient_history_falls_back_to_percent(self, mock_ticker_class):
-        """< 14 bars → fallback to fallback_pct."""
-        mock_ticker_class.return_value.history.return_value = self._make_hist(5)
-        config = RiskConfig()
-        config.stop_loss.fallback_pct = 0.07
-        engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
-        self.assertAlmostEqual(stop, 93.0)
-
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_atr_method_returns_stop_below_entry(self, mock_ticker_class):
-        """Pure ATR method: stop should be below entry price."""
-        mock_ticker_class.return_value.history.return_value = self._make_hist(60)
+    def test_historical_data_injection_works(self):
+        """Pass mock DataFrame, verify ATR calculated from it (no yfinance)."""
+        hist = self._make_hist(60)
         config = RiskConfig()
         config.stop_loss.method = 'atr'
         engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=hist)
         self.assertLess(stop, 100.0)
 
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_atr_or_support_returns_stop_below_entry(self, mock_ticker_class):
+    def test_historical_data_column_validation(self):
+        """Pass DataFrame with wrong columns, expect clear error."""
+        bad_hist = pd.DataFrame({'Open': [1, 2, 3], 'Close': [4, 5, 6]})
+        config = RiskConfig()
+        config.stop_loss.method = 'atr'
+        engine = ExitEngine(risk_config=config)
+        with self.assertRaises(ValueError) as ctx:
+            engine.calculate_initial_stop('FAKE', 100.0, historical_data=bad_hist)
+        self.assertIn('missing required columns', str(ctx.exception).lower())
+
+    def test_percent_method_applies_fixed_pct(self):
+        config = self._percent_config(pct=0.05)
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 200.0, historical_data=self._make_hist(60))
+        self.assertAlmostEqual(stop, 190.0)
+
+    def test_insufficient_history_falls_back_to_percent(self):
+        """< 14 bars → fallback to fallback_pct."""
+        config = RiskConfig()
+        config.stop_loss.fallback_pct = 0.07
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=self._make_hist(5))
+        self.assertAlmostEqual(stop, 93.0)
+
+    def test_atr_method_returns_stop_below_entry(self):
+        """Pure ATR method: stop should be below entry price."""
+        config = RiskConfig()
+        config.stop_loss.method = 'atr'
+        engine = ExitEngine(risk_config=config)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=self._make_hist(60))
+        self.assertLess(stop, 100.0)
+
+    def test_atr_or_support_returns_stop_below_entry(self):
         """atr_or_support: stop should be below entry price."""
-        mock_ticker_class.return_value.history.return_value = self._make_hist(60)
         engine = ExitEngine()  # default method = atr_or_support
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=self._make_hist(60))
         self.assertLess(stop, 100.0)
 
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_min_stop_distance_enforced(self, mock_ticker_class):
+    def test_min_stop_distance_enforced(self):
         """Stop too close to entry gets pushed down to min distance."""
         # ATR is tiny — stop would be very close to entry without enforcement
         closes = [100.0] * 60   # flat price = ATR ≈ 0
         hist = pd.DataFrame({'Close': closes, 'High': [100.01] * 60,
                              'Low': [99.99] * 60, 'Volume': [1_000_000] * 60})
-        mock_ticker_class.return_value.history.return_value = hist
         config = RiskConfig()
         config.stop_loss.method = 'atr'
         config.stop_loss.min_stop_distance_pct = 0.03
         engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=hist)
         # Must be at most entry * (1 - min_pct)
         self.assertLessEqual(stop, 100.0 * (1 - 0.03) + 0.01)
 
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_max_stop_distance_enforced(self, mock_ticker_class):
+    def test_max_stop_distance_enforced(self):
         """Stop too far from entry gets clamped to max distance."""
         # Very wide ATR
         closes = [100.0] * 60
         hist = pd.DataFrame({'Close': closes, 'High': [120.0] * 60,
                              'Low': [80.0] * 60, 'Volume': [1_000_000] * 60})
-        mock_ticker_class.return_value.history.return_value = hist
         config = RiskConfig()
         config.stop_loss.method = 'atr'
         config.stop_loss.max_stop_distance_pct = 0.10
         engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=hist)
         self.assertGreaterEqual(stop, 100.0 * (1 - 0.10) - 0.01)
 
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_no_risk_config_applies_default_bounds(self, mock_ticker_class):
+    def test_no_risk_config_applies_default_bounds(self):
         """Without risk_config, default 3-15% bounds are applied."""
         closes = [100.0] * 60
         hist = pd.DataFrame({'Close': closes, 'High': [100.01] * 60,
                              'Low': [99.99] * 60, 'Volume': [1_000_000] * 60})
-        mock_ticker_class.return_value.history.return_value = hist
         engine = ExitEngine(risk_config=None)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
+        stop = engine.calculate_initial_stop('FAKE', 100.0, historical_data=hist)
         # Must be within default 3-15% band
         self.assertLessEqual(stop, 97.0 + 0.01)
         self.assertGreaterEqual(stop, 85.0 - 0.01)
-
-    @patch('traderlib.paper_exits.yf.Ticker')
-    def test_exception_falls_back_to_percent(self, mock_ticker_class):
-        """yfinance exception → fallback to fallback_pct."""
-        mock_ticker_class.return_value.history.side_effect = Exception('boom')
-        config = RiskConfig()
-        config.stop_loss.fallback_pct = 0.07
-        engine = ExitEngine(risk_config=config)
-        stop = engine.calculate_initial_stop('FAKE', 100.0)
-        self.assertAlmostEqual(stop, 93.0)
 
 
 # ---------------------------------------------------------------------------

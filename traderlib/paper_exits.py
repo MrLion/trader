@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import pandas as pd
+import warnings
 from datetime import datetime
 import yfinance as yf
 
@@ -165,6 +166,7 @@ class ExitEngine:
         if initial_stop is None and position.stop_price > 0:
             # Migration: derive from current stop if initial not stored (legacy positions)
             initial_stop = position.stop_price
+            position.initial_stop_price = initial_stop  # Store for subsequent calls
 
         if initial_stop and initial_stop > 0:
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
@@ -269,7 +271,12 @@ class ExitEngine:
             'pct_to_stop': round(pct_to_stop, 2)
         }
 
-    def calculate_initial_stop(self, ticker: str, entry_price: float) -> float:
+    def calculate_initial_stop(
+        self,
+        ticker: str,
+        entry_price: float,
+        historical_data: Optional[pd.DataFrame] = None
+    ) -> float:
         """Calculate initial stop based on configured method.
 
         Supported methods:
@@ -277,18 +284,44 @@ class ExitEngine:
         - atr: 2xATR below entry
         - percent: Fixed percentage below entry
         - pivot_based: Based on support levels
+
+        Args:
+            ticker: Stock symbol (for logging/cache purposes)
+            entry_price: Entry price for the position
+            historical_data: Optional DataFrame with OHLCV data for ATR calculation.
+                             If provided, uses this data (enables backtesting/Alpaca-only).
+                             If None, falls back to yfinance (legacy behavior for reports/tools).
+
+        Returns:
+            float: Calculated stop price
         """
         method = self.risk_config.stop_loss.method if self.risk_config else "atr_or_support"
 
-        try:
-            # Fixed percentage method
-            if method == "percent":
-                pct = self.risk_config.stop_loss.fixed_pct if self.risk_config else 0.07
-                return round(entry_price * (1 - pct), 2)
+        # Fixed percentage method - no historical data needed
+        if method == "percent":
+            pct = self.risk_config.stop_loss.fixed_pct if self.risk_config else 0.07
+            return round(entry_price * (1 - pct), 2)
 
+        # Validate historical_data columns before try block (fail fast on bad input)
+        if historical_data is not None:
+            required_cols = ['High', 'Low', 'Close']
+            missing = [c for c in required_cols if c not in historical_data.columns]
+            if missing:
+                raise ValueError(f"historical_data missing required columns: {missing}")
+
+        try:
             # ATR-based methods (atr or atr_or_support)
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="60d", interval="1d")
+            if historical_data is not None:
+                hist = historical_data
+            else:
+                # Use yfinance (legacy behavior for reports/tools)
+                warnings.warn(
+                    "yfinance fallback is deprecated for trading, use Alpaca data",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period="60d", interval="1d")
 
             if len(hist) < 14:
                 # Fallback to fixed percent
@@ -411,11 +444,32 @@ class ExitEngine:
 
 
 if __name__ == "__main__":
-    # Quick test
+    # Quick test with mock data (avoids yfinance dependency)
     engine = ExitEngine()
 
-    # Test stop calculation
-    stop = engine.calculate_initial_stop("AAPL", 150.0)
+    # Create sample historical data for testing
+    import numpy as np
+    np.random.seed(42)
+    base_price = 150.0
+    volatility = 0.02
+    days = 60
+
+    dates = pd.date_range(end=pd.Timestamp.now(), periods=days, freq='D')
+    closes = base_price + np.random.randn(days).cumsum() * volatility * base_price
+    highs = closes * (1 + abs(np.random.randn(days) * 0.01))
+    lows = closes * (1 - abs(np.random.randn(days) * 0.01))
+    volumes = np.random.randint(1000000, 10000000, days)
+
+    sample_data = pd.DataFrame({
+        'Open': lows + (highs - lows) * np.random.rand(days),
+        'High': highs,
+        'Low': lows,
+        'Close': closes,
+        'Volume': volumes
+    }, index=dates)
+
+    # Test stop calculation with injected data
+    stop = engine.calculate_initial_stop("AAPL", 150.0, historical_data=sample_data)
     print(f"Sample AAPL stop at $150: ${stop:.2f}")
 
     target = engine.calculate_target_price(150.0, stop)
