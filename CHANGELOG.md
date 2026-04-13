@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.22] - 2026-04-13
+
+### Fixed
+- **Skip per-ticker REST calls when circuit breaker is open** (prevents API cascade)
+- **Log batch quotes API failures** for debugging price fetch issues
+- **Log batch pre-fetch summary** showing how many prices were fetched vs unavailable
+- Circuit breaker was causing per-ticker REST calls to fail silently, accumulating
+  more errors and keeping the breaker open. Now skips per-ticker calls when breaker
+  is open, allowing the batch pre-fetch to be the primary price source.
+
 ## [0.3.21] - 2026-04-13
 
 ### Fixed
