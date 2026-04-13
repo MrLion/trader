@@ -25,6 +25,7 @@
             --c-scan: #a78bfa;
             --c-core: #f59e0b;
             --c-engine: #34d399;
+            --c-backtest: #818cf8;
             --c-state: #f472b6;
             --c-report: #fb7185;
             --c-watchlist: #facc15;
@@ -171,6 +172,7 @@
         .layer-scan .layer-number { color: var(--c-scan); border-color: var(--c-scan); }
         .layer-core .layer-number { color: var(--c-core); border-color: var(--c-core); }
         .layer-engine .layer-number { color: var(--c-engine); border-color: var(--c-engine); }
+        .layer-backtest .layer-number { color: var(--c-backtest); border-color: var(--c-backtest); }
         .layer-state .layer-number { color: var(--c-state); border-color: var(--c-state); }
         .layer-report .layer-number { color: var(--c-report); border-color: var(--c-report); }
 
@@ -216,6 +218,7 @@
         .cat-scan::before { background: var(--c-scan); box-shadow: 0 0 20px var(--c-scan); }
         .cat-core::before { background: var(--c-core); box-shadow: 0 0 20px var(--c-core); }
         .cat-engine::before { background: var(--c-engine); box-shadow: 0 0 20px var(--c-engine); }
+        .cat-backtest::before { background: var(--c-backtest); box-shadow: 0 0 20px var(--c-backtest); }
         .cat-state::before { background: var(--c-state); box-shadow: 0 0 20px var(--c-state); }
         .cat-report::before { background: var(--c-report); box-shadow: 0 0 20px var(--c-report); }
         .cat-watchlist::before { background: var(--c-watchlist); box-shadow: 0 0 20px var(--c-watchlist); }
@@ -236,6 +239,7 @@
         .cat-scan .card-icon { color: var(--c-scan); }
         .cat-core .card-icon { color: var(--c-core); }
         .cat-engine .card-icon { color: var(--c-engine); }
+        .cat-backtest .card-icon { color: var(--c-backtest); }
         .cat-state .card-icon { color: var(--c-state); }
         .cat-report .card-icon { color: var(--c-report); }
         .cat-watchlist .card-icon { color: var(--c-watchlist); }
@@ -577,7 +581,7 @@
         <div class="layer layer-engine">
             <div class="layer-header">
                 <div class="layer-number">4</div>
-                <div class="layer-title">Automated Trading Engine</div>
+                <div class="layer-title">Trading & Simulation Engines</div>
             </div>
             <div class="cards-grid">
                 <div class="card cat-engine">
@@ -601,6 +605,30 @@
                     <h3>Exit Engine</h3>
                     <p>Manages when to sell. Moves stops up as profits grow to lock in gains and limit losses.</p>
                 </div>
+                <div class="card cat-backtest">
+                    <div class="card-icon">🧪</div>
+                    <h3>Backtest Engine</h3>
+                    <p>Day-by-day simulation against historical data. T+1 fills, deterministic slippage, gap rejection. No real money at risk.</p>
+                    <span class="card-tag">traderlib/backtest/</span>
+                </div>
+                <div class="card cat-backtest">
+                    <div class="card-icon">📦</div>
+                    <h3>Data Provider</h3>
+                    <p>Slices historical data to prevent look-ahead bias. Alpaca data with rate limiting, or synthetic data for tests.</p>
+                    <span class="card-tag">Anti-Look-Ahead</span>
+                </div>
+                <div class="card cat-backtest">
+                    <div class="card-icon">📐</div>
+                    <h3>Execution Model</h3>
+                    <p>Simulates fills with 5bps slippage and $0.005/share commissions. Deterministic: same inputs, same outputs.</p>
+                    <span class="card-tag">Slippage + Commissions</span>
+                </div>
+                <div class="card cat-backtest">
+                    <div class="card-icon">📊</div>
+                    <h3>Backtest Reporter</h3>
+                    <p>Computes 16 metrics: Sharpe, Sortino, Calmar, max drawdown, alpha vs SPY, win rate, profit factor.</p>
+                    <span class="card-tag">16 Metrics</span>
+                </div>
             </div>
 
             <!-- Trading Rules -->
@@ -611,16 +639,16 @@
                         <p>Buy when setup scores 60+, price is within 1% of target, volume is strong, and market conditions are good.</p>
                     </div>
                     <div class="rule-card">
-                        <h4>Position Size</h4>
-                        <p>Risk 0.75% of account per trade. No single position over 20%. Max 3 positions per sector.</p>
+                        <h4>Triple-Constraint Sizing</h4>
+                        <p>Risk 0.5% of account per trade. No single position over 5%. Partial positions when cash is limited. Max 3 positions per sector.</p>
                     </div>
                     <div class="rule-card">
                         <h4>Circuit Breakers</h4>
-                        <p>Stop after 5 trades in one day. Halt trading if daily loss exceeds 2%.</p>
+                        <p>Stop after 5 trades in one day. Halt trading if daily loss exceeds 2%. Re-entry cooldown after losses.</p>
                     </div>
                     <div class="rule-card">
                         <h4>Exit Ladder</h4>
-                        <p>Move stop to breakeven at +1R profit. Trail EMAs as gains increase. Hard stop protects against major drops.</p>
+                        <p>Move stop to breakeven at +1R profit. Trail EMA10 at +1.5R, EMA21 at +3R. Hard stop protects against major drops.</p>
                     </div>
                 </div>
             </div>
@@ -633,12 +661,16 @@
                 <div class="stat-label">Stage 2 Criteria</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">110</div>
+                <div class="stat-value">100</div>
                 <div class="stat-label">Max Entry Score</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">0.75%</div>
+                <div class="stat-value">0.5%</div>
                 <div class="stat-label">Account Risk / Trade</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Backtest Metrics</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">30s</div>
@@ -679,6 +711,12 @@
                     <div class="card-icon">📊</div>
                     <h3>Regime & Scans</h3>
                     <p>Stores daily market conditions and scan results to see how the market is behaving over time.</p>
+                </div>
+                <div class="card cat-core">
+                    <div class="card-icon">⚙️</div>
+                    <h3>Config Files</h3>
+                    <p>YAML configuration for risk parameters, scraper validation thresholds, and risk profile presets (conservative, aggressive, tight_stops).</p>
+                    <span class="card-tag">config/</span>
                 </div>
             </div>
         </div>
@@ -727,10 +765,11 @@
                 <span class="footer-tag">Minervini Framework</span>
                 <span class="footer-tag">7-Point Trend Check</span>
                 <span class="footer-tag">R-Multiple Exits</span>
+                <span class="footer-tag">Backtesting Engine</span>
             </div>
             <p class="footer-note">
                 Source of truth: <strong>Shared Core Library</strong> · <strong>Risk Config</strong> · <strong>Watchlist</strong><br>
-                Built with Python, yfinance, Alpaca API, and systematic discipline.
+                Built with Python, Alpaca API, and systematic discipline. Backtested before live deployment.
             </p>
         </footer>
     </div>
