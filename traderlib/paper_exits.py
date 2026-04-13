@@ -166,6 +166,7 @@ class ExitEngine:
         if initial_stop is None and position.stop_price > 0:
             # Migration: derive from current stop if initial not stored (legacy positions)
             initial_stop = position.stop_price
+            position.initial_stop_price = initial_stop  # Store for subsequent calls
 
         if initial_stop and initial_stop > 0:
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
