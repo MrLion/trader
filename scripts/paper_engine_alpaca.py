@@ -643,8 +643,9 @@ class AlpacaPaperEngine:
 
         print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
 
-        # Pre-fetch prices in a single batch to avoid N individual REST calls
-        batch_prices = await asyncio.to_thread(self.alpaca.get_latest_prices_batch, watchlist)
+        # Pre-fetch prices in a single batch (include SPY for market condition check)
+        batch_tickers = list(set(watchlist + ['SPY']))
+        batch_prices = await asyncio.to_thread(self.alpaca.get_latest_prices_batch, batch_tickers)
         missing = [t for t, p in batch_prices.items() if p is None]
         if missing:
             print(f"   ℹ️  Batch pre-fetch: {len(watchlist) - len(missing)}/{len(watchlist)} prices fetched, {len(missing)} unavailable ({', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")

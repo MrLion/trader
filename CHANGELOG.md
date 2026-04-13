@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.24] - 2026-04-13
+
+### Fixed
+- **Include SPY in batch price pre-fetch** — market condition check requires
+  SPY current price but wasn't included in the batch, causing "Cannot fetch SPY"
+  errors when WebSocket had limited coverage
+
 ## [0.3.23] - 2026-04-13
 
 ### Fixed
