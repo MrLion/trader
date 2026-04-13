@@ -13,6 +13,16 @@ All notable changes to this project will be documented in this file.
   smaller size is caused by capital deployment, not a deliberate choice.
   Logged as `reduced_for_available_cash ($X,XXX)`.
 
+### Fixed
+- **MC Stock scraper $Vol_M unit bug** — stored raw dollar volume instead of
+  millions, causing watchlist population to overflow `Avg_Volume_50d`.
+- **Scraper validation thresholds now configurable** — added
+  `config/scraper_config.yaml` for min price, market cap, history days, and
+  dollar volume filters. Supports `--config` CLI flag for custom config paths
+  and `extra_false_positives` list for skipping specific tickers.
+- **risk_config.yaml comment** — corrected risk_per_trade_pct comment from
+  0.75% to 0.5%.
+
 ## [0.3.25] - 2026-04-13
 
 ### Fixed
