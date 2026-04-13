@@ -731,9 +731,12 @@ class AlpacaPaperEngine:
         target_price = analysis['target']
         sector = analysis['sector']
 
-        # Calculate position size with dual constraint system
+        # Calculate position size with triple constraint system (risk, position cap, cash)
         equity = self.state.get_equity()
-        shares = self.exits.calculate_position_size(equity, entry_price, stop_price)
+        shares = self.exits.calculate_position_size(
+            equity, entry_price, stop_price,
+            available_cash=self.state.cash
+        )
 
         # Get calculation metadata for logging
         calc_meta = self.exits.get_last_position_calc() or {}

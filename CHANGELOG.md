@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.26] - 2026-04-13
+
+### Changed
+- **Partial position support when cash is limited** — position sizer now
+  accepts `available_cash` as a third constraint alongside account risk and
+  position cap. When cash is insufficient for the full position, shares are
+  reduced to fit available cash instead of rejecting the trade entirely.
+  Cash-limited positions below `min_position_pct` are allowed since the
+  smaller size is caused by capital deployment, not a deliberate choice.
+  Logged as `reduced_for_available_cash ($X,XXX)`.
+
 ## [0.3.25] - 2026-04-13
 
 ### Fixed

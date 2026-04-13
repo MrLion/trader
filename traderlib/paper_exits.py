@@ -400,29 +400,33 @@ class ExitEngine:
         return round(target, 2)
 
     def calculate_position_size(self, equity: float, entry_price: float,
-                                 stop_price: float, account_risk_pct: float = None) -> int:
+                                 stop_price: float, account_risk_pct: float = None,
+                                 available_cash: float = None) -> int:
         """
-        Calculate shares using dual-constraint risk system.
+        Calculate shares using triple-constraint risk system.
 
         Constraints:
         1. Account risk: Total $ risk <= account_risk_pct of equity
         2. Position size: Position value <= max_position_pct of equity
+        3. Cash available: Position value <= available_cash (partial position)
 
-        Returns number of shares, respecting both constraints.
+        Returns number of shares, respecting all constraints.
 
         Args:
             equity: Total account equity
             entry_price: Entry price per share
             stop_price: Stop price per share
             account_risk_pct: Override risk per trade (uses config if None)
+            available_cash: Cash available for new positions (enables partial positions)
 
         Returns:
             int: Number of shares to purchase (0 if rejected)
         """
-        # Use new dual-constraint system if risk config available
+        # Use new triple-constraint system if risk config available
         if self.risk_config and calculate_position_size_with_constraints:
             shares, metadata = calculate_position_size_with_constraints(
-                equity, entry_price, stop_price, self.risk_config
+                equity, entry_price, stop_price, self.risk_config,
+                available_cash=available_cash
             )
             self._last_position_calc = metadata  # Store for logging
             return shares

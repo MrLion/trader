@@ -292,15 +292,26 @@ def calculate_position_size_with_constraints(
     equity: float,
     entry_price: float,
     stop_price: float,
-    config: RiskConfig
+    config: RiskConfig,
+    available_cash: Optional[float] = None
 ) -> tuple[int, dict]:
-    """Calculate position size with dual constraint system.
+    """Calculate position size with triple constraint system.
+
+    Constraints:
+    1. Account risk: Total $ risk <= risk_per_trade_pct of equity
+    2. Position size: Position value <= max_position_pct of equity
+    3. Cash available: Position value <= available_cash (partial position)
+
+    When cash is the limiting constraint, the min_position_pct check is
+    bypassed since the smaller position is caused by capital deployment,
+    not a deliberate choice to take a tiny position.
 
     Args:
         equity: Total account equity
         entry_price: Planned entry price
         stop_price: Planned stop price
         config: Risk configuration
+        available_cash: Cash available for new positions (enables partial positions)
 
     Returns:
         Tuple of (shares, metadata_dict)
@@ -341,29 +352,54 @@ def calculate_position_size_with_constraints(
     max_position_value = equity * config.position.max_position_pct
     shares_by_position_cap = int(max_position_value / entry_price)
 
-    # Take the minimum of the two constraints
-    shares = min(shares_by_account_risk, shares_by_position_cap)
+    # Calculate cash-based position size (partial position support)
+    if available_cash is not None and available_cash < entry_price:
+        # Not enough cash for even 1 share
+        metadata['rejected'] = True
+        metadata['rejection_reason'] = f"Insufficient cash (${available_cash:,.2f}) for 1 share (${entry_price:.2f})"
+        metadata['constraints_applied'].append("insufficient_cash")
+        return 0, metadata
+    shares_by_cash = int(available_cash / entry_price) if available_cash is not None and available_cash > 0 else None
+    cash_limited = False
 
-    # Calculate minimum position (don't take tiny positions)
+    # Take the minimum of all constraints
+    if shares_by_cash is not None:
+        shares = min(shares_by_account_risk, shares_by_position_cap, shares_by_cash)
+        cash_limited = (shares == shares_by_cash and shares < min(shares_by_account_risk, shares_by_position_cap))
+    else:
+        shares = min(shares_by_account_risk, shares_by_position_cap)
+
+    # Calculate minimum position (don't take tiny positions by choice)
     min_position_value = equity * config.position.min_position_pct
     min_shares = int(min_position_value / entry_price)
 
     metadata['shares_by_account_risk'] = shares_by_account_risk
     metadata['shares_by_position_cap'] = shares_by_position_cap
+    if shares_by_cash is not None:
+        metadata['shares_by_cash'] = shares_by_cash
     metadata['position_value'] = shares * entry_price
     metadata['position_pct'] = (shares * entry_price) / equity * 100
     metadata['account_risk_dollars'] = shares * risk_per_share
     metadata['account_risk_pct'] = (shares * risk_per_share) / equity * 100
 
     if shares < min_shares:
-        metadata['constraints_applied'].append(f"below_min_position_{min_shares}_shares")
-        return 0, metadata
+        if cash_limited and shares > 0:
+            # Cash-constrained: allow partial position below min size
+            metadata['constraints_applied'].append(
+                f"partial_position_{shares}_shares (cash ${available_cash:,.0f} < min ${min_position_value:,.0f})"
+            )
+        else:
+            metadata['constraints_applied'].append(f"below_min_position_{min_shares}_shares")
+            return 0, metadata
 
     # Round to nearest 10 for cleaner numbers (only when shares >= 10)
     if shares >= 10:
         shares = (shares // 10) * 10
 
-    if shares == shares_by_position_cap:
+    # Label the primary constraint
+    if cash_limited:
+        metadata['constraints_applied'].append(f"reduced_for_available_cash (${available_cash:,.0f})")
+    elif shares == shares_by_position_cap:
         metadata['constraints_applied'].append("capped_by_position_limit")
     else:
         metadata['constraints_applied'].append("limited_by_account_risk")
