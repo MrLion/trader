@@ -612,6 +612,12 @@ class AlpacaPaperEngine:
         position = self.state.positions[ticker]
         signal = self.exits.evaluate_exit(position, current_price)
 
+        # Apply stop update if returned (no mutation inside evaluate_exit)
+        if signal.new_stop is not None:
+            position.stop_price = signal.new_stop
+            position.current_stop_type = signal.new_stop_type
+            self.state.update_stop(ticker, signal.new_stop, signal.new_stop_type)
+
         if signal.should_exit:
             await self._execute_exit(ticker, signal)
 
@@ -625,6 +631,12 @@ class AlpacaPaperEngine:
 
             position = self.state.positions[ticker]
             signal = self.exits.evaluate_exit(position, current_price)
+
+            # Apply stop update if returned (no mutation inside evaluate_exit)
+            if signal.new_stop is not None:
+                position.stop_price = signal.new_stop
+                position.current_stop_type = signal.new_stop_type
+                self.state.update_stop(ticker, signal.new_stop, signal.new_stop_type)
 
             if signal.should_exit:
                 asyncio.create_task(self._execute_exit(ticker, signal))

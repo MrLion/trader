@@ -45,6 +45,7 @@ def make_position(**overrides) -> Position:
         initial_risk=1000.0,   # (150-140) * 100
         sector='Technology',
         current_stop_type='HARD',
+        initial_stop_price=140.0,
     )
     defaults.update(overrides)
     return Position(**defaults)
@@ -55,6 +56,13 @@ def make_engine(ema10=None, ema21=None, risk_config=None) -> ExitEngine:
     engine = ExitEngine(risk_config=risk_config)
     engine._get_ema_values = Mock(return_value=(ema10, ema21))
     return engine
+
+
+def apply_stop_update(pos, signal):
+    """Apply stop update from ExitSignal to position (mimics caller behavior)."""
+    if signal.new_stop is not None:
+        pos.stop_price = signal.new_stop
+        pos.current_stop_type = signal.new_stop_type
 
 
 def create_mock_ohlcv(days=60, base_price=100.0, volatility=0.02) -> pd.DataFrame:
@@ -154,25 +162,25 @@ class TestBreakevenRatchet(unittest.TestCase):
 
     def test_at_plus_1r_stop_moves_to_entry(self):
         pos = make_position()
-        self.engine.evaluate_exit(pos, 161.0)  # just above +1R
-        self.assertEqual(pos.stop_price, 150.0)
+        signal = self.engine.evaluate_exit(pos, 161.0)  # just above +1R
+        self.assertEqual(signal.new_stop, 150.0)
 
     def test_at_plus_1r_stop_type_becomes_breakeven(self):
         pos = make_position()
-        self.engine.evaluate_exit(pos, 161.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        signal = self.engine.evaluate_exit(pos, 161.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
     def test_below_plus_1r_stop_does_not_move(self):
         pos = make_position()
-        self.engine.evaluate_exit(pos, 159.0)  # 0.9R — below threshold
-        self.assertEqual(pos.stop_price, 140.0)
-        self.assertEqual(pos.current_stop_type, 'HARD')
+        signal = self.engine.evaluate_exit(pos, 159.0)  # 0.9R — below threshold
+        self.assertIsNone(signal.new_stop)
+        self.assertIsNone(signal.new_stop_type)
 
     def test_already_at_breakeven_stop_does_not_go_down(self):
         # Stop already at entry — should not be moved downward
         pos = make_position(stop_price=150.0, current_stop_type='BREAKEVEN')
-        self.engine.evaluate_exit(pos, 161.0)
-        self.assertEqual(pos.stop_price, 150.0)
+        signal = self.engine.evaluate_exit(pos, 161.0)
+        self.assertIsNone(signal.new_stop)
 
 
 # ---------------------------------------------------------------------------
@@ -184,25 +192,25 @@ class TestEMA10Trailing(unittest.TestCase):
     def test_ema10_above_stop_moves_stop(self):
         engine = make_engine(ema10=155.0, ema21=None)
         pos = make_position()
-        engine.evaluate_exit(pos, 165.0)  # +1.5R
-        self.assertEqual(pos.stop_price, 155.0)
-        self.assertEqual(pos.current_stop_type, 'EMA10')
+        signal = engine.evaluate_exit(pos, 165.0)  # +1.5R
+        self.assertEqual(signal.new_stop, 155.0)
+        self.assertEqual(signal.new_stop_type, 'EMA10')
 
     def test_ema10_below_stop_does_not_move_stop(self):
         # EMA10 below current stop — ratchet must not go down
         engine = make_engine(ema10=135.0, ema21=None)
         pos = make_position()
-        engine.evaluate_exit(pos, 165.0)
-        self.assertEqual(pos.stop_price, 140.0)
+        signal = engine.evaluate_exit(pos, 165.0)
+        self.assertIsNone(signal.new_stop)
 
     def test_ema10_none_falls_back_to_breakeven(self):
         # No EMA data at +1.5R — should still apply breakeven logic
         engine = make_engine(ema10=None, ema21=None)
         pos = make_position()
-        engine.evaluate_exit(pos, 165.0)
+        signal = engine.evaluate_exit(pos, 165.0)
         # Breakeven fires as fallback (entry_price > current_stop)
-        self.assertEqual(pos.stop_price, 150.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        self.assertEqual(signal.new_stop, 150.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
 
 # ---------------------------------------------------------------------------
@@ -214,31 +222,31 @@ class TestEMA21Trailing(unittest.TestCase):
     def test_ema21_above_stop_moves_stop(self):
         engine = make_engine(ema10=155.0, ema21=165.0)
         pos = make_position()
-        engine.evaluate_exit(pos, 180.0)  # +3R
-        self.assertEqual(pos.stop_price, 165.0)
-        self.assertEqual(pos.current_stop_type, 'EMA21')
+        signal = engine.evaluate_exit(pos, 180.0)  # +3R
+        self.assertEqual(signal.new_stop, 165.0)
+        self.assertEqual(signal.new_stop_type, 'EMA21')
 
     def test_ema21_below_stop_does_not_move_stop(self):
         engine = make_engine(ema10=155.0, ema21=135.0)
         pos = make_position()
-        engine.evaluate_exit(pos, 180.0)
-        self.assertEqual(pos.stop_price, 140.0)
+        signal = engine.evaluate_exit(pos, 180.0)
+        self.assertIsNone(signal.new_stop)
 
     def test_ema21_none_falls_back_to_ema10(self):
         # Gap 2 decision: at +3R with ema21=None, fall back to EMA10 trailing
         engine = make_engine(ema10=155.0, ema21=None)
         pos = make_position()
-        engine.evaluate_exit(pos, 180.0)
-        self.assertEqual(pos.stop_price, 155.0)
-        self.assertEqual(pos.current_stop_type, 'EMA10')
+        signal = engine.evaluate_exit(pos, 180.0)
+        self.assertEqual(signal.new_stop, 155.0)
+        self.assertEqual(signal.new_stop_type, 'EMA10')
 
     def test_ema21_and_ema10_none_falls_back_to_breakeven(self):
         # No EMA data at +3R — breakeven is the last resort
         engine = make_engine(ema10=None, ema21=None)
         pos = make_position()
-        engine.evaluate_exit(pos, 180.0)
-        self.assertEqual(pos.stop_price, 150.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        signal = engine.evaluate_exit(pos, 180.0)
+        self.assertEqual(signal.new_stop, 150.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
 
 # ---------------------------------------------------------------------------
@@ -287,14 +295,14 @@ class TestStopNeverGoesDown(unittest.TestCase):
         engine = make_engine(ema10=155.0, ema21=None)
         pos = make_position()
 
-        engine.evaluate_exit(pos, 165.0)  # stop moves to EMA10=155
-        self.assertEqual(pos.stop_price, 155.0)
+        signal = engine.evaluate_exit(pos, 165.0)  # stop moves to EMA10=155
+        apply_stop_update(pos, signal)
 
         engine._get_ema_values = Mock(return_value=(148.0, None))  # EMA drops
-        engine.evaluate_exit(pos, 161.0)  # price retreats
+        signal = engine.evaluate_exit(pos, 161.0)  # price retreats
 
-        # Stop must not fall back below 155
-        self.assertGreaterEqual(pos.stop_price, 155.0)
+        # Stop must not fall back below 155 (no new_stop means no improvement)
+        self.assertIsNone(signal.new_stop)
 
     def test_sequential_advances_only_ratchet_upward(self):
         # Three price advances — stop should only go up
@@ -303,7 +311,8 @@ class TestStopNeverGoesDown(unittest.TestCase):
         stops = []
 
         for price in [161.0, 163.0, 165.0]:
-            engine.evaluate_exit(pos, price)
+            signal = engine.evaluate_exit(pos, price)
+            apply_stop_update(pos, signal)
             stops.append(pos.stop_price)
 
         for i in range(1, len(stops)):
@@ -330,9 +339,9 @@ class TestCustomRiskConfigThresholds(unittest.TestCase):
         engine = make_engine(ema10=None, ema21=None, risk_config=config)
         pos = make_position()
 
-        engine.evaluate_exit(pos, 155.0)  # exactly +0.5R
-        self.assertEqual(pos.stop_price, 150.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        signal = engine.evaluate_exit(pos, 155.0)  # exactly +0.5R
+        self.assertEqual(signal.new_stop, 150.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
     def test_custom_ema10_threshold_fires_at_configured_r(self):
         # Configured EMA10 trailing at +2R instead of +1.5R
@@ -341,13 +350,13 @@ class TestCustomRiskConfigThresholds(unittest.TestCase):
         pos = make_position()
 
         # At +1.5R — should NOT trail EMA10 yet (threshold is +2R)
-        engine.evaluate_exit(pos, 165.0)
-        self.assertNotEqual(pos.current_stop_type, 'EMA10')
+        signal = engine.evaluate_exit(pos, 165.0)
+        self.assertNotEqual(signal.new_stop_type, 'EMA10')
 
         # At +2R — should now trail EMA10
         pos2 = make_position()
-        engine.evaluate_exit(pos2, 170.0)
-        self.assertEqual(pos2.current_stop_type, 'EMA10')
+        signal2 = engine.evaluate_exit(pos2, 170.0)
+        self.assertEqual(signal2.new_stop_type, 'EMA10')
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +379,8 @@ class TestLifecycle(unittest.TestCase):
         # Call 1: price at +1R — stop ratchets to breakeven
         signal1 = engine.evaluate_exit(pos, 161.0)
         self.assertFalse(signal1.should_exit)
-        self.assertEqual(pos.stop_price, 150.0, "stop should be at breakeven")
+        self.assertEqual(signal1.new_stop, 150.0)
+        apply_stop_update(pos, signal1)
 
         # Call 2: price at +1.5R — EMA10 should trail (engine now has EMA data)
         engine._get_ema_values = Mock(return_value=(155.0, None))
@@ -378,9 +388,9 @@ class TestLifecycle(unittest.TestCase):
 
         # If the bug exists, r_multiple would be 0.0 here and EMA10 wouldn't fire
         self.assertFalse(signal2.should_exit)
-        self.assertEqual(pos.stop_price, 155.0,
+        self.assertEqual(signal2.new_stop, 155.0,
             "EMA10 trailing should have fired — r_multiple was corrupted by stop ratchet if not")
-        self.assertEqual(pos.current_stop_type, 'EMA10')
+        self.assertEqual(signal2.new_stop_type, 'EMA10')
 
     def test_full_lifecycle_initial_stop_to_target(self):
         """Full position lifecycle: HARD → BREAKEVEN → EMA10 → EMA21 → exit."""
@@ -390,24 +400,27 @@ class TestLifecycle(unittest.TestCase):
         engine = make_engine(ema10=None, ema21=None)
         s = engine.evaluate_exit(pos, 155.0)  # +0.5R
         self.assertFalse(s.should_exit)
-        self.assertEqual(pos.current_stop_type, 'HARD')
+        self.assertIsNone(s.new_stop_type)  # no change from HARD
 
         # Phase 2: breakeven at +1R
         s = engine.evaluate_exit(pos, 161.0)
-        self.assertEqual(pos.stop_price, 150.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        self.assertEqual(s.new_stop, 150.0)
+        self.assertEqual(s.new_stop_type, 'BREAKEVEN')
+        apply_stop_update(pos, s)
 
         # Phase 3: EMA10 trailing at +1.5R
         engine._get_ema_values = Mock(return_value=(155.0, None))
         s = engine.evaluate_exit(pos, 165.0)
-        self.assertEqual(pos.stop_price, 155.0)
-        self.assertEqual(pos.current_stop_type, 'EMA10')
+        self.assertEqual(s.new_stop, 155.0)
+        self.assertEqual(s.new_stop_type, 'EMA10')
+        apply_stop_update(pos, s)
 
         # Phase 4: EMA21 trailing at +3R
         engine._get_ema_values = Mock(return_value=(162.0, 168.0))
         s = engine.evaluate_exit(pos, 180.0)
-        self.assertEqual(pos.stop_price, 168.0)
-        self.assertEqual(pos.current_stop_type, 'EMA21')
+        self.assertEqual(s.new_stop, 168.0)
+        self.assertEqual(s.new_stop_type, 'EMA21')
+        apply_stop_update(pos, s)
 
         # Phase 5: target exit
         s = engine.evaluate_exit(pos, 170.0)
@@ -543,9 +556,9 @@ class TestEvaluateExitEdgePaths(unittest.TestCase):
         pos = make_position()
 
         # At +1R (160 → actually 161 to be just over), breakeven should still fire
-        engine.evaluate_exit(pos, 161.0)
-        self.assertEqual(pos.stop_price, 150.0)
-        self.assertEqual(pos.current_stop_type, 'BREAKEVEN')
+        signal = engine.evaluate_exit(pos, 161.0)
+        self.assertEqual(signal.new_stop, 150.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
 
 # ---------------------------------------------------------------------------
