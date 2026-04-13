@@ -400,6 +400,109 @@ class TestAlpacaClientHealth(unittest.TestCase):
         self.assertIn('❌', summary)
 
 
+class TestAlpacaClientBatchPrices(unittest.TestCase):
+    """Test get_latest_prices_batch method."""
+
+    @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
+    def setUp(self):
+        from traderlib.alpaca_client import AlpacaClient
+
+        with patch('alpaca_client.TradingClient'), \
+             patch('alpaca_client.StockHistoricalDataClient'):
+            self.client = AlpacaClient(mode='paper')
+
+    def test_batch_all_cached(self):
+        """All tickers in cache should return immediately without API calls."""
+        now = datetime.now()
+        self.client.price_cache['AAPL'] = {'price': 150.0, 'timestamp': now}
+        self.client.price_cache['MSFT'] = {'price': 300.0, 'timestamp': now}
+
+        result = self.client.get_latest_prices_batch(['AAPL', 'MSFT'])
+        self.assertEqual(result['AAPL'], 150.0)
+        self.assertEqual(result['MSFT'], 300.0)
+
+    def test_batch_position_price(self):
+        """Tickers with positions should use position API price."""
+        mock_position = Mock()
+        mock_position.symbol = 'AAPL'
+        mock_position.current_price = 151.0
+        mock_position.qty = '10'
+        mock_position.avg_entry_price = 148.0
+        mock_position.market_value = 1510.0
+        mock_position.unrealized_pl = 30.0
+
+        with patch.object(self.client.trading_client, 'get_all_positions', return_value=[mock_position]):
+            result = self.client.get_latest_prices_batch(['AAPL'])
+            self.assertEqual(result['AAPL'], 151.0)
+
+    def test_batch_quotes_api(self):
+        """Tickers not in cache or positions should use batch quotes API."""
+        mock_quote = Mock()
+        mock_quote.bid_price = 149.5
+        mock_quote.ask_price = 150.5
+
+        mock_data = MagicMock()
+        mock_data.data = {'MSFT': mock_quote}
+
+        with patch.object(self.client.trading_client, 'get_all_positions', return_value=[]), \
+             patch.object(self.client.data_client, 'get_stock_latest_quote', return_value=mock_data):
+            result = self.client.get_latest_prices_batch(['MSFT'])
+            self.assertAlmostEqual(result['MSFT'], 150.0)
+
+    def test_batch_mixed_sources(self):
+        """Prices from cache, positions, and quotes should all work."""
+        now = datetime.now()
+        # AAPL in cache
+        self.client.price_cache['AAPL'] = {'price': 150.0, 'timestamp': now}
+
+        # MSFT via position
+        mock_position = Mock()
+        mock_position.symbol = 'MSFT'
+        mock_position.current_price = 300.0
+        mock_position.qty = '5'
+        mock_position.avg_entry_price = 290.0
+        mock_position.market_value = 1500.0
+        mock_position.unrealized_pl = 50.0
+
+        # GOOG via quotes
+        mock_quote = Mock()
+        mock_quote.bid_price = 139.0
+        mock_quote.ask_price = 141.0
+        mock_data = MagicMock()
+        mock_data.data = {'GOOG': mock_quote}
+
+        with patch.object(self.client.trading_client, 'get_all_positions', return_value=[mock_position]), \
+             patch.object(self.client.data_client, 'get_stock_latest_quote', return_value=mock_data):
+            result = self.client.get_latest_prices_batch(['AAPL', 'MSFT', 'GOOG'])
+            self.assertEqual(result['AAPL'], 150.0)
+            self.assertEqual(result['MSFT'], 300.0)
+            self.assertAlmostEqual(result['GOOG'], 140.0)
+
+    def test_batch_rate_limited(self):
+        """When rate limited, should return None for non-cached tickers."""
+        now = datetime.now()
+        self.client.price_cache['AAPL'] = {'price': 150.0, 'timestamp': now}
+
+        # Fill rate limiter
+        for _ in range(200):
+            self.client.rate_limiter.record_request()
+
+        result = self.client.get_latest_prices_batch(['AAPL', 'MSFT'])
+        self.assertEqual(result['AAPL'], 150.0)
+        self.assertIsNone(result['MSFT'])
+
+    def test_batch_quotes_api_failure(self):
+        """Quotes API failure should return None for affected tickers."""
+        now = datetime.now()
+        self.client.price_cache['AAPL'] = {'price': 150.0, 'timestamp': now}
+
+        with patch.object(self.client.trading_client, 'get_all_positions', return_value=[]), \
+             patch.object(self.client.data_client, 'get_stock_latest_quote', side_effect=Exception("API error")):
+            result = self.client.get_latest_prices_batch(['AAPL', 'MSFT'])
+            self.assertEqual(result['AAPL'], 150.0)
+            self.assertIsNone(result['MSFT'])
+
+
 class TestAlpacaClientHistoricalData(unittest.TestCase):
     """Test historical data fetching with various scenarios."""
 

@@ -373,21 +373,20 @@ class AlpacaPaperEngine:
             return []
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
-        """Get current price from cache or REST API."""
-        # Try WebSocket cache first (if recent)
-        if ticker in self.price_cache:
-            cache_entry = self.price_cache[ticker]
-            age = (datetime.now() - cache_entry.get('timestamp', datetime.now())).total_seconds()
-            if age < 60:  # Only use if < 60 seconds old
-                return cache_entry['price']
+        """Get current price via AlpacaClient (WebSocket cache + REST fallback).
 
-        # Always try REST as primary source for entry decisions
+        AlpacaClient.get_latest_price checks its own WebSocket cache first
+        (30s max age), then tries position API, then quotes API. No need
+        for a separate engine-level cache since both are fed by the same
+        WebSocket stream.
+        """
         price = self.alpaca.get_latest_price(ticker)
         if price:
+            # Keep engine's price_cache in sync for exit checks and display
             self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
             return price
 
-        # Final fallback: use stale cache if available (better than nothing)
+        # Final fallback: use stale engine cache if available (better than nothing)
         if ticker in self.price_cache:
             print(f"   ⚠️  {ticker}: Using stale price from cache (REST failed)")
             return self.price_cache[ticker]['price']
@@ -629,6 +628,9 @@ class AlpacaPaperEngine:
             return
 
         print(f"\n🔍 Checking {len(watchlist)} tickers for entry signals...")
+
+        # Pre-fetch prices in a single batch to avoid N individual REST calls
+        await asyncio.to_thread(self.alpaca.get_latest_prices_batch, watchlist)
 
         # Get thresholds from config
         entry_threshold = self.risk_config.entry.min_entry_score
