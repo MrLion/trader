@@ -198,6 +198,104 @@ class AlpacaClient:
             health_monitor.mark_failure('alpaca')
             return None
 
+    def get_latest_prices_batch(self, tickers: list[str]) -> dict[str, Optional[float]]:
+        """Fetch current prices for multiple tickers in a single API call.
+
+        Checks WebSocket cache first, then batches remaining tickers into a
+        single quotes API call. Uses 1 API call instead of N for non-cached
+        tickers.
+
+        Args:
+            tickers: List of ticker symbols to fetch prices for.
+
+        Returns:
+            Dict mapping ticker to price (or None if unavailable).
+        """
+        result: dict[str, Optional[float]] = {}
+        need_quotes: list[str] = []
+
+        # 1. Check cache for all tickers first
+        for ticker in tickers:
+            cached = self.get_cached_price(ticker)
+            if cached:
+                result[ticker] = cached
+            else:
+                need_quotes.append(ticker)
+
+        if not need_quotes:
+            return result
+
+        # 2. Check positions API for tickers in portfolio (single call)
+        try:
+            all_positions = self.trading_client.get_all_positions()
+            position_map = {p.symbol: p for p in all_positions}
+        except Exception:
+            position_map = {}
+
+        still_need_quotes: list[str] = []
+        for ticker in need_quotes:
+            if ticker in position_map and position_map[ticker].current_price:
+                price = float(position_map[ticker].current_price)
+                result[ticker] = price
+                self.price_cache[ticker] = {
+                    'price': price,
+                    'timestamp': datetime.now(),
+                }
+            else:
+                still_need_quotes.append(ticker)
+
+        if not still_need_quotes:
+            return result
+
+        # 3. Batch quotes API call for remaining tickers
+        if not self.rate_limiter.can_make_request():
+            for ticker in still_need_quotes:
+                result[ticker] = None
+            return result
+
+        try:
+            self.rate_limiter.record_request()
+            from alpaca.data.requests import StockLatestQuoteRequest
+
+            request = StockLatestQuoteRequest(symbol_or_symbols=still_need_quotes)
+            quotes = self.data_client.get_stock_latest_quote(request)
+
+            fetched = 0
+            for ticker in still_need_quotes:
+                if ticker in quotes.data:
+                    quote = quotes.data[ticker]
+                    if quote.bid_price and quote.ask_price:
+                        price = float((quote.bid_price + quote.ask_price) / 2)
+                    elif quote.bid_price:
+                        price = float(quote.bid_price)
+                    elif quote.ask_price:
+                        price = float(quote.ask_price)
+                    else:
+                        result[ticker] = None
+                        continue
+
+                    result[ticker] = price
+                    self.price_cache[ticker] = {
+                        'price': price,
+                        'timestamp': datetime.now(),
+                    }
+                    fetched += 1
+                else:
+                    result[ticker] = None
+
+            if fetched > 0:
+                self.rate_limiter.record_success()
+                health_monitor.mark_success('alpaca')
+
+        except Exception as e:
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
+            for ticker in still_need_quotes:
+                if ticker not in result:
+                    result[ticker] = None
+
+        return result
+
     def get_historical_bars(self, ticker: str, days: int = None) -> Optional[pd.DataFrame]:
         """Get historical daily bars with rate limiting.
 
