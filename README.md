@@ -397,6 +397,7 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 |----------------------------------|--------------------------------------|----------------------------------------|
 | **[AGENTS.MD](AGENTS.MD)** | Complete trading playbook | **Start here** |
 | **[docs/RISK_GUIDE.md](docs/RISK_GUIDE.md)** | Risk management, sizing, stops | Configuring engine |
+| **[docs/BACKTESTING_GUIDE.md](docs/BACKTESTING_GUIDE.md)** | Backtesting user guide | Running backtests |
 
 ### Operational Runbooks
 
