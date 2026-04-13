@@ -375,21 +375,33 @@ class AlpacaPaperEngine:
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price via AlpacaClient (WebSocket cache + REST fallback).
 
-        AlpacaClient.get_latest_price checks its own WebSocket cache first
-        (30s max age), then tries position API, then quotes API. No need
-        for a separate engine-level cache since both are fed by the same
-        WebSocket stream.
+        Uses AlpacaClient's cache (populated by WebSocket and batch pre-fetch)
+        with a generous staleness window when the WebSocket is disconnected.
+        Falls back to per-ticker REST only if the batch pre-fetch didn't
+        populate this ticker.
         """
+        # Check AlpacaClient cache first (fed by WebSocket + batch pre-fetch)
+        # When WS is disconnected, allow stale prices up to 5 minutes
+        max_age = 300 if not self.alpaca.is_ws_healthy() else None
+        cached = self.alpaca.get_cached_price(ticker, max_age_seconds=max_age)
+        if cached:
+            self.price_cache[ticker] = {'price': cached, 'timestamp': datetime.now()}
+            return cached
+
+        # If batch pre-fetch already got this ticker, the cache hit above
+        # would have returned it. Only try per-ticker REST for tickers
+        # that the batch call didn't cover (e.g. newly added to watchlist).
         price = self.alpaca.get_latest_price(ticker)
         if price:
-            # Keep engine's price_cache in sync for exit checks and display
             self.price_cache[ticker] = {'price': price, 'timestamp': datetime.now()}
             return price
 
         # Final fallback: use stale engine cache if available (better than nothing)
         if ticker in self.price_cache:
-            print(f"   ⚠️  {ticker}: Using stale price from cache (REST failed)")
-            return self.price_cache[ticker]['price']
+            age = (datetime.now() - self.price_cache[ticker].get('timestamp', datetime.now())).total_seconds()
+            if age < 300:  # Accept up to 5 minutes stale
+                print(f"   ⚠️  {ticker}: Using stale price from cache ({age:.0f}s old)")
+                return self.price_cache[ticker]['price']
 
         return None
 

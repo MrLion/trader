@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.21] - 2026-04-13
+
+### Fixed
+- **Stale price fallback improved for WebSocket-disconnected mode**
+  - When WebSocket is disconnected, allow AlpacaClient cache up to 5 minutes (vs 30s normally)
+  - Engine cache fallback also extended to 5 minutes for graceful degradation
+  - Avoid per-ticker REST calls when batch pre-fetch already failed (prevents circuit breaker cascade)
+  - Shows price age in stale cache warnings (e.g. "45s old")
+
 ## [0.3.20] - 2026-04-13
 
 ### Fixed
