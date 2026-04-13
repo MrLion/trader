@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.19] - 2026-04-12
+
+### Changed
+- **Remove yfinance dependency from ExitEngine calculations**
+  - Added `historical_data` parameter to `calculate_initial_stop()` for data injection pattern
+  - Enables Alpaca-only mode and backtesting without yfinance network calls
+  - Added column validation for injected DataFrames (fail-fast on missing columns)
+  - Deprecated yfinance fallback with `DeprecationWarning` for reports/tools only
+  - Updated tests to use mock data injection instead of yfinance mocking
+
+### Fixed
+- **R-multiple drift bug on breakeven ratchet**
+  - Fixed `initial_stop_price` not being stored, causing R-multiple to drift to 0 after stop ratcheted up
+  - Prevents division by zero when calculating R-multiples after breakeven move
+  - Migration path for legacy positions: derives from current stop on first call, then stores for subsequent calls
+
 ## [0.3.18] - 2026-04-11
 
 ### Fixed
