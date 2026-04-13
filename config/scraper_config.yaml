@@ -1,0 +1,33 @@
+# MC Stock Charts Scraper Configuration
+# Validation filters applied to tickers fetched from MC Stock Charts reports.
+
+# =============================================================================
+# TICKER VALIDATION FILTERS
+# =============================================================================
+# Tickers that fail any filter are silently skipped during validation.
+
+validation:
+  # Minimum share price (skip penny stocks and low-priced names)
+  min_price: 10
+
+  # Minimum market capitalization in dollars
+  # $1B = large enough for institutional liquidity
+  min_market_cap: 1000000000  # $1B
+
+  # Minimum number of trading days of history required
+  # 200 days covers the 200-day SMA calculation
+  min_history_days: 200
+
+  # Minimum average daily dollar volume in dollars
+  # Ensures sufficient liquidity for position sizing
+  # $20M = roughly 200k shares at $100 or 2M shares at $10
+  min_dollar_volume: 20000000  # $20M
+
+# =============================================================================
+# FALSE POSITIVE FILTERS
+# =============================================================================
+# Common words that look like ticker symbols but aren't.
+# These are checked case-insensitively.
+# The default list is built into the scraper; add extras here.
+extra_false_positives: []
+#  - VIV   # Uncomment to skip a specific ticker

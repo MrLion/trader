@@ -7,7 +7,7 @@
 account:
   # Maximum risk per trade as % of total account equity
   # This is your R - the amount you're willing to lose if stop is hit
-  risk_per_trade_pct: 0.005  # 0.75% of account per trade
+  risk_per_trade_pct: 0.005  # 0.5% of account per trade
 
   # Maximum daily loss before halting trading
   daily_loss_limit_pct: 0.02  # 2% of initial capital
@@ -139,7 +139,7 @@ profiles:
     account:
       risk_per_trade_pct: 0.005    # 0.5%
     position:
-      max_position_pct: 0.1       # 10%
+      max_position_pct: 0.10       # 10%
     stop_loss:
       max_stop_distance_pct: 0.08  # 8% max
 

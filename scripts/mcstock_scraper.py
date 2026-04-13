@@ -234,7 +234,7 @@ def fetch_report(session: requests.Session, date: Optional[str] = None) -> str:
         raise
 
 
-def extract_tickers(html: str) -> List[Dict]:
+def extract_tickers(html: str, config: Optional[dict] = None) -> List[Dict]:
     """
     Extract trade ideas from report HTML.
 
@@ -272,6 +272,11 @@ def extract_tickers(html: str) -> List[Dict]:
         'SOME', 'SUCH', 'NO', 'NOR', 'NOT', 'SO', 'TOO', 'VERY',
         'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'
     }
+
+    # Add extra false positives from config
+    if config:
+        for fp in config.get('extra_false_positives', []):
+            false_positives.add(fp.upper())
 
     def is_valid_ticker(ticker: str) -> bool:
         """Check if a string looks like a valid ticker symbol."""
@@ -349,18 +354,59 @@ def extract_tickers(html: str) -> List[Dict]:
     return ideas
 
 
-def validate_tickers(ideas: List[Dict]) -> List[Dict]:
+def load_scraper_config(config_path: Optional[str] = None) -> dict:
+    """Load scraper validation config from YAML."""
+    if config_path is None:
+        config_path = PROJECT_ROOT / 'config' / 'scraper_config.yaml'
+
+    defaults = {
+        'validation': {
+            'min_price': 10,
+            'min_market_cap': 1_000_000_000,
+            'min_history_days': 200,
+            'min_dollar_volume': 20_000_000,
+        },
+        'extra_false_positives': [],
+    }
+
+    path = Path(config_path)
+    if path.exists():
+        try:
+            import yaml
+            with open(path) as f:
+                user_config = yaml.safe_load(f) or {}
+            for key in defaults:
+                if key in user_config:
+                    defaults[key] = {**defaults[key], **user_config[key]} if isinstance(defaults[key], dict) else user_config[key]
+            return defaults
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to load scraper config: {e}, using defaults")
+
+    return defaults
+
+
+def validate_tickers(ideas: List[Dict], config: Optional[dict] = None) -> List[Dict]:
     """
     Validate tickers against Yahoo Finance and enrich with data.
 
     Args:
         ideas: List of ticker dicts
+        config: Validation config from load_scraper_config()
 
     Returns:
         Validated and enriched ideas
     """
     logger = logging.getLogger(__name__)
     logger.info("🔍 Validating tickers with Yahoo Finance...")
+
+    if config is None:
+        config = load_scraper_config()
+
+    validation = config.get('validation', {})
+    min_price = validation.get('min_price', 10)
+    min_market_cap = validation.get('min_market_cap', 1_000_000_000)
+    min_history_days = validation.get('min_history_days', 200)
+    min_dollar_volume = validation.get('min_dollar_volume', 20_000_000)
 
     import yfinance as yf
 
@@ -379,27 +425,27 @@ def validate_tickers(ideas: List[Dict]) -> List[Dict]:
 
             # Basic filters
             price = info.get('currentPrice', 0)
-            if price < 10:  # Skip stocks under $10
-                logger.debug(f"Skipping {ticker}: Price ${price} < $10")
+            if price < min_price:
+                logger.debug(f"Skipping {ticker}: Price ${price} < ${min_price}")
                 continue
 
             market_cap = info.get('marketCap', 0)
-            if market_cap < 1e9:  # Skip if market cap < $1B
-                logger.debug(f"Skipping {ticker}: Market cap too small")
+            if market_cap < min_market_cap:
+                logger.debug(f"Skipping {ticker}: Market cap ${market_cap/1e9:.1f}B < ${min_market_cap/1e9:.1f}B")
                 continue
 
             # Get historical data for calculations
             hist = stock.history(period="1y")
-            if len(hist) < 200:
-                logger.debug(f"Skipping {ticker}: Insufficient history")
+            if len(hist) < min_history_days:
+                logger.debug(f"Skipping {ticker}: {len(hist)} days history < {min_history_days}")
                 continue
 
             current = hist['Close'].iloc[-1]
             avg_vol = hist['Volume'].tail(50).mean()
-            dollar_vol = (current * avg_vol) / 1e6  # In millions
+            dollar_vol = current * avg_vol  # In dollars (not millions)
 
-            if dollar_vol < 20:  # Skip if avg dollar volume < $20M
-                logger.debug(f"Skipping {ticker}: Dollar volume ${dollar_vol:.1f}M < $20M")
+            if dollar_vol < min_dollar_volume:
+                logger.debug(f"Skipping {ticker}: Dollar volume ${dollar_vol/1e6:.1f}M < ${min_dollar_volume/1e6:.0f}M")
                 continue
 
             # Calculate returns
@@ -443,7 +489,7 @@ def validate_tickers(ideas: List[Dict]) -> List[Dict]:
                 'Entry_Breakout': round(entry, 2),
                 'Stop': round(stop, 2),
                 'Risk_%': round(risk_pct, 1),
-                '$Vol_M': round(dollar_vol, 1)
+                '$Vol_M': round(dollar_vol / 1e6, 1)
             })
 
             validated.append(idea)
@@ -523,6 +569,10 @@ def main():
         help='Automatically populate watchlist after scraping'
     )
     parser.add_argument(
+        '--config',
+        help='Path to scraper config YAML file'
+    )
+    parser.add_argument(
         '--skip-validation',
         action='store_true',
         help='Skip Yahoo Finance validation (faster)'
@@ -574,8 +624,11 @@ def main():
             logger.error(f"❌ Network error: {e}")
             sys.exit(EXIT_NETWORK_ERROR)
 
+        # Load config
+        config = load_scraper_config(args.config)
+
         # Extract tickers
-        ideas = extract_tickers(html)
+        ideas = extract_tickers(html, config=config)
 
         if not ideas:
             logger.warning("⚠️ No trade ideas found in report")
@@ -585,7 +638,7 @@ def main():
 
         # Validate tickers (unless skipped)
         if not args.skip_validation:
-            ideas = validate_tickers(ideas)
+            ideas = validate_tickers(ideas, config=config)
 
         if not ideas:
             logger.warning("⚠️ No ideas passed validation")
