@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-04-14
+
+### Changed
+- **Stage 2 scoring upgraded from 7-point to 8-point system** — added "Price > 20 MA" as criterion #1, creating a natural progression from short-term to long-term trend health. The 20 MA is excluded from the MA stacking check (50 > 100 > 200) since it's too volatile and penalizes valid pullback entries. Recalibrated `get_entry_score()` buckets: 7/8=30pts, 6/8=25pts (was 30), 5/8=20pts (was 25), 4/8=15pts (was 20). Tier 2 threshold raised from stage2 >= 4 to stage2 >= 5.
+- **NEE/NFG scoring gap fixed** — stocks below 50 MA and 20 MA no longer score equal to stocks with perfect trend alignment. Under 7-point: 6/7 = 85 (Tier 1). Under 8-point: 5/8 = 75 (Tier 2). The key fix is that 6/8 and 7/8 now give different entry scores (25 vs 30), whereas 6/7 and 7/7 previously gave the same 30.
+- Display strings updated from `/7` to `/8` across all reports and tools.
+
+### Added
+- 42 regression tests for 8-point scoring system covering: 20 MA criterion, `get_stage2_details()` fields, entry score boundary values at every threshold (0-8), tier classification logic, NEE/NFG scenario, `is_stage2_compliant()`, and flat stock with sufficient data. Coverage of `stage2_utils.py`: 72% → 97%.
+
 ## [0.4.0.1] - 2026-04-14
 
 ### Fixed
