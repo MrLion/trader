@@ -159,7 +159,9 @@ def is_stage2_compliant(score: int, min_score: int = 5) -> bool:
 
 
 def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
-                    ret_6m: float, rs_6m: float) -> int:
+                    ret_6m: float, rs_6m: float,
+                    below_50ma: bool = False,
+                    below_20ma: bool = False) -> int:
     """
     Calculate entry attractiveness score (0-100) using updated thresholds for 8-point system.
 
@@ -169,6 +171,8 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
         dist_to_pivot: Distance to pivot point (positive = below pivot)
         ret_6m: 6-month return percentage
         rs_6m: Relative strength vs SPY (6-month)
+        below_50ma: True if price is below 50 MA (applies -20 penalty)
+        below_20ma: True if price is below 20 MA (applies -10 penalty)
 
     Returns:
         int: Entry score (0-100)
@@ -220,7 +224,13 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
     elif rs_6m > 10:
         entry_score += 5
 
-    return entry_score
+    # MA penalties — below key MAs indicates trend weakness
+    if below_50ma:
+        entry_score -= 20
+    if below_20ma:
+        entry_score -= 10
+
+    return max(entry_score, 0)
 
 
 def get_stage2_tier(entry_score: int) -> str:

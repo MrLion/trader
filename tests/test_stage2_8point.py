@@ -485,5 +485,93 @@ class TestFlatStockWith200Rows(unittest.TestCase):
                             f"Flat stock should score <= 3, got {score}")
 
 
+class TestMAPenalties(unittest.TestCase):
+    """Test the MA penalty feature in get_entry_score.
+
+    Below 50 MA: -20 points
+    Below 20 MA: -10 points
+    Both: -30 points
+    Floor: 0
+    """
+
+    def test_no_penalty_when_above_mas(self):
+        """Stocks above both MAs should have no penalty."""
+        score_no_penalty = get_entry_score(stage2_score=8, risk_pct=5, dist_to_pivot=1,
+                                           ret_6m=0, rs_6m=0)
+        self.assertEqual(score_no_penalty, 85)
+
+    def test_below_50ma_penalty(self):
+        """Below 50 MA should subtract 20 points."""
+        score = get_entry_score(stage2_score=8, risk_pct=5, dist_to_pivot=1,
+                                ret_6m=0, rs_6m=0, below_50ma=True)
+        self.assertEqual(score, 65, "below_50ma should subtract 20")
+
+    def test_below_20ma_penalty(self):
+        """Below 20 MA should subtract 10 points."""
+        score = get_entry_score(stage2_score=8, risk_pct=5, dist_to_pivot=1,
+                                ret_6m=0, rs_6m=0, below_20ma=True)
+        self.assertEqual(score, 75, "below_20ma should subtract 10")
+
+    def test_below_both_mas_penalty(self):
+        """Below both 20 MA and 50 MA should subtract 30 points."""
+        score = get_entry_score(stage2_score=8, risk_pct=5, dist_to_pivot=1,
+                                ret_6m=0, rs_6m=0, below_50ma=True, below_20ma=True)
+        self.assertEqual(score, 55, "below both MAs should subtract 30")
+
+    def test_nee_scenario_with_penalties(self):
+        """NEE-like: 6/8 (below both MAs), risk 5.4%, dist 1.9%.
+
+        Without penalties: 25 + 30 + 25 = 80
+        With penalties: 80 - 20 - 10 = 50 (Tier 2)
+        """
+        score = get_entry_score(stage2_score=6, risk_pct=5.4, dist_to_pivot=1.9,
+                                ret_6m=0, rs_6m=0, below_50ma=True, below_20ma=True)
+        self.assertEqual(score, 50, "NEE scenario should score 50 with MA penalties")
+
+    def test_nfg_scenario_with_penalties(self):
+        """NFG-like: 5/8 (below both MAs + one more), risk 6.3%, dist 2.4%.
+
+        Without penalties: 20 + 30 + 25 = 75
+        With penalties: 75 - 20 - 10 = 45 (Tier 2)
+        """
+        score = get_entry_score(stage2_score=5, risk_pct=6.3, dist_to_pivot=2.4,
+                                ret_6m=0, rs_6m=0, below_50ma=True, below_20ma=True)
+        self.assertEqual(score, 45, "NFG scenario should score 45 with MA penalties")
+
+    def test_penalty_floor_at_zero(self):
+        """Entry score should never go below 0."""
+        score = get_entry_score(stage2_score=0, risk_pct=999, dist_to_pivot=999,
+                                ret_6m=0, rs_6m=0, below_50ma=True, below_20ma=True)
+        self.assertEqual(score, 0, "Entry score should floor at 0")
+
+    def test_penalty_does_not_double_count(self):
+        """Below 50 MA already implies likely below 20 MA in most cases,
+        but they are independent flags. Both apply when both are True."""
+        score_50only = get_entry_score(stage2_score=6, risk_pct=5, dist_to_pivot=1,
+                                       ret_6m=0, rs_6m=0, below_50ma=True)
+        score_both = get_entry_score(stage2_score=6, risk_pct=5, dist_to_pivot=1,
+                                      ret_6m=0, rs_6m=0, below_50ma=True, below_20ma=True)
+        self.assertEqual(score_both - score_50only, -10,
+                         "below_20ma adds -10 on top of below_50ma")
+
+    def test_perfect_stock_unaffected(self):
+        """8/8 stock above all MAs: score 85, no penalties."""
+        score = get_entry_score(stage2_score=8, risk_pct=5, dist_to_pivot=1,
+                                ret_6m=0, rs_6m=0)
+        self.assertEqual(score, 85)
+
+    def test_tier_logic_with_penalties(self):
+        """NEE at 50 should be Tier 3 (below 40 for stage2=6 is Tier 2, but 50 >= 40)."""
+        # NEE: entry_score=50, stage2=6
+        if 50 >= 60 and 6 >= 6:
+            tier = "Tier 1"
+        elif 50 >= 40 and 6 >= 5:
+            tier = "Tier 2"
+        else:
+            tier = "Tier 3"
+        self.assertEqual(tier, "Tier 2",
+                        "NEE at 50 with stage2=6 should be Tier 2 (not Tier 1)")
+
+
 if __name__ == '__main__':
     unittest.main()

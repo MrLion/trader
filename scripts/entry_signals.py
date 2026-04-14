@@ -15,7 +15,7 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
-from traderlib import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.risk_config import RiskConfigManager
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker, validate_tickers
@@ -119,8 +119,11 @@ class EntrySignalScanner:
             if current is None:
                 return None
 
-            # Calculate Stage 2 score
-            stage2 = calculate_stage2_score(hist)
+            # Calculate Stage 2 score and MA flags
+            s2_details = get_stage2_details(hist)
+            stage2 = s2_details['score']
+            below_50ma = not s2_details['criteria']['price_above_50ma']
+            below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Get pivot and sector from watchlist
             pivot = current
@@ -174,7 +177,8 @@ class EntrySignalScanner:
             rs_6m = ret_6m - spy_return_6m
 
             # Calculate entry score
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m)
+            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+                                          below_50ma=below_50ma, below_20ma=below_20ma)
 
             # Determine tier (8-point system: Tier 1 needs 6+/8, Tier 2 needs 5+/8)
             if entry_score >= 60 and stage2 >= 6:

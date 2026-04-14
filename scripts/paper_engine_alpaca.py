@@ -21,7 +21,7 @@ from traderlib.alpaca_client import AlpacaClient
 from traderlib.paper_state import PaperState, Position, TRADES_FILE
 from traderlib.paper_exits import ExitEngine, ExitSignal
 from traderlib.order_manager import OrderManager, OrderStatus
-from traderlib import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
 from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
 
@@ -600,8 +600,11 @@ class AlpacaPaperEngine:
                 print(f"   ⏸️  {ticker}: Cannot get current price")
                 return None
 
-            # Calculate Stage 2 score
-            stage2 = calculate_stage2_score(hist)
+            # Calculate Stage 2 score and MA flags
+            s2_details = get_stage2_details(hist)
+            stage2 = s2_details['score']
+            below_50ma = not s2_details['criteria']['price_above_50ma']
+            below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Get pivot and sector from watchlist
             pivot = current
@@ -664,8 +667,9 @@ class AlpacaPaperEngine:
             spy_return_6m = self._get_spy_return_6m()
             rs_6m = ret_6m - spy_return_6m
 
-            # Calculate entry score with RS component
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m)
+            # Calculate entry score with RS component and MA penalties
+            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+                                           below_50ma=below_50ma, below_20ma=below_20ma)
 
             return {
                 'ticker': ticker,

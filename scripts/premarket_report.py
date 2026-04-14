@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from traderlib import calculate_stage2_score, get_entry_score
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 # Report output directory
@@ -669,8 +669,11 @@ def load_watchlist():
                     # Calculate returns
                     ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
                     
-                    # Calculate Stage 2 score using shared 8-point system
-                    stage2 = calculate_stage2_score(hist)
+                    # Calculate Stage 2 score and MA flags using shared 8-point system
+                    s2_details = get_stage2_details(hist)
+                    stage2 = s2_details['score']
+                    below_50ma = not s2_details['criteria']['price_above_50ma']
+                    below_20ma = not s2_details['criteria']['price_above_20ma']
 
                     # Calculate additional data for display
                     ma20 = hist['Close'].rolling(20).mean().iloc[-1]
@@ -696,7 +699,8 @@ def load_watchlist():
                     
                     # ENTRY SCORE CALCULATION using shared function (8-point system thresholds)
                     # Note: RS_6M not calculated in premarket, pass 0
-                    entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0)
+                    entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0,
+                                                   below_50ma=below_50ma, below_20ma=below_20ma)
                     
                     # Tier based on score
                     if entry_score >= 60: tier = '1'

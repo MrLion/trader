@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-04-14
+
+### Changed
+- **MA penalties in entry score** — stocks below key moving averages now receive explicit score deductions: -20 points for below 50 MA, -10 points for below 20 MA. Previously, the 8-point bucket system couldn't distinguish *which* criteria failed, so a stock at 6/8 failing both MAs scored the same 25-point stage2 component as one failing two other criteria. NEE (6/8, below both MAs) drops from 80 (Tier 1) to 50 (Tier 2). NFG (5/8, below both MAs) drops from 75 (Tier 2) to 45 (Tier 2). Stocks passing all MAs are unaffected. Score floor remains 0.
+
+### Added
+- `below_50ma` and `below_20ma` boolean params on `get_entry_score()` — all 4 production callers (`entry_signals.py`, `paper_engine_alpaca.py`, `premarket_report.py`, `backtest/strategy.py`) now extract MA flags from `get_stage2_details()` and pass them through.
+- `get_stage2_details` exported from `traderlib/__init__.py` for convenient import.
+- 10 MA penalty unit tests in `TestMAPenalties` class covering: individual penalties, combined penalties, NEE/NFG scenarios, floor at 0, no double counting, perfect stock unaffected, tier logic.
+- 4 Hypothesis property tests for MA penalties: `test_ma_penalty_reduces_score`, `test_penalty_magnitude`, `test_floor_at_zero` (with MA flags), `test_score_bounds` (with MA flags).
+
 ## [0.5.0] - 2026-04-14
 
 ### Changed

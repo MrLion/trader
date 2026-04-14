@@ -16,7 +16,7 @@ from traderlib.backtest.execution import ExecutionModel, ExecutionConfig
 from traderlib.backtest.state import BacktestState
 from traderlib.paper_exits import ExitEngine, ExitSignal
 from traderlib.paper_state import Position
-from traderlib.stage2_utils import calculate_stage2_score, get_entry_score
+from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.risk_config import RiskConfig, calculate_position_size_with_constraints
 
 
@@ -166,8 +166,11 @@ class Stage2MomentumStrategy(Strategy):
             if current <= 0:
                 continue
 
-            # Stage 2 score
-            stage2 = calculate_stage2_score(hist)
+            # Stage 2 score and MA flags
+            s2_details = get_stage2_details(hist)
+            stage2 = s2_details['score']
+            below_50ma = not s2_details['criteria']['price_above_50ma']
+            below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Calculate ATR and stop
             try:
@@ -222,7 +225,8 @@ class Stage2MomentumStrategy(Strategy):
             risk_pct = abs((stop - pivot) / pivot) * 100 if pivot > stop else 999
 
             # Entry score
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m)
+            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+                                           below_50ma=below_50ma, below_20ma=below_20ma)
 
             # Check minimum entry score
             min_score = 60
