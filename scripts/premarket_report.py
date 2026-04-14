@@ -669,7 +669,7 @@ def load_watchlist():
                     # Calculate returns
                     ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
                     
-                    # Calculate Stage 2 score using shared 7-point system
+                    # Calculate Stage 2 score using shared 8-point system
                     stage2 = calculate_stage2_score(hist)
 
                     # Calculate additional data for display
@@ -694,7 +694,7 @@ def load_watchlist():
                     # Distance to pivot
                     dist_to_pivot = ((pivot - current) / current) * 100
                     
-                    # ENTRY SCORE CALCULATION using shared function (7-point system thresholds)
+                    # ENTRY SCORE CALCULATION using shared function (8-point system thresholds)
                     # Note: RS_6M not calculated in premarket, pass 0
                     entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0)
                     
@@ -1114,7 +1114,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
                 dist_sign = '+' if stock['dist_to_pivot'] > 0 else ''
                 print(f"{stock['ticker']:<8} {tier_icon} T{stock['tier']:<4} {stock['entry_score']:<6} ${stock['current']:<9.2f} ${stock['pivot']:<9.2f} "
                       f"{dist_sign}{stock['dist_to_pivot']:<6.1f}% {stock['risk_pct']:<7.1f}% "
-                      f"{stock['stage2']}/4  {stock['ret_6m']:>9.1f}% {stock['sector']}")
+                      f"{stock['stage2']}/8  {stock['ret_6m']:>9.1f}% {stock['sector']}")
 
             if report_data['ready_tickers']:
                 print(f"\n✅ Tier 1 Ready (Score ≥60, within 3%): {', '.join(report_data['ready_tickers'])}")

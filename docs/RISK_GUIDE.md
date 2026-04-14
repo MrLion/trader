@@ -306,7 +306,7 @@ Like a filter that says "only A-grade setups, no B or C quality."
 - 🟡 **Tier 2 (40-59):** Monitor for better entry
 - 🔴 **Tier 3 (<40):** Skip it
 
-**Script:** `traderlib/stage2_utils.py` - `get_entry_score()`
+**Script:** `traderlib/stage2_utils.py` - `get_entry_score()` (8-point Stage 2 system)
 
 ---
 

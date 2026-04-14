@@ -29,7 +29,7 @@ class TestStage2Fixtures(unittest.TestCase):
         # Based on AAPL's typical recent behavior, it should score reasonably high (>= 4)
         # If it's a true uptrend, we expect a strong score.
         self.assertGreaterEqual(score, 0)
-        self.assertLessEqual(score, 10)
+        self.assertLessEqual(score, 8)
 
     def test_stage2_flat_line(self):
         """Flat stock fixture should score very low."""
@@ -57,7 +57,7 @@ class TestStage2Fixtures(unittest.TestCase):
         score = calculate_stage2_score(df)
         print(f"Volatile Stock Stage 2 Score: {score}")
         # Volatility without a clear trend should result in a mediocre score
-        self.assertLess(score, 7, "Random volatility should not trigger high Stage 2 score")
+        self.assertLess(score, 8, "Random volatility should not trigger high Stage 2 score")
 
 if __name__ == '__main__':
     unittest.main()
