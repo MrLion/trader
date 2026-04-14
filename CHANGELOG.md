@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0.1] - 2026-04-14
+
+### Fixed
+- **Cooldown re-entry bug** — engine restart lost all cooldown state because `last_exit_time` and `consecutive_losses` are in-memory dicts. After restart, `_check_cooldown()` returned True for all tickers, allowing immediate re-entry regardless of cooldown config. Now `_rebuild_cooldown_state()` reads the trade log on startup to reconstruct cooldown state from recent EXIT events.
+- **Daily reset killed active cooldowns** — `_reset_daily_signals()` cleared both cooldown dicts at midnight, even when a long cooldown (e.g., 4-hour exponential backoff starting late afternoon) was still active. Now only expired entries are removed, so overnight cooldowns persist correctly.
+
 ## [0.4.0] - 2026-04-13
 
 ### Added
