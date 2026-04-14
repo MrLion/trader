@@ -54,8 +54,9 @@ def engine(mock_alpaca, mock_risk_manager):
     """Fixture for AlpacaPaperEngine with mocked dependencies."""
     with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
         with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
-            with patch('signal.signal'):  # Prevent signal handler registration
-                engine = AlpacaPaperEngine(mode='paper')
+            with patch.object(AlpacaPaperEngine, '_rebuild_cooldown_state'):
+                with patch('signal.signal'):  # Prevent signal handler registration
+                    engine = AlpacaPaperEngine(mode='paper')
                 engine.state.positions = {}
                 engine.state.cash = 100000.0
                 engine.state.get_stats = Mock(return_value={
