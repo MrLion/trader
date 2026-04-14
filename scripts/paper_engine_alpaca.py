@@ -7,7 +7,7 @@ import json
 import os
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -18,7 +18,7 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
-from traderlib.paper_state import PaperState, Position
+from traderlib.paper_state import PaperState, Position, TRADES_FILE
 from traderlib.paper_exits import ExitEngine, ExitSignal
 from traderlib.order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score
@@ -72,6 +72,9 @@ class AlpacaPaperEngine:
         # Track consecutive losses per ticker for exponential backoff
         # Format: {ticker: consecutive_loss_count}
         self.consecutive_losses: Dict[str, int] = {}
+
+        # Rebuild cooldown state from trade log after restart
+        self._rebuild_cooldown_state()
 
         # Market data
         self.spy_data = None
@@ -472,6 +475,82 @@ class AlpacaPaperEngine:
             if ticker in self.consecutive_losses:
                 del self.consecutive_losses[ticker]
                 print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
+
+    def _rebuild_cooldown_state(self):
+        """Rebuild cooldown state from trade log after engine restart.
+
+        Reads paper_trades.jsonl to reconstruct last_exit_time and
+        consecutive_losses dicts. Mirrors the _reconcile_counters_from_log
+        pattern in PaperState.
+        """
+        cutoff = datetime.now() - timedelta(
+            minutes=self.risk_config.cooldown.max_cooldown_minutes)
+
+        if not TRADES_FILE.exists():
+            return
+
+        # Collect EXIT events within cooldown window, grouped by ticker
+        ticker_exits = {}  # ticker -> [(timestamp, pnl), ...]
+
+        try:
+            with open(TRADES_FILE, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue  # Skip malformed lines
+
+                    if self.state._is_test_trade(trade):
+                        continue
+                    if trade.get('event') != 'EXIT':
+                        continue
+
+                    ts_str = trade.get('timestamp', '')
+                    try:
+                        ts = datetime.fromisoformat(ts_str)
+                    except (ValueError, TypeError):
+                        continue
+
+                    if ts < cutoff:
+                        continue  # Outside window
+
+                    ticker = trade.get('ticker', '')
+                    if not ticker:
+                        continue
+
+                    pnl = trade.get('realized_pnl')
+                    ticker_exits.setdefault(ticker, []).append((ts, pnl))
+        except Exception as e:
+            print(f"⚠️  Could not read trade log for cooldown rebuild: {e}")
+            return
+
+        # For each ticker, find latest exit time and count consecutive losses
+        rebuilt = 0
+        for ticker, exits in ticker_exits.items():
+            # Sort most recent first
+            exits.sort(key=lambda x: x[0], reverse=True)
+
+            # Latest exit time
+            self.last_exit_time[ticker] = exits[0][0]
+
+            # Count consecutive losses from most recent exit backwards
+            consecutive = 0
+            for _, pnl in exits:
+                if pnl is not None and pnl < 0:
+                    consecutive += 1
+                else:
+                    break  # Profit or break-even breaks the streak
+
+            if consecutive > 0:
+                self.consecutive_losses[ticker] = consecutive
+
+            rebuilt += 1
+
+        if rebuilt:
+            print(f"   ⏱️  Rebuilt cooldown state for {rebuilt} ticker(s)")
 
     def _check_market_conditions(self) -> tuple:
         """Check SPY market conditions using configured thresholds."""
@@ -916,9 +995,16 @@ class AlpacaPaperEngine:
             self.signaled_tickers.clear()
             self.last_signal_reset = current_date
 
-            # Clear cooldown tracking for fresh start (exits from yesterday don't block today)
-            self.last_exit_time.clear()
-            self.consecutive_losses.clear()
+            # Remove expired cooldown entries (keep active cooldowns that span overnight)
+            cutoff = datetime.now()
+            expired_tickers = [
+                ticker for ticker, exit_time in self.last_exit_time.items()
+                if exit_time < cutoff - timedelta(
+                    minutes=self.risk_config.cooldown.max_cooldown_minutes)
+            ]
+            for ticker in expired_tickers:
+                self.last_exit_time.pop(ticker, None)
+                self.consecutive_losses.pop(ticker, None)
 
             print(f"\n📅 New day: Reset entry signals and cooldown tracking")
 
