@@ -121,7 +121,7 @@ def get_stock_data(ticker, force=False):
         true_range = ranges.max(axis=1)
         atr = true_range.rolling(14).mean().iloc[-1]
 
-        # Stage 2 score using shared 7-point system
+        # Stage 2 score using shared 8-point system
         stage = calculate_stage2_score(df)
 
         # 6-month return
@@ -268,7 +268,7 @@ def list_watchlist():
     print(f"\n📋 WATCHLIST ({len(df)} total)\n")
     print(display_df.to_string(index=False))
     print(f"\n💡 Run `python3 scripts/analyze_watchlist.py` to see entry scores (Tier 1/2/3)")
-    print(f"   Stage 2 Score: 0-7 (7 = Price > 50/100/200 MA, proper stacking, 200MA rising, within 25% of high, above 1.25x low)")
+    print(f"   Stage 2 Score: 0-8 (8 = Price > 20/50/100/200 MA, proper stacking, 200MA rising, within 25% of high, above 1.25x low)")
 
 def remove_ticker(ticker, dry_run=False):
     """Remove a ticker from watchlist.

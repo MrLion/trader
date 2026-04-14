@@ -203,7 +203,7 @@ class TestAnalyzeTicker:
         mock_alpaca.get_historical_bars.return_value = hist_data
 
         # Mock stage2 score
-        mock_stage2.return_value = 7
+        mock_stage2.return_value = 8
 
         # Mock entry score
         mock_get_entry_score.return_value = 85
@@ -280,7 +280,7 @@ class TestScan:
             'entry_score': 85,
             'tier': 'Tier 1',
             'dist_to_pivot': 0.0,
-            'stage2': 7,
+            'stage2': 8,
             'sector': 'Tech',
             'risk_pct': 5.0
         })
@@ -302,7 +302,7 @@ class TestScan:
             'entry_score': 85,  # Tier 1 score
             'tier': 'Tier 1',
             'dist_to_pivot': 0.0,  # Within ±1%
-            'stage2': 7,
+            'stage2': 8,
             'sector': 'Tech',
             'risk_pct': 5.0
         })

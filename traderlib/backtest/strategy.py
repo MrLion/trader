@@ -31,7 +31,7 @@ class EntrySignal:
     shares: int = 0                # Number of shares
     sector: str = 'Unknown'
     entry_score: int = 0           # Entry attractiveness score (0-100)
-    stage2_score: int = 0         # Stage 2 compliance score (0-7)
+    stage2_score: int = 0         # Stage 2 compliance score (0-8)
 
 
 @dataclass(frozen=True)

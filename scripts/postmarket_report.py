@@ -587,7 +587,7 @@ def analyze_watchlist_performance(watchlist_df):
                 pivot = None
                 dist_to_pivot = None
 
-            # Determine tier from watchlist (updated for 7-point system)
+            # Determine tier from watchlist (updated for 8-point system)
             stage = row.get('Stage', 0)
             # Tier thresholds: 6+ = Tier 1, 4-5 = Tier 2, <4 = Tier 3
             tier = '1' if stage >= 6 else '2' if stage >= 4 else '3'
