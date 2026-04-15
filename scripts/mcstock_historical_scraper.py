@@ -343,6 +343,15 @@ def scrape_historical_data(
             logger.info("No more reports found")
             break
 
+        # Check if we've gone past the date range (archives are newest → oldest)
+        # If all reports on this page are before start_date, we can stop
+        if start_date and reports:
+            all_dates = [date_str for _, date_str in reports]
+            newest_date = max(all_dates)
+            if newest_date < start_date:
+                logger.info(f"All reports on page {page} are before start_date ({start_date}), stopping")
+                break
+
         # Group reports by week
         week_reports: Dict[str, List[Tuple[str, str]]] = {}
         for url, date_str in reports:
