@@ -373,7 +373,7 @@ def save_to_csv(
     scraped_date: str
 ) -> Path:
     """Save weekly tickers to CSV."""
-    path = Path(output_path)
+    path = PROJECT_ROOT / output_path
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(path, 'w', newline='') as f:
