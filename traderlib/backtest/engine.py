@@ -338,10 +338,14 @@ class BacktestEngine:
 
     def _load_watchlist(self, path: Path) -> list[str]:
         """Load tickers from a watchlist CSV."""
+        if not path.exists():
+            raise FileNotFoundError(f"Watchlist file not found: {path}")
         try:
             df = pd.read_csv(path)
             if 'Ticker' in df.columns:
                 return df['Ticker'].dropna().unique().tolist()
-        except Exception:
-            pass
-        return []
+            raise ValueError(f"'Ticker' column not found in {path}")
+        except pd.errors.EmptyDataError:
+            raise ValueError(f"Watchlist file is empty: {path}")
+        except Exception as e:
+            raise ValueError(f"Failed to load watchlist from {path}: {e}")
