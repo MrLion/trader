@@ -91,7 +91,7 @@ python3 scripts/entry_signals.py --export-csv
 Each signal shows:
 - Entry score (0-100)
 - Tier (1/2/3)
-- Stage 2 score (0-7)
+- Stage 2 score (0-8)
 - Distance to pivot
 - Risk percentage
 - **Age** (how fresh the signal is)
@@ -214,25 +214,28 @@ python3 scripts/validate_alpaca.py
 
 | Component | Max Points | Criteria |
 |-----------|-----------|----------|
-| Stage 2 Score | 30 | ≥4/7 criteria = full points |
+| Stage 2 Score | 30 | Buckets: 7-8/8 → 30, 6/8 → 25, 5/8 → 20, 4/8 → 15, 3/8 → 10, 2/8 → 5 |
 | Risk % | 30 | <10% = +30, <15% = +20, etc. |
 | Proximity to Pivot | 25 | <3% = +25, <5% = +15 |
 | Momentum | 15 | 6M return >50% = +15 |
+| RS | 10 | Beating SPY by >20% = +10 |
+| **MA Penalties** | **-30** | -20 if below 50 MA, -10 if below 20 MA (floor at 0) |
 
 **Tier Classification:**
-- **Tier 1 (≥60 pts)**: Immediate action if within pivot range
-- **Tier 2 (40-59 pts)**: Developing setups, watch closely
+- **Tier 1 (≥60 pts, stage2 ≥6)**: Immediate action if within pivot range
+- **Tier 2 (40-59 pts, stage2 ≥5)**: Developing setups, watch closely
 - **Tier 3 (<40 pts)**: Not ready, monitor from distance
 
-### Stage 2 Criteria (1 point each)
+### Stage 2 Criteria (8-Point System, 1 point each)
 
-1. Price above 50-day SMA
-2. Price above 100-day SMA
-3. Price above 200-day SMA
-4. 50 SMA > 100 SMA > 200 SMA (proper stacking)
-5. 200-day SMA rising (≥1% over 20 days)
-6. Within 25% of 52-week high
-7. Price ≥ 1.25x 52-week low
+1. Price above 20-day SMA (short-term trend)
+2. Price above 50-day SMA (medium-term trend)
+3. Price above 100-day SMA (intermediate trend)
+4. Price above 200-day SMA (long-term trend)
+5. 50 SMA > 100 SMA > 200 SMA (proper stacking, 20 MA excluded as too volatile)
+6. 200-day SMA rising (≥1% over 20 days)
+7. Within 25% of 52-week high
+8. Price ≥ 1.25x 52-week low (strong recovery)
 
 ### Risk Management Rules
 
@@ -377,4 +380,4 @@ pip install -e .
 
 ---
 
-*Last updated: 2026-04-11*
+*Last updated: 2026-04-15*

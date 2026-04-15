@@ -25,7 +25,7 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 ## Features
 
 - **Real-time Trading Engine** - Automated entry/exit via Alpaca API with WebSocket data
-- **Stage 2 Screening** - 7-point momentum scoring system for trend identification
+- **Stage 2 Screening** - 8-point momentum scoring system with MA penalties for trend identification
 - **Risk Management** - Position sizing, sector limits, trailing stops, daily loss limits
 - **Entry Signal Scanner** - Tier 1/2/3 rankings with proximity to pivot analysis
 - **Pre/Post Market Reports** - HTML reports with futures, VIX, economic calendar
@@ -303,11 +303,11 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 
 ### Quick Reference
 
-**Stage 2 Criteria (7-Point):** Price > 50/100/200 MA, MA stacking, rising 200 MA, within 25% of high, 1.25x from low
+**Stage 2 Criteria (8-Point):** Price > 20/50/100/200 MA, MA stacking (50>100>200), rising 200 MA, within 25% of high, 1.25x from low. MA penalties: -20 pts if below 50 MA, -10 pts if below 20 MA.
 
 **Entry Score Tiers:**
-- **Tier 1 (>=60 pts):** Best setups - Price within +/-1% of pivot, Stage 2 >=6/7, Volume >=1.5x avg
-- **Tier 2 (40-59 pts):** Good setups - Wait for better entry
+- **Tier 1 (>=60 pts, stage2 >=6):** Best setups - Price within +/-1% of pivot, strong trend
+- **Tier 2 (40-59 pts, stage2 >=5):** Good setups - Wait for better entry
 - **Tier 3 (<40 pts):** Monitor only
 
 **Risk Rules:**
@@ -330,7 +330,7 @@ The system uses the following data files:
 | `data/paper_trades.jsonl` | Trade log (entries/exits) | JSON Lines |
 | `data/daily_tracker.json` | Daily reset tracking | JSON |
 
-**Watchlist columns:** Ticker, Stage (0-7), RS_Rank, Pivot_Price, Stop_Level, ATR, Risk_%, Sector, Industry, Pattern_Type, Notes, Added_Date
+**Watchlist columns:** Ticker, Stage (0-8), RS_Rank, Pivot_Price, Stop_Level, ATR, Risk_%, Sector, Industry, Pattern_Type, Notes, Added_Date
 
 ## Configuration
 

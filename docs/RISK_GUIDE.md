@@ -295,18 +295,19 @@ Like a filter that says "only A-grade setups, no B or C quality."
 
 | Component | Max Points | What Gets You Points |
 |-----------|------------|---------------------|
-| Stage 2 | 30 pts | Price above 50/100/200 MAs, uptrend |
+| Stage 2 | 30 pts | Price above 20/50/100/200 MAs, MA stacking, uptrend (7-8/8 = 30, 6/8 = 25, 5/8 = 20) |
 | Risk % | 30 pts | Stop <10% from entry = +30, <15% = +20, etc. |
 | Proximity | 25 pts | Within ±3% of pivot = +25, ±5% = +15 |
 | Momentum | 15 pts | 6M return >50% = +15, >25% = +10 |
 | RS | 10 pts | Beating SPY by >20% = +10 |
+| **MA Penalties** | **-30** | -20 if below 50 MA, -10 if below 20 MA (floor at 0) |
 
 **Tier System:**
-- 🟢 **Tier 1 (60+):** Auto-entry eligible
-- 🟡 **Tier 2 (40-59):** Monitor for better entry
+- 🟢 **Tier 1 (60+, stage2 ≥6):** Auto-entry eligible
+- 🟡 **Tier 2 (40-59, stage2 ≥5):** Monitor for better entry
 - 🔴 **Tier 3 (<40):** Skip it
 
-**Script:** `traderlib/stage2_utils.py` - `get_entry_score()` (8-point Stage 2 system)
+**Script:** `traderlib/stage2_utils.py` - `get_entry_score()` (8-point Stage 2 system with MA penalties)
 
 ---
 
@@ -518,7 +519,7 @@ profit_target:
 **Setup:** Tight stop at $145 (3.3% away)
 
 ### Step 1: Check Entry Score
-- Stage 2: 6/7 → +30 points
+- Stage 2: 8/8 → +30 points
 - Risk %: 3.3% → +30 points
 - Proximity: -0.5% from pivot → +25 points
 - Momentum: +45% 6M → +15 points

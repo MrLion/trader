@@ -196,16 +196,17 @@ The `Stage2MomentumStrategy` mirrors the paper trading engine's entry logic. For
 2. **Fetches historical data** up to `sim_date` (anti-look-ahead)
 3. **Scores each ticker** using the same system as `entry_signals.py`
 
-The entry score combines four factors:
+The entry score combines five factors (plus penalties):
 
 | Component | Weight | What Measures |
 |-----------|--------|---------------|
-| Stage 2 Score | 30 pts | Technical health (MA stacking, proximity to highs) |
+| Stage 2 Score | 30 pts | Technical health (8-point: 20/50/100/200 MA, stacking, rising, proximity) |
 | Risk % | 30 pts | Stop distance as % of entry (tighter = better) |
 | Distance to Pivot | 25 pts | How close to the breakout level |
 | 6M Return + RS | 15 pts | Momentum and relative strength vs SPY |
+| MA Penalties | -30 pts | -20 if below 50 MA, -10 if below 20 MA (floor at 0) |
 
-**Minimum to trade:** The `min_entry_score` threshold is 60 by default. Only Tier 1 setups (score >= 60) generate entry signals.
+**Minimum to trade:** The `min_entry_score` threshold is 60 by default. Only Tier 1 setups (score >= 60, stage2 >= 6) generate entry signals.
 
 **How to adjust:** In `config/risk_config.yaml`, change `entry.min_entry_score`. Lowering it to 50 generates more trades but with lower-quality setups. Raising it to 70 generates fewer trades with stronger setups.
 
@@ -334,7 +335,6 @@ All orders fill at the next day's open. In real trading, you might get partial f
 ### Missing Features (v1)
 
 These features exist in the paper trading engine but are not yet in the backtester:
-- **Re-entry cooldown** - No cooldown after losses on the same ticker
 - **Daily loss limit** - No halt after hitting -2% daily loss
 - **Volume confirmation** - Entry signals don't filter by volume ratio
 - **Market regime filter** - No SPY decline or VIX check before entries

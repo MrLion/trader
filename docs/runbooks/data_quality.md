@@ -1,6 +1,6 @@
 # Runbook: Data Quality Issues
 
-**Last Updated:** 2026-04-08  
+**Last Updated:** 2026-04-15  
 **Severity:** Medium - Trading signals affected  
 **Estimated Recovery Time:** 3-10 minutes
 
@@ -215,7 +215,7 @@ Before trading each day:
 - [ ] SPY cache date = today
 - [ ] Watchlist has no null pivot prices
 - [ ] Historical data < 24 hours old
-- [ ] Sample 3 tickers: Stage 2 scores look reasonable (0-7)
+- [ ] Sample 3 tickers: Stage 2 scores look reasonable (0-8)
 - [ ] Sample 3 tickers: Entry scores look reasonable (0-100)
 
 ## Related

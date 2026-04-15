@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.1] - 2026-04-14
+## [0.5.1] - 2026-04-15
 
 ### Changed
 - **MA penalties in entry score** — stocks below key moving averages now receive explicit score deductions: -20 points for below 50 MA, -10 points for below 20 MA. Previously, the 8-point bucket system couldn't distinguish *which* criteria failed, so a stock at 6/8 failing both MAs scored the same 25-point stage2 component as one failing two other criteria. NEE (6/8, below both MAs) drops from 80 (Tier 1) to 50 (Tier 2). NFG (5/8, below both MAs) drops from 75 (Tier 2) to 45 (Tier 2). Stocks passing all MAs are unaffected. Score floor remains 0.
