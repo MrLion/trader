@@ -620,7 +620,14 @@ class AlpacaClient:
             code_str = f" (code: {e.code})" if hasattr(e, 'code') and e.code else ""
             print(f"⚠️ WebSocket disconnected{code_str}, will reconnect...")
         except Exception as e:
-            print(f"⚠️ WebSocket error: {e}")
+            error_str = str(e).lower()
+            # Check for rate limit or connection limit errors
+            if "connection limit exceeded" in error_str or "429" in error_str:
+                print(f"⚠️ Alpaca connection limit hit - forcing extended backoff")
+                # Force a much longer backoff (5 minutes) to let limits reset
+                self.ws_reconnect_delay = 300
+            else:
+                print(f"⚠️ WebSocket error: {e}")
         finally:
             # Cancel any still-running tasks
             for task in [watchdog_task, stream_task]:

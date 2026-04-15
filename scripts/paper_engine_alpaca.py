@@ -1081,8 +1081,12 @@ class AlpacaPaperEngine:
                         # Check if task ended with exception
                         if ws_task.exception():
                             exc = ws_task.exception()
+                            exc_str = str(exc).lower()
+                            # Check for rate limit / connection limit errors
+                            if "connection limit" in exc_str or "429" in exc_str:
+                                print(f"\n⏳ Alpaca connection limit hit - backing off for {delay}s...")
                             # Suppress verbose error messages for common WebSocket disconnects
-                            if "no close frame" in str(exc) or "ConnectionClosed" in type(exc).__name__:
+                            elif "no close frame" in str(exc) or "ConnectionClosed" in type(exc).__name__:
                                 print(f"\n🔄 WebSocket disconnected, restarting in {delay}s...")
                             else:
                                 print(f"\n🔄 WebSocket error ({type(exc).__name__}), restarting in {delay}s...")
