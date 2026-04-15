@@ -330,8 +330,8 @@ def scrape_historical_data(
 
     skipped_dates = 0
 
-    # Process dates from newest to oldest
-    for date_obj in reversed(trading_dates):
+    # Process dates chronologically (oldest to newest)
+    for date_obj in trading_dates:
         date_str = date_obj.strftime('%Y-%m-%d')
         week_start = get_monday_date(date_obj)
 
