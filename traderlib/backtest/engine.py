@@ -342,9 +342,11 @@ class BacktestEngine:
             raise FileNotFoundError(f"Watchlist file not found: {path}")
         try:
             df = pd.read_csv(path)
-            if 'Ticker' in df.columns:
-                return df['Ticker'].dropna().unique().tolist()
-            raise ValueError(f"'Ticker' column not found in {path}")
+            # Accept both 'Ticker' (regular watchlist) and 'ticker' (historical scraper)
+            ticker_col = 'Ticker' if 'Ticker' in df.columns else 'ticker' if 'ticker' in df.columns else None
+            if ticker_col:
+                return df[ticker_col].dropna().unique().tolist()
+            raise ValueError(f"'Ticker' or 'ticker' column not found in {path}")
         except pd.errors.EmptyDataError:
             raise ValueError(f"Watchlist file is empty: {path}")
         except Exception as e:
