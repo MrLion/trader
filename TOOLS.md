@@ -777,6 +777,103 @@ python3 scripts/mcstock_scraper.py --populate-watchlist
 | 4 | Parse error |
 | 5 | Config error (missing credentials) |
 
+---
+
+## MC Stock Charts Historical Scraper
+
+**Script:** `scripts/mcstock_historical_scraper.py`
+
+**Purpose:** Scrape historical weekly watchlist data from mcstockcharts.com/report-archives/ for backtesting with rotation.
+
+### Setup
+
+**1. Install dependencies:**
+```bash
+pip install requests beautifulsoup4
+```
+
+**2. Configure credentials** (same as regular scraper):
+- Environment variables: `MCSTOCK_USER`, `MCSTOCK_PASS`
+- Or copy `.env.example` to `.env` and fill in
+
+### How It Works
+
+The scraper:
+1. Iterates through archive pages (9 reports per page)
+2. Groups daily reports (Mon-Fri) by week
+3. Accumulates tickers across the week (if a ticker appears on Tuesday, it stays for the week)
+4. Outputs a time-series CSV with `week_start` as the key
+
+Report URL format: `/members/pre-market-report-{weekday}-{month}-{day}-{year}-{time}/`
+
+### Usage
+
+```bash
+# Scrape ALL available history
+python3 scripts/mcstock_historical_scraper.py
+
+# Scrape with date filter (e.g., last 6 months)
+python3 scripts/mcstock_historical_scraper.py \
+  --start 2024-10-01 --end 2025-04-01
+
+# Scrape last 10 weeks only
+python3 scripts/mcstock_historical_scraper.py --weeks 10
+
+# Limit pages for testing
+python3 scripts/mcstock_historical_scraper.py --max-pages 2
+
+# Custom output path
+python3 scripts/mcstock_historical_scraper.py --output data/my_historical.csv
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--start` | Filter: Start date (YYYY-MM-DD) | None (all) |
+| `--end` | Filter: End date (YYYY-MM-DD) | None (all) |
+| `--output` | Output CSV path | data/mc_historical_watchlists.csv |
+| `--max-pages` | Max archive pages to scrape | All pages |
+| `--weeks` | Limit to N most recent weeks | None (all) |
+| `--delay` | Seconds between requests | 2.0 |
+| `--verbose`, `-v` | Debug logging | False |
+
+### Output Format
+
+```csv
+week_start,ticker,list_type,first_seen_date,scraped_date
+2025-01-06,AAPL,ready,2025-01-06,2026-04-15
+2025-01-06,MSFT,ready,2025-01-06,2026-04-15
+2025-01-06,NVDA,watch,2025-01-08,2026-04-15
+```
+
+- `week_start`: Monday date for the week (YYYY-MM-DD)
+- `ticker`: Stock symbol
+- `list_type`: 'ready' or 'watch' (first list type seen)
+- `first_seen_date`: When ticker first appeared that week
+- `scraped_date`: When this record was scraped
+
+### Workflow
+
+```bash
+# 1. Scrape historical data (one-time setup)
+python3 scripts/mcstock_historical_scraper.py --output data/mc_historical.csv
+
+# 2. Future: Use in backtest with weekly rotation
+python3 scripts/backtest.py \
+  --start 2024-01-01 --end 2025-12-31 \
+  --weekly-watchlist data/mc_historical.csv
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Auth failed (check credentials) |
+| 2 | Network error |
+| 3 | Config error (missing credentials) |
+
 ### Output Format
 
 CSV with columns compatible with `watchlist_manager.py populate`:
