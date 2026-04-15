@@ -93,7 +93,10 @@ class AlpacaClient:
         try:
             with open(CONFIG_FILE, 'r') as f:
                 config = json.load(f)
-                return config.get(self.mode, {}).get(key)
+                # Map 'data-only' mode to 'paper' for credential lookup
+                # (data-only uses paper account data endpoint, just without trading)
+                lookup_mode = self.mode if self.mode != 'data-only' else 'paper'
+                return config.get(lookup_mode, {}).get(key)
         except Exception:
             return None
 
