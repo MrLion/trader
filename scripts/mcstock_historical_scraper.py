@@ -184,27 +184,39 @@ def parse_report_urls(html: str) -> List[Tuple[str, str]]:
 
     soup = BeautifulSoup(html, 'html.parser')
 
-    # Find all report links
-    # Reports are typically in article or div elements with links
+    # Find all report links - try multiple strategies
+    report_links = set()  # Use set to avoid duplicates
+
+    # Strategy 1: Look in article/div containers (desktop layout)
     for article in soup.find_all(['article', 'div'], class_=re.compile(r'post|entry|report')):
         link = article.find('a', href=re.compile(r'/members/pre-market-report-'))
         if link:
-            url = link.get('href', '')
-            if url.startswith('/'):
-                url = BASE_URL + url
+            report_links.add(link.get('href', ''))
 
-            # Parse date from URL
-            # Format: /members/pre-market-report-{weekday}-{month}-{day}-{year}-{time}/
-            date_match = re.search(r'/pre-market-report-[a-z]+-([a-z]+)-(\d+)-(\d{4})-\d+a-m-est', url)
-            if date_match:
-                month_name, day, year = date_match.groups()
-                try:
-                    # Convert month name to number
-                    month_num = datetime.strptime(month_name.lower(), '%B').month
-                    date_str = f"{year}-{month_num:02d}-{int(day):02d}"
-                    reports.append((url, date_str))
-                except ValueError:
-                    logger.warning(f"Could not parse date from URL: {url}")
+    # Strategy 2: Find all links directly (mobile/responsive layout)
+    # Reports might be in different container structures
+    for link in soup.find_all('a', href=re.compile(r'/members/pre-market-report-')):
+        report_links.add(link.get('href', ''))
+
+    # Process unique report URLs
+    for url in report_links:
+        if not url:
+            continue
+        if url.startswith('/'):
+            url = BASE_URL + url
+
+        # Parse date from URL
+        # Format: /members/pre-market-report-{weekday}-{month}-{day}-{year}-{time}/
+        date_match = re.search(r'/pre-market-report-[a-z]+-([a-z]+)-(\d+)-(\d{4})-\d+a-m-est', url)
+        if date_match:
+            month_name, day, year = date_match.groups()
+            try:
+                # Convert month name to number
+                month_num = datetime.strptime(month_name.lower(), '%B').month
+                date_str = f"{year}-{month_num:02d}-{int(day):02d}"
+                reports.append((url, date_str))
+            except ValueError:
+                logger.warning(f"Could not parse date from URL: {url}")
 
     logger.debug(f"Found {len(reports)} reports on page")
     return reports
