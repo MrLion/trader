@@ -186,11 +186,7 @@ class BacktestReporter:
         alpha = annualized_return - benchmark_annualized
 
         # Tickers dropped
-        tickers_dropped = 0
-        if hasattr(result.state, '_data_provider'):
-            dp = result.state._data_provider
-            if hasattr(dp, 'tickers_dropped'):
-                tickers_dropped = len(dp.tickers_dropped)
+        tickers_dropped = len(result.tickers_dropped)
 
         return BacktestReport(
             total_return=total_return,

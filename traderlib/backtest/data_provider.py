@@ -48,6 +48,28 @@ class DataFrameProvider(Protocol):
         """Return trading days between start and end (inclusive)."""
         ...
 
+    def get_current_price(self, ticker: str, as_of: date) -> Optional[float]:
+        """Get closing price on a specific date.
+
+        Args:
+            ticker: Stock symbol
+            as_of: Date to get price for
+
+        Returns:
+            Closing price, or None if unavailable
+        """
+        ...
+
+    def prefetch(self, tickers: list[str], start: date, end: date) -> None:
+        """Bulk fetch data for tickers. No-op for providers that don't support it.
+
+        Args:
+            tickers: List of stock symbols to fetch
+            start: Start date for data
+            end: End date for data
+        """
+        ...
+
 
 class AlpacaDataProvider:
     """Fetches historical data from Alpaca for backtesting.
@@ -255,3 +277,7 @@ class DictDataProvider:
             return None
         except InsufficientDataError:
             return None
+
+    def prefetch(self, tickers: list[str], start: date, end: date) -> None:
+        """No-op for DictDataProvider — data is already in memory."""
+        pass

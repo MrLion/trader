@@ -2,7 +2,9 @@
 
 Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
 
-## 📈 yfinance - Market Data
+---
+
+## yfinance - Market Data
 
 **Installed:** v1.2.0 (system Python 3.14)
 **Usage:** `import yfinance as yf`
@@ -61,7 +63,7 @@ Every session, pull:
 2. **Volatility:** ^VIX
 3. **Commodities:** CL=F (Oil)
 4. **Crypto:** BTC-USD, ETH-USD
-5. **Spot Indices:** SPY, QQQ — check vs 20/50 SMA  
+5. **Spot Indices:** SPY, QQQ — check vs 20/50 SMA
 
 ### Data Columns Returned
 
@@ -100,7 +102,7 @@ major = ticker.major_holders  # [insiders_percent, institutions_percent, ...]
 
 ---
 
-## 📋 Watchlist Manager
+## Watchlist Manager
 
 **Script:** `scripts/watchlist_manager.py`  
 **Data file:** `data/watchlist.csv`
@@ -111,267 +113,278 @@ major = ticker.major_holders  # [insiders_percent, institutions_percent, ...]
 # Populate from scan results
 python3 scripts/watchlist_manager.py populate /path/to/scan.csv
 
-# Manual add a stock
+# Add a stock
 python3 scripts/watchlist_manager.py add TICKER [NOTES]
-# Example: python3 scripts/watchlist_manager.py add AAPL "Pullback to 21 EMA"
+python3 scripts/watchlist_manager.py add AAPL "Pullback to 21 EMA"
+python3 scripts/watchlist_manager.py add AAPL "Quick add" --force   # Skip data validation
 
-# Remove from watchlist
+# Remove a stock
 python3 scripts/watchlist_manager.py remove TICKER
+python3 scripts/watchlist_manager.py remove TICKER --dry-run   # Preview removal
+
+# Remove all tickers
+python3 scripts/watchlist_manager.py remove-all                 # Interactive (type "DELETE ALL")
+python3 scripts/watchlist_manager.py remove-all --force         # Skip confirmation
+python3 scripts/watchlist_manager.py remove-all --dry-run       # Preview what would be removed
 
 # List all
 python3 scripts/watchlist_manager.py list
 ```
 
-### Entry Score Tiers
+### Entry Score Calculation
 
-Entry scores are calculated automatically by `analyze_watchlist.py` (max 100 points):
+Entry scores are calculated by `entry_signals.py` (max 100 points):
 
 | Component | Criteria | Points |
 |-----------|----------|--------|
-| **Stage 2 Score** | 4/4 🟢 | +30 |
-| | 3/4 🟢 | +20 |
-| | 2/4 🟡 | +10 |
+| **Stage 2 Score** | 7-8/8 | +30 |
+| | 6/8 | +25 |
+| | 5/8 | +20 |
+| | 4/8 | +15 |
+| | 3/8 | +10 |
+| | 2/8 | +5 |
 | **Risk %** | < 10% | +30 |
 | | < 15% | +20 |
 | | < 20% | +10 |
+| | < 25% | +5 |
 | **Distance to Pivot** | < 3% | +25 |
 | | < 5% | +15 |
 | | < 10% | +5 |
 | **6M Momentum** | > 50% | +15 |
 | | > 25% | +10 |
+| **RS vs SPY** | > 20% | +10 |
+| | > 10% | +5 |
+| **MA Penalties** | Below 50 MA | -20 |
+| | Below 20 MA | -10 |
 
 **Tier Thresholds:**
-- **Tier 1 (≥60 pts):** Best entry setups — ready now
-- **Tier 2 (40-59 pts):** Good setups — wait for better entry
+- **Tier 1 (>=60 pts):** Best entry setups — ready now. Requires Stage 2 score >= 6.
+- **Tier 2 (40-59 pts):** Good setups — wait for better entry. Requires Stage 2 score >= 5.
 - **Tier 3 (<40 pts):** Monitor only — too far or too wide
 
 ### Watchlist Schema
 
 ```
-Ticker, Stage, RS_Rank, Base_Count, Pattern_Type,
-Pivot_Price, Stop_Level, Target_1, Target_2, R_Ratio,
-Avg_Volume_50d, Market_Cap, Sector, Industry, Notes,
-Added_Date, Alert_Set
+Ticker, Stage, RS_Rank, Pivot_Price, Current_Price, Stop_Level,
+ATR, Risk_%, $Vol_M, Sector, Industry, Notes,
+Added_Date, Alert_Set, Base_Count, Pattern_Type, Target_1,
+Target_2, R_Ratio, Avg_Volume_50d, Market_Cap
 ```
 
 ---
 
-## 🔬 Stock Analysis Tool
+## Entry Signals Scanner
 
-**Script:** `scripts/analyze_ticker.py`
+**Script:** `scripts/entry_signals.py`
 
-**Purpose:** Generate detailed technical analysis for any ticker in standard format
+**Purpose:** Scan watchlist for entry signals and analyze single tickers. Replaces the former `analyze_ticker.py`, `analyze_watchlist.py`, and `midday_scan.py`.
 
-**Usage:**
-```bash
-python3 scripts/analyze_ticker.py TICKER
-# Example: python3 scripts/analyze_ticker.py AAPL
-```
+### Modes
 
-**Features:**
-- Pulls company info (name, sector, industry)
-- Calculates returns (1M, 3M, 6M)
-- Stage 2 score (4 criteria)
-- Entry/stop/risk calculation using 2 ATR
-- Uses manual pivot price from watchlist if available
-
-**Output Format:**
-```
-TICKER (Company Name) — $PRICE
-
-| Metric | Value |
-|:-------|:------|
-| Company | ... |
-| Sector | ... |
-| Industry | ... |
-| 1M Return | +X% |
-| 3M Return | +X% |
-| 6M Return | +X% |
-| Stage 2 Score | X/4 🟢 |
-| From 52W High | X% |
-| Above All MAs | ✓ ✓ ✓ ✓ 20/50/150/200 |
-
----
-
-ENTRY SETUP
-
-| Level | Price |
-|:------|:------|
-| Entry | $X.XX (break above $X.XX) |
-| Stop | $X.XX (2 ATR / below support) |
-| Risk | X.X% |
-
-Assessment:
-- **Momentum** — ...
-- **Stage 2** — ...
-- **Distance from highs** — ...
-- **Risk level** — ...
-
-Verdict: [TIER]
-```
-
----
-
-## 📊 Watchlist Analysis Tool
-
-**Script:** `scripts/analyze_watchlist.py`
-
-**Purpose:** Analyze entire watchlist and rank stocks by entry favorability
-
-**Usage:**
-```bash
-python3 scripts/analyze_watchlist.py
-```
-
-**Scoring System (Max: 100 points):**
-
-| Component | Criteria | Points |
-|-----------|----------|--------|
-| **Stage 2 Score** | 4/4 🟢 | +30 |
-| | 3/4 🟢 | +20 |
-| | 2/4 🟡 | +10 |
-| **Risk %** | < 10% | +30 |
-| | < 15% | +20 |
-| | < 20% | +10 |
-| **Distance to Pivot** | < 3% | +25 |
-| | < 5% | +15 |
-| | < 10% | +5 |
-| **6M Momentum** | > 50% | +15 |
-| | > 25% | +10 |
-
-**Tier Thresholds:**
-- **Tier 1 (≥60 pts):** Best entry setups — ready now
-- **Tier 2 (40-59 pts):** Good setups — wait for better entry
-- **Tier 3 (<40 pts):** Monitor only — too far or too wide
-
-**Output:**
-- Ranked table by entry score (descending)
-- Tier 1 / Tier 2 / Tier 3 sections
-- Summary count
-- Top 3 recommendations
-
-**When to Run:**
-- Weekly: After populating new watchlist
-- Daily: Pre-market to identify ready setups
-- After adding new stocks to watchlist
-
-**Action Rules:**
-- Tier 1 + within 2% + risk <10% = Ready for immediate entry
-- Tier 1 + 2-5% from pivot = Set price alert at pivot
-- Tier 2 = Wait for pullback or base formation
-- Tier 3 = Remove or monitor only
-
----
-
-### Posting Reports with HTML Attachment
-
-**For EOD/Pre-market reports:** Attach the HTML file alongside the text summary.
-
-```bash
-# Post EOD report with HTML attachment to your DM
-openclaw message send --channel telegram --account trader --target 47258942 \
-  --message "📊 EOD Report — April 6, 2026\n\nRegime: Neutral with bearish tilt\nA-Tier: TSEM, DOCN, LITE, CIEN\n\nFull report attached." \
-  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/EOD_Report_2026-04-06.html \
-  --force-document
-```
-
-**Note:** Use `--force-document` for HTML files so Telegram doesn't try to preview them as images.
-
----
-
-## 🔄 Mid-Day Scan
-
-**Script:** `scripts/midday_scan.py`
-
-**Purpose:** Intraday scan of Stage 2+ candidates with entry setup calculations.
-
-### Features
-
-- **Ticker sources** — Watchlist or custom file (no hardcoded universe)
-- **Stage 2 scoring** — 0-4 score based on technical criteria
-- **Entry calculations** — Breakout levels and 2 ATR stops
-- **Dynamic sectors** — Load today's leading sectors from scan
-- **Watchlist integration** — Include your watchlist tickers
-- **HTML reports** — Visual output for midday review
+1. **Scan mode** (default) — Scans full watchlist or specified tickers, ranks by entry score
+2. **Single-ticker mode** (`--ticker`) — Deep dive analysis for one ticker (replaces `analyze_ticker.py`)
 
 ### Usage
 
 ```bash
-# Scan watchlist (required: use --include-watchlist or --tickers-file)
-python3 scripts/midday_scan.py --include-watchlist
+# Scan full watchlist
+python3 scripts/entry_signals.py
 
-# Scan custom ticker list from file
-python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt
+# Deep dive single ticker
+python3 scripts/entry_signals.py --ticker AAPL
 
-# Combine watchlist with file
-python3 scripts/midday_scan.py --include-watchlist --tickers-file data/extra_tickers.txt
+# Scan specific tickers
+python3 scripts/entry_signals.py --tickers AAPL MSFT GOOGL
+python3 scripts/entry_signals.py -t AAPL MSFT GOOGL
 
-# Generate HTML report
-python3 scripts/midday_scan.py --include-watchlist --html
+# Filter by minimum tier
+python3 scripts/entry_signals.py --min-tier 1    # Tier 1 only
+python3 scripts/entry_signals.py --min-tier 2     # Tier 1 + Tier 2
 
-# Custom dollar volume filter (e.g., 50M+)
-python3 scripts/midday_scan.py --include-watchlist --min-dollar-vol 50000000
+# Export results
+python3 scripts/entry_signals.py --export-csv      # Export to CSV (replaces analyze_watchlist.py --csv)
+python3 scripts/entry_signals.py --export-html      # Export to HTML (replaces analyze_watchlist.py --html)
+python3 scripts/entry_signals.py --export json      # Export to JSON
 
-# Custom Stage 2 minimum (e.g., only score 4)
-python3 scripts/midday_scan.py --include-watchlist --stage2-min 4
+# Risk profile override
+python3 scripts/entry_signals.py --risk-profile conservative
+python3 scripts/entry_signals.py --risk-profile tight_stops
 
-# Custom output paths
-python3 scripts/midday_scan.py --include-watchlist --output /path/to/output.csv --html-output /path/to/output.html
+# Alpaca mode
+python3 scripts/entry_signals.py --mode live       # Use live data (default: paper)
 ```
 
 ### CLI Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--min-dollar-vol` | Minimum dollar volume filter | 20,000,000 |
-| `--entry-score-min` | Minimum entry score to include | 0 |
-| `--include-watchlist` | Add watchlist.csv tickers | False |
-| `--tickers-file` | Load tickers from file (one per line) | None |
-| `--output` | Custom CSV output path | scans/leading_stocks_YYYY-MM-DD.csv |
-| `--html` | Generate HTML report | False |
-| `--html-output` | Custom HTML output path | reports/midday_scan_YYYY-MM-DD.html |
+| `--tickers`, `-t` | Specific tickers to scan | watchlist |
+| `--ticker` | Analyze single ticker in detail | None |
+| `--min-tier`, `-m` | Minimum tier (1/2/3) | 3 (all) |
+| `--export`, `-e` | Export format (csv/json/none) | none |
+| `--export-csv` | Export results to CSV | False |
+| `--export-html` | Export results to HTML | False |
+| `--mode` | Alpaca mode (paper/live) | paper |
+| `--risk-profile` | Risk profile override | None |
 
-### Output Format
+### Output Categories
 
-**Console:**
-```
-🟢 TIER A — Stage 2 Score 4 (8 candidates)
---------------------------------------------------
-XOM    | Exxon Mobil Corp        | $114.52 | 6M: +12.5% | From High: 3.2% | 📈 TRENDING
-       Entry: $115.50 | Stop: $110.25 | Risk: 4.6%
+- **Ready Now** — Score >= threshold, within max pivot distance
+- **Close to Pivot** — Score >= threshold, 1-3% from pivot
+- **Extended** — Score >= threshold, >3% from pivot
+- **Tier 2 Watch** — Score 40-59
+- **Tier 3 / Below Threshold** — Score < 40
 
-🟡 TIER B — Stage 2 Score 3 (15 candidates)
---------------------------------------------------
-CVX    | Chevron Corp            | $155.30 | 6M:  +8.3% | From High: 5.1%
-```
+### Integration
 
-**CSV Columns:**
-- Ticker, Name, Sector, Industry, Price
-- Stage2, 6M_%, 3M_%, 1M_%
-- From_52W_High_%, ATR
-- Entry_Breakout, Stop, Risk_%
-- $Vol_M (dollar volume in millions)
-
-### Common Workflows
-
-**Quick scan with file:**
-```bash
-python3 scripts/midday_scan.py --tickers-file data/my_tickers.txt --html
-```
-
-**Full scan including your watchlist:**
-```bash
-python3 scripts/midday_scan.py --include-watchlist --html
-```
-
-**High liquidity only (50M+ dollar volume):**
-```bash
-python3 scripts/midday_scan.py --min-dollar-vol 50000000
-```
+Uses Alpaca API for real-time pricing and historical data. Integrates with `traderlib` for Stage 2 scoring and entry score calculation. Uses `config/risk_config.yaml` for entry thresholds.
 
 ---
 
-## 📊 Comprehensive Pre-Market Report
+## Paper Trading Engine
+
+**Script:** `scripts/paper_engine_alpaca.py`
+
+**Purpose:** Alpaca-powered paper trading engine with real-time WebSocket data, entry signal evaluation, exit management, and position sizing.
+
+### Architecture
+
+Uses `AlpacaClient` for live data, `OrderManager` for execution, `PaperState` for persistence, and `ExitEngine` for stop management. Integrates with `config/risk_config.yaml` via `RiskConfigManager`.
+
+### Usage
+
+```bash
+# Start paper trading (default)
+python3 scripts/paper_engine_alpaca.py
+
+# Specify mode
+python3 scripts/paper_engine_alpaca.py --mode paper
+python3 scripts/paper_engine_alpaca.py --mode live
+
+# Risk profile override
+python3 scripts/paper_engine_alpaca.py --risk-profile conservative
+python3 scripts/paper_engine_alpaca.py --risk-profile aggressive
+python3 scripts/paper_engine_alpaca.py --risk-profile tight_stops
+
+# Print risk config summary and exit
+python3 scripts/paper_engine_alpaca.py --risk-summary
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--mode` | Alpaca mode (paper/live) | paper |
+| `--risk-profile` | Risk profile name | None (uses default from config) |
+| `--risk-summary` | Print risk config summary and exit | False |
+
+### Key Features
+
+- Real-time WebSocket streaming for price data
+- Triple-constraint position sizing (account risk, position cap, available cash)
+- Cooldown tracking to prevent re-entry after loss
+- Exit management: hard stops, breakeven stops, trailing EMA stops
+- Daily reset tracking and trade logging
+- Signal-based entry with Stage 2 scoring
+
+---
+
+## Paper Portfolio CLI
+
+**Script:** `scripts/paper_portfolio.py`
+
+**Purpose:** CLI tool for paper trading portfolio management and monitoring. Uses Alpaca real-time prices for position values.
+
+### Commands
+
+```bash
+# Account overview with Alpaca real-time prices
+python3 scripts/paper_portfolio.py status
+
+# Real-time position values with P&L and R-multiples
+python3 scripts/paper_portfolio.py live
+
+# Today's trade entries and exits
+python3 scripts/paper_portfolio.py today
+
+# Full trade history
+python3 scripts/paper_portfolio.py history
+python3 scripts/paper_portfolio.py history --limit 50
+python3 scripts/paper_portfolio.py history --include-test-data
+
+# Performance statistics (win rate, P&L, R-multiples)
+python3 scripts/paper_portfolio.py report
+python3 scripts/paper_portfolio.py report --include-test-data
+
+# Manually close a position
+python3 scripts/paper_portfolio.py close TICKER
+python3 scripts/paper_portfolio.py close TICKER --reason "Stopped out"
+python3 scripts/paper_portfolio.py close TICKER --force       # Skip confirmation
+python3 scripts/paper_portfolio.py close TICKER --dry-run     # Preview without executing
+
+# Reconcile counters with trade log
+python3 scripts/paper_portfolio.py reconcile
+```
+
+### CLI Options
+
+| Command | Flags | Description |
+|---------|-------|-------------|
+| `status` | — | Account overview with live prices |
+| `live` | — | Real-time position values |
+| `today` | — | Today's trades |
+| `history` | `--limit N`, `--include-test-data` | Trade history |
+| `report` | `--include-test-data` | Performance statistics |
+| `close TICKER` | `--reason`, `--force`, `--dry-run` | Close a position |
+| `reconcile` | — | Reconcile counters with trade log |
+
+---
+
+## Market Scanning Tools
+
+### Sector Scan (Quick)
+
+**Script:** `scripts/sector_scan.py`
+
+**Purpose:** Quick scan of 11 sector ETFs + 7 factor ETFs. Uses yfinance for data.
+
+```bash
+python3 scripts/sector_scan.py
+# Output: scans/YYYY-MM-DD_sector_scan.csv
+```
+
+No CLI options — just run it.
+
+### Sector Scan (Comprehensive)
+
+**Script:** `scripts/sector_scan_comprehensive.py`
+
+**Purpose:** Comprehensive 131-ETF scan with weighted ranking system (6M/3M/1M/1W returns + Stage 2 scores). Uses yfinance. Shows TOP 15 by overall rank.
+
+```bash
+python3 scripts/sector_scan_comprehensive.py
+# Output: scans/YYYY-MM-DD_sector_scan.csv (overwrites basic scan output)
+```
+
+No CLI options — just run it.
+
+### Stage 2 RS Screen
+
+**Script:** `scripts/stage2_rs_screen.py`
+
+**Purpose:** Screen a list of tickers for Stage 2 qualification + relative strength vs SPY. Ranks by 6-month return; top 20% flagged as Tier B. Filters: price >= $10, dollar volume >= $20M.
+
+```bash
+# Screen from ticker file (one ticker per line, # comments, blank lines ok)
+python3 scripts/stage2_rs_screen.py data/weekly_watchlist.txt
+# Output: scans/stage2_screen_YYYY-MM-DD.csv
+```
+
+Requires a ticker file argument. No other CLI options.
+
+---
+
+## Pre-Market Report
 
 **Script:** `scripts/premarket_report.py`
 
@@ -390,6 +403,13 @@ python3 scripts/premarket_report.py --html
 python3 scripts/premarket_report.py --html --output ~/Desktop/premarket.html
 ```
 
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--html` | Generate HTML report | False |
+| `--output` | Custom HTML output path | reports/premarket_report_YYYY-MM-DD.html |
+
 ### Output Format
 
 **Console Mode:** Plain text with emoji indicators
@@ -402,20 +422,6 @@ python3 scripts/premarket_report.py --html --output ~/Desktop/premarket.html
 - Watchlist table with tier badges and ready setups highlighted
 - Key levels dashboard
 - Responsive layout (mobile-friendly)
-
-### HTML Report Features
-
-| Section | Description |
-|---------|-------------|
-| **Overnight Futures** | ES, NQ, RTY, YM, CL, GC with change indicators |
-| **VIX** | Current level with risk classification |
-| **Regime Assessment** | 4-signal checklist with visual progress bar |
-| **Economic Calendar** | US events with impact indicators (🔴 high, 🟡 medium) |
-| **Major Indices** | SPY, QQQ, IWM vs 20/50/200 MAs |
-| **Sector Leaders** | Top 20 ETFs ranked by overall performance |
-| **Watchlist** | All stocks sorted by entry score, tier badges |
-| **Ready Setups** | Auto-highlighted Tier 1 within 3% of pivot |
-| **Action Items** | Interactive checklist for the trading day |
 
 ### Telegram Integration
 
@@ -430,7 +436,7 @@ openclaw message send --channel telegram --account trader --target -4872065090 \
 
 ---
 
-## 🚀 Report Delivery
+## Report Delivery
 
 **Script:** `scripts/deliver_report.py`
 
@@ -547,7 +553,7 @@ The script provides clear error messages:
 
 ---
 
-## 🌙 Comprehensive Post-Market Report
+## Post-Market Report
 
 **Script:** `scripts/postmarket_report.py`
 
@@ -565,6 +571,13 @@ python3 scripts/postmarket_report.py --html
 # Custom output path with timestamp
 python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +%Y%m%d_%H%M).html
 ```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--html` | Generate HTML report | False |
+| `--output` | Custom HTML output path | reports/postmarket_report_YYYY-MM-DD_HHMMSS.html |
 
 ### Output Format
 
@@ -631,13 +644,6 @@ SPY: Support ~$651 | Resistance ~$658
 QQQ: Support ~$578 | Resistance ~$587
 ```
 
-### CLI Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--html` | Generate HTML report | False |
-| `--output` | Custom output path | reports/postmarket_report_YYYY-MM-DD_HHMMSS.html |
-
 ### Telegram Integration
 
 Post the HTML report with summary:
@@ -657,7 +663,23 @@ Full report attached." \
 
 ---
 
-## 🔗 MC Stock Charts Scraper
+## Posting Reports with HTML Attachment
+
+**For EOD/Pre-market reports:** Attach the HTML file alongside the text summary.
+
+```bash
+# Post EOD report with HTML attachment to your DM
+openclaw message send --channel telegram --account trader --target 47258942 \
+  --message "📊 EOD Report — April 6, 2026\n\nRegime: Neutral with bearish tilt\nA-Tier: TSEM, DOCN, LITE, CIEN\n\nFull report attached." \
+  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/EOD_Report_2026-04-06.html \
+  --force-document
+```
+
+**Note:** Use `--force-document` for HTML files so Telegram doesn't try to preview them as images.
+
+---
+
+## MC Stock Charts Scraper
 
 **Script:** `scripts/mcstock_scraper.py`
 
@@ -736,7 +758,7 @@ python3 scripts/mcstock_scraper.py
 python3 scripts/watchlist_manager.py populate scans/mcstock_ideas_2026-04-07.csv
 
 # 3. Analyze
-python3 scripts/analyze_watchlist.py
+python3 scripts/entry_signals.py
 ```
 
 Or combine steps 1-2:
@@ -765,7 +787,7 @@ CSV with columns compatible with `watchlist_manager.py populate`:
 
 ---
 
-## 🧪 Backtesting Engine
+## Backtesting Engine
 
 **Script:** `scripts/backtest.py`
 **Module:** `traderlib/backtest/`
@@ -788,32 +810,50 @@ The backtesting engine mirrors the paper trading engine but replaces real-time d
 ### Usage
 
 ```bash
-# Default backtest (last 6 months, $100K capital)
-python3 scripts/backtest.py
+# Backtest with date range (required)
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31
 
-# Custom date range and capital
+# With specific capital
 python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
 
-# Specific watchlist
-python3 scripts/backtest.py --watchlist data/watchlist.csv
+# Specific tickers
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --tickers AAPL MSFT NVDA
 
-# Risk profile (conservative or aggressive)
-python3 scripts/backtest.py --risk-profile conservative
+# From watchlist
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --watchlist data/watchlist.csv
+
+# Risk profile (conservative, aggressive, tight_stops)
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --risk-profile conservative
+
+# Custom slippage and commission
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --slippage 3.0 --commission 0.01
+
+# Export trades to CSV
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --csv backtest_trades.csv
+
+# Validate config without running
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --dry-run
 
 # Limit concurrent positions
-python3 scripts/backtest.py --max-positions 5
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --max-positions 5
 ```
 
 ### CLI Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--start` | Start date (YYYY-MM-DD) | 6 months ago |
-| `--end` | End date (YYYY-MM-DD) | Today |
+| `--start` | Start date (YYYY-MM-DD) | **Required** |
+| `--end` | End date (YYYY-MM-DD) | **Required** |
 | `--capital` | Starting capital | $100,000 |
-| `--watchlist` | Path to watchlist CSV | data/watchlist.csv |
-| `--risk-profile` | Risk profile (default/conservative/aggressive) | default |
+| `--tickers` | Ticker symbols to backtest | None |
+| `--watchlist` | Path to watchlist CSV | None |
+| `--risk-profile` | Risk profile (conservative/aggressive/tight_stops) | conservative |
+| `--slippage` | Slippage in basis points | 5.0 |
+| `--commission` | Commission per share | $0.005 |
 | `--max-positions` | Maximum concurrent positions | 10 |
+| `--csv` | Export trades to CSV file | None |
+| `--dry-run` | Validate config without running | False |
+| `--alpaca-mode` | Alpaca connection mode (data-only/paper) | data-only |
 
 ### Report Output
 
@@ -826,13 +866,212 @@ The backtest generates a summary including:
 
 **Note:** Backtesting results have inherent limitations. Past performance does not guarantee future results. The simulation uses deterministic slippage and next-bar fills, which may not reflect real market conditions.
 
+**Data-only mode:** By default, backtests run in `data-only` mode, which connects only to Alpaca's data endpoint (`data.alpaca.markets`) and never to any trading sub-account. Use `--alpaca-mode paper` to also create a paper trading client (not recommended for backtests).
+
 ---
 
-## 📬 Telegram Posting
+## Utility Scripts
+
+### Doctor — System Validation
+
+**Script:** `scripts/doctor.py`
+
+**Purpose:** Configuration validation checks — Python version, dependencies, Alpaca credentials, directories, watchlist, Telegram config, git hooks.
+
+```bash
+python3 scripts/doctor.py
+# Exit code: 0 if all pass, 1 otherwise
+# Also available via: make doctor
+```
+
+### Validate Alpaca — Full Integration Check
+
+**Script:** `scripts/validate_alpaca.py`
+
+**Purpose:** Full Alpaca integration validation — dependencies, credentials, account status, data access, order manager, rate limiter, unit tests. More thorough than `doctor.py` for Alpaca-specific checks.
+
+```bash
+python3 scripts/validate_alpaca.py
+```
+
+### Setup Alpaca — Interactive Credential Setup
+
+**Script:** `scripts/setup_alpaca.py`
+
+**Purpose:** Interactive Alpaca API configuration. Saves credentials to `config/secrets/alpaca_config.json` with 600 permissions (owner read/write only).
+
+```bash
+python3 scripts/setup_alpaca.py           # Interactive setup
+python3 scripts/setup_alpaca.py --test     # Test connection only
+```
+
+### Sync State — Reconcile with Alpaca
+
+**Script:** `scripts/sync_state.py`
+
+**Purpose:** Force sync local state files with live Alpaca API. Reconciles positions and daily tracker. Use when local state drifts from API reality (e.g., after test runs).
+
+```bash
+python3 scripts/sync_state.py
+```
+
+### Show Positions — Quick Position Display
+
+**Script:** `scripts/show_positions.py`
+
+**Purpose:** Quick position display with yfinance prices. Uses hardcoded ticker list. For dynamic data, prefer `paper_portfolio.py live`.
+
+```bash
+python3 scripts/show_positions.py
+```
+
+### Clean Test Trades — Cleanup Utility
+
+**Script:** `scripts/clean_test_trades.py`
+
+**Purpose:** Remove test/development entries from `paper_trades.jsonl`. Always creates backup before modifying.
+
+```bash
+python3 scripts/clean_test_trades.py --dry-run    # Preview changes
+python3 scripts/clean_test_trades.py --auto        # Non-interactive (auto-backup + no confirmation)
+python3 scripts/clean_test_trades.py --strict       # Aggressive filtering
+python3 scripts/clean_test_trades.py --file PATH   # Custom trades file path
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--dry-run` | Preview changes without modifying | False |
+| `--auto` | Non-interactive mode | False |
+| `--strict` | Use stricter filtering criteria | False |
+| `--file` | Path to trades file | data/paper_trades.jsonl |
+
+### Risk Config Demo — Configuration Demo
+
+**Script:** `scripts/risk_config_demo.py`
+
+**Purpose:** Demo the flexible risk configuration system — position sizing, profile comparison, environment overrides.
+
+```bash
+python3 scripts/risk_config_demo.py                    # All demos
+python3 scripts/risk_config_demo.py --profile conservative  # Show profile summary
+python3 scripts/risk_config_demo.py --demo sizing      # Position sizing demo
+python3 scripts/risk_config_demo.py --demo profiles    # Profile comparison
+python3 scripts/risk_config_demo.py --demo env         # Environment overrides
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--profile` | Risk profile to use | None |
+| `--demo` | Which demo (sizing/profiles/env/all) | all |
+
+---
+
+## traderlib/ Library Reference
+
+The core trading library (`traderlib/`) provides reusable components used by all scripts. This is a brief reference — see individual modules for full API details.
+
+| Module | Purpose |
+|--------|---------|
+| `__init__.py` | Package entry; exports `calculate_stage2_score`, `get_entry_score`, `get_stage2_tier`, `get_stage2_details`, `RiskConfig`, `RiskConfigManager`, `calculate_position_size_with_constraints` |
+| `stage2_utils.py` | Canonical 8-point Stage 2 scoring (Minervini trend template + short-term trend); entry score calculator (0-100) with RS bonus and MA penalties; tier classification |
+| `risk_config.py` | `RiskConfig` dataclass hierarchy + `RiskConfigManager` (YAML loader with profile support + env var overrides); `calculate_position_size_with_constraints()` triple-constraint position sizer |
+| `alpaca_client.py` | Alpaca API wrapper (REST + WebSocket); paper/live mode switching; rate-limited data fetching; position management; health monitoring |
+| `order_manager.py` | Order lifecycle management (submit, track, fill); pending/filled tracking in `alpaca_orders.json`; TPS-limited submission queue |
+| `paper_state.py` | Paper trading state persistence — `PaperState`, `Position`; reads/writes `paper_positions.json` and `paper_trades.jsonl` |
+| `paper_exits.py` | Exit engine (`ExitEngine`); hard stops, breakeven (+1R), trailing EMA10 (+1.5R), trailing EMA21 (+3R); profit targets; initial stop calculation (ATR/support/pct/pivot) |
+| `market_hours.py` | Market hours helpers: `market_hours()`, `is_market_open()`, `is_trading_day()`, `format_market_status()`; uses `pandas_market_calendars` for holiday calendar |
+| `rate_limiter.py` | `RateLimiter` (200 req/min with exponential backoff + circuit breaker); `APIHealthMonitor` for Alpaca/yfinance failover; thread-safe |
+| `trading_exceptions.py` | `TradingExceptionHandler` centralized logging with severity (CRITICAL/WARNING/INFO); `@critical`/`@error`/`@warning` decorators; `APIKeyError` with actionable messages; daily-rotating file handler |
+| `validation.py` | Ticker validation (`validate_ticker`, `validate_tickers`, `is_valid_ticker`); `NO_COLOR` env var support; color/emoji constants for CLI output |
+| `backtest/` | Subpackage: `data_provider.py`, `execution.py`, `state.py`, `strategy.py`, `engine.py`, `report.py` (see Backtesting Engine section) |
+
+### Key Imports
+
+```python
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_tier, get_stage2_details
+from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
+from traderlib.alpaca_client import AlpacaClient
+from traderlib.paper_state import PaperState, Position
+from traderlib.paper_exits import ExitEngine, ExitSignal
+from traderlib.order_manager import OrderManager
+from traderlib.market_hours import market_hours, is_market_open, is_trading_day
+from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
+from traderlib.validation import validate_ticker, validate_tickers
+```
+
+---
+
+## Risk Configuration
+
+**Config file:** `config/risk_config.yaml`  
+**Loaded by:** `RiskConfigManager` (used by paper engine, entry signals, backtest)
+
+### Sections
+
+| Section | Key Settings |
+|---------|-------------|
+| `account` | `risk_per_trade_pct` (0.5%), `daily_loss_limit_pct` (2%), `max_sector_positions` (10), `max_entries_per_day` (10) |
+| `position` | `max_position_pct` (10%), `min_position_pct` (5%) |
+| `stop_loss` | Method (`atr_or_support`), ATR period 14 / multiplier 2.0, min stop 3%, max stop 10%, fallback 7% |
+| `profit_target` | Min R-multiple (2.0), trailing stops: breakeven at +1R, EMA10 at +1.5R, EMA21 at +3R |
+| `entry` | `min_entry_score` (60), `max_dist_to_pivot_pct` (2.0), `min_volume_ratio` (1.5) |
+| `market` | `max_spy_decline_pct` (-0.5%) |
+| `cooldown` | `reentry_cooldown_minutes` (60), `consecutive_loss_multiplier` (2.0), `max_cooldown_minutes` (240) |
+| `cache` | `ttl_seconds` (300 / 5 minutes) |
+
+### Risk Profiles
+
+Use with `--risk-profile <name>` on paper engine, entry signals, or backtest:
+
+| Profile | Key Overrides |
+|---------|---------------|
+| `conservative` | risk_per_trade 0.5%, max_position 10%, max_stop 8% |
+| `aggressive` | risk_per_trade 1.0%, max_position 10%, max_stop 15% |
+| `tight_stops` | min_stop 2%, max_stop 5%, max_position 15% |
+
+### Environment Variable Overrides
+
+Override any config value with `RISK_` prefix + uppercase key:
+```bash
+RISK_ACCOUNT_RISK_PCT=0.01 python3 scripts/paper_engine_alpaca.py   # 1% risk per trade
+RISK_POSITION_MAX_PCT=0.15 python3 scripts/paper_engine_alpaca.py   # 15% max position
+```
+
+### Alpaca Credentials
+
+Alpaca API keys are stored in `config/secrets/alpaca_config.json` (created by `scripts/setup_alpaca.py`). A template is at `config/secrets/example.alpaca_config.json`. Set up with:
+
+```bash
+python3 scripts/setup_alpaca.py           # Interactive setup
+python3 scripts/setup_alpaca.py --test     # Test connection
+```
+
+---
+
+## Data Persistence Files
+
+All state files live in `data/`. Written by traderlib modules and scripts.
+
+| File | Format | Written By | Purpose |
+|------|--------|-----------|---------|
+| `data/watchlist.csv` | CSV | watchlist_manager.py | Master watchlist (see schema in Watchlist Manager section) |
+| `data/paper_positions.json` | JSON dict | paper_state.py, sync_state.py | Open positions keyed by ticker; fields: ticker, status, entry_date, entry_price, shares, stop_price, target_price, initial_risk, sector, current_stop_type, initial_stop_price |
+| `data/paper_trades.jsonl` | JSONL | paper_state.py | Append-only trade event log; events: ENTRY, EXIT; includes realized_pnl, exit_reason, stop_type, optional `_meta` dict |
+| `data/alpaca_orders.json` | JSON dict | order_manager.py | Order tracking: `pending` (by order ID), `filled` (by order ID), `timestamp` |
+| `data/daily_tracker.json` | JSON dict | paper_state.py, sync_state.py | Daily reset tracking: `last_entry_reset` (date string), `timestamp` (ISO) |
+| `data/logs/trading_exceptions.log` | Text log | trading_exceptions.py | Rotating exception log (severity-tagged); 30-day retention; rotated as `trading_exceptions.log.YYYY-MM-DD` |
+
+Backup files are auto-created before cleanup operations:
+- `data/paper_trades.jsonl.backup` — Created by `clean_test_trades.py`
+- `data/watchlist_backup_*.csv` — Timestamped backups from `watchlist_manager.py`
+
+---
+
+## Telegram Posting
 
 **Bot:** @tradermintbot  
 **Account ID:** `trader`  
-**Status:** ✅ Admin in channel + member in discussion group
+**Status:** Admin in channel + member in discussion group
 
 ### Destinations
 

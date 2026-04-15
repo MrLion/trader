@@ -40,13 +40,17 @@ from traderlib.trading_exceptions import TradingExceptionHandler, APIKeyError
 class AlpacaClient:
     """Unified Alpaca REST + WebSocket client for paper trading."""
 
-    def __init__(self, mode: str = 'paper'):
+    def __init__(self, mode: str = 'paper', data_only: bool = False):
         """Initialize Alpaca clients.
 
         Args:
             mode: 'paper' or 'live'
+            data_only: If True, skip TradingClient creation. Only creates
+                       StockHistoricalDataClient for data access. Backtests
+                       use this to avoid connecting to any trading sub-account.
         """
         self.mode = mode
+        self.data_only = data_only
         self.api_key = os.getenv('ALPACA_API_KEY') or self._load_config('api_key')
         self.secret_key = os.getenv('ALPACA_SECRET_KEY') or self._load_config('secret_key')
 
@@ -57,7 +61,10 @@ class AlpacaClient:
         self.historical_days = self._load_config_int('historical_days', default=365)
 
         # Initialize REST clients
-        self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
+        if data_only:
+            self.trading_client = None
+        else:
+            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
         self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
         # WebSocket stream (initialized on demand)
