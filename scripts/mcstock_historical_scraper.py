@@ -368,11 +368,17 @@ def scrape_historical_data(
             logger.info("No more reports found")
             break
 
+        # Log dates found on this page
+        if reports:
+            all_dates = sorted(set([date_str for _, date_str in reports]))
+            logger.debug(f"Page {page} reports found: {len(reports)}, dates: {all_dates}")
+
         # Check if we've gone past the date range (archives are newest → oldest)
         # If all reports on this page are before start_date, we can stop
         if start_date and reports:
-            all_dates = [date_str for _, date_str in reports]
-            newest_date = max(all_dates)
+            newest_date = max([date_str for _, date_str in reports])
+            oldest_date = min([date_str for _, date_str in reports])
+            logger.debug(f"Page {page} date range: {oldest_date} to {newest_date}, start_date filter: {start_date}")
             if newest_date < start_date:
                 logger.info(f"All reports on page {page} are before start_date ({start_date}), stopping")
                 break
@@ -393,6 +399,7 @@ def scrape_historical_data(
             week_reports[week_start].append((url, date_str))
 
         # Scrape each week's reports
+        weeks_processed_this_page = 0
         for week_start in sorted(week_reports.keys(), reverse=True):
             if weeks_limit and weeks_collected >= weeks_limit:
                 logger.info(f"Reached weeks limit ({weeks_limit})")
@@ -416,10 +423,26 @@ def scrape_historical_data(
                 time.sleep(delay)
 
             weeks_collected += 1
+            weeks_processed_this_page += 1
             logger.info(f"  ✅ Found {len(weekly_tickers[week_start])} tickers for week of {week_start}")
 
         if weeks_limit and weeks_collected >= weeks_limit:
             break
+
+        # Early termination: only stop if we've gone PAST the date range
+        # (all reports are older than start_date)
+        # Don't stop if we haven't reached the range yet (newer than end_date)
+        if weeks_processed_this_page == 0 and reports:
+            all_dates = [date_str for _, date_str in reports]
+            newest_date = max(all_dates)
+            oldest_date = min(all_dates)
+            # Only stop if the newest report on this page is before start_date
+            # (we've gone too far back in time)
+            if newest_date < start_date:
+                logger.info(f"All reports on page {page} are before start_date ({start_date}), stopping")
+                break
+            else:
+                logger.debug(f"Page {page} has reports after end_date, continuing to older pages")
 
         page += 1
         time.sleep(delay)
