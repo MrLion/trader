@@ -52,13 +52,23 @@ def main():
         slippage_bps=args.slippage,
     )
 
+    # Resolve watchlist path - look in data/ folder by default if not absolute
+    watchlist_path = args.watchlist
+    if watchlist_path and not watchlist_path.is_absolute():
+        # First try data/ folder, then project root
+        data_path = PROJECT_ROOT / 'data' / watchlist_path.name
+        if data_path.exists():
+            watchlist_path = data_path
+        else:
+            watchlist_path = PROJECT_ROOT / watchlist_path
+
     # Backtest config
     config = BacktestConfig(
         start_date=start_date,
         end_date=end_date,
         initial_capital=args.capital,
         tickers=args.tickers,
-        watchlist_path=args.watchlist,
+        watchlist_path=watchlist_path,
         risk_profile=args.risk_profile,
         execution_config=exec_config,
         max_open_positions=args.max_positions,
