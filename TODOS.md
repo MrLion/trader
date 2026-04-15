@@ -11,6 +11,7 @@ Source: /autoplan CEO, Design, Eng, DX review phases
 - [x] **FINDING-008**: Partial fill handling — Track `filled_qty` separately, accumulate before position creation *(Completed 2026-04-10)*
 - [ ] **FINDING-010**: Plaintext API keys — Use env vars or macOS Keychain, remove JSON credential storage
 - [x] **FINDING-005**: Dangerous fallback defaults — Require explicit stops, mark `UNSYNCED` if missing *(Completed 2026-04-10)*
+- [ ] **TEST-001**: Fix `test_backtest_engine.py` — `KeyError: 'price_above_50ma'` when `len(hist) < 200` in `get_stage2_details()` returns empty criteria dict. Strategy.py line 172 expects key that doesn't exist. Found 2026-04-15 on branch fix/data-only-mode.
 
 ### DX
 - [x] **GS-001**: Python version check in `setup.sh` *(Completed 2026-04-11)*

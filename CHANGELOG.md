@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - `get_current_price` and `prefetch` methods added to `DataFrameProvider` protocol — both were called by the engine but not declared in the protocol, making `isinstance` checks unreliable.
 - `prefetch` no-op on `DictDataProvider` — in-memory provider doesn't need bulk fetching, returns `None`.
 - `tickers_dropped` field on `BacktestResult` — properly wires dropped ticker data from the provider through to the report, replacing dead code that accessed a non-existent `_data_provider` attribute on `BacktestState`.
+- **`scripts/mcstock_historical_scraper.py`** — new scraper for MC Stock Charts archive pages. Scrapes weekly watchlists going back 1-2 years for backtesting with time-varying watchlists. Groups daily reports by week (Monday-based), accumulates tickers across Mon-Fri, outputs `data/mc_historical_watchlists.csv` with columns: `week_start`, `ticker`, `list_type`, `first_seen_date`, `scraped_date`. CLI supports date filtering (`--start`, `--end`), week limits (`--weeks N`), and pagination limits (`--max-pages`).
 
 ### Fixed
 - **Dead code in `report.py`** — `report.py:188-193` accessed `result.state._data_provider` which was never set on `BacktestState`, so `tickers_dropped` always reported 0. Now reads from `result.tickers_dropped`.
