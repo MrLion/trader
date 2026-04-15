@@ -24,7 +24,7 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 
 ## Features
 
-- **Real-time Trading Engine** - Automated entry/exit via Alpaca API with WebSocket data
+- **Real-time Trading Engine** - Automated entry/exit via Alpaca API with resilient WebSocket (health watchdog, exponential backoff, graceful shutdown)
 - **Stage 2 Screening** - 8-point momentum scoring system with MA penalties for trend identification
 - **Risk Management** - Position sizing, sector limits, trailing stops, daily loss limits
 - **Entry Signal Scanner** - Tier 1/2/3 rankings with proximity to pivot analysis
@@ -253,6 +253,11 @@ python3 scripts/paper_engine_alpaca.py --capital 500000
 # For live trading (real money)
 python3 scripts/paper_engine_alpaca.py --mode live
 ```
+
+**WebSocket Resilience:**
+- Keepalive ping tuned for Alpaca IEX feed (30s interval, 60s timeout)
+- Health watchdog force-stops stuck connections after 90s, enabling exponential backoff
+- Graceful shutdown in ~2s; second Ctrl+C force-exits immediately
 
 **Monitor Positions:**
 ```bash

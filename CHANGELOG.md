@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2026-04-15
+
+### Fixed
+- **WebSocket reconnection storm** — the Alpaca SDK's internal `_run_forever()` loop retries disconnections with zero delay, causing a rapid `TimeoutError` cascade (4-5 failures in seconds). Added a health watchdog (`_ws_health_watchdog`) that force-stops the stream after 90s without messages, breaking the SDK's infinite loop and allowing the existing exponential backoff to work.
+- **Keepalive ping timeout (code 1011)** — increased `ping_interval` from 20s to 30s and `ping_timeout` from 20s to 60s in `StockDataStream` websocket params, making the client 3x more tolerant of slow pong responses from Alpaca's server.
+- **Slow shutdown** — pressing Ctrl+C took 5+ seconds and sometimes required multiple presses because the task was cancelled before the stream was stopped. Reversed the shutdown order: stop the stream first (signals the SDK to exit), then cancel the task. Reduced total shutdown timeout from 5s to 3s.
+- **Force-exit on second Ctrl+C** — if graceful shutdown is still in progress when the user presses Ctrl+C again, the engine now force-exits immediately via `os._exit(1)`.
+
 ## [0.5.1] - 2026-04-15
 
 ### Changed
