@@ -14,8 +14,8 @@ USAGE:
     # Scrape with date filter
     python3 scripts/mcstock_historical_scraper.py --start 2024-01-01 --end 2025-04-01
 
-    # Scrape last N weeks only
-    python3 scripts/mcstock_historical_scraper.py --weeks 10
+    # Scrape specific date range
+    python3 scripts/mcstock_historical_scraper.py --start 2024-01-01 --end 2025-04-01
 
 OUTPUT:
 -------
@@ -312,7 +312,6 @@ def get_monday_date(date_obj: date) -> str:
 
 def scrape_historical_data(
     session: requests.Session,
-    weeks_limit: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     delay: float = 2.0
@@ -329,7 +328,6 @@ def scrape_historical_data(
     trading_dates = generate_trading_dates(start_date, end_date)
     logger.info(f"📅 Generated {len(trading_dates)} trading dates (Mon-Fri)")
 
-    weeks_collected = 0
     skipped_dates = 0
 
     # Process dates from newest to oldest
@@ -337,15 +335,9 @@ def scrape_historical_data(
         date_str = date_obj.strftime('%Y-%m-%d')
         week_start = get_monday_date(date_obj)
 
-        # Check weeks limit
-        if weeks_limit and weeks_collected >= weeks_limit:
-            logger.info(f"Reached weeks limit ({weeks_limit})")
-            break
-
         # Initialize week if not exists
         if week_start not in weekly_tickers:
             weekly_tickers[week_start] = {}
-            weeks_collected += 1
             logger.info(f"📅 Processing week of {week_start}")
 
         # Build URL and fetch
@@ -420,11 +412,6 @@ def main():
         help='Seconds between requests (default: 2.0)'
     )
     parser.add_argument(
-        '--weeks',
-        type=int,
-        help='Limit to N most recent weeks'
-    )
-    parser.add_argument(
         '--verbose',
         '-v',
         action='store_true',
@@ -457,7 +444,6 @@ def main():
         logger.info("🚀 Starting historical scrape...")
         weekly_tickers = scrape_historical_data(
             session,
-            weeks_limit=args.weeks,
             start_date=args.start,
             end_date=args.end,
             delay=args.delay
