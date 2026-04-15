@@ -193,10 +193,23 @@ def parse_report_urls(html: str) -> List[Tuple[str, str]]:
         if link:
             report_links.add(link.get('href', ''))
 
-    # Strategy 2: Find all links directly (mobile/responsive layout)
-    # Reports might be in different container structures
+    # Strategy 2: Find all links directly (catches all layouts)
     for link in soup.find_all('a', href=re.compile(r'/members/pre-market-report-')):
         report_links.add(link.get('href', ''))
+
+    # Strategy 3: Look for archive list items (common WordPress pattern)
+    for li in soup.find_all('li', class_=re.compile(r'post|entry|report')):
+        link = li.find('a', href=re.compile(r'/members/pre-market-report-'))
+        if link:
+            report_links.add(link.get('href', ''))
+
+    # Strategy 4: Look in any element with common archive classes
+    for elem in soup.find_all(class_=re.compile(r'archive|post|entry|report')):
+        link = elem.find('a', href=re.compile(r'/members/pre-market-report-'))
+        if link:
+            report_links.add(link.get('href', ''))
+
+    logger.debug(f"Raw report links found (before URL filtering): {len(report_links)}")
 
     # Process unique report URLs
     for url in report_links:
