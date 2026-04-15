@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - **`scripts/mcstock_historical_scraper.py`** — new scraper for MC Stock Charts archive pages. Scrapes weekly watchlists going back 1-2 years for backtesting with time-varying watchlists. Groups daily reports by week (Monday-based), accumulates tickers across Mon-Fri, outputs `data/mc_historical_watchlists.csv` with columns: `week_start`, `ticker`, `list_type`, `first_seen_date`, `scraped_date`. CLI supports date filtering (`--start`, `--end`), week limits (`--weeks N`), and pagination limits (`--max-pages`).
 
 ### Fixed
+- **MC Stock Charts historical scraper rewrite** — replaced unreliable archive pagination with direct URL generation. Archive pages had variable report counts (4-9) due to responsive layouts, and date termination wasn't working. New approach generates Mon-Fri trading dates directly, constructs URLs using the pattern `/members/pre-market-report-{weekday}-{month}-{day}-{year}-900a-m-est/`, and handles 404s gracefully (market holidays). Removed `--max-pages` CLI arg. Scraping is now deterministic, faster, and handles date ranges correctly.
 - **Dead code in `report.py`** — `report.py:188-193` accessed `result.state._data_provider` which was never set on `BacktestState`, so `tickers_dropped` always reported 0. Now reads from `result.tickers_dropped`.
 - **Protocol coupling removed** — `engine.py` no longer imports `AlpacaDataProvider` or uses `isinstance()` checks. The engine calls `prefetch()` directly on whatever `DataFrameProvider` it receives.
 
