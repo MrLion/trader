@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.0] - 2026-04-15
+## [0.5.3] - 2026-04-15
 
 ### Changed
 - **Backtest data isolation** — backtests now default to `data-only` mode, connecting only to Alpaca's shared data endpoint (`data.alpaca.markets`) and never to any trading sub-account. The `TradingClient` is no longer instantiated during backtests. Same API keys, same account, but the backtest path cannot touch trading. Use `--alpaca-mode paper` to restore the old behavior (not recommended).
