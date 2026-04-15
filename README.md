@@ -24,7 +24,7 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 
 ## Features
 
-- **Real-time Trading Engine** - Automated entry/exit via Alpaca API with WebSocket data
+- **Real-time Trading Engine** - Automated entry/exit via Alpaca API with resilient WebSocket (health watchdog, exponential backoff, graceful shutdown)
 - **Stage 2 Screening** - 8-point momentum scoring system with MA penalties for trend identification
 - **Risk Management** - Position sizing, sector limits, trailing stops, daily loss limits
 - **Entry Signal Scanner** - Tier 1/2/3 rankings with proximity to pivot analysis
@@ -157,7 +157,8 @@ Manage your trading universe and import external ideas.
 | Script | Purpose | Example Command |
 |----------------------|--------------------------------------|----------------------------------------|
 | `watchlist_manager.py` | Manage watchlist items | `python3 scripts/watchlist_manager.py add AAPL` |
-| `mcstock_scraper.py` | Scrape MC Stock Charts ideas | `python3 scripts/mcstock_scraper.py` |
+| `mcstock_scraper.py` | Scrape MC Stock Charts daily report | `python3 scripts/mcstock_scraper.py` |
+| `mcstock_historical_scraper.py` | Scrape MC Stock Charts historical archives | `python3 scripts/mcstock_historical_scraper.py --weeks 10` |
 
 **Watchlist Management:**
 ```bash
@@ -180,6 +181,21 @@ python3 scripts/mcstock_scraper.py
 python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 python3 scripts/mcstock_scraper.py --config config/scraper_config.yaml
+```
+
+**MC Stock Charts Historical Scraper:**
+```bash
+# Scrape last 10 weeks of historical watchlists
+python3 scripts/mcstock_historical_scraper.py --weeks 10
+
+# Scrape specific date range
+python3 scripts/mcstock_historical_scraper.py --start 2024-01-01 --end 2025-04-01
+
+# Scrape all available history
+python3 scripts/mcstock_historical_scraper.py
+
+# Output to custom path
+python3 scripts/mcstock_historical_scraper.py --output data/mc_historical.csv
 ```
 
 ### Backtesting
@@ -253,6 +269,11 @@ python3 scripts/paper_engine_alpaca.py --capital 500000
 # For live trading (real money)
 python3 scripts/paper_engine_alpaca.py --mode live
 ```
+
+**WebSocket Resilience:**
+- Keepalive ping tuned for Alpaca IEX feed (30s interval, 60s timeout)
+- Health watchdog force-stops stuck connections after 90s, enabling exponential backoff
+- Graceful shutdown in ~2s; second Ctrl+C force-exits immediately
 
 **Monitor Positions:**
 ```bash

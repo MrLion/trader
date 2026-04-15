@@ -40,13 +40,17 @@ from traderlib.trading_exceptions import TradingExceptionHandler, APIKeyError
 class AlpacaClient:
     """Unified Alpaca REST + WebSocket client for paper trading."""
 
-    def __init__(self, mode: str = 'paper'):
+    def __init__(self, mode: str = 'paper', data_only: bool = False):
         """Initialize Alpaca clients.
 
         Args:
             mode: 'paper' or 'live'
+            data_only: If True, skip TradingClient creation. Only creates
+                       StockHistoricalDataClient for data access. Backtests
+                       use this to avoid connecting to any trading sub-account.
         """
         self.mode = mode
+        self.data_only = data_only
         self.api_key = os.getenv('ALPACA_API_KEY') or self._load_config('api_key')
         self.secret_key = os.getenv('ALPACA_SECRET_KEY') or self._load_config('secret_key')
 
@@ -57,7 +61,10 @@ class AlpacaClient:
         self.historical_days = self._load_config_int('historical_days', default=365)
 
         # Initialize REST clients
-        self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
+        if data_only:
+            self.trading_client = None
+        else:
+            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=(mode == 'paper'))
         self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
 
         # WebSocket stream (initialized on demand)
@@ -535,7 +542,11 @@ class AlpacaClient:
                 self.api_key,
                 self.secret_key,
                 feed=DataFeed.IEX,
-                websocket_params={'ssl': ssl_context}
+                websocket_params={
+                    'ssl': ssl_context,
+                    'ping_interval': 30,  # Send keepalive pings every 30s (default 20s)
+                    'ping_timeout': 60,    # Wait 60s for pong (default 20s) — prevents code 1011 disconnects
+                }
             )
         except Exception as e:
             print(f"⚠️ Failed to create WebSocket stream: {e}")
@@ -576,10 +587,31 @@ class AlpacaClient:
         self.ws_reconnect_delay = 5
         print(f"📡 WebSocket stream starting for {len(tickers)} tickers...")
 
+        stream_task = None
+        watchdog_task = None
         try:
-            # Run the stream - use _run_forever() to avoid event loop conflict
-            # This is a known workaround for alpaca-py bug in v0.41.0-0.42.1
-            await self.stream._run_forever()
+            # Run the stream with a health watchdog.
+            # The SDK's _run_forever() has an internal reconnection loop with zero
+            # delay, which causes a rapid TimeoutError cascade on disconnect.
+            # The watchdog force-stops the stream if no messages arrive for 90s,
+            # breaking the SDK's infinite loop and allowing our exponential backoff.
+            stream_task = asyncio.create_task(self.stream._run_forever())
+            watchdog_task = asyncio.create_task(
+                self._ws_health_watchdog(stream_task)
+            )
+
+            done, pending = await asyncio.wait(
+                [stream_task, watchdog_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # If watchdog finished first, WS was unhealthy — stop the stream
+            if watchdog_task in done:
+                await self.stop_price_stream()
+
+            # Propagate any exception from the stream task
+            if stream_task.done() and stream_task.exception():
+                raise stream_task.exception()
         except asyncio.CancelledError:
             # Normal shutdown
             print("🔄 WebSocket cancelled (normal shutdown)")
@@ -590,6 +622,14 @@ class AlpacaClient:
         except Exception as e:
             print(f"⚠️ WebSocket error: {e}")
         finally:
+            # Cancel any still-running tasks
+            for task in [watchdog_task, stream_task]:
+                if task and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
             self.ws_connected = False
             self.stream = None
             # Exponential backoff for reconnects (max 60 seconds)
@@ -613,6 +653,31 @@ class AlpacaClient:
         # Consider unhealthy if no message in 60 seconds
         elapsed = (datetime.now() - self.last_ws_message).total_seconds()
         return elapsed < 60
+
+    async def _ws_health_watchdog(self, stream_task: asyncio.Task):
+        """Force-stop the stream if no messages received for 90s.
+
+        The Alpaca SDK's _run_forever() has an internal reconnection loop with
+        zero delay between attempts, causing a rapid TimeoutError cascade on
+        disconnect. This watchdog detects when the connection has been unhealthy
+        for too long and force-stops the stream (via stop_ws()), breaking the
+        SDK's infinite loop and allowing our exponential backoff to work.
+        """
+        unhealthy_since = None
+        while not stream_task.done():
+            await asyncio.sleep(5)
+            if not self.is_ws_healthy():
+                if unhealthy_since is None:
+                    unhealthy_since = datetime.now()
+                elif (datetime.now() - unhealthy_since).total_seconds() > 90:
+                    print("⚠️ WebSocket unhealthy for 90s, force-stopping for reconnect...")
+                    try:
+                        await self.stream.stop_ws()
+                    except Exception:
+                        pass
+                    return  # Exit triggers stream_task completion in start_price_stream
+            else:
+                unhealthy_since = None
 
     def get_cached_price(self, ticker: str, max_age_seconds: Optional[int] = None) -> Optional[float]:
         """Get price from WebSocket cache with staleness check.

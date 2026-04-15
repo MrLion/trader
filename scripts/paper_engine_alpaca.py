@@ -269,7 +269,12 @@ class AlpacaPaperEngine:
         return self.spy_cache['return_6m']
 
     def _signal_handler(self, signum, frame):
-        """Graceful shutdown."""
+        """Graceful shutdown. Force-exits on second Ctrl+C."""
+        if not self.running:
+            # Second Ctrl+C — force exit
+            print("\n⚡ Force exit")
+            import os
+            os._exit(1)
         print("\n\n🛑 Shutdown signal received...")
         self.running = False
         self.ws_running = False
@@ -1115,21 +1120,21 @@ class AlpacaPaperEngine:
                 traceback.print_exc()
                 await asyncio.sleep(30)
 
-        # Cleanup - Cancel task first, then cleanup resources
+        # Cleanup - Stop the stream first to signal the SDK's internal loop
+        # to exit (sets _should_run = False), then cancel the task as a safety net.
         print("\n🛑 Stopping WebSocket...")
-        if ws_task:
-            ws_task.cancel()
-            try:
-                await asyncio.wait_for(ws_task, timeout=3.0)
-            except asyncio.CancelledError:
-                print("   ✓ WebSocket task cancelled")
-            except asyncio.TimeoutError:
-                print("   ⚠ WebSocket task timeout (forcing)")
-        # Stop the stream after task is cancelled
+        # 1. Signal the SDK to stop — this breaks _run_forever()'s internal loop
         try:
             await asyncio.wait_for(self.alpaca.stop_price_stream(), timeout=2.0)
         except Exception:
-            pass  # Ignore cleanup errors
+            pass
+        # 2. Cancel the task as a safety net
+        if ws_task and not ws_task.done():
+            ws_task.cancel()
+            try:
+                await asyncio.wait_for(ws_task, timeout=1.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
         print("✅ Engine stopped gracefully")
 
 

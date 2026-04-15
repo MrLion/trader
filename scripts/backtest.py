@@ -38,6 +38,8 @@ def main():
     parser.add_argument('--max-positions', type=int, default=10, help='Max open positions (default: 10)')
     parser.add_argument('--csv', help='Export trades to CSV file')
     parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
+    parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
+                        help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
 
     args = parser.parse_args()
 
@@ -76,7 +78,7 @@ def main():
     # Initialize components
     try:
         from traderlib.alpaca_client import AlpacaClient
-        alpaca = AlpacaClient(mode='paper')
+        alpaca = AlpacaClient(mode=args.alpaca_mode, data_only=(args.alpaca_mode == 'data-only'))
         data_provider = AlpacaDataProvider(alpaca_client=alpaca.data_client)
     except Exception as e:
         print(f"Warning: Alpaca client unavailable ({e})")

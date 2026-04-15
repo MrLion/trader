@@ -20,7 +20,7 @@ from typing import Optional
 
 import pandas as pd
 
-from traderlib.backtest.data_provider import DataFrameProvider, AlpacaDataProvider
+from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig, FillResult
 from traderlib.backtest.state import BacktestState, BacktestPosition, TradeRecord
 from traderlib.backtest.strategy import Strategy, EntrySignal, ExitDecision
@@ -51,6 +51,7 @@ class BacktestResult:
     benchmark: pd.DataFrame
     config: BacktestConfig
     gap_rejections: list[dict] = field(default_factory=list)
+    tickers_dropped: list[dict] = field(default_factory=list)
 
 
 class BacktestEngine:
@@ -113,14 +114,19 @@ class BacktestEngine:
         if self.config.watchlist_path and self.config.tickers is None:
             self.config.tickers = self._load_watchlist(self.config.watchlist_path)
 
-        # Prefetch if using AlpacaDataProvider
-        if isinstance(self.data_provider, AlpacaDataProvider) and self.config.tickers:
+        # Prefetch data for tickers
+        if self.config.tickers:
             prefetch_tickers = list(self.config.tickers) + ['SPY']
             self.data_provider.prefetch(
                 prefetch_tickers,
                 start=self.config.start_date,
                 end=self.config.end_date,
             )
+
+        # Collect dropped tickers from provider
+        tickers_dropped = []
+        if hasattr(self.data_provider, 'tickers_dropped'):
+            tickers_dropped = list(self.data_provider.tickers_dropped)
 
         # Previous day tracking for T+1 fills
         prev_date: Optional[date] = None
@@ -182,6 +188,7 @@ class BacktestEngine:
             benchmark=benchmark,
             config=self.config,
             gap_rejections=self._gap_rejections,
+            tickers_dropped=tickers_dropped,
         )
 
     def _resolve_pending_fills(self, state: BacktestState, sim_date: date):
