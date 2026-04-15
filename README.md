@@ -157,7 +157,8 @@ Manage your trading universe and import external ideas.
 | Script | Purpose | Example Command |
 |----------------------|--------------------------------------|----------------------------------------|
 | `watchlist_manager.py` | Manage watchlist items | `python3 scripts/watchlist_manager.py add AAPL` |
-| `mcstock_scraper.py` | Scrape MC Stock Charts ideas | `python3 scripts/mcstock_scraper.py` |
+| `mcstock_scraper.py` | Scrape MC Stock Charts daily report | `python3 scripts/mcstock_scraper.py` |
+| `mcstock_historical_scraper.py` | Scrape MC Stock Charts historical archives | `python3 scripts/mcstock_historical_scraper.py --weeks 10` |
 
 **Watchlist Management:**
 ```bash
@@ -180,6 +181,21 @@ python3 scripts/mcstock_scraper.py
 python3 scripts/mcstock_scraper.py --populate-watchlist
 python3 scripts/mcstock_scraper.py --date 2026-04-06 --output data/mc_ideas.csv
 python3 scripts/mcstock_scraper.py --config config/scraper_config.yaml
+```
+
+**MC Stock Charts Historical Scraper:**
+```bash
+# Scrape last 10 weeks of historical watchlists
+python3 scripts/mcstock_historical_scraper.py --weeks 10
+
+# Scrape specific date range
+python3 scripts/mcstock_historical_scraper.py --start 2024-01-01 --end 2025-04-01
+
+# Scrape all available history
+python3 scripts/mcstock_historical_scraper.py
+
+# Output to custom path
+python3 scripts/mcstock_historical_scraper.py --output data/mc_historical.csv
 ```
 
 ### Backtesting

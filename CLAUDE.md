@@ -19,6 +19,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - Sector Scan: `python3 scripts/sector_scan.py`
     - Comprehensive Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
     - Stage 2 RS Screen: `python3 scripts/stage2_rs_screen.py`
+- **MC Stock Charts:**
+    - Daily Report: `python3 scripts/mcstock_scraper.py`
+    - Historical Archives: `python3 scripts/mcstock_historical_scraper.py --weeks 10`
 - **Backtesting:**
     - Default: `python3 scripts/backtest.py`
     - Custom range: `python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31`
@@ -67,6 +70,12 @@ The system follows a strict trading operating rhythm:
 ## Code Style
 - **Before creating any new script, utility, or module, search the entire codebase for existing implementations of the same or similar functionality. Prefer extending existing code over creating new files.
 - **When modifying files, prefer writing complete new files (using Write) or large coherent sections over making many small incremental edits. Minimize round-trip Edit calls with narrow string matches.
+
+## Versioning
+- **Bug fixes** ship as patch version: `0.5.xx` (increment xx)
+- **Features** ship as minor version: `0.xx.0` (increment xx, reset patch to 0)
+- Always update `CHANGELOG.md` with the version bump
+- Always create a git tag for the new version (e.g., `git tag v0.6.0`)
 
 ## Documentation
 - **After adding or modifying any feature, always update the corresponding documentation file (e.g., TOOLS.md, README.md) in the same session.
