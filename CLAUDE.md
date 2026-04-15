@@ -82,3 +82,14 @@ The system follows a strict trading operating rhythm:
 
 ## Debugging
 - **When debugging, investigate root causes thoroughly before making changes. Avoid surface-level or symptom-level fixes. State your hypothesis, verify it, then act.
+
+## Skill-Specific Rules
+
+### /investigate (Investigation Skill)
+When user invokes `/investigate`:
+1. **INVESTIGATE ONLY** — Do NOT implement fixes. Do NOT write code changes.
+2. **Report findings** — Root cause, evidence, and recommended fix.
+3. **Create proposition** — "Recommended fix: [description]" with file:line references.
+4. **WAIT for explicit approval** — "Want me to implement this fix?" before any edits.
+
+This ensures the user controls when investigation transitions to implementation.
