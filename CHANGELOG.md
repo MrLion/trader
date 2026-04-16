@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0.1] - 2026-04-16
+
+### Fixed
+- **Rate limiter deadlock bug** — Changed `APIHealthMonitor._lock` from `Lock()` to `RLock()` to allow reentrant calls when `get_status()` calls `get_provider()`.
+- **Risk config singleton persistence** — Added `reset_risk_config()` function to enable proper test isolation when environment variables change between tests.
+- **Test isolation in `test_alpaca_client_extended.py`** — Fixed patch paths to use `traderlib.alpaca_client.CONFIG_FILE` instead of `alpaca_client.CONFIG_FILE`.
+- **Test expectation in `test_risk_config.py`** — Updated expected value to match config file default (0.5%).
+
+### Added
+- **Comprehensive MA Support Stop unit tests** — 25 tests in `tests/test_ma_support_stop.py` covering edge cases: no MAs below price, cluster boundaries, buffer calculation, NaN handling, price exactly at MA.
+
 ## [0.6.0] - 2026-04-16
 
 ### Added
