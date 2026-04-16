@@ -72,10 +72,26 @@ The system follows a strict trading operating rhythm:
 - **When modifying files, prefer writing complete new files (using Write) or large coherent sections over making many small incremental edits. Minimize round-trip Edit calls with narrow string matches.
 
 ## Versioning
-- **Bug fixes** ship as patch version: `0.5.xx` (increment xx)
-- **Features** ship as minor version: `0.xx.0` (increment xx, reset patch to 0)
-- Always update `CHANGELOG.md` with the version bump
-- Always create a git tag for the new version (e.g., `git tag v0.6.0`)
+
+The project uses a 4-digit version format: `0.XX.YY.ZZ`
+
+| Position | Meaning | When to Bump |
+|----------|---------|--------------|
+| `XX` | Major milestone | Significant architectural changes, breaking API changes, or major releases |
+| `YY` | Features | New functionality, enhancements, or substantial improvements |
+| `ZZ` | Fixes | Bug fixes, corrections, and small patches |
+
+**Examples:**
+- `0.6.0.0` → `0.6.0.1` — Bug fix (corrected test expectation)
+- `0.5.6.0` → `0.6.0.0` — New test suite (155 tests) and MA Support Stop feature
+- `0.5.5.0` → `0.5.6.0` — MA Support Stop feature added
+
+**Process:**
+1. Update `VERSION` file with the new version number
+2. Update `CHANGELOG.md` with release notes under the new version
+3. Commit: `chore: bump version to 0.XX.YY.ZZ`
+4. Create git tag: `git tag v0.XX.YY.ZZ`
+5. Push tag: `git push origin v0.XX.YY.ZZ`
 
 ## Documentation
 - **After adding or modifying any feature, always update the corresponding documentation file (e.g., TOOLS.md, README.md) in the same session.
