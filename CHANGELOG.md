@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0.3] - 2026-04-16
+
+### Fixed
+- **WebSocket market-aware lifecycle** — `paper_engine_alpaca.py` now stops the engine entirely when the market is closed, preventing rapid reconnection attempts that caused "connection limit exceeded" errors from Alpaca.
+  - Pre-flight check in `main()`: exits immediately with message showing next market open time if market closed
+  - Market-close detection in `run()` loop: graceful shutdown when market transitions from open to closed
+  - WebSocket guard: only attempts WebSocket connection when `is_market_open()` returns True
+  - Benefits: eliminates WebSocket errors when market closed, no unnecessary API calls, cleaner logs, resource efficient
+
 ## [0.6.0.2] - 2026-04-16
 
 ### Fixed
