@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-16
+
+### Added
+- **Comprehensive Test Suite for Critical Modules** — Added 155 new tests across 5 modules with zero previous coverage, bringing estimated test coverage from ~40-50% to ~70-80%.
+  - `tests/test_validation.py` (27 tests) — Ticker validation, false positive detection, batch validation, NO_COLOR support.
+  - `tests/test_rate_limiter.py` (33 tests) — Rate limiting, exponential backoff, circuit breaker, API health monitoring, thread safety.
+  - `tests/test_market_hours.py` (25 tests) — Trading day detection, market hours, holidays, timezone handling.
+  - `tests/test_risk_config.py` (40 tests) — Risk configuration loading, profiles, environment overrides, position sizing with triple constraints.
+  - `tests/test_order_manager.py` (30 tests) — Order lifecycle, queue processing, Alpaca integration, position sync, callbacks.
+
 ## [0.5.6] - 2026-04-16
 
 ### Added
