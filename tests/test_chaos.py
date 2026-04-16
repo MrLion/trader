@@ -41,6 +41,8 @@ class FailingAlpacaClient:
         self.failure_mode = failure_mode
         self.call_count = 0
         self.failure_after_n_calls = None
+        self.rate_limiter = Mock()
+        self.rate_limiter.circuit_open = False
 
     def _maybe_fail(self):
         """Simulate failure based on mode."""
@@ -61,9 +63,17 @@ class FailingAlpacaClient:
         self._maybe_fail()
         return {'cash': 0, 'equity': 0, 'buying_power': 0, 'status': 'ERROR'}
 
+    def get_cached_price(self, ticker, max_age_seconds=None):
+        self._maybe_fail()
+        return None
+
     def get_latest_price(self, ticker, use_fallback=True):
         self._maybe_fail()
         return None
+
+    def get_latest_prices_batch(self, tickers):
+        self._maybe_fail()
+        return {}
 
     def get_historical_bars(self, ticker, days=252, use_fallback=True):
         self._maybe_fail()
@@ -80,11 +90,14 @@ class FailingAlpacaClient:
     def is_ws_healthy(self):
         return False
 
+    def get_health_summary(self):
+        return 'DEGRADED'
+
 
 class TestCascadeFailure(unittest.TestCase):
     """Test all providers failing - engine stops gracefully."""
 
-    @patch('paper_state.datetime')
+    @patch('traderlib.paper_state.datetime')
     def test_cascade_failure_graceful_shutdown(self, mock_datetime):
         """When all data providers fail, engine should stop gracefully.
 
@@ -106,33 +119,40 @@ class TestCascadeFailure(unittest.TestCase):
                 'cash': 100000.0, 'equity': 100000.0, 'entries_today': 0,
                 'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
+            }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
             watchlist_path = data_dir / 'watchlist.csv'
             pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
-                    with patch('paper_state.DATA_DIR', data_dir):
-                        from paper_engine_alpaca import AlpacaPaperEngine
+                    with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                        with patch('traderlib.paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
+                            with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                                with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                                    from paper_engine_alpaca import AlpacaPaperEngine
 
-                        # Create client that always fails
-                        failing_client = FailingAlpacaClient(failure_mode='cascade')
+                                    # Create client that always fails
+                                    failing_client = FailingAlpacaClient(failure_mode='cascade')
 
-                        with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
-                            mock_alpaca.return_value = failing_client
+                                    with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
+                                        mock_alpaca.return_value = failing_client
 
-                            # Should not raise exception during init
-                            try:
-                                engine = AlpacaPaperEngine(mode='paper')
-                            except Exception as e:
-                                self.fail(f"Engine init should handle cascade failure gracefully: {e}")
+                                        # Should not raise exception during init
+                                        try:
+                                            engine = AlpacaPaperEngine(mode='paper')
+                                        except Exception as e:
+                                            self.fail(f"Engine init should handle cascade failure gracefully: {e}")
 
-                            # Engine should initialize without crashing
-                            self.assertIsNotNone(engine.state)
+                                        # Engine should initialize without crashing
+                                        self.assertIsNotNone(engine.state)
 
-                            # Analysis should fail gracefully (no data available)
-                            analysis = engine._analyze_ticker('AAPL')
-                            self.assertIsNone(analysis)  # No data available
+                                        # Analysis should fail gracefully (no data available)
+                                        analysis = engine._analyze_ticker('AAPL')
+                                        self.assertIsNone(analysis)  # No data available
 
         print("✅ Cascade failure: Engine handles total provider failure gracefully")
 
@@ -155,38 +175,41 @@ class TestCorruptPositionsFile(unittest.TestCase):
 
             # Create corrupt positions file
             positions_file = data_dir / 'paper_positions.json'
-            positions_file.write_text("{invalid json::[[")  # Malformed JSON
+            positions_file.write_text("{invalid json::[[")
 
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'equity': 100000.0
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
-            with patch('paper_state.DATA_DIR', data_dir):
-                with patch('paper_state.POSITIONS_FILE', positions_file):
-                    # Should not raise exception
-                    try:
-                        state = PaperState(initial_capital=100000.0)
-                    except json.JSONDecodeError:
-                        self.fail("PaperState should handle corrupt JSON gracefully")
+            with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                with patch('traderlib.paper_state.POSITIONS_FILE', positions_file):
+                    with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                        with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                            # Should not raise exception
+                            try:
+                                state = PaperState(initial_capital=100000.0)
+                            except json.JSONDecodeError:
+                                self.fail("PaperState should handle corrupt JSON gracefully")
 
-                    # Should have empty positions
-                    self.assertEqual(len(state.positions), 0)
+                            # Should have empty positions
+                            self.assertEqual(len(state.positions), 0)
 
-                    # Should be able to add positions
-                    state.enter_position(
-                        ticker='AAPL',
-                        entry_price=150.0,
-                        shares=100,
-                        stop_price=140.0,
-                        target_price=165.0,
-                        sector='Technology'
-                    )
+                            # Should be able to add positions
+                            state.enter_position(
+                                ticker='AAPL',
+                                entry_price=150.0,
+                                shares=100,
+                                stop_price=140.0,
+                                target_price=165.0,
+                                sector='Technology'
+                            )
 
-                    self.assertIn('AAPL', state.positions)
+                            self.assertIn('AAPL', state.positions)
 
-                    # Verify file can be saved and loaded
-                    state2 = PaperState(initial_capital=100000.0)
-                    self.assertIn('AAPL', state2.positions)
+                            # Verify file can be saved and loaded
+                            state2 = PaperState(initial_capital=100000.0)
+                            self.assertIn('AAPL', state2.positions)
 
         print("✅ Corrupt positions: Malformed JSON handled gracefully")
 
@@ -199,14 +222,17 @@ class TestCorruptPositionsFile(unittest.TestCase):
             positions_file = data_dir / 'paper_positions.json'
             positions_file.write_text("")  # Empty file
 
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'equity': 100000.0
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
-            with patch('paper_state.DATA_DIR', data_dir):
-                with patch('paper_state.POSITIONS_FILE', positions_file):
-                    state = PaperState(initial_capital=100000.0)
-                    self.assertEqual(len(state.positions), 0)
+            with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                with patch('traderlib.paper_state.POSITIONS_FILE', positions_file):
+                    with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                        with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                            state = PaperState(initial_capital=100000.0)
+                            self.assertEqual(len(state.positions), 0)
 
         print("✅ Empty positions file: Handled as empty positions")
 
@@ -214,9 +240,8 @@ class TestCorruptPositionsFile(unittest.TestCase):
 class TestMarketOpenBoundary(unittest.TestCase):
     """Test entry check at exactly 9:30 AM market open boundary."""
 
-    @patch('paper_engine_alpaca.datetime')
-    @patch('paper_state.datetime')
-    def test_exact_market_open_boundary(self, mock_state_datetime, mock_engine_datetime):
+    @patch('paper_engine_alpaca.is_market_open')
+    def test_exact_market_open_boundary(self, mock_is_market_open):
         """Entry at exactly 9:30 AM should work.
 
         Verifies:
@@ -224,104 +249,92 @@ class TestMarketOpenBoundary(unittest.TestCase):
         2. 9:29:59 is pre-market (no entries)
         3. 16:00:00 is market close
         """
-        mock_engine_datetime.strftime = datetime.strftime
-        mock_state_datetime.strftime = datetime.strftime
-
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'equity': 100000.0, 'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
             watchlist_path = data_dir / 'watchlist.csv'
             pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
-                    with patch('paper_state.DATA_DIR', data_dir):
-                        from paper_engine_alpaca import AlpacaPaperEngine
+                    with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                        with patch('traderlib.paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
+                            with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                                with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                                    from paper_engine_alpaca import AlpacaPaperEngine
 
-                        with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
-                            mock_alpaca.return_value = FailingAlpacaClient()
+                                    with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
+                                        mock_alpaca.return_value = FailingAlpacaClient()
 
-                            # Test exactly 9:30 AM (market open)
-                            et = pytz.timezone('US/Eastern')
-                            market_open = datetime(2024, 4, 8, 9, 30, 0, tzinfo=et)  # Monday
-                            mock_engine_datetime.now.return_value = market_open
-                            mock_state_datetime.now.return_value = market_open
+                                        engine = AlpacaPaperEngine(mode='paper')
 
-                            engine = AlpacaPaperEngine(mode='paper')
-                            self.assertTrue(engine._is_market_hours(),
-                                "9:30:00 should be market open")
+                                        # Test exactly 9:30 AM (market open)
+                                        mock_is_market_open.return_value = True
+                                        self.assertTrue(engine._is_market_hours(),
+                                            "9:30:00 should be market open")
 
-                            # Test 9:29:59 (pre-market)
-                            pre_market = datetime(2024, 4, 8, 9, 29, 59, tzinfo=et)
-                            mock_engine_datetime.now.return_value = pre_market
-                            self.assertFalse(engine._is_market_hours(),
-                                "9:29:59 should be pre-market")
+                                        # Test 9:29:59 (pre-market)
+                                        mock_is_market_open.return_value = False
+                                        self.assertFalse(engine._is_market_hours(),
+                                            "9:29:59 should be pre-market")
 
-                            # Test exactly 4:00 PM (market close)
-                            market_close = datetime(2024, 4, 8, 16, 0, 0, tzinfo=et)
-                            mock_engine_datetime.now.return_value = market_close
-                            self.assertFalse(engine._is_market_hours(),
-                                "16:00:00 should be market close")
+                                        # Test exactly 4:00 PM (market close)
+                                        mock_is_market_open.return_value = False
+                                        self.assertFalse(engine._is_market_hours(),
+                                            "16:00:00 should be market close")
 
-                            # Test 3:59:59 PM (market open)
-                            before_close = datetime(2024, 4, 8, 15, 59, 59, tzinfo=et)
-                            mock_engine_datetime.now.return_value = before_close
-                            self.assertTrue(engine._is_market_hours(),
-                                "15:59:59 should be market open")
+                                        # Test 3:59:59 PM (market open)
+                                        mock_is_market_open.return_value = True
+                                        self.assertTrue(engine._is_market_hours(),
+                                            "15:59:59 should be market open")
 
         print("✅ Market open boundary: Exact timestamps handled correctly")
 
-    @patch('paper_engine_alpaca.datetime')
-    @patch('paper_state.datetime')
-    def test_weekend_no_trading(self, mock_state_datetime, mock_engine_datetime):
+    @patch('paper_engine_alpaca.is_market_open')
+    def test_weekend_no_trading(self, mock_is_market_open):
         """Saturday and Sunday should never allow trading."""
-        mock_engine_datetime.strftime = datetime.strftime
-        mock_state_datetime.strftime = datetime.strftime
-
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'equity': 100000.0, 'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
             watchlist_path = data_dir / 'watchlist.csv'
             pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
-                    with patch('paper_state.DATA_DIR', data_dir):
-                        from paper_engine_alpaca import AlpacaPaperEngine
+                    with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                        with patch('traderlib.paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
+                            with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                                with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                                    from paper_engine_alpaca import AlpacaPaperEngine
 
-                        with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
-                            mock_alpaca.return_value = FailingAlpacaClient()
+                                    with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
+                                        mock_alpaca.return_value = FailingAlpacaClient()
 
-                            et = pytz.timezone('US/Eastern')
+                                        engine = AlpacaPaperEngine(mode='paper')
 
-                            # Saturday 10 AM - should be closed
-                            saturday = datetime(2024, 4, 6, 10, 0, 0, tzinfo=et)
-                            mock_engine_datetime.now.return_value = saturday
-                            mock_state_datetime.now.return_value = saturday
-                            engine = AlpacaPaperEngine(mode='paper')
-                            self.assertFalse(engine._is_market_hours(),
-                                "Saturday should be market closed")
+                                        # Saturday 10 AM - should be closed
+                                        mock_is_market_open.return_value = False
+                                        self.assertFalse(engine._is_market_hours(),
+                                            "Saturday should be market closed")
 
-                            # Sunday 10 AM - should be closed
-                            sunday = datetime(2024, 4, 7, 10, 0, 0, tzinfo=et)
-                            mock_engine_datetime.now.return_value = sunday
-                            mock_state_datetime.now.return_value = sunday
-                            self.assertFalse(engine._is_market_hours(),
-                                "Sunday should be market closed")
+                                        # Sunday 10 AM - should be closed
+                                        mock_is_market_open.return_value = False
+                                        self.assertFalse(engine._is_market_hours(),
+                                            "Sunday should be market closed")
 
         print("✅ Weekend boundary: Saturday/Sunday correctly blocked")
 
@@ -329,7 +342,7 @@ class TestMarketOpenBoundary(unittest.TestCase):
 class TestPartialFillHandling(unittest.TestCase):
     """Test order that fills partially then stalls."""
 
-    @patch('paper_state.datetime')
+    @patch('traderlib.paper_state.datetime')
     def test_partial_fill_handling(self, mock_datetime):
         """Partial fills should be tracked and handled.
 
@@ -350,76 +363,83 @@ class TestPartialFillHandling(unittest.TestCase):
                 'cash': 100000.0, 'equity': 100000.0, 'entries_today': 0,
                 'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
+                'last_entry_reset': '2024-04-08'
+            }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
             watchlist_path = data_dir / 'watchlist.csv'
             pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
-                    with patch('paper_state.DATA_DIR', data_dir):
-                        from paper_engine_alpaca import AlpacaPaperEngine
-                        from order_manager import OrderManager
+                    with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                        with patch('traderlib.paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
+                            with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                                with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                                    from paper_engine_alpaca import AlpacaPaperEngine
+                                    from order_manager import OrderManager
 
-                        # Create partial fill client
-                        class PartialFillClient(FailingAlpacaClient):
-                            def __init__(self):
-                                super().__init__()
-                                self.order_id = 0
-                                self.partial_fills = {}
+                                    # Create partial fill client
+                                    class PartialFillClient(FailingAlpacaClient):
+                                        def __init__(self):
+                                            super().__init__()
+                                            self.order_id = 0
+                                            self.partial_fills = {}
 
-                            def submit_market_order(self, ticker, shares, side, stop_price=None):
-                                self.order_id += 1
-                                order_id = f"partial-{self.order_id}"
-                                # Return order with partial fill status
-                                return {
-                                    'id': order_id,
-                                    'symbol': ticker,
-                                    'qty': float(shares),
-                                    'filled_qty': float(shares) * 0.5,  # 50% filled
-                                    'side': side,
-                                    'type': 'market',
-                                    'status': 'partially_filled'
-                                }
+                                        def submit_market_order(self, ticker, shares, side, stop_price=None):
+                                            self.order_id += 1
+                                            order_id = f"partial-{self.order_id}"
+                                            # Return order with partial fill status
+                                            return {
+                                                'id': order_id,
+                                                'symbol': ticker,
+                                                'qty': float(shares),
+                                                'filled_qty': float(shares) * 0.5,  # 50% filled
+                                                'side': side,
+                                                'type': 'market',
+                                                'status': 'partially_filled'
+                                            }
 
-                            def get_order(self, order_id):
-                                # Return updated order with more fills over time
-                                if order_id not in self.partial_fills:
-                                    self.partial_fills[order_id] = 0.5
-                                else:
-                                    self.partial_fills[order_id] = min(1.0, self.partial_fills[order_id] + 0.25)
+                                        def get_order(self, order_id):
+                                            # Return updated order with more fills over time
+                                            if order_id not in self.partial_fills:
+                                                self.partial_fills[order_id] = 0.5
+                                            else:
+                                                self.partial_fills[order_id] = min(1.0, self.partial_fills[order_id] + 0.25)
 
-                                # Find original order qty
-                                original_qty = 100  # Simplified
-                                filled = original_qty * self.partial_fills[order_id]
+                                            # Find original order qty
+                                            original_qty = 100  # Simplified
+                                            filled = original_qty * self.partial_fills[order_id]
 
-                                return {
-                                    'id': order_id,
-                                    'symbol': 'AAPL',
-                                    'qty': original_qty,
-                                    'filled_qty': filled,
-                                    'side': 'buy',
-                                    'type': 'market',
-                                    'status': 'filled' if self.partial_fills[order_id] >= 1.0 else 'partially_filled',
-                                    'filled_price': 150.0
-                                }
+                                            return {
+                                                'id': order_id,
+                                                'symbol': 'AAPL',
+                                                'qty': original_qty,
+                                                'filled_qty': filled,
+                                                'side': 'buy',
+                                                'type': 'market',
+                                                'status': 'filled' if self.partial_fills[order_id] >= 1.0 else 'partially_filled',
+                                                'filled_price': 150.0
+                                            }
 
-                        partial_client = PartialFillClient()
+                                    partial_client = PartialFillClient()
 
-                        with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
-                            mock_alpaca.return_value = partial_client
+                                    with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
+                                        mock_alpaca.return_value = partial_client
 
-                            engine = AlpacaPaperEngine(mode='paper')
+                                        engine = AlpacaPaperEngine(mode='paper')
 
-                            # Clear any existing pending orders first
-                            engine.order_manager.pending_orders.clear()
+                                        # Clear any existing pending orders first
+                                        engine.order_manager.pending_orders.clear()
 
-                            # Submit entry
-                            order = engine.order_manager.submit_entry('AAPL', shares=100, stop_price=140.0)
-                            self.assertIsNotNone(order)
+                                        # Submit entry
+                                        order = engine.order_manager.submit_entry('AAPL', shares=100, stop_price=140.0)
+                                        self.assertIsNotNone(order)
 
-                            # Check order exists in pending (should be exactly 1)
-                            self.assertEqual(engine.order_manager.get_pending_count(), 1,
-                                "Should have exactly 1 pending order after submission")
+                                        # Check order exists in pending (should be exactly 1)
+                                        self.assertEqual(engine.order_manager.get_pending_count(), 1,
+                                            "Should have exactly 1 pending order after submission")
 
         print("✅ Partial fill: Order system handles incomplete fills")
 
@@ -427,7 +447,7 @@ class TestPartialFillHandling(unittest.TestCase):
 class TestDelistedTicker(unittest.TestCase):
     """Test position in delisted ticker - can't exit."""
 
-    @patch('paper_state.datetime')
+    @patch('traderlib.paper_state.datetime')
     def test_delisted_ticker_handling(self, mock_datetime):
         """Position in delisted ticker should be handled gracefully.
 
@@ -444,49 +464,57 @@ class TestDelistedTicker(unittest.TestCase):
             data_dir = Path(tmpdir)
 
             (data_dir / 'paper_positions.json').write_text('{}')
-            (data_dir / 'paper_account.json').write_text(json.dumps({
-                'cash': 100000.0, 'equity': 100000.0, 'entries_today': 0,
+            (data_dir / 'daily_tracker.json').write_text(json.dumps({
                 'last_entry_reset': '2024-04-08'
             }))
+            (data_dir / 'paper_trades.jsonl').write_text('')
 
             watchlist_path = data_dir / 'watchlist.csv'
             pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             with patch('paper_engine_alpaca.DATA_DIR', data_dir):
                 with patch('paper_engine_alpaca.WATCHLIST_PATH', watchlist_path):
-                    with patch('paper_state.DATA_DIR', data_dir):
-                        from paper_engine_alpaca import AlpacaPaperEngine
+                    with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                        with patch('traderlib.paper_state.POSITIONS_FILE', data_dir / 'paper_positions.json'):
+                            with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
+                                with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
+                                    from paper_engine_alpaca import AlpacaPaperEngine
 
-                        # Create client that fails for specific ticker
-                        class DelistedClient(FailingAlpacaClient):
-                            def get_latest_price(self, ticker, use_fallback=True):
-                                if ticker == 'DELISTED':
-                                    return None  # No price available
-                                return 150.0
+                                    # Create client that fails for specific ticker
+                                    class DelistedClient(FailingAlpacaClient):
+                                        def get_cached_price(self, ticker, max_age_seconds=None):
+                                            if ticker == 'DELISTED':
+                                                return None
+                                            return 150.0
 
-                        delisted_client = DelistedClient()
+                                        def get_latest_price(self, ticker, use_fallback=True):
+                                            if ticker == 'DELISTED':
+                                                return None
+                                            return 150.0
 
-                        with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
-                            mock_alpaca.return_value = delisted_client
+                                    delisted_client = DelistedClient()
 
-                            engine = AlpacaPaperEngine(mode='paper')
+                                    with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
+                                        mock_alpaca.return_value = delisted_client
 
-                            # Manually add a position in delisted ticker
-                            engine.state.enter_position(
-                                ticker='DELISTED',
-                                entry_price=150.0,
-                                shares=100,
-                                stop_price=140.0,
-                                target_price=165.0,
-                                sector='Technology'
-                            )
+                                        engine = AlpacaPaperEngine(mode='paper')
 
-                            # Try to get price - should fail
-                            price = engine._get_current_price('DELISTED')
-                            self.assertIsNone(price)
+                                        # Manually add a position in delisted ticker
+                                        engine.state.enter_position(
+                                            ticker='DELISTED',
+                                            entry_price=150.0,
+                                            shares=100,
+                                            stop_price=140.0,
+                                            target_price=165.0,
+                                            sector='Technology'
+                                        )
 
-                            # Position should still exist
-                            self.assertIn('DELISTED', engine.state.positions)
+                                        # Try to get price - should fail
+                                        price = engine._get_current_price('DELISTED')
+                                        self.assertIsNone(price)
+
+                                        # Position should still exist
+                                        self.assertIn('DELISTED', engine.state.positions)
 
         print("✅ Delisted ticker: Stuck position handled gracefully")
 

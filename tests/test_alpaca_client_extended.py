@@ -80,6 +80,7 @@ class TestAlpacaClientConfig(unittest.TestCase):
             self.assertEqual(client.secret_key, 'test-secret')
 
     @patch.dict('os.environ', {}, clear=True)
+    @patch.dict('os.environ', {}, clear=True)
     def test_load_config_from_file(self):
         """Test loading config from file when env vars not set."""
         import tempfile
@@ -95,9 +96,9 @@ class TestAlpacaClientConfig(unittest.TestCase):
                 'historical_days': 200
             }))
 
-            with patch('alpaca_client.CONFIG_FILE', config_file), \
-                 patch('alpaca_client.TradingClient'), \
-                 patch('alpaca_client.StockHistoricalDataClient'):
+            with patch('traderlib.alpaca_client.CONFIG_FILE', config_file), \
+                 patch('traderlib.alpaca_client.TradingClient'), \
+                 patch('traderlib.alpaca_client.StockHistoricalDataClient'):
                 client = AlpacaClient(mode='paper')
                 self.assertEqual(client.api_key, 'file-key')
                 self.assertEqual(client.secret_key, 'file-secret')

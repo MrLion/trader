@@ -284,14 +284,8 @@ class TestAPIHealthMonitor(unittest.TestCase):
         self.monitor.providers['alpaca']['healthy'] = False
         self.assertTrue(self.monitor.should_fallback())
 
-    @unittest.skip("Source code has deadlock bug - get_status calls get_provider while holding lock")
     def test_get_status_returns_full_state(self):
-        """Status should return complete health state.
-
-        Note: This test reveals a deadlock bug in the source code where
-        get_status() calls get_provider() while holding the lock, but
-        get_provider() also tries to acquire the same lock.
-        """
+        """Status should return complete health state."""
         status = self.monitor.get_status()
 
         self.assertEqual(status['primary'], 'alpaca')

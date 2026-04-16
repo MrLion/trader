@@ -456,6 +456,16 @@ def reload_risk_config():
         _default_manager.reload()
 
 
+def reset_risk_config():
+    """Reset the global config manager singleton.
+
+    This is primarily useful for testing to ensure a fresh state
+    between tests that modify environment variables or config.
+    """
+    global _default_manager
+    _default_manager = None
+
+
 def print_risk_summary():
     """Print current risk configuration."""
     global _default_manager

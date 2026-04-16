@@ -185,7 +185,8 @@ class APIHealthMonitor:
         self.fallback = 'yfinance'
 
         # Thread safety lock for all mutable state
-        self._lock = threading.Lock()
+        # Using RLock to allow reentrant calls (e.g., get_status() calling get_provider())
+        self._lock = threading.RLock()
 
     def mark_success(self, provider: str):
         """Mark provider as healthy."""
