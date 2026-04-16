@@ -332,6 +332,10 @@ class AlpacaPaperEngine:
 
     async def _start_websocket(self):
         """Start WebSocket stream for watchlist tickers."""
+        # NEW: Guard - don't start WebSocket when market closed
+        if not is_market_open():
+            return False
+
         watchlist = self._load_watchlist_tickers()
         if not watchlist:
             print("⚠️ No tickers to stream")
@@ -1094,8 +1098,14 @@ class AlpacaPaperEngine:
 
         while self.running:
             try:
-                # Start/restart WebSocket if not running
-                if not ws_task or ws_task.done():
+                # NEW: Check if market closed - shut down gracefully
+                if not is_market_open():
+                    print("\n🛑 Market closed. Shutting down gracefully.")
+                    self.running = False
+                    break
+
+                # Start/restart WebSocket only if market is open
+                if is_market_open() and (not ws_task or ws_task.done()):
                     if ws_task and ws_task.done():
                         delay = self.alpaca.ws_reconnect_delay
                         # Check if task ended with exception
@@ -1127,7 +1137,9 @@ class AlpacaPaperEngine:
                     await self._check_exits()
                     await self._check_entries()
                 else:
-                    print("   ⏳ Market closed - monitoring only")
+                    # This should not happen now (we exit when market closes)
+                    # Keeping as fallback for edge cases
+                    print("   ⏳ Outside market hours - waiting")
 
                 # Countdown on single line
                 print("\n⏱️  Next check in 30s...", end='', flush=True)
@@ -1176,6 +1188,15 @@ def main():
     if args.risk_summary:
         manager = RiskConfigManager(profile=args.risk_profile)
         manager.print_summary()
+        return
+
+    # NEW: Pre-flight market check - exit if market closed
+    if not is_market_open():
+        next_open = next_market_open()
+        if next_open:
+            print(f"⏳ Market closed. Opens {next_open.strftime('%A at %H:%M')} ET. Exiting.")
+        else:
+            print("⏳ Market closed. Unable to determine next open time. Exiting.")
         return
 
     engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile)
