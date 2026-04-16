@@ -888,14 +888,18 @@ class AlpacaPaperEngine:
 
         # Submit order via order manager with entry metadata
         # Position will be created on fill confirmation, not immediately
-        order = self.order_manager.submit_entry(
-            ticker=ticker,
-            shares=shares,
-            stop_price=stop_price,
-            target_price=target_price,
-            sector=sector,
-            expected_entry_price=entry_price
-        )
+        try:
+            order = self.order_manager.submit_entry(
+                ticker=ticker,
+                shares=shares,
+                stop_price=stop_price,
+                target_price=target_price,
+                sector=sector,
+                expected_entry_price=entry_price
+            )
+        except (TimeoutError, ConnectionError) as e:
+            print(f"   ⚠️ {ticker}: Order submission failed due to connectivity issue — {e}")
+            return
 
         if order:
             # DO NOT create position here - prevents split-brain on crash
