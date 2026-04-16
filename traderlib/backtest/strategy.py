@@ -7,6 +7,7 @@ Entry/exit signals are dataclasses, not mutations of global state.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -95,7 +96,8 @@ class Stage2MomentumStrategy(Strategy):
 
     def __init__(self, exit_engine: ExitEngine, watchlist_tickers: Optional[list[str]] = None,
                  risk_config: Optional[RiskConfig] = None,
-                 execution_config: Optional[ExecutionConfig] = None):
+                 execution_config: Optional[ExecutionConfig] = None,
+                 watchlist_df: Optional[pd.DataFrame] = None):
         """Initialize with dependencies.
 
         Args:
@@ -103,13 +105,19 @@ class Stage2MomentumStrategy(Strategy):
             watchlist_tickers: Tickers to scan for entries (None = use data_provider)
             risk_config: Risk configuration for position sizing
             execution_config: Execution config for slippage calculations
+            watchlist_df: Historical watchlist DataFrame with week_start column
+                          for date-aware ticker filtering
         """
         self.exit_engine = exit_engine
         self.watchlist_tickers = watchlist_tickers
+        self.watchlist_df = watchlist_df
         self._risk_config = risk_config
         self._execution_model = ExecutionModel(execution_config or ExecutionConfig())
         # SPY return cache for RS calculation
         self._spy_return_cache: dict[date, float] = {}
+        # Sector cache to avoid repeated yfinance lookups
+        self._sector_cache: dict[str, str] = {}
+        self._sector_cache_path = Path("data/ticker_sectors_cache.json")
 
     @property
     def side(self) -> str:
@@ -138,6 +146,52 @@ class Stage2MomentumStrategy(Strategy):
         self._spy_return_cache[as_of] = 0.0
         return 0.0
 
+    def _get_sector(self, ticker: str) -> str:
+        """Get sector for ticker using yfinance, with caching.
+
+        Checks in-memory cache first, then yfinance API.
+        Results are cached to avoid repeated lookups.
+        """
+        # Check memory cache first
+        if ticker in self._sector_cache:
+            return self._sector_cache[ticker]
+
+        # Check disk cache
+        if self._sector_cache_path.exists():
+            try:
+                import json
+                with open(self._sector_cache_path) as f:
+                    disk_cache = json.load(f)
+                if ticker in disk_cache:
+                    self._sector_cache[ticker] = disk_cache[ticker]
+                    return disk_cache[ticker]
+            except Exception:
+                pass
+
+        # Fetch from yfinance
+        try:
+            import yfinance as yf
+            info = yf.Ticker(ticker).info
+            sector = info.get('sector', 'Unknown')
+            if sector and sector != 'Unknown':
+                self._sector_cache[ticker] = sector
+                self._save_sector_cache()
+                return sector
+        except Exception:
+            pass
+
+        return 'Unknown'
+
+    def _save_sector_cache(self):
+        """Save sector cache to disk for persistence across runs."""
+        try:
+            import json
+            self._sector_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._sector_cache_path, 'w') as f:
+                json.dump(self._sector_cache, f, indent=2, sort_keys=True)
+        except Exception:
+            pass
+
     def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
                         data_provider: DataFrameProvider, equity: float,
                         risk_config: Optional[RiskConfig] = None) -> list[EntrySignal]:
@@ -146,7 +200,19 @@ class Stage2MomentumStrategy(Strategy):
         Replicates the paper engine's _analyze_ticker() with injected data.
         """
         config = risk_config or self._risk_config
-        tickers = self.watchlist_tickers or []
+
+        # Date-aware watchlist filtering: if we have a historical watchlist
+        # with week_start column, only scan tickers that were on the list as of sim_date
+        if self.watchlist_df is not None and 'week_start' in self.watchlist_df.columns:
+            sim_ts = pd.Timestamp(sim_date)
+            active = self.watchlist_df[pd.to_datetime(self.watchlist_df['week_start']) <= sim_ts]
+            # Only include 'ready' list_type tickers
+            if 'list_type' in active.columns:
+                active = active[active['list_type'] == 'ready']
+            ticker_col = 'ticker' if 'ticker' in active.columns else 'Ticker'
+            tickers = active[ticker_col].dropna().unique().tolist()
+        else:
+            tickers = self.watchlist_tickers or []
         signals = []
 
         for ticker in tickers:
@@ -246,8 +312,8 @@ class Stage2MomentumStrategy(Strategy):
             if shares <= 0:
                 continue
 
-            # Sector (from watchlist data or default Unknown)
-            sector = 'Unknown'
+            # Sector lookup via yfinance with caching
+            sector = self._get_sector(ticker)
 
             # Initial stop price (immutable for R-multiple calculation)
             initial_stop_price = stop
