@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4] - 2026-04-15
+
+### Fixed
+- **Backtest sector limits** — backtests were hardcoding `sector='Unknown'` for all tickers, causing sector concentration limits to block entries after only 3 positions (all grouped under 'Unknown'). Now uses yfinance to lookup actual sectors with in-memory and disk caching (`data/ticker_sectors_cache.json`). Sector limits now work correctly with real diversification across sectors.
+
 ## [0.5.3] - 2026-04-15
 
 ### Changed
