@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6] - 2026-04-16
+
+### Added
+- **MA Support Stop — Dual Risk Parameter** — New stop calculation based on clustered moving averages below price. When MAs converge below the price, they form a natural support zone. The system computes both ATR stop and MA support stop, using `max(atr_stop, ma_support_stop)` for tighter risk management.
+  - `calculate_ma_support_stop()` in `traderlib/stage2_utils.py` — algorithm collects MAs below price, requires minimum cluster size (default 2) within spread threshold (default 5%), calculates stop at lowest MA minus buffer (default 1%).
+  - `MASupportConfig` dataclass in `traderlib/risk_config.py` — configuration with `enabled`, `buffer_pct`, `cluster_spread_pct`, `min_cluster_size`.
+  - `ma_support` section in `config/risk_config.yaml` — default enabled with profile overrides for conservative (1.5% buffer), aggressive (0.5% buffer), and tight_stops (3% spread, min 3 MAs).
+  - Dual risk display in `entry_signals.py` — shows ATR%, MA%, and Stop type (ATR/MA) columns.
+  - Integration in `paper_exits.py`, `backtest/strategy.py`, `paper_engine_alpaca.py`, `premarket_report.py` — MA support stop included in all stop calculations.
+  - MA10 added to `get_stage2_details()` return values for MA support calculations.
+
 ## [0.5.5] - 2026-04-15
 
 ### Changed

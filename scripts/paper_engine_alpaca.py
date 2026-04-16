@@ -657,6 +657,22 @@ class AlpacaPaperEngine:
             # Get recent low from Alpaca data for support
             recent_low = hist['Low'].tail(10).min()
             stop = max(atr_stop, recent_low)
+
+            # MA Support Stop calculation
+            if self.risk_config.ma_support.enabled:
+                from traderlib.stage2_utils import calculate_ma_support_stop
+                ma_result = calculate_ma_support_stop(
+                    current,
+                    s2_details,
+                    buffer_pct=self.risk_config.ma_support.buffer_pct,
+                    cluster_spread_pct=self.risk_config.ma_support.cluster_spread_pct,
+                    min_cluster_size=self.risk_config.ma_support.min_cluster_size
+                )
+                if ma_result:
+                    ma_support_stop = ma_result['ma_support_stop']
+                    # Use tighter stop (higher = less risk)
+                    stop = max(stop, ma_support_stop)
+
             # Sanity check: stop should be 3-15% below entry
             if stop > current * 0.97:
                 stop = current * 0.97

@@ -23,11 +23,13 @@ try:
         RiskConfig, RiskConfigManager,
         calculate_position_size_with_constraints
     )
+    from traderlib.stage2_utils import calculate_ma_support_stop
 except ImportError:
     # Fallback if risk_config not available
     RiskConfig = None
     RiskConfigManager = None
     calculate_position_size_with_constraints = None
+    calculate_ma_support_stop = None
 
 
 @dataclass
@@ -280,15 +282,21 @@ class ExitEngine:
         self,
         ticker: str,
         entry_price: float,
-        historical_data: Optional[pd.DataFrame] = None
+        historical_data: Optional[pd.DataFrame] = None,
+        s2_details: Optional[dict] = None
     ) -> float:
         """Calculate initial stop based on configured method.
 
         Supported methods:
         - atr_or_support: max(2xATR, recent low)
+        - atr_or_ma_support: max(2xATR, recent low, MA support cluster)
         - atr: 2xATR below entry
         - percent: Fixed percentage below entry
         - pivot_based: Based on support levels
+
+        When s2_details is provided and ma_support is enabled, computes an
+        alternative MA support stop. The final stop is max(ATR stop, MA support stop)
+        when a valid MA cluster exists.
 
         Args:
             ticker: Stock symbol (for logging/cache purposes)
@@ -296,6 +304,8 @@ class ExitEngine:
             historical_data: Optional DataFrame with OHLCV data for ATR calculation.
                              If provided, uses this data (enables backtesting/Alpaca-only).
                              If None, falls back to yfinance (legacy behavior for reports/tools).
+            s2_details: Optional Stage 2 details dict with MA values for MA support calculation.
+                         When provided and ma_support is enabled, calculates dual risk stop.
 
         Returns:
             float: Calculated stop price
@@ -315,7 +325,7 @@ class ExitEngine:
                 raise ValueError(f"historical_data missing required columns: {missing}")
 
         try:
-            # ATR-based methods (atr or atr_or_support)
+            # ATR-based methods (atr, atr_or_support, atr_or_ma_support)
             if historical_data is not None:
                 hist = historical_data
             else:
@@ -347,13 +357,34 @@ class ExitEngine:
             atr_stop = entry_price - (atr_mult * atr)
 
             # Apply method-specific logic
-            if method == "atr_or_support":
+            recent_low = hist['Low'].tail(10).min()
+
+            if method in ("atr_or_support", "atr_or_ma_support"):
                 # Use max of ATR stop and recent low
-                recent_low = hist['Low'].tail(10).min()
                 stop = max(atr_stop, recent_low)
             else:
                 # Pure ATR stop
                 stop = atr_stop
+
+            # MA Support Stop calculation (when enabled and s2_details provided)
+            ma_support_stop = None
+            if s2_details and calculate_ma_support_stop:
+                ma_config = self.risk_config.ma_support if self.risk_config else None
+                if ma_config and ma_config.enabled:
+                    ma_result = calculate_ma_support_stop(
+                        entry_price,
+                        s2_details,
+                        buffer_pct=ma_config.buffer_pct,
+                        cluster_spread_pct=ma_config.cluster_spread_pct,
+                        min_cluster_size=ma_config.min_cluster_size
+                    )
+                    if ma_result:
+                        ma_support_stop = ma_result['ma_support_stop']
+
+            # If MA support stop is available, use the tighter of ATR stop and MA support
+            # (higher stop price = tighter risk = less risk)
+            if ma_support_stop:
+                stop = max(stop, ma_support_stop)
 
             # Apply configured min/max bounds
             if self.risk_config:

@@ -39,6 +39,7 @@ stop_loss:
   # Method for calculating initial stop:
   # - "atr": Use 2x ATR below entry
   # - "atr_or_support": Use max(2x ATR, recent low)
+  # - "atr_or_ma_support": Use max(2x ATR, recent low, MA support cluster)
   # - "percent": Fixed percentage below entry
   # - "pivot_based": Based on pivot/support levels
   method: "atr_or_support"
@@ -57,6 +58,19 @@ stop_loss:
 
   # Fallback if calculation fails
   fallback_pct: 0.07  # 7% below entry
+
+# =============================================================================
+# MA SUPPORT STOP CONFIGURATION
+# =============================================================================
+# When enabled, calculates an alternative stop based on clustered moving averages
+# below the price. The system uses max(ATR stop, MA support stop) for tighter
+# risk management. MA support is used when MAs converge below price forming
+# a natural support zone.
+ma_support:
+  enabled: true
+  buffer_pct: 0.01  # 1% buffer below lowest cluster MA
+  cluster_spread_pct: 0.05  # 5% max spread for convergence
+  min_cluster_size: 2  # Minimum MAs required in cluster
 
 # =============================================================================
 # CACHE CONFIGURATION
@@ -142,6 +156,11 @@ profiles:
       max_position_pct: 0.10       # 10%
     stop_loss:
       max_stop_distance_pct: 0.08  # 8% max
+    ma_support:
+      enabled: true
+      buffer_pct: 0.015  # 1.5% buffer (wider stop, more conservative)
+      cluster_spread_pct: 0.05
+      min_cluster_size: 2
 
   aggressive:
     account:
@@ -150,6 +169,11 @@ profiles:
       max_position_pct: 0.10       # 10%
     stop_loss:
       max_stop_distance_pct: 0.15  # 15% max
+    ma_support:
+      enabled: true
+      buffer_pct: 0.005  # 0.5% buffer (tighter stop, more aggressive)
+      cluster_spread_pct: 0.05
+      min_cluster_size: 2
 
   tight_stops:
     # For setups with tight technical stops (pivot-based)
@@ -159,3 +183,8 @@ profiles:
       max_stop_distance_pct: 0.05   # 5%
     position:
       max_position_pct: 0.15         # Can take larger positions with tight stops
+    ma_support:
+      enabled: true
+      buffer_pct: 0.01
+      cluster_spread_pct: 0.03  # 3% spread (tighter cluster requirement)
+      min_cluster_size: 3  # Require 3 MAs in cluster

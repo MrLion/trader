@@ -348,6 +348,13 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
 - Partial positions when cash is limited (no rejection for insufficient buying power)
 
+**MA Support Stop (Dual Risk Parameter):**
+- Calculates alternative stop based on clustered MAs below price (ma10, ma20, ma50, ma100, ma200)
+- Requires minimum 2 MAs within 5% spread to form a valid cluster
+- Final stop = `max(ATR stop, MA support stop)` — tighter risk wins
+- Enabled by default; configure via `config/risk_config.yaml` `ma_support` section
+- Profile overrides: conservative (1.5% buffer), aggressive (0.5% buffer), tight_stops (3% spread, min 3 MAs)
+
 See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with examples.
 
 ## Data Model
