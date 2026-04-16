@@ -5,7 +5,7 @@ All data is sliced to <= sim_date to prevent future data leakage.
 """
 
 from datetime import date
-from typing import Optional, Protocol, runtime_checkable
+from typing import Callable, Optional, Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -60,13 +60,14 @@ class DataFrameProvider(Protocol):
         """
         ...
 
-    def prefetch(self, tickers: list[str], start: date, end: date) -> None:
+    def prefetch(self, tickers: list[str], start: date, end: date, **kwargs) -> None:
         """Bulk fetch data for tickers. No-op for providers that don't support it.
 
         Args:
             tickers: List of stock symbols to fetch
             start: Start date for data
             end: End date for data
+            **kwargs: Provider-specific options (e.g. on_progress callback)
         """
         ...
 
@@ -94,7 +95,8 @@ class AlpacaDataProvider:
         # Track tickers dropped due to insufficient data
         self.tickers_dropped: list[dict] = []
 
-    def prefetch(self, tickers: list[str], start: date, end: date) -> None:
+    def prefetch(self, tickers: list[str], start: date, end: date,
+                 on_progress: Optional[Callable] = None) -> None:
         """Bulk fetch all ticker data into memory.
 
         Uses rate limiting to stay within Alpaca's 200 req/min limit.
@@ -104,13 +106,28 @@ class AlpacaDataProvider:
             tickers: List of stock symbols to fetch
             start: Start date for historical data
             end: End date for historical data
+            on_progress: Optional callback(current_index, total, ticker) per ticker
         """
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
 
-        for ticker in tickers:
+        for i, ticker in enumerate(tickers):
             try:
-                self._rate_limiter.wait_if_needed()
+                # Respect rate limits
+                wait = self._rate_limiter.get_wait_time()
+                if wait > 0:
+                    import time
+                    time.sleep(wait)
+                if not self._rate_limiter.can_make_request():
+                    self.tickers_dropped.append({
+                        'ticker': ticker,
+                        'reason': 'rate_limited',
+                        'rows': 0,
+                        'min_required': self._min_lookback,
+                    })
+                    continue
+                self._rate_limiter.record_request()
+
                 request = StockBarsRequest(
                     symbol_or_symbols=ticker,
                     timeframe=TimeFrame.Day,
@@ -120,8 +137,35 @@ class AlpacaDataProvider:
                 )
                 bars = self._client.get_stock_bars(request)
 
-                if ticker in bars:
-                    df = bars[ticker].df
+                # bars.df returns a MultiIndex DataFrame (symbol, timestamp)
+                # with lowercase column names from alpaca-py.
+                # Note: 'ticker in bars' doesn't work on BarSet; use bars.data instead.
+                if ticker in bars.data:
+                    full_df = bars.df
+                    if full_df.empty:
+                        self.tickers_dropped.append({
+                            'ticker': ticker,
+                            'reason': 'no_data',
+                            'rows': 0,
+                            'min_required': self._min_lookback,
+                        })
+                        continue
+
+                    # Extract this ticker's rows from the MultiIndex DataFrame
+                    if isinstance(full_df.index, pd.MultiIndex):
+                        df = full_df.loc[ticker].copy()
+                    else:
+                        df = full_df.copy()
+
+                    # Normalize column names to Title Case (Open, High, Low, Close, Volume)
+                    col_map = {
+                        'open': 'Open', 'high': 'High', 'low': 'Low',
+                        'close': 'Close', 'volume': 'Volume',
+                        'trade_count': 'TradeCount', 'vwap': 'VWAP',
+                    }
+                    df.rename(columns={k: v for k, v in col_map.items() if k in df.columns},
+                              inplace=True)
+
                     if len(df) < self._min_lookback:
                         self.tickers_dropped.append({
                             'ticker': ticker,
@@ -145,6 +189,9 @@ class AlpacaDataProvider:
                     'rows': 0,
                     'min_required': self._min_lookback,
                 })
+
+            if on_progress:
+                on_progress(i + 1, len(tickers), ticker)
 
         self._prefetched = True
 
@@ -278,6 +325,6 @@ class DictDataProvider:
         except InsufficientDataError:
             return None
 
-    def prefetch(self, tickers: list[str], start: date, end: date) -> None:
+    def prefetch(self, tickers: list[str], start: date, end: date, **kwargs) -> None:
         """No-op for DictDataProvider — data is already in memory."""
         pass

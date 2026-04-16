@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-16
+
+### Added
+- **Comprehensive Test Suite for Critical Modules** — Added 155 new tests across 5 modules with zero previous coverage, bringing estimated test coverage from ~40-50% to ~70-80%.
+  - `tests/test_validation.py` (27 tests) — Ticker validation, false positive detection, batch validation, NO_COLOR support.
+  - `tests/test_rate_limiter.py` (33 tests) — Rate limiting, exponential backoff, circuit breaker, API health monitoring, thread safety.
+  - `tests/test_market_hours.py` (25 tests) — Trading day detection, market hours, holidays, timezone handling.
+  - `tests/test_risk_config.py` (40 tests) — Risk configuration loading, profiles, environment overrides, position sizing with triple constraints.
+  - `tests/test_order_manager.py` (30 tests) — Order lifecycle, queue processing, Alpaca integration, position sync, callbacks.
+
+## [0.5.6] - 2026-04-16
+
+### Added
+- **MA Support Stop — Dual Risk Parameter** — New stop calculation based on clustered moving averages below price. When MAs converge below the price, they form a natural support zone. The system computes both ATR stop and MA support stop, using `max(atr_stop, ma_support_stop)` for tighter risk management.
+  - `calculate_ma_support_stop()` in `traderlib/stage2_utils.py` — algorithm collects MAs below price, requires minimum cluster size (default 2) within spread threshold (default 5%), calculates stop at lowest MA minus buffer (default 1%).
+  - `MASupportConfig` dataclass in `traderlib/risk_config.py` — configuration with `enabled`, `buffer_pct`, `cluster_spread_pct`, `min_cluster_size`.
+  - `ma_support` section in `config/risk_config.yaml` — default enabled with profile overrides for conservative (1.5% buffer), aggressive (0.5% buffer), and tight_stops (3% spread, min 3 MAs).
+  - Dual risk display in `entry_signals.py` — shows ATR%, MA%, and Stop type (ATR/MA) columns.
+  - Integration in `paper_exits.py`, `backtest/strategy.py`, `paper_engine_alpaca.py`, `premarket_report.py` — MA support stop included in all stop calculations.
+  - MA10 added to `get_stage2_details()` return values for MA support calculations.
+
+## [0.5.5] - 2026-04-15
+
+### Changed
+- **Backtest terminal report redesigned with Rich** — replaced plain monochrome output with color-coded, two-column layout. Green for positive, red for negative, dim for broken metrics. Includes Sharpe gauge (●●●○○), win rate bar (▉▉▉▉▉▉▉░░░), exit reason breakdown with P&L, top 5 winners/losers, and equity sparkline (▂▃▄▅▆▇█).
+- **Commissions removed from backtesting** — `ExecutionConfig` no longer has commission fields. `FillResult` no longer tracks commission. P&L is pure `(exit - entry) * shares` for LONG. Cash accounting simplified. Commissions were noise at this scale and added complexity without insight.
+- **SPY benchmark timezone fix** — `engine._get_benchmark()` compared tz-aware Alpaca timestamps against tz-naive pandas Timestamps, causing `TypeError` and silently returning 0.00% SPY return. Now strips timezone with `tz_localize(None)` before date comparison. SPY benchmark and alpha now display correctly.
+- **Graceful Ctrl+C shutdown** — pressing Ctrl+C during backtest no longer dumps a raw KeyboardInterrupt traceback. During prefetch: prints how many tickers were cached and exits cleanly. During simulation: liquidates open positions, returns a partial `BacktestResult` with `partial=True`, and prints a partial report with a yellow "PARTIAL RUN" warning showing the actual date range covered.
+
+### Added
+- `--trades` flag on `scripts/backtest.py` — shows a full trade table (all trades sorted by entry date) with Ticker, Entry/Exit dates, Shares, Entry/Exit prices, P&L, R-multiple, and exit reason. Uses a wider Console (140 cols) to prevent column truncation.
+- `print_report_rich()` on `BacktestReporter` — Rich-formatted terminal report with color, panels, tables, and sparkline. Falls back to `print_report()` if Rich import fails.
+- **Rich progress bar during backtest** — two-bar display: "Fetching data" shows per-ticker progress during prefetch (with current ticker name), "Simulating" shows per-day progress with current date, open positions, equity, and trade count. Uses `transient=True` so bars disappear after completion, leaving a clean report. Plain-text fallback with `\r` overwrites if Rich is unavailable.
+- `BacktestProgress` dataclass and `on_progress`/`progress_interval` callback on `BacktestConfig` — engine emits progress snapshots each iteration, CLI wires them into Rich Progress display. Engine stays decoupled (no Rich imports).
+- `on_progress` callback on `AlpacaDataProvider.prefetch()` — emits `(current, total, ticker)` per ticker during data fetching.
+- Exit breakdown section in report — groups trades by exit reason (Target Hit, Stop Hit, Liquidation) with count and total P&L for each.
+- Gap rejections now shown in the report body (was previously printed separately in `backtest.py`).
+- `quiet=True` parameter on `RiskConfigManager` — suppresses "Applying risk profile" print to avoid duplicate output during backtests.
+- `watchlist_df` parameter on `Stage2MomentumStrategy` — accepts a DataFrame with `week_start` column for date-aware ticker filtering during backtests. Tickers are filtered to only those active on or before `sim_date`, supporting time-varying watchlists from `mc_historical_watchlists.csv`.
+- `partial` flag on `BacktestResult` and `BacktestReport` — marks interrupted runs so the report can show a warning.
+
+### Fixed
+- **Backtest data provider: Alpaca BarSet API** — `bars[ticker]` returns a list, not a Bars object with `.df`. Fixed to use `bars.df` (MultiIndex DataFrame) and extract per-ticker data with `.loc[ticker]`. Column names normalized from lowercase (open/high/low/close) to Title Case.
+- **Backtest data provider: RateLimiter API** — `wait_if_needed()` doesn't exist on RateLimiter. Fixed to use `can_make_request()`, `get_wait_time()`, and `record_request()`.
+- **Backtest engine: prefetch date range too narrow** — engine was passing `start_date` as prefetch start, only getting ~23 days of data. Extended to `start_date - 400 days` to satisfy 252-row min_lookback and provide historical context for indicators (130-day RS, 50-day MA, 14-day ATR).
+- **Drawdown showing green ▲ arrow** — `_fmt_pct(invert=True)` logic was wrong. Higher drawdown = worse, now correctly shows ▼ and red for positive drawdown values.
+- **Trade table column truncation** — Rich auto-compressed columns to fit terminal width, truncating "Shares" to "Shar..." and hiding R/Reason columns. Fixed by using fixed `width=` columns and a dedicated 140-col Console for the trade table.
+- **Ctrl+C traceback during prefetch** — `time.sleep(wait)` in `AlpacaDataProvider.prefetch()` threw raw `KeyboardInterrupt`. Now caught with a clean message showing cached ticker count.
+
 ## [0.5.4] - 2026-04-15
 
 ### Fixed

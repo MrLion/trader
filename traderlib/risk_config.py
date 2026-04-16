@@ -32,13 +32,27 @@ class PositionRiskConfig:
 @dataclass
 class StopLossConfig:
     """Stop loss calculation settings."""
-    method: str = "atr_or_support"  # atr, atr_or_support, percent, pivot_based
+    method: str = "atr_or_support"  # atr, atr_or_support, atr_or_ma_support, percent, pivot_based
     fixed_pct: float = 0.07
     atr_period: int = 14
     atr_multiplier: float = 2.0
     min_stop_distance_pct: float = 0.03  # 3%
     max_stop_distance_pct: float = 0.10   # 10%
     fallback_pct: float = 0.07
+
+
+@dataclass
+class MASupportConfig:
+    """MA support stop settings for dual risk parameter.
+
+    When enabled, calculates an alternative stop based on clustered moving
+    averages below the price. The system uses max(ATR stop, MA support stop)
+    for tighter risk management.
+    """
+    enabled: bool = True
+    buffer_pct: float = 0.01  # 1% buffer below lowest cluster MA
+    cluster_spread_pct: float = 0.05  # 5% max spread for convergence
+    min_cluster_size: int = 2  # Minimum MAs required in cluster
 
 
 @dataclass
@@ -99,6 +113,7 @@ class RiskConfig:
     account: AccountRiskConfig = field(default_factory=AccountRiskConfig)
     position: PositionRiskConfig = field(default_factory=PositionRiskConfig)
     stop_loss: StopLossConfig = field(default_factory=StopLossConfig)
+    ma_support: MASupportConfig = field(default_factory=MASupportConfig)
     profit_target: ProfitTargetConfig = field(default_factory=ProfitTargetConfig)
     entry: EntryConfig = field(default_factory=EntryConfig)
     market: MarketFilterConfig = field(default_factory=MarketFilterConfig)
@@ -109,15 +124,18 @@ class RiskConfig:
 class RiskConfigManager:
     """Manages loading and accessing risk configuration."""
 
-    def __init__(self, config_path: Optional[Path] = None, profile: Optional[str] = None):
+    def __init__(self, config_path: Optional[Path] = None, profile: Optional[str] = None,
+                 quiet: bool = False):
         """Initialize with optional config path and profile.
 
         Args:
             config_path: Path to YAML config file (default: config/risk_config.yaml)
             profile: Named profile to load (default: use base config)
+            quiet: If True, suppress profile application messages
         """
         self.config_path = config_path or self._default_config_path()
         self.profile = profile
+        self.quiet = quiet
         self.config = self._load_config()
 
     def _default_config_path(self) -> Path:
@@ -149,11 +167,13 @@ class RiskConfigManager:
             if self.profile and 'profiles' in data:
                 profile_data = data['profiles'].get(self.profile)
                 if profile_data:
-                    print(f"🔧 Applying risk profile: {self.profile}")
+                    if not self.quiet:
+                        print(f"🔧 Applying risk profile: {self.profile}")
                     self._apply_config_dict(config, profile_data)
                 else:
                     available = list(data['profiles'].keys())
-                    print(f"⚠️  Profile '{self.profile}' not found. Available: {available}")
+                    if not self.quiet:
+                        print(f"⚠️  Profile '{self.profile}' not found. Available: {available}")
 
             # Apply environment variable overrides
             self._apply_env_overrides(config)
@@ -187,6 +207,11 @@ class RiskConfigManager:
                         config.stop_loss.atr_multiplier = val['multiplier']
                 elif hasattr(config.stop_loss, key):
                     setattr(config.stop_loss, key, val)
+
+        if 'ma_support' in data:
+            for key, val in data['ma_support'].items():
+                if hasattr(config.ma_support, key):
+                    setattr(config.ma_support, key, val)
 
         if 'profit_target' in data:
             pt_data = data['profit_target']
@@ -280,6 +305,11 @@ class RiskConfigManager:
         print(f"Stop Method:        {cfg.stop_loss.method}")
         print(f"Max Stop Distance:  {cfg.stop_loss.max_stop_distance_pct*100:.2f}%")
         print(f"Min Stop Distance:  {cfg.stop_loss.min_stop_distance_pct*100:.2f}%")
+        print(f"MA Support:         {'enabled' if cfg.ma_support.enabled else 'disabled'}")
+        if cfg.ma_support.enabled:
+            print(f"  Buffer:           {cfg.ma_support.buffer_pct*100:.1f}%")
+            print(f"  Cluster Spread:   {cfg.ma_support.cluster_spread_pct*100:.1f}%")
+            print(f"  Min Cluster Size: {cfg.ma_support.min_cluster_size}")
         print(f"Min R Target:       {cfg.profit_target.min_r_multiple}")
         print(f"Entry Threshold:    {cfg.entry.min_entry_score}")
         print(f"EMA Periods:        {cfg.profit_target.ema_short_period}/{cfg.profit_target.ema_long_period}")

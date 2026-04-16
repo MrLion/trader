@@ -15,7 +15,7 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
-from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfigManager
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker, validate_tickers
@@ -164,13 +164,39 @@ class EntrySignalScanner:
             except Exception:
                 atr = current * 0.02  # Default 2% ATR
 
-            # Calculate stop and target
-            stop = current - (2 * atr)
+            # Calculate ATR stop
+            atr_stop = current - (2 * atr)
+            atr_risk_pct = abs((atr_stop - pivot) / pivot) * 100 if pivot > atr_stop else 999
+
+            # MA Support Stop calculation
+            ma_support_stop = None
+            ma_risk_pct = None
+            stop_type = 'ATR'
+            if self.risk_config.ma_support.enabled:
+                ma_result = calculate_ma_support_stop(
+                    current,
+                    s2_details,
+                    buffer_pct=self.risk_config.ma_support.buffer_pct,
+                    cluster_spread_pct=self.risk_config.ma_support.cluster_spread_pct,
+                    min_cluster_size=self.risk_config.ma_support.min_cluster_size
+                )
+                if ma_result:
+                    ma_support_stop = ma_result['ma_support_stop']
+                    ma_risk_pct = abs((ma_support_stop - pivot) / pivot) * 100 if pivot > ma_support_stop else 999
+
+            # Final stop: tighter risk wins (higher stop = less risk)
+            if ma_support_stop and ma_support_stop > atr_stop:
+                stop = ma_support_stop
+                risk_pct = ma_risk_pct
+                stop_type = 'MA'
+            else:
+                stop = atr_stop
+                risk_pct = atr_risk_pct
+
             risk_per_share = current - stop
             target = current + (2 * risk_per_share) if risk_per_share > 0 else current * 1.04
 
             dist_to_pivot = ((pivot - current) / current) * 100
-            risk_pct = abs((stop - pivot) / pivot) * 100 if pivot > stop else 999
 
             # Relative strength
             spy_return_6m = self._get_spy_return_6m()
@@ -200,6 +226,11 @@ class EntrySignalScanner:
                 'tier': tier,
                 'dist_to_pivot': dist_to_pivot,
                 'risk_pct': risk_pct,
+                'atr_stop': atr_stop,
+                'atr_risk_pct': atr_risk_pct,
+                'ma_support_stop': ma_support_stop,
+                'ma_risk_pct': ma_risk_pct,
+                'stop_type': stop_type,
                 'ret_6m': ret_6m,
                 'rs_6m': rs_6m,
                 'atr': atr,
@@ -325,25 +356,29 @@ class EntrySignalScanner:
         if ready_now:
             print(f"\n🔥 READY NOW - Entry Signals (Score ≥{entry_threshold}, Within ±{max_dist}%)")
             # DESIGN FIX: Added Age column for signal staleness visibility
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Price':<10} {'→ Pivot':<10} {'Age':<10}")
-            print("-" * 100)
+            # Show dual risk columns when MA support is available
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Price':<10} {'→ Pivot':<10} {'Age':<10}")
+            print("-" * 120)
             for a in ready_now:
                 age_str = _format_age(a.get('timestamp'))
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
+                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
 
         if close_pivot:
             print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{entry_threshold}, Distance 1-3%)")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 90)
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 110)
             for a in close_pivot:
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if extended:
             print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{entry_threshold})")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 90)
+            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Current':<10} {'→ Pivot':<10}")
+            print("-" * 110)
             for a in extended:
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if tier2_watch:
             print(f"\n📊 TIER 2 WATCH - Developing Setups (Score 40-59)")
@@ -423,8 +458,8 @@ class EntrySignalScanner:
 
     <h2 class="tier1">🟢 Ready Now (Score ≥60)</h2>
     <table>
-        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/8</td><td>{s["sector"]}</td></tr>' for s in tier1)}
+        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>ATR%</th><th>MA%</th><th>Stop</th><th>S2</th><th>Sector</th></tr>
+        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s.get("atr_risk_pct", "—"):.1f}%</td><td>{s.get("ma_risk_pct", "—"):.1f}%</td><td>{s["stop_type"]}</td><td>{s["stage2"]}/8</td><td>{s["sector"]}</td></tr>' for s in tier1)}
     </table>
 
     <h2 class="tier2">🟡 Tier 2 (Score 40-59)</h2>
@@ -496,6 +531,10 @@ class EntrySignalScanner:
                 print(f"| Stop | ${analysis['stop']:.2f} |")
                 print(f"| Target | ${analysis['target']:.2f} |")
                 print(f"| Risk % | {analysis['risk_pct']:.1f}% |")
+                print(f"| ATR Stop | ${analysis['atr_stop']:.2f} ({analysis['atr_risk_pct']:.1f}%) |")
+                if analysis.get('ma_support_stop'):
+                    print(f"| MA Support | ${analysis['ma_support_stop']:.2f} ({analysis['ma_risk_pct']:.1f}%) |")
+                print(f"| Stop Type | {analysis['stop_type']} |")
 
                 # Verdict (8-point system thresholds)
                 if score >= 7 and analysis['risk_pct'] < 10:
@@ -617,7 +656,8 @@ Examples:
     if signals:
         print(f"\n✅ Found {len(signals)} entry signal(s):")
         for s in signals:
-            print(f"   {s['ticker']}: Score {s['entry_score']:.0f} ({s['tier']}) - ${s['current']:.2f}")
+            stop_info = f"({s['stop_type']} stop)" if s.get('stop_type') else ""
+            print(f"   {s['ticker']}: Score {s['entry_score']:.0f} ({s['tier']}) - ${s['current']:.2f} {stop_info}")
     else:
         print("\n⏸️  No entry signals found")
 

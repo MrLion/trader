@@ -14,9 +14,9 @@ At end: liquidate, compute buy-and-hold SPY benchmark.
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import pandas as pd
 
@@ -40,6 +40,21 @@ class BacktestConfig:
     risk_profile: str = "conservative"
     execution_config: Optional[ExecutionConfig] = None
     max_open_positions: int = 10
+    on_progress: Optional[Callable] = None
+    progress_interval: int = 1
+
+
+@dataclass
+class BacktestProgress:
+    """Progress snapshot emitted during backtest simulation."""
+    phase: str                      # "prefetch" or "simulation"
+    current: int                    # Current iteration
+    total: int                      # Total iterations
+    sim_date: Optional[date] = None # Current simulation date (simulation only)
+    positions: int = 0              # Open position count
+    equity: float = 0.0            # Current equity
+    trades: int = 0                # Closed trade count
+    ticker: Optional[str] = None   # Current ticker (prefetch only)
 
 
 @dataclass
@@ -52,6 +67,7 @@ class BacktestResult:
     config: BacktestConfig
     gap_rejections: list[dict] = field(default_factory=list)
     tickers_dropped: list[dict] = field(default_factory=list)
+    partial: bool = False  # True if run was interrupted
 
 
 class BacktestEngine:
@@ -67,10 +83,10 @@ class BacktestEngine:
         self.strategy = strategy
         self.config = config
 
-        # Risk configuration
+        # Risk configuration (quiet=True to avoid duplicate print — backtest.py already reports profile)
         self._risk_config: Optional[RiskConfig] = None
         try:
-            manager = RiskConfigManager(profile=config.risk_profile)
+            manager = RiskConfigManager(profile=config.risk_profile, quiet=True)
             self._risk_config = manager.get_config()
         except Exception:
             pass
@@ -89,7 +105,9 @@ class BacktestEngine:
         """Execute the backtest day by day.
 
         Returns:
-            BacktestResult with trades, equity curve, and final state
+            BacktestResult with trades, equity curve, and final state.
+            If interrupted by Ctrl+C, returns a partial result with
+            BacktestResult.partial=True.
         """
         # Initialize state
         state = BacktestState(
@@ -115,13 +133,31 @@ class BacktestEngine:
             self.config.tickers = self._load_watchlist(self.config.watchlist_path)
 
         # Prefetch data for tickers
+        # Extend start date by ~400 days to provide historical context for
+        # indicators (130-day RS, 50-day MA, 14-day ATR) and satisfy the
+        # data provider's 252-row min_lookback requirement
+        was_interrupted = False
         if self.config.tickers:
             prefetch_tickers = list(self.config.tickers) + ['SPY']
-            self.data_provider.prefetch(
-                prefetch_tickers,
-                start=self.config.start_date,
+            prefetch_start = self.config.start_date - timedelta(days=400)
+            # Pass progress callback to prefetch if available
+            prefetch_kwargs = dict(
+                tickers=prefetch_tickers,
+                start=prefetch_start,
                 end=self.config.end_date,
             )
+            if self.config.on_progress:
+                def _prefetch_cb(current, total, ticker):
+                    self.config.on_progress(BacktestProgress(
+                        phase="prefetch", current=current, total=total, ticker=ticker,
+                    ))
+                prefetch_kwargs['on_progress'] = _prefetch_cb
+            try:
+                self.data_provider.prefetch(**prefetch_kwargs)
+            except KeyboardInterrupt:
+                cached = len(getattr(self.data_provider, '_cache', {}))
+                print(f"\n  Interrupted during data fetch ({cached} tickers cached)")
+                raise
 
         # Collect dropped tickers from provider
         tickers_dropped = []
@@ -131,55 +167,73 @@ class BacktestEngine:
         # Previous day tracking for T+1 fills
         prev_date: Optional[date] = None
 
-        for i, sim_date in enumerate(trading_days):
-            state.set_date(sim_date)
+        try:
+            for i, sim_date in enumerate(trading_days):
+                state.set_date(sim_date)
 
-            # Step 1: Resolve pending fills from yesterday's signals
-            if prev_date is not None and i > 0:
-                self._resolve_pending_fills(state, sim_date)
+                # Step 1: Resolve pending fills from yesterday's signals
+                if prev_date is not None and i > 0:
+                    self._resolve_pending_fills(state, sim_date)
 
-            # Clear pending queues (they've been resolved)
-            self._pending_entries = []
-            self._pending_exits = []
+                # Clear pending queues (they've been resolved)
+                self._pending_entries = []
+                self._pending_exits = []
 
-            # Step 2: Evaluate exits for current positions
-            current_positions = {
-                ticker: bp.position
-                for ticker, bp in state.positions.items()
-            }
+                # Step 2: Evaluate exits for current positions
+                current_positions = {
+                    ticker: bp.position
+                    for ticker, bp in state.positions.items()
+                }
 
-            # First, update stops via ExitEngine
-            self._update_stops(state, sim_date)
+                # First, update stops via ExitEngine
+                self._update_stops(state, sim_date)
 
-            # Then, get exit decisions from strategy
-            exit_decisions = self.strategy.evaluate_exits(
-                sim_date, current_positions, self.data_provider,
-                self._risk_config
-            )
+                # Then, get exit decisions from strategy
+                exit_decisions = self.strategy.evaluate_exits(
+                    sim_date, current_positions, self.data_provider,
+                    self._risk_config
+                )
 
-            # Step 3: Mark to market
-            state.mark_to_market(self.data_provider)
+                # Step 3: Mark to market
+                state.mark_to_market(self.data_provider)
 
-            # Step 4: Evaluate entries (signals fill at T+1)
-            entry_signals = self.strategy.evaluate_entries(
-                sim_date, current_positions, self.data_provider,
-                state.equity, self._risk_config
-            )
+                # Emit progress after mark_to_market (equity is accurate here)
+                if self.config.on_progress and i % self.config.progress_interval == 0:
+                    self.config.on_progress(BacktestProgress(
+                        phase="simulation",
+                        current=i + 1,
+                        total=len(trading_days),
+                        sim_date=sim_date,
+                        positions=len(state.positions),
+                        equity=state.equity,
+                        trades=len(state.closed_trades),
+                    ))
 
-            # Queue signals for T+1 execution
-            self._pending_entries = entry_signals
-            self._pending_exits = exit_decisions
+                # Step 4: Evaluate entries (signals fill at T+1)
+                entry_signals = self.strategy.evaluate_entries(
+                    sim_date, current_positions, self.data_provider,
+                    state.equity, self._risk_config
+                )
 
-            prev_date = sim_date
+                # Queue signals for T+1 execution
+                self._pending_entries = entry_signals
+                self._pending_exits = exit_decisions
 
-        # End of simulation: liquidate all positions at last close
-        self._liquidate_positions(state, trading_days[-1])
+                prev_date = sim_date
+
+        except KeyboardInterrupt:
+            was_interrupted = True
+
+        # Liquidate remaining positions (always — normal completion or interrupt)
+        if state.positions:
+            last_date = state.sim_date or trading_days[-1]
+            self._liquidate_positions(state, last_date)
 
         # Final mark to market
         state.mark_to_market(self.data_provider)
 
         # Fetch SPY benchmark data
-        benchmark = self._get_benchmark(trading_days)
+        benchmark = self._get_benchmark(trading_days) if not was_interrupted else pd.DataFrame()
 
         return BacktestResult(
             trades=state.closed_trades,
@@ -189,6 +243,7 @@ class BacktestEngine:
             config=self.config,
             gap_rejections=self._gap_rejections,
             tickers_dropped=tickers_dropped,
+            partial=was_interrupted,
         )
 
     def _resolve_pending_fills(self, state: BacktestState, sim_date: date):
@@ -217,8 +272,7 @@ class BacktestEngine:
             )
 
             state.close_position(
-                ticker, fill.fill_price, exit_decision.reason,
-                commission=fill.commission
+                ticker, fill.fill_price, exit_decision.reason
             )
 
         # Resolve entries
@@ -318,8 +372,7 @@ class BacktestEngine:
             )
 
             state.close_position(
-                ticker, fill.fill_price, 'LIQUIDATION',
-                commission=fill.commission
+                ticker, fill.fill_price, 'LIQUIDATION'
             )
 
     def _get_benchmark(self, trading_days: list[date]) -> pd.DataFrame:
@@ -328,10 +381,13 @@ class BacktestEngine:
             spy_data = self.data_provider.get_bars(
                 'SPY', trading_days[-1]
             )
-            # Filter to trading days in our range
-            start_ts = pd.Timestamp(trading_days[0])
-            end_ts = pd.Timestamp(trading_days[-1])
-            mask = (spy_data.index >= start_ts) & (spy_data.index <= end_ts)
+            # Strip timezone from index for date-only comparison
+            spy_idx = spy_data.index.tz_localize(None) if spy_data.index.tz else spy_data.index
+            # Normalize to midnight for date-level comparison
+            spy_dates = spy_idx.normalize()
+            start_d = pd.Timestamp(trading_days[0])
+            end_d = pd.Timestamp(trading_days[-1])
+            mask = (spy_dates >= start_d) & (spy_dates <= end_d)
             return spy_data.loc[mask]
         except Exception:
             return pd.DataFrame()

@@ -217,15 +217,25 @@ python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
 # Use a specific watchlist and risk profile
 python3 scripts/backtest.py --watchlist data/watchlist.csv --risk-profile conservative
 
+# Use historical watchlists for time-varying ticker universe
+python3 scripts/backtest.py --start 2024-01-01 --end 2025-04-01 --watchlist mc_historical_watchlists.csv
+
+# Show all trades in the report
+python3 scripts/backtest.py --start 2025-01-01 --end 2025-03-31 --trades
+
 # Limit concurrent positions
 python3 scripts/backtest.py --max-positions 5
 ```
 
 **Backtest Features:**
 - Day-by-day simulation with next-bar fill and gap rejection
-- Deterministic slippage (5bps) and commissions ($0.005/share, $1 min)
+- Deterministic slippage (5bps), no commissions
+- Rich-formatted terminal report with color, exit breakdown, top winners/losers, equity sparkline
 - SPY benchmark comparison with alpha calculation
-- Configurable via risk profiles (conservative, aggressive, default)
+- Historical watchlist support for time-varying ticker universes (`mc_historical_watchlists.csv`)
+- Configurable via risk profiles (conservative, aggressive, tight_stops)
+- `--trades` flag to show all trade details
+- `--alpaca-mode data-only` (default) connects only to data endpoint, never trading
 - Survivorship bias disclaimer in reports
 
 ### Automated Trading (Alpaca)
@@ -337,6 +347,13 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - Position size < 5% equity (min 0.5%)
 - Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
 - Partial positions when cash is limited (no rejection for insufficient buying power)
+
+**MA Support Stop (Dual Risk Parameter):**
+- Calculates alternative stop based on clustered MAs below price (ma10, ma20, ma50, ma100, ma200)
+- Requires minimum 2 MAs within 5% spread to form a valid cluster
+- Final stop = `max(ATR stop, MA support stop)` — tighter risk wins
+- Enabled by default; configure via `config/risk_config.yaml` `ma_support` section
+- Profile overrides: conservative (1.5% buffer), aggressive (0.5% buffer), tight_stops (3% spread, min 3 MAs)
 
 See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with examples.
 

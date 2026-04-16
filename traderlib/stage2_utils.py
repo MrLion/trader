@@ -13,6 +13,8 @@ plus short-term trend confirmation:
 8. Price >= 1.25x 52-week low (strong recovery)
 """
 
+from typing import Optional
+
 import pandas as pd
 
 
@@ -102,6 +104,7 @@ def get_stage2_details(hist: pd.DataFrame) -> dict:
     high_52w = hist['Close'].max()
     low_52w = hist['Close'].min()
 
+    ma10 = hist['Close'].rolling(10).mean().iloc[-1]
     ma20 = hist['Close'].rolling(20).mean().iloc[-1]
     ma50 = hist['Close'].rolling(50).mean().iloc[-1]
     ma100 = hist['Close'].rolling(100).mean().iloc[-1]
@@ -134,6 +137,7 @@ def get_stage2_details(hist: pd.DataFrame) -> dict:
         'score': score,
         'criteria': criteria,
         'current': current,
+        'ma10': ma10,
         'ma20': ma20,
         'ma50': ma50,
         'ma100': ma100,
@@ -156,6 +160,85 @@ def is_stage2_compliant(score: int, min_score: int = 5) -> bool:
         bool: True if compliant
     """
     return score >= min_score
+
+
+def calculate_ma_support_stop(
+    current_price: float,
+    s2_details: dict,
+    buffer_pct: float = 0.01,
+    cluster_spread_pct: float = 0.05,
+    min_cluster_size: int = 2
+) -> Optional[dict]:
+    """
+    Calculate MA support stop based on clustered moving averages below price.
+
+    When moving averages converge below the price, they form a natural support zone.
+    A stop based on that zone is structurally more logical and often tighter than ATR.
+
+    Algorithm:
+    1. Collect all MAs from s2_details that are below current_price
+    2. If fewer than min_cluster_size MAs below price -> return None
+    3. Check cluster spread: (highest_ma - lowest_ma) / highest_ma
+       If > cluster_spread_pct -> return None (not converged)
+    4. Stop = lowest_ma * (1 - buffer_pct) — pure percentage buffer, NO ATR
+
+    Args:
+        current_price: Current stock price
+        s2_details: Dictionary from get_stage2_details() containing MA values
+        buffer_pct: Buffer percentage below lowest MA (default 1%)
+        cluster_spread_pct: Maximum spread for MA cluster (default 5%)
+        min_cluster_size: Minimum number of MAs required in cluster (default 2)
+
+    Returns:
+        Dictionary with MA support stop details, or None if no valid cluster
+        {
+            'ma_support_stop': float,
+            'lowest_ma': str,
+            'cluster_mas': list,
+            'cluster_spread_pct': float
+        }
+    """
+    if not s2_details or 'ma10' not in s2_details:
+        return None
+
+    # Collect all MAs that are below current price
+    ma_values = {
+        'ma10': s2_details.get('ma10'),
+        'ma20': s2_details.get('ma20'),
+        'ma50': s2_details.get('ma50'),
+        'ma100': s2_details.get('ma100'),
+        'ma200': s2_details.get('ma200'),
+    }
+
+    mas_below_price = []
+    for ma_name, ma_val in ma_values.items():
+        if ma_val is not None and pd.notna(ma_val) and ma_val < current_price:
+            mas_below_price.append((ma_name, float(ma_val)))
+
+    # Need at least min_cluster_size MAs below price
+    if len(mas_below_price) < min_cluster_size:
+        return None
+
+    # Sort by value (lowest first)
+    mas_below_price.sort(key=lambda x: x[1])
+
+    lowest_ma_name, lowest_ma_val = mas_below_price[0]
+    highest_ma_name, highest_ma_val = mas_below_price[-1]
+
+    # Check cluster spread
+    spread_pct = (highest_ma_val - lowest_ma_val) / highest_ma_val
+    if spread_pct > cluster_spread_pct:
+        return None
+
+    # Calculate stop: lowest MA minus buffer
+    stop = lowest_ma_val * (1 - buffer_pct)
+
+    return {
+        'ma_support_stop': round(stop, 2),
+        'lowest_ma': lowest_ma_name,
+        'cluster_mas': [name for name, _ in mas_below_price],
+        'cluster_spread_pct': round(spread_pct * 100, 2)
+    }
 
 
 def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,

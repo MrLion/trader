@@ -17,7 +17,7 @@ from traderlib.backtest.execution import ExecutionModel, ExecutionConfig
 from traderlib.backtest.state import BacktestState
 from traderlib.paper_exits import ExitEngine, ExitSignal
 from traderlib.paper_state import Position
-from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details
+from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfig, calculate_position_size_with_constraints
 
 
@@ -255,6 +255,20 @@ class Stage2MomentumStrategy(Strategy):
             atr_stop = current - (2 * atr)
             recent_low = float(hist['Low'].tail(10).min())
             stop = max(atr_stop, recent_low)
+
+            # MA Support Stop calculation
+            if config and config.ma_support.enabled:
+                ma_result = calculate_ma_support_stop(
+                    current,
+                    s2_details,
+                    buffer_pct=config.ma_support.buffer_pct,
+                    cluster_spread_pct=config.ma_support.cluster_spread_pct,
+                    min_cluster_size=config.ma_support.min_cluster_size
+                )
+                if ma_result:
+                    ma_support_stop = ma_result['ma_support_stop']
+                    # Use tighter stop (higher = less risk)
+                    stop = max(stop, ma_support_stop)
 
             # Enforce bounds: 3-15% below entry
             if config:

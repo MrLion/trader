@@ -10,6 +10,7 @@ from .stage2_utils import (
     get_entry_score,
     get_stage2_tier,
     get_stage2_details,
+    calculate_ma_support_stop,
 )
 from .risk_config import (
     RiskConfig,
@@ -23,6 +24,7 @@ __all__ = [
     "get_entry_score",
     "get_stage2_tier",
     "get_stage2_details",
+    "calculate_ma_support_stop",
     "RiskConfig",
     "RiskConfigManager",
     "calculate_position_size_with_constraints",

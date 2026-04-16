@@ -688,10 +688,25 @@ def load_watchlist():
                     ranges = pd.concat([high_low, high_close, low_close], axis=1)
                     true_range = ranges.max(axis=1)
                     atr = true_range.rolling(14).mean().iloc[-1]
-                    
-                    # Stop and risk
+
+                    # Calculate ATR stop
+                    atr_stop = current - (2 * atr)
                     recent_low = hist['Low'].tail(10).min()
-                    stop = max(recent_low, current - 2 * atr)
+                    stop = max(recent_low, atr_stop)
+
+                    # MA Support Stop calculation
+                    ma_result = calculate_ma_support_stop(
+                        current,
+                        s2_details,
+                        buffer_pct=0.01,  # Default 1% buffer
+                        cluster_spread_pct=0.05,  # Default 5% spread
+                        min_cluster_size=2  # Default min 2 MAs
+                    )
+                    if ma_result:
+                        ma_support_stop = ma_result['ma_support_stop']
+                        # Use tighter stop (higher = less risk)
+                        stop = max(stop, ma_support_stop)
+
                     risk = (pivot - stop) / pivot * 100 if pivot > stop else 0
                     
                     # Distance to pivot
