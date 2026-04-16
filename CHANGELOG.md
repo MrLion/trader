@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0.2] - 2026-04-16
+
+### Fixed
+- **Order submission crash on connectivity loss** — `order_manager.submit_entry()` now catches `TimeoutError` and `ConnectionError` in `_execute_entry()`, printing a warning and returning instead of crashing the engine.
+
+### Added
+- **88 new tests for critical trading modules** (712 → 746 passing)
+  - Phase 1: Risk management circuit breakers — 15 tests in `tests/test_paper_state_risk_gates.py`
+  - Phase 2: Order lifecycle state transitions — 18 tests in `tests/test_order_manager_lifecycle.py`
+  - Phase 3: Market hours calendar edges — 29 tests in `tests/test_market_hours_calendar.py`
+  - Phase 4: Paper engine fill processing & cooldown — 14 tests in `tests/test_paper_engine_fills.py`
+  - Phase 5: Backtest accuracy gates (gap rejection, stop calc, position sizing) — 12 tests in `tests/test_backtest_gap_rejection.py` and `tests/test_backtest_stop_calc.py`
+
 ## [0.6.0.1] - 2026-04-16
 
 ### Fixed
