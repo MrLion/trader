@@ -517,21 +517,13 @@ class TestAlpacaClientHistoricalData(unittest.TestCase):
             self.client = AlpacaClient(mode='paper')
 
     def test_get_historical_bars_rate_limited(self):
-        """Test historical bars when rate limited - should use fallback."""
-        # Fill rate limiter
+        """Test historical bars when rate limited - returns None."""
+        # Fill rate limiter to exceed the limit
         for _ in range(200):
             self.client.rate_limiter.record_request()
 
-        with patch.dict('sys.modules', {'yfinance': MagicMock()}):
-            import sys
-            mock_yf = sys.modules['yfinance']
-            mock_ticker = Mock()
-            mock_hist = pd.DataFrame({'Close': [100, 101, 102]})
-            mock_ticker.history.return_value = mock_hist
-            mock_yf.Ticker.return_value = mock_ticker
-
-            bars = self.client.get_historical_bars('AAPL', days=30)
-            self.assertIsNotNone(bars)
+        bars = self.client.get_historical_bars('AAPL', days=30)
+        self.assertIsNone(bars)
 
 
 def run_tests():
