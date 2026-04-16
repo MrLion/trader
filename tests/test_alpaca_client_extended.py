@@ -109,10 +109,10 @@ class TestAlpacaClientConfig(unittest.TestCase):
         """Test error when config is missing."""
         from traderlib.alpaca_client import AlpacaClient
 
-        with patch('alpaca_client.CONFIG_FILE', Path('/nonexistent/config.json')):
+        with patch('traderlib.alpaca_client.CONFIG_FILE', Path('/nonexistent/config.json')):
             with self.assertRaises(ValueError) as ctx:
                 AlpacaClient(mode='paper')
-            self.assertIn('API keys not found', str(ctx.exception))
+            self.assertIn('API keys not configured', str(ctx.exception))
 
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
     def test_load_config_int_default(self):
