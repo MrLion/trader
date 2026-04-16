@@ -16,6 +16,7 @@ from .risk_config import (
     RiskConfig,
     RiskConfigManager,
     calculate_position_size_with_constraints,
+    reset_risk_config,
 )
 
 __version__ = "0.3.1"
@@ -28,4 +29,5 @@ __all__ = [
     "RiskConfig",
     "RiskConfigManager",
     "calculate_position_size_with_constraints",
+    "reset_risk_config",
 ]

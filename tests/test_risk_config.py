@@ -409,25 +409,20 @@ class TestEnvironmentVariableOverrides(unittest.TestCase):
 
         self.assertEqual(config.position.max_position_pct, 0.10)
 
-    @unittest.skip("Global singleton persists between tests - reveals real issue")
     def test_invalid_env_value_ignored(self):
-        """Invalid env values should be ignored with warning.
-
-        Note: This test reveals that the global singleton manager persists
-        between tests, so environment variable changes don't take effect.
-        """
+        """Invalid env values should be ignored with warning."""
         os.environ['RISK_ACCOUNT_RISK_PCT'] = 'invalid'
 
         # Reset the global manager to force reload
-        import traderlib.risk_config as rc
-        rc._default_manager = None
+        from traderlib.risk_config import reset_risk_config
+        reset_risk_config()
 
         # Should not raise
         manager = RiskConfigManager(quiet=True)
         config = manager.get_config()
 
-        # Should use default (0.75%)
-        self.assertEqual(config.account.risk_per_trade_pct, 0.0075)
+        # Should use config file default (0.5%)
+        self.assertEqual(config.account.risk_per_trade_pct, 0.005)
 
 
 class TestProfileApplication(unittest.TestCase):
