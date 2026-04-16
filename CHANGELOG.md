@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0.4] - 2026-04-16
+
+### Added
+- **Auto-restart daemon mode** — `paper_engine_alpaca.py` now runs as a persistent daemon that automatically manages its lifecycle around market hours.
+  - Pre-market: Waits for 9:30 AM ET open with countdown display (Ctrl+C to cancel)
+  - Market hours: Runs normally, trades execute
+  - Market close (4:00 PM): Graceful shutdown, auto-restarts at next 9:30 AM
+  - Weekend/holiday: Waits until next trading day automatically
+  - Error recovery: On crash, waits 60s and retries (Ctrl+C to stop)
+  - One command: `python3 paper_engine_alpaca.py` → runs all week until stopped
+
 ## [0.6.0.3] - 2026-04-16
 
 ### Fixed
