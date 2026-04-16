@@ -12,12 +12,14 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
+
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from traderlib.backtest.data_provider import AlpacaDataProvider, DictDataProvider
-from traderlib.backtest.engine import BacktestEngine, BacktestConfig
+from traderlib.backtest.engine import BacktestEngine, BacktestConfig, BacktestProgress
 from traderlib.backtest.execution import ExecutionConfig
 from traderlib.backtest.report import BacktestReporter
 from traderlib.backtest.strategy import Stage2MomentumStrategy
@@ -34,9 +36,9 @@ def main():
     parser.add_argument('--watchlist', type=Path, help='Path to watchlist CSV')
     parser.add_argument('--risk-profile', default='conservative', help='Risk profile (default: conservative)')
     parser.add_argument('--slippage', type=float, default=5.0, help='Slippage in bps (default: 5)')
-    parser.add_argument('--commission', type=float, default=0.005, help='Commission per share (default: $0.005)')
     parser.add_argument('--max-positions', type=int, default=10, help='Max open positions (default: 10)')
     parser.add_argument('--csv', help='Export trades to CSV file')
+    parser.add_argument('--trades', action='store_true', help='Show all trades in report')
     parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
     parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
                         help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
@@ -48,7 +50,6 @@ def main():
 
     # Execution config
     exec_config = ExecutionConfig(
-        commission_per_share=args.commission,
         slippage_bps=args.slippage,
     )
 
@@ -61,6 +62,17 @@ def main():
             watchlist_path = data_path
         else:
             watchlist_path = PROJECT_ROOT / watchlist_path
+
+    # Load watchlist CSV into DataFrame for date-aware filtering
+    watchlist_df = None
+    if watchlist_path and not args.tickers:
+        try:
+            watchlist_df = pd.read_csv(watchlist_path)
+            ticker_col = 'Ticker' if 'Ticker' in watchlist_df.columns else 'ticker' if 'ticker' in watchlist_df.columns else None
+            if ticker_col:
+                args.tickers = watchlist_df[ticker_col].dropna().unique().tolist()
+        except Exception:
+            pass  # Engine will handle via _load_watchlist
 
     # Backtest config
     config = BacktestConfig(
@@ -80,7 +92,6 @@ def main():
         print(f"Capital:        ${config.initial_capital:,.0f}")
         print(f"Risk Profile:   {config.risk_profile}")
         print(f"Slippage:       {exec_config.slippage_bps} bps")
-        print(f"Commission:     ${exec_config.commission_per_share}/share")
         print(f"Max Positions:  {config.max_open_positions}")
         print("Dry run — no backtest executed.")
         return
@@ -100,6 +111,7 @@ def main():
     strategy = Stage2MomentumStrategy(
         exit_engine=exit_engine,
         watchlist_tickers=args.tickers,
+        watchlist_df=watchlist_df,
         risk_config=risk_config,
         execution_config=exec_config,
     )
@@ -110,25 +122,89 @@ def main():
     print(f"Initial capital: ${args.capital:,.0f}")
     print()
 
-    result = engine.run()
+    # Rich progress bar during backtest
+    try:
+        from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, MofNCompleteColumn
 
-    # Generate and print report
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=40),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TextColumn("{task.fields[detail]}", style="dim"),
+            transient=True,
+        ) as progress:
+            prefetch_task = progress.add_task(
+                "Fetching data", total=0, detail="",
+            )
+            sim_task = progress.add_task(
+                "Simulating", total=0, detail="",
+            )
+
+            def _on_progress(p: BacktestProgress):
+                if p.phase == "prefetch":
+                    progress.update(
+                        prefetch_task,
+                        total=p.total,
+                        completed=p.current,
+                        detail=p.ticker or "",
+                    )
+                elif p.phase == "simulation":
+                    detail = (
+                        f"{p.sim_date}  Pos:{p.positions}  "
+                        f"${p.equity:,.0f}  Trades:{p.trades}"
+                    )
+                    progress.update(
+                        sim_task,
+                        total=p.total,
+                        completed=p.current,
+                        detail=detail,
+                    )
+
+            config.on_progress = _on_progress
+            try:
+                result = engine.run()
+            except KeyboardInterrupt:
+                print("\n  Interrupted during data fetch. No results to show.")
+                sys.exit(1)
+
+    except ImportError:
+        # Fallback: plain-text progress
+        import sys
+
+        def _on_progress(p: BacktestProgress):
+            if p.phase == "prefetch":
+                msg = f"\rFetching data: {p.current}/{p.total} {p.ticker or ''}"
+            elif p.phase == "simulation":
+                msg = (
+                    f"\rSimulating: {p.current}/{p.total} "
+                    f"{p.sim_date}  Pos:{p.positions}  "
+                    f"${p.equity:,.0f}  Trades:{p.trades}"
+                )
+            else:
+                return
+            sys.stdout.write(f"{msg:<80}")
+            sys.stdout.flush()
+
+        config.on_progress = _on_progress
+        try:
+            result = engine.run()
+        except KeyboardInterrupt:
+            print("\n  Interrupted during data fetch. No results to show.")
+            sys.exit(1)
+        print()  # newline after \r progress
+
+    if result.partial:
+        print("  Interrupted — showing partial results\n")
+
+    # Generate and print report (Rich by default, plain fallback)
     report = BacktestReporter.generate(result)
-    BacktestReporter.print_report(report)
+    BacktestReporter.print_report_rich(report, show_all_trades=args.trades)
 
     # Export if requested
     if args.csv:
         BacktestReporter.to_csv(result, args.csv)
         print(f"Trades exported to {args.csv}")
-
-    # Gap rejections
-    if result.gap_rejections:
-        print(f"\nGap Rejections: {len(result.gap_rejections)} entries rejected")
-        for rej in result.gap_rejections[:5]:
-            print(f"  {rej['ticker']} on {rej['date']}: "
-                  f"open ${rej['open_price']:.2f} below stop ${rej['stop_price']:.2f}")
-        if len(result.gap_rejections) > 5:
-            print(f"  ... and {len(result.gap_rejections) - 5} more")
 
 
 if __name__ == '__main__':

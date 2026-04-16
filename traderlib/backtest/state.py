@@ -29,7 +29,6 @@ class TradeRecord:
     shares: int
     pnl: float
     exit_reason: str
-    commissions: float
 
 
 @dataclass
@@ -171,18 +170,17 @@ class BacktestState:
         return position
 
     def close_position(self, ticker: str, exit_price: float,
-                       reason: str, commission: float = 0.0) -> TradeRecord:
+                       reason: str) -> TradeRecord:
         """Close a position and record the trade.
 
         P&L is side-aware:
-        - LONG: (exit - entry) * shares - commissions
-        - SHORT: (entry - exit) * shares - commissions
+        - LONG: (exit - entry) * shares
+        - SHORT: (entry - exit) * shares
 
         Args:
             ticker: Stock symbol
             exit_price: Fill price (after slippage)
             reason: Exit reason string
-            commission: Commission on the exit trade
 
         Returns:
             TradeRecord with P&L details
@@ -195,11 +193,9 @@ class BacktestState:
 
         # Side-aware P&L
         if bp.side == 'LONG':
-            gross_pnl = (exit_price - pos.entry_price) * pos.shares
+            pnl = (exit_price - pos.entry_price) * pos.shares
         else:  # SHORT
-            gross_pnl = (pos.entry_price - exit_price) * pos.shares
-
-        net_pnl = gross_pnl - commission
+            pnl = (pos.entry_price - exit_price) * pos.shares
 
         trade = TradeRecord(
             ticker=ticker,
@@ -209,9 +205,8 @@ class BacktestState:
             entry_price=pos.entry_price,
             exit_price=exit_price,
             shares=pos.shares,
-            pnl=net_pnl,
+            pnl=pnl,
             exit_reason=reason,
-            commissions=commission,
         )
 
         self.closed_trades.append(trade)

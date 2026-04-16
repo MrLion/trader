@@ -26,6 +26,12 @@ python3 scripts/backtest.py --start 2025-10-01 --end 2026-04-01
 # Use your watchlist instead of a hardcoded ticker list
 python3 scripts/backtest.py --start 2025-10-01 --end 2026-04-01 --watchlist data/watchlist.csv
 
+# Use historical watchlists for time-varying ticker universe
+python3 scripts/backtest.py --start 2024-01-01 --end 2025-04-01 --watchlist mc_historical_watchlists.csv
+
+# Show all trades in the report
+python3 scripts/backtest.py --start 2025-10-01 --end 2026-04-01 --trades
+
 # Export results to CSV for deeper analysis
 python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --csv backtest_results
 ```
@@ -88,12 +94,13 @@ python3 scripts/backtest.py --start START --end END [OPTIONS]
 | `--watchlist` | None | Path to CSV watchlist file (expects `Ticker` column) |
 | `--risk-profile` | `conservative` | Risk profile: `conservative`, `aggressive`, or `tight_stops` |
 | `--slippage` | 5 bps | One-way slippage in basis points |
-| `--commission` | $0.005 | Commission per share (Alpaca Pro rate) |
 | `--max-positions` | 10 | Maximum concurrent open positions |
+| `--trades` | False | Show all trades in the report (full trade table) |
 | `--csv` | None | Export trade records and equity curve to CSV |
+| `--alpaca-mode` | `data-only` | Alpaca connection mode (`data-only` or `paper`) |
 | `--dry-run` | False | Validate config without running the simulation |
 
-**Note:** If neither `--tickers` nor `--watchlist` is provided, the engine uses `data/watchlist.csv` by default.
+**Note:** If neither `--tickers` nor `--watchlist` is provided, the engine uses `data/watchlist.csv` by default. When using `--watchlist mc_historical_watchlists.csv`, the engine automatically filters tickers by date using the `week_start` column, providing a time-varying watchlist that changes as the simulation progresses.
 
 ---
 
@@ -126,15 +133,16 @@ python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --risk-profile a
 
 ## Understanding the Report
 
-After the simulation completes, the engine prints a metrics report. Here's what each section means.
+After the simulation completes, the engine prints a Rich-formatted terminal report with color-coded metrics. Here's what each section means.
 
-### Returns
+### Performance
 
 | Metric | What It Tells You |
 |--------|-------------------|
-| **Total Return** | End-to-end return. If you started with $100K and ended with $120K, this is +20%. |
+| **Total Return** | End-to-end return. If you started with $100K and ended with $120K, this is +20%. Green ▲ if positive, red ▼ if negative. |
 | **Annualized Return** | CAGR, normalized to yearly rate. Useful for comparing across different backtest periods. |
-| **Volatility** | Annualized standard deviation of daily returns. Higher = more bumpy ride. |
+| **vs SPY** | Your return minus SPY buy-and-hold. Green ▲ if you beat the index. |
+| **Alpha** | Annualized alpha over SPY. The whole point of active trading. |
 
 **What to look for:** A strategy with +15% annualized return and 10% volatility (Sharpe ~1.5) is more usable than one with +25% return and 40% volatility (Sharpe ~0.6). The ride matters, not just the destination.
 
@@ -142,8 +150,8 @@ After the simulation completes, the engine prints a metrics report. Here's what 
 
 | Metric | What It Tells You |
 |--------|-------------------|
-| **Max Drawdown** | Worst peak-to-trough decline. If your $100K fell to $80K before recovering, that's -20% drawdown. |
-| **Sharpe Ratio** | Risk-adjusted return. Above 1.0 is good, above 2.0 is excellent. Below 0.5 means you're getting paid poorly for the risk. |
+| **Max Drawdown** | Worst peak-to-trough decline. Red ▼ always (drawdown is bad). |
+| **Sharpe Ratio** | Risk-adjusted return. Displayed with a 5-dot gauge (●●●○○). Above 1.0 is good, above 2.0 is excellent. Below 0.5 means you're getting paid poorly for the risk. |
 | **Sortino Ratio** | Like Sharpe but only penalizes downside volatility. More forgiving of upside swings. |
 | **Calmar Ratio** | Annualized return / max drawdown. Above 1.0 means your return exceeds your worst drawdown. |
 
@@ -153,20 +161,43 @@ After the simulation completes, the engine prints a metrics report. Here's what 
 
 | Metric | What It Tells You |
 |--------|-------------------|
-| **Win Rate** | % of trades that closed in profit. Stage 2 momentum typically wins 40-50% of trades. |
+| **Win Rate** | % of trades that closed in profit. Displayed with a visual bar (▉▉▉▉▉▉▉░░░). Stage 2 momentum typically wins 40-50% of trades. |
 | **Profit Factor** | Gross profit / gross loss. Above 1.5 is solid. Below 1.0 means you're losing money. |
 | **Avg R-Multiple** | Average P&L / initial risk. If you risk $500 per trade and average $750 profit, that's 1.5R. |
 
 **What to look for:** A 40% win rate with a 2.5 profit factor works. A 60% win rate with a 0.8 profit factor doesn't. Win rate alone is meaningless. Focus on profit factor and average R-multiple.
 
-### Costs
+### Exit Breakdown
 
-| Metric | What It Tells You |
-|--------|-------------------|
-| **Total Commissions** | Sum of all trade commissions paid. Should be a small fraction of total P&L. |
-| **Total Slippage** | Currently tracked as $0 in v1. Slippage is embedded in fill prices. |
+The report groups trades by exit reason with count and total P&L:
 
-**What to look for:** If commissions are a large fraction of gross P&L, you're trading too often or your edge is too thin. A $100K account paying $500 in commissions over 6 months is fine. Paying $5,000 means something is wrong.
+| Exit Reason | What It Means |
+|-------------|---------------|
+| **Target Hit** | Profit target reached (2R). These are your winners. |
+| **Stop Hit** | Hard stop triggered. These are your losers. |
+| **Liquidation** | Position still open at end of simulation, closed at last close. |
+| **Gap Rejected** | Entry signal rejected because T+1 open was at/below stop price. |
+
+This is the most actionable section for strategy tuning. If most exits are stops, the strategy needs wider stops or better entry timing. If most are liquidations, the period was too short.
+
+### Top Winners / Losers
+
+The report shows the top 5 winners and top 5 losers with ticker, dollar P&L, and R-multiple. This gives texture to the aggregate stats. Use `--trades` to see all trades.
+
+### All Trades Table (with `--trades`)
+
+The `--trades` flag shows a complete trade table sorted by entry date:
+
+```
+ Ticker  Entry       Exit        Shares   Entry $    Exit $         P&L      R  Reason
+ FTNT    2025-01-02  2025-01-09     150    $94.53    $95.99      +$220   0.2R  Stop Hit
+ RL      2025-01-02  2025-01-27      50   $231.10   $255.87    +$1,239   1.5R  Target Hit
+ ...
+```
+
+### Equity Sparkline
+
+A one-line unicode sparkline (▂▃▄▅▆▇█) showing the shape of the equity curve. Peak and trough values shown below. A steady climb is ideal. A V-shape means a big drawdown followed by recovery. A flat line means the strategy didn't trade much.
 
 ### Benchmark
 
@@ -285,17 +316,31 @@ python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
 
 `--max-positions` is the portfolio capacity. With 3 positions, you're concentrated. With 20, you're diversified but each position is smaller. The sweet spot for Stage 2 momentum is usually 5-10 positions.
 
-### Slippage and Commissions
+### Slippage
 
 ```bash
 # Zero-friction simulation (optimistic baseline)
-python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --slippage 0 --commission 0
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --slippage 0
 
 # High-friction simulation (pessimistic)
-python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --slippage 20 --commission 0.02
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --slippage 20
 ```
 
-Default is 5bps slippage and $0.005/share commission (Alpaca Pro pricing). If your backtest is profitable at 20bps slippage, the edge is probably real. If it only works at 0bps, you're cutting it close.
+Default is 5bps slippage (no commissions). If your backtest is profitable at 20bps slippage, the edge is probably real. If it only works at 0bps, you're cutting it close.
+
+### Historical Watchlists
+
+For time-varying ticker universes, use the historical watchlist from the MC Stock Charts scraper:
+
+```bash
+# Scrape historical watchlists first (one-time)
+python3 scripts/mcstock_historical_scraper.py --weeks 52
+
+# Then backtest with date-aware ticker filtering
+python3 scripts/backtest.py --start 2024-01-01 --end 2025-04-01 --watchlist mc_historical_watchlists.csv
+```
+
+The engine reads the `week_start` column from the CSV and filters tickers to only those active on or before each simulation date. This provides a more realistic simulation where the ticker universe evolves over time, reducing survivorship bias.
 
 ---
 
@@ -394,6 +439,13 @@ python3 scripts/backtest.py --start YYYY-MM-DD --end YYYY-MM-DD
 # With watchlist and risk profile
 python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 \
   --watchlist data/watchlist.csv --risk-profile conservative
+
+# With historical watchlist (time-varying ticker universe)
+python3 scripts/backtest.py --start 2024-01-01 --end 2025-04-01 \
+  --watchlist mc_historical_watchlists.csv
+
+# Show all trades in the report
+python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --trades
 
 # Export results
 python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --csv results

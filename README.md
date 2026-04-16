@@ -217,15 +217,25 @@ python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
 # Use a specific watchlist and risk profile
 python3 scripts/backtest.py --watchlist data/watchlist.csv --risk-profile conservative
 
+# Use historical watchlists for time-varying ticker universe
+python3 scripts/backtest.py --start 2024-01-01 --end 2025-04-01 --watchlist mc_historical_watchlists.csv
+
+# Show all trades in the report
+python3 scripts/backtest.py --start 2025-01-01 --end 2025-03-31 --trades
+
 # Limit concurrent positions
 python3 scripts/backtest.py --max-positions 5
 ```
 
 **Backtest Features:**
 - Day-by-day simulation with next-bar fill and gap rejection
-- Deterministic slippage (5bps) and commissions ($0.005/share, $1 min)
+- Deterministic slippage (5bps), no commissions
+- Rich-formatted terminal report with color, exit breakdown, top winners/losers, equity sparkline
 - SPY benchmark comparison with alpha calculation
-- Configurable via risk profiles (conservative, aggressive, default)
+- Historical watchlist support for time-varying ticker universes (`mc_historical_watchlists.csv`)
+- Configurable via risk profiles (conservative, aggressive, tight_stops)
+- `--trades` flag to show all trade details
+- `--alpaca-mode data-only` (default) connects only to data endpoint, never trading
 - Survivorship bias disclaimer in reports
 
 ### Automated Trading (Alpaca)

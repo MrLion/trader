@@ -109,15 +109,18 @@ class RiskConfig:
 class RiskConfigManager:
     """Manages loading and accessing risk configuration."""
 
-    def __init__(self, config_path: Optional[Path] = None, profile: Optional[str] = None):
+    def __init__(self, config_path: Optional[Path] = None, profile: Optional[str] = None,
+                 quiet: bool = False):
         """Initialize with optional config path and profile.
 
         Args:
             config_path: Path to YAML config file (default: config/risk_config.yaml)
             profile: Named profile to load (default: use base config)
+            quiet: If True, suppress profile application messages
         """
         self.config_path = config_path or self._default_config_path()
         self.profile = profile
+        self.quiet = quiet
         self.config = self._load_config()
 
     def _default_config_path(self) -> Path:
@@ -149,11 +152,13 @@ class RiskConfigManager:
             if self.profile and 'profiles' in data:
                 profile_data = data['profiles'].get(self.profile)
                 if profile_data:
-                    print(f"🔧 Applying risk profile: {self.profile}")
+                    if not self.quiet:
+                        print(f"🔧 Applying risk profile: {self.profile}")
                     self._apply_config_dict(config, profile_data)
                 else:
                     available = list(data['profiles'].keys())
-                    print(f"⚠️  Profile '{self.profile}' not found. Available: {available}")
+                    if not self.quiet:
+                        print(f"⚠️  Profile '{self.profile}' not found. Available: {available}")
 
             # Apply environment variable overrides
             self._apply_env_overrides(config)

@@ -1,6 +1,6 @@
 """Execution model for backtesting.
 
-Deterministic, conservative fill simulation with slippage and commissions.
+Deterministic, conservative fill simulation with slippage.
 """
 
 from dataclasses import dataclass
@@ -9,8 +9,6 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ExecutionConfig:
     """Configuration for execution simulation."""
-    commission_per_share: float = 0.005   # $0.005/share (Alpaca Pro)
-    commission_min: float = 1.0           # $1 minimum
     slippage_bps: float = 5.0             # 5 basis points one-way
 
 
@@ -22,13 +20,12 @@ class FillResult:
     shares: int
     intended_price: float
     fill_price: float
-    commission: float
-    total_cost: float   # For BUY: fill_price * shares + commission
-                        # For SELL: fill_price * shares - commission
+    total_cost: float   # For BUY: fill_price * shares
+                        # For SELL: fill_price * shares
 
 
 class ExecutionModel:
-    """Simulates order fills with slippage and commissions.
+    """Simulates order fills with slippage.
 
     Deterministic: same inputs always produce same outputs.
     Conservative: always assumes unfavorable price movement.
@@ -60,16 +57,7 @@ class ExecutionModel:
         else:
             fill_price = round(reference_price * (1 - slippage_mult), 4)
 
-        commission = max(
-            self.config.commission_min,
-            self.config.commission_per_share * shares
-        )
-
-        gross = fill_price * shares
-        if side == 'BUY':
-            total_cost = gross + commission
-        else:
-            total_cost = gross - commission
+        total_cost = fill_price * shares
 
         return FillResult(
             ticker=ticker,
@@ -77,6 +65,5 @@ class ExecutionModel:
             shares=shares,
             intended_price=reference_price,
             fill_price=fill_price,
-            commission=commission,
             total_cost=total_cost,
         )
