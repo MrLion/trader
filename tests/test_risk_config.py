@@ -421,8 +421,8 @@ class TestEnvironmentVariableOverrides(unittest.TestCase):
         manager = RiskConfigManager(quiet=True)
         config = manager.get_config()
 
-        # Should use config file default (0.5%)
-        self.assertEqual(config.account.risk_per_trade_pct, 0.005)
+        # Should use default (0.75%)
+        self.assertEqual(config.account.risk_per_trade_pct, 0.0075)
 
 
 class TestProfileApplication(unittest.TestCase):
