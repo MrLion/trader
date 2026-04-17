@@ -22,13 +22,16 @@ from traderlib.backtest.data_provider import AlpacaDataProvider, DictDataProvide
 from traderlib.backtest.engine import BacktestEngine, BacktestConfig, BacktestProgress
 from traderlib.backtest.execution import ExecutionConfig
 from traderlib.backtest.report import BacktestReporter
-from traderlib.backtest.strategy import Stage2MomentumStrategy
+from traderlib.backtest.strategy import Stage2MomentumStrategy, BacktestStrategyContext
+from traderlib.strategies import get_strategy, list_strategies, StrategyContext
 from traderlib.paper_exits import ExitEngine
 from traderlib.risk_config import RiskConfigManager
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run backtest for Stage 2 momentum strategy')
+    available_strategies = list_strategies()
+    strategy_help = f'Strategy to use (default: stage2_momentum). Available: {", ".join(available_strategies) if available_strategies else "stage2_momentum only"}'
+    parser = argparse.ArgumentParser(description='Run backtest with configurable strategy')
     parser.add_argument('--start', required=True, help='Start date (YYYY-MM-DD)')
     parser.add_argument('--end', required=True, help='End date (YYYY-MM-DD)')
     parser.add_argument('--capital', type=float, default=100_000, help='Initial capital (default: $100,000)')
@@ -42,6 +45,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
     parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
                         help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
+    parser.add_argument('--strategy', default='stage2_momentum', help=strategy_help)
 
     args = parser.parse_args()
 
@@ -93,6 +97,7 @@ def main():
         print(f"Risk Profile:   {config.risk_profile}")
         print(f"Slippage:       {exec_config.slippage_bps} bps")
         print(f"Max Positions:  {config.max_open_positions}")
+        print(f"Strategy:       {args.strategy}")
         print("Dry run — no backtest executed.")
         return
 
@@ -108,13 +113,34 @@ def main():
 
     risk_config = RiskConfigManager(profile=args.risk_profile).get_config()
     exit_engine = ExitEngine(risk_config=risk_config)
-    strategy = Stage2MomentumStrategy(
-        exit_engine=exit_engine,
-        watchlist_tickers=args.tickers,
-        watchlist_df=watchlist_df,
-        risk_config=risk_config,
-        execution_config=exec_config,
-    )
+
+    # Initialize strategy - support both legacy and registered strategies
+    strategy = None
+    if args.strategy == 'stage2_momentum':
+        strategy = Stage2MomentumStrategy(
+            exit_engine=exit_engine,
+            watchlist_tickers=args.tickers,
+            watchlist_df=watchlist_df,
+            risk_config=risk_config,
+            execution_config=exec_config,
+        )
+    else:
+        # Try to load from registry
+        # VCP strategies only accept risk_config and profile
+        strategy_kwargs = {'risk_config': risk_config}
+        if args.strategy in ['vcp_large_cap', 'vcp_high_octane']:
+            strategy_kwargs['profile'] = args.strategy.split('_')[1]  # 'large' or 'high'
+            if args.strategy == 'vcp_high_octane':
+                strategy_kwargs['profile'] = 'high_octane'
+        strategy = get_strategy(args.strategy, **strategy_kwargs)
+        if strategy is None:
+            available = list_strategies()
+            print(f"Error: Unknown strategy '{args.strategy}'")
+            print(f"Available strategies: {', '.join(available) if available else 'none registered'}")
+            print("Use --strategy stage2_momentum for default behavior")
+            sys.exit(1)
+
+    print(f"Using strategy: {strategy.name}")
 
     engine = BacktestEngine(data_provider, strategy, config)
 

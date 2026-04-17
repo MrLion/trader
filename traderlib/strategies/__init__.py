@@ -253,3 +253,8 @@ from traderlib.paper_exits import ExitAction as PaperExitAction
 
 # Verify ExitAction compatibility
 assert ExitAction is not None, "ExitAction must be defined"
+
+# Import and register strategy implementations
+# These imports trigger the @register_strategy decorators
+from traderlib.strategies import vcp_breakout  # noqa: F401,E402
+from traderlib.strategies import composite   # noqa: F401,E402

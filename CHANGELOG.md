@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.0] - 2026-04-17
+
+### Added
+- **Trend Screener with MA Convergence Detection** — Complete VCP (Volatility Contraction Pattern) breakout trading system (Phases 0-6)
+  - Phase 0: Unified exit action pattern (`ExitActionType` enum, `ExitAction` dataclass, `evaluate_exit_action()`)
+  - Phase 1: Unified Strategy ABC with auto-discovery registry (`@register_strategy` decorator, `STRATEGY_REGISTRY`)
+  - Phase 2: MA convergence scoring in `stage2_utils.py` (`calculate_convergence_score()`, `calculate_volume_metrics()`)
+  - Phase 3: Standalone trend screener (`scripts/trend_screener.py`) with MarketSurge filters
+  - Phase 4: VCP pattern detection (`traderlib/vcp_utils.py`) with swing high/low detection
+  - Phase 5: VCP breakout strategy plugins (`traderlib/strategies/vcp_breakout.py`) — large-cap and high-octane profiles
+  - Phase 6: Backtest integration — `scripts/backtest.py` now supports `--strategy` argument for registered strategies
+
 ## [0.6.0.4] - 2026-04-16
 
 ### Added
