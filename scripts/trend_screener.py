@@ -525,10 +525,10 @@ Examples:
 
     # Discovery filters (MarketSurge-style)
     parser.add_argument('--min-price', type=float, default=30, help='Minimum stock price (default: 30)')
-    parser.add_argument('--min-price-vs-10ma', type=float, default=6, help='Min % above 10-day MA (default: 6)')
+    parser.add_argument('--min-price-vs-10ma', type=float, default=6, help='Min %% above 10-day MA (default: 6)')
     parser.add_argument('--stack-short', action='store_true', default=True, help='Require 10D > 21D > 50D')
     parser.add_argument('--stack-long', action='store_true', default=True, help='Require 50D > 150D > 200D')
-    parser.add_argument('--rs-near-high', type=float, default=5, help='RS line within % of 52-week high (default: 5)')
+    parser.add_argument('--rs-near-high', type=float, default=5, help='RS line within %% of 52-week high (default: 5)')
     parser.add_argument('--exclude-etfs', action='store_true', default=True, help='Exclude ETFs')
 
     # Liquidity filters
@@ -541,13 +541,13 @@ Examples:
 
     # Convergence scoring
     parser.add_argument('--min-convergence-score', type=int, default=50, help='Minimum convergence score (default: 50)')
-    parser.add_argument('--cluster-spread-pct', type=float, default=0.05, help='Max cluster spread % (default: 5)')
+    parser.add_argument('--cluster-spread-pct', type=float, default=0.05, help='Max cluster spread %% (default: 5)')
     parser.add_argument('--min-cluster-size', type=int, default=2, help='Minimum MAs in cluster (default: 2)')
 
     # Entry timing
     parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pivot', 'volume'], default='any',
                         help='Entry timing mode: any=vcp|pivot|volume, vcp=full VCP pattern, pivot=near pivot, volume=vol spike (default: any)')
-    parser.add_argument('--pivot-proximity', type=float, default=5, help='Max % from pivot (default: 5)')
+    parser.add_argument('--pivot-proximity', type=float, default=5, help='Max %% from pivot (default: 5)')
     parser.add_argument('--min-volume-ratio', type=float, default=1.5, help='Min volume vs 50-day avg for volume mode (default: 1.5)')
 
     # VCP specific
