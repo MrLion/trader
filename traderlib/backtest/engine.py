@@ -23,7 +23,7 @@ import pandas as pd
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig, FillResult
 from traderlib.backtest.state import BacktestState, BacktestPosition, TradeRecord
-from traderlib.backtest.strategy import Strategy, EntrySignal
+from traderlib.backtest.strategy import Strategy, EntrySignal, BacktestStrategyContext
 from traderlib.paper_exits import ExitEngine, ExitAction, ExitActionType
 from traderlib.paper_state import Position
 from traderlib.risk_config import RiskConfig, RiskConfigManager
@@ -96,7 +96,7 @@ class BacktestEngine:
 
         # Pending signals (filled at T+1 open)
         self._pending_entries: list[EntrySignal] = []
-        self._pending_exits: list[ExitDecision] = []
+        self._pending_exits: list[ExitAction] = []
 
         # Gap rejections (entries rejected due to T+1 gap)
         self._gap_rejections: list[dict] = []
@@ -392,6 +392,26 @@ class BacktestEngine:
             return spy_data.loc[mask]
         except Exception:
             return pd.DataFrame()
+
+    def _build_context(self, sim_date: date, state: BacktestState) -> BacktestStrategyContext:
+        """Build unified StrategyContext from backtest state.
+
+        Enables strategies to use unified interface (evaluate_entries_unified,
+        manage_exits) while maintaining backward compatibility.
+        """
+        current_positions = {
+            ticker: bp.position
+            for ticker, bp in state.positions.items()
+        }
+
+        return BacktestStrategyContext(
+            data_provider=self.data_provider,
+            sim_date=sim_date,
+            positions=current_positions,
+            equity=state.equity,
+            cash=state.cash,
+            risk_config=self._risk_config
+        )
 
     def _load_watchlist(self, path: Path) -> list[str]:
         """Load tickers from a watchlist CSV."""

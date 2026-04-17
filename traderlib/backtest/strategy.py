@@ -1,95 +1,124 @@
 """Strategy abstraction for backtesting.
 
-Defines the Strategy ABC and Stage2MomentumStrategy implementation.
-Entry/exit signals are dataclasses, not mutations of global state.
+This module now re-exports from traderlib.strategies for unified interface.
+Backtest-specific implementations (Stage2MomentumStrategy) remain here.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import pandas as pd
 
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig
-from traderlib.backtest.state import BacktestState
-from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
+from traderlib.paper_exits import ExitEngine
 from traderlib.paper_state import Position
 from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfig, calculate_position_size_with_constraints
 
-
-@dataclass(frozen=True)
-class EntrySignal:
-    """Signal to enter a position."""
-    ticker: str
-    side: str = 'LONG'             # 'LONG' or 'SHORT' — enables future strategies
-    entry_price: float = 0.0       # Intended entry price (T+1 open)
-    stop_price: float = 0.0        # Initial stop price
-    target_price: float = 0.0      # Profit target
-    shares: int = 0                # Number of shares
-    sector: str = 'Unknown'
-    entry_score: int = 0           # Entry attractiveness score (0-100)
-    stage2_score: int = 0         # Stage 2 compliance score (0-8)
+# Import unified strategy types
+from traderlib.strategies import (
+    Strategy as BaseStrategy,
+    StrategyContext,
+    EntrySignal,
+    ExitAction,
+    ExitActionType,
+)
 
 
-# ExitDecision is now an alias for ExitAction for backward compatibility
-# Use ExitAction directly for new code
-ExitDecision = ExitAction
+# Re-export for backward compatibility
+__all__ = [
+    'BaseStrategy',
+    'StrategyContext',
+    'EntrySignal',
+    'ExitAction',
+    'ExitActionType',
+    'Stage2MomentumStrategy',
+]
 
 
-class Strategy(ABC):
-    """Abstract base class for trading strategies."""
+# Backtest-specific adapter context builder
+class BacktestStrategyContext(StrategyContext):
+    """Adapter: wraps backtest's data provider into unified context."""
+
+    def __init__(self, data_provider: DataFrameProvider, sim_date: date,
+                 positions: Dict[str, Position], equity: float, cash: float,
+                 risk_config: Optional[RiskConfig] = None,
+                 spy_data: Optional[pd.DataFrame] = None):
+        self._data_provider = data_provider
+        self._sim_date = sim_date
+        self.sim_date = sim_date
+        self.positions = positions
+        self.equity = equity
+        self.cash = cash
+        self.risk_config = risk_config
+        self.spy_data = spy_data
+        self.spy_current = None
+        self.vix_current = None
+        self.day_pnl = 0.0
+
+    def get_bars(self, ticker: str, lookback_days: int = 200) -> Optional[pd.DataFrame]:
+        """Get historical bars for ticker."""
+        return self._data_provider.get_bars(ticker, self._sim_date)
+
+    def get_current_price(self, ticker: str) -> Optional[float]:
+        """Get current/latest price."""
+        return self._data_provider.get_current_price(ticker, self._sim_date)
+
+
+class Strategy(BaseStrategy):
+    """Backtest-compatible Strategy base class.
+
+    Maintains backward compatibility with existing backtest code while
+    supporting the unified StrategyContext interface.
+
+    New strategies should inherit from BaseStrategy (traderlib.strategies.Strategy)
+    directly for cleaner interface.
+    """
 
     @abstractmethod
     def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
                         data_provider: DataFrameProvider, equity: float,
                         risk_config: Optional[RiskConfig] = None) -> list[EntrySignal]:
-        """Scan for entry opportunities.
+        """Scan for entry opportunities (legacy interface).
 
-        Args:
-            sim_date: Current simulation date
-            positions: Currently held positions (ticker -> Position)
-            data_provider: Historical data provider (sliced to sim_date)
-            equity: Current account equity
-            risk_config: Optional risk configuration
-
-        Returns:
-            List of EntrySignal for new positions to enter
+        Override this for backtest compatibility, or use evaluate_entries()
+        with StrategyContext for unified interface.
         """
-        ...
+        pass
 
     @abstractmethod
     def evaluate_exits(self, sim_date: date, positions: dict[str, Position],
                        data_provider: DataFrameProvider,
                        risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
-        """Evaluate exits for current positions.
+        """Evaluate exits for current positions (legacy interface).
 
-        Args:
-            sim_date: Current simulation date
-            positions: Currently held positions (ticker -> Position)
-            data_provider: Historical data provider (sliced to sim_date)
-            risk_config: Optional risk configuration
-
-        Returns:
-            List of ExitAction for positions to manage (EXIT, UPDATE_STOP, or HOLD)
+        Returns list[ExitAction] for unified handling.
         """
-        ...
+        pass
 
-    @property
-    def side(self) -> str:
-        """Default side for this strategy. Override for short strategies."""
-        return 'LONG'
+    def _build_context(self, sim_date: date, positions: dict[str, Position],
+                      data_provider: DataFrameProvider, equity: float,
+                      risk_config: Optional[RiskConfig] = None) -> BacktestStrategyContext:
+        """Build unified context from backtest parameters."""
+        return BacktestStrategyContext(
+            data_provider=data_provider,
+            sim_date=sim_date,
+            positions=positions,
+            equity=equity,
+            cash=equity,  # Approximation - backtest tracks cash separately
+            risk_config=risk_config
+        )
 
 
 class Stage2MomentumStrategy(Strategy):
     """Stage 2 momentum strategy — mirrors paper engine entry/exit logic.
 
     Entry: Replicates _analyze_ticker() with injected data (no Alpaca calls).
-    Exit: Delegates to ExitEngine.evaluate_exit() which returns ExitSignal
-    with stop updates (no position mutation).
+    Exit: Delegates to ExitEngine.evaluate_exit_action() which returns ExitAction.
     """
 
     def __init__(self, exit_engine: ExitEngine, watchlist_tickers: Optional[list[str]] = None,
@@ -116,6 +145,10 @@ class Stage2MomentumStrategy(Strategy):
         # Sector cache to avoid repeated yfinance lookups
         self._sector_cache: dict[str, str] = {}
         self._sector_cache_path = Path("data/ticker_sectors_cache.json")
+
+    @property
+    def name(self) -> str:
+        return "stage2_momentum"
 
     @property
     def side(self) -> str:
@@ -145,72 +178,58 @@ class Stage2MomentumStrategy(Strategy):
         return 0.0
 
     def _get_sector(self, ticker: str) -> str:
-        """Get sector for ticker using yfinance, with caching.
-
-        Checks in-memory cache first, then yfinance API.
-        Results are cached to avoid repeated lookups.
-        """
-        # Check memory cache first
+        """Get sector for ticker using yfinance, with caching."""
         if ticker in self._sector_cache:
             return self._sector_cache[ticker]
 
-        # Check disk cache
+        # Try to load from cache file
         if self._sector_cache_path.exists():
             try:
                 import json
                 with open(self._sector_cache_path) as f:
-                    disk_cache = json.load(f)
-                if ticker in disk_cache:
-                    self._sector_cache[ticker] = disk_cache[ticker]
-                    return disk_cache[ticker]
+                    self._sector_cache = json.load(f)
+                if ticker in self._sector_cache:
+                    return self._sector_cache[ticker]
             except Exception:
                 pass
 
-        # Fetch from yfinance
+        # Fallback to yfinance lookup
         try:
             import yfinance as yf
-            info = yf.Ticker(ticker).info
+            stock = yf.Ticker(ticker)
+            info = stock.info
             sector = info.get('sector', 'Unknown')
-            if sector and sector != 'Unknown':
-                self._sector_cache[ticker] = sector
-                self._save_sector_cache()
-                return sector
-        except Exception:
-            pass
+            self._sector_cache[ticker] = sector
 
-        return 'Unknown'
+            # Save cache
+            try:
+                import json
+                with open(self._sector_cache_path, 'w') as f:
+                    json.dump(self._sector_cache, f)
+            except Exception:
+                pass
 
-    def _save_sector_cache(self):
-        """Save sector cache to disk for persistence across runs."""
-        try:
-            import json
-            self._sector_cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._sector_cache_path, 'w') as f:
-                json.dump(self._sector_cache, f, indent=2, sort_keys=True)
+            return sector
         except Exception:
-            pass
+            return 'Unknown'
 
     def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
                         data_provider: DataFrameProvider, equity: float,
                         risk_config: Optional[RiskConfig] = None) -> list[EntrySignal]:
-        """Scan watchlist for Stage 2 entry signals.
-
-        Replicates the paper engine's _analyze_ticker() with injected data.
-        """
+        """Evaluate entries using Stage 2 momentum criteria."""
+        # Use provided config or instance config
         config = risk_config or self._risk_config
 
-        # Date-aware watchlist filtering: if we have a historical watchlist
-        # with week_start column, only scan tickers that were on the list as of sim_date
-        if self.watchlist_df is not None and 'week_start' in self.watchlist_df.columns:
-            sim_ts = pd.Timestamp(sim_date)
-            active = self.watchlist_df[pd.to_datetime(self.watchlist_df['week_start']) <= sim_ts]
-            # Only include 'ready' list_type tickers
-            if 'list_type' in active.columns:
-                active = active[active['list_type'] == 'ready']
+        # Get tickers to scan
+        if self.watchlist_df is not None:
+            # Date-aware filtering from historical watchlist
+            active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(sim_date)]
+            active = active.sort_values('week_start').groupby('ticker').last().reset_index()
             ticker_col = 'ticker' if 'ticker' in active.columns else 'Ticker'
             tickers = active[ticker_col].dropna().unique().tolist()
         else:
             tickers = self.watchlist_tickers or []
+
         signals = []
 
         for ticker in tickers:
@@ -233,18 +252,21 @@ class Stage2MomentumStrategy(Strategy):
             # Stage 2 score and MA flags
             s2_details = get_stage2_details(hist)
             stage2 = s2_details['score']
-            below_50ma = not s2_details['criteria']['price_above_50ma']
-            below_20ma = not s2_details['criteria']['price_above_20ma']
+            below_50ma = not s2_details['criteria'].get('price_above_50ma', True)
+            below_20ma = not s2_details['criteria'].get('price_above_20ema', False)
 
-            # Calculate ATR and stop
+            # Minimum Stage 2 score
+            min_stage2 = 5
+            if stage2 < min_stage2:
+                continue
+
+            # Calculate ATR for stop
             try:
                 high_low = hist['High'] - hist['Low']
                 high_close = abs(hist['High'] - hist['Close'].shift())
                 low_close = abs(hist['Low'] - hist['Close'].shift())
-                ranges = pd.concat([high_low, high_close, low_close], axis=1)
-                true_range = ranges.max(axis=1)
-                atr = true_range.rolling(14).mean().iloc[-1]
-
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr.rolling(window=14, min_periods=1).mean().iloc[-1]
                 if pd.isna(atr):
                     continue
             except Exception:
@@ -349,7 +371,7 @@ class Stage2MomentumStrategy(Strategy):
                        risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
         """Evaluate exits for all held positions.
 
-        Uses ExitEngine.evaluate_exit_action() which returns atomic ExitAction.
+        Uses ExitEngine.evaluate_exit_action() which returns ExitAction.
         The caller (BacktestEngine) applies actions: EXIT, UPDATE_STOP, or HOLD.
         """
         actions = []
@@ -366,3 +388,23 @@ class Stage2MomentumStrategy(Strategy):
             actions.append(action)
 
         return actions
+
+    # Implement unified interface using context adapter
+    def manage_exits(self, context: StrategyContext) -> list[ExitAction]:
+        """Unified exit management using StrategyContext."""
+        return self.evaluate_exits(
+            context.sim_date,
+            context.positions,
+            context.data_provider,
+            context.risk_config
+        )
+
+    def evaluate_entries_unified(self, context: StrategyContext) -> list[EntrySignal]:
+        """Unified entry evaluation using StrategyContext."""
+        return self.evaluate_entries(
+            context.sim_date,
+            context.positions,
+            context.data_provider,
+            context.equity,
+            context.risk_config
+        )
