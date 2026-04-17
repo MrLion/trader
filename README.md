@@ -32,6 +32,8 @@ A systematic stock trading workflow system for momentum-driven swing trading, bu
 - **Watchlist Management** - Tier A/B/C tracking with automated scoring
 - **Backtesting Engine** - Simulate strategies against historical data with execution modeling
 - **Paper Trading** - Test strategies with simulated or Alpaca paper accounts
+- **Strategy Plugins** - Pluggable strategy architecture with auto-discovery registry (VCP, Stage 2, Composite)
+- **Trend Screener** - MA convergence detection with MarketSurge-style filters
 
 ## Prerequisites
 
@@ -113,6 +115,30 @@ Broad market screening for Stage 2 candidates and sector performance.
 | `sector_scan.py` | Daily sector ETF performance ranking | `python3 scripts/sector_scan.py` |
 | `sector_scan_comprehensive.py` | Extended sector scan | `python3 scripts/sector_scan_comprehensive.py` |
 | `stage2_rs_screen.py` | Stage 2 + RS candidates screen | `python3 scripts/stage2_rs_screen.py` |
+| `trend_screener.py` | MA convergence detection + VCP patterns | `python3 scripts/trend_screener.py --profile large-cap` |
+
+**Trend Screener:**
+```bash
+# Discovery mode - find stocks with MA convergence
+python3 scripts/trend_screener.py --profile large-cap --rank-by convergence
+
+# Entry timing - rank existing watchlist by setup readiness
+python3 scripts/trend_screener.py --ticker-file data/watchlist.csv --rank-by setup --entry-mode pivot
+
+# Single ticker detail with MA data
+python3 scripts/trend_screener.py --tickers AAPL --show-ma-data
+
+# Show VCP pattern detection
+python3 scripts/trend_screener.py --tickers NVDA --detect-vcp
+```
+
+**Trend Screener Features:**
+- MA convergence scoring (0-100) based on cluster tightness, size, price distance
+- MarketSurge-style trend filters (MA stacking, price above MAs)
+- VCP pattern detection with contraction progression validation
+- Volume metrics (volume ratio, trend detection)
+- Entry timing modes: VCP breakout, pivot proximity, volume surge
+- Profile-based filtering: large-cap ($80M+ vol) vs high-octane ($20M+ vol)
 
 ### Reports
 
@@ -200,7 +226,7 @@ python3 scripts/mcstock_historical_scraper.py --output data/mc_historical.csv
 
 ### Backtesting
 
-Simulate the Stage 2 momentum strategy against historical data.
+Simulate strategies against historical data.
 
 | Script | Purpose | Example Command |
 |----------------------|--------------------------------------|----------------------------------------|
@@ -213,6 +239,9 @@ python3 scripts/backtest.py
 
 # Custom date range and capital
 python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31 --capital 500000
+
+# Use specific strategy (registered strategies: vcp_large_cap, vcp_high_octane, composite)
+python3 scripts/backtest.py --strategy vcp_large_cap --start 2024-01-01 --end 2025-04-01
 
 # Use a specific watchlist and risk profile
 python3 scripts/backtest.py --watchlist data/watchlist.csv --risk-profile conservative
@@ -235,8 +264,11 @@ python3 scripts/backtest.py --max-positions 5
 - Historical watchlist support for time-varying ticker universes (`mc_historical_watchlists.csv`)
 - Configurable via risk profiles (conservative, aggressive, tight_stops)
 - `--trades` flag to show all trade details
+- `--strategy` flag to use registered strategy plugins (VCP, Composite)
 - `--alpaca-mode data-only` (default) connects only to data endpoint, never trading
 - Survivorship bias disclaimer in reports
+
+**Data Isolation:** Backtest runs in `data-only` mode by default — connects only to Alpaca's shared data endpoint (`data.alpaca.markets`), never to trading sub-accounts. Use `--alpaca-mode paper` to restore old behavior.
 
 ### Automated Trading (Alpaca)
 
@@ -348,6 +380,13 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - Trailing stops: +1R breakeven, +1.5R EMA10, +3R EMA21
 - Partial positions when cash is limited (no rejection for insufficient buying power)
 
+**Exit Action Pattern (Unified Exit Handling):**
+- `ExitActionType.EXIT` — Full position exit (stop hit, target hit)
+- `ExitActionType.UPDATE_STOP` — Stop loss update only (trailing stop)
+- `ExitActionType.HOLD` — No action needed
+- Exit hierarchy: Hard stop > Profit target > Trailing stop > HOLD
+- Backtest/paper parity: Same exit logic in both engines
+
 **MA Support Stop (Dual Risk Parameter):**
 - Calculates alternative stop based on clustered MAs below price (ma10, ma20, ma50, ma100, ma200)
 - Requires minimum 2 MAs within 5% spread to form a valid cluster
@@ -355,7 +394,14 @@ The system follows Mark Minervini's Stage 2 methodology. See [AGENTS.MD](AGENTS.
 - Enabled by default; configure via `config/risk_config.yaml` `ma_support` section
 - Profile overrides: conservative (1.5% buffer), aggressive (0.5% buffer), tight_stops (3% spread, min 3 MAs)
 
+**Strategy Plugins:**
+- Pluggable strategy architecture with auto-discovery registry
+- Built-in strategies: `stage2_momentum`, `vcp_large_cap`, `vcp_high_octane`
+- Composite strategy support (union/intersection modes)
+- Use via `--strategy` flag in backtest: `python3 scripts/backtest.py --strategy vcp_large_cap`
+
 See [docs/RISK_GUIDE.md](docs/RISK_GUIDE.md) for detailed risk explanations with examples.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for ExitAction, Strategy ABC, and MA convergence documentation.
 
 ## Data Model
 
@@ -436,6 +482,7 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 | **[AGENTS.MD](AGENTS.MD)** | Complete trading playbook | **Start here** |
 | **[docs/RISK_GUIDE.md](docs/RISK_GUIDE.md)** | Risk management, sizing, stops | Configuring engine |
 | **[docs/BACKTESTING_GUIDE.md](docs/BACKTESTING_GUIDE.md)** | Backtesting user guide | Running backtests |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System architecture, ExitAction, Strategy plugins, MA convergence | Development, strategy authoring |
 
 ### Operational Runbooks
 

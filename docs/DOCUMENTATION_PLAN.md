@@ -240,14 +240,25 @@ Common issues and fixes.
 ## Summary
 
 **Completed (Committed to main):**
-- ✅ `docs/ARCHITECTURE.md` (412 lines) — System architecture, data flows, design patterns
+- ✅ `docs/ARCHITECTURE.md` (650+ lines) — System architecture, data flows, design patterns
+  - **Updated v0.6.1.0**: ExitAction migration, Strategy plugin architecture, MA convergence detection, VCP pattern detection, Migration guide
 - ✅ `docs/METHODOLOGY.md` (380 lines) — Stage 2 trading framework
 - ✅ `docs/config/configuration-reference.md` (290 lines) — All config options
+- ✅ `README.md` updated — Strategy plugins, Trend Screener, ExitAction pattern
+
+**v0.6.1.0 Documentation Additions:**
+- ✅ ExitAction unified exit pattern (replaces ExitSignal)
+- ✅ Strategy ABC with auto-discovery registry
+- ✅ MA convergence scoring system (0-100)
+- ✅ VCP pattern detection algorithm
+- ✅ CompositeStrategy precedence rules
+- ✅ Backtest data isolation principle
+- ✅ Migration guides for ExitAction and Strategy ABC
 
 **Deferred (Phase 3):**
 - ⏸️ `docs/DEPLOYMENT.md` — When production deployment needed
 - ⏸️ `CONTRIBUTING.md` — When accepting external contributors
-- ⏸️ API docs for traderlib modules — Internal code sufficient
+- ⏸️ API docs for traderlib modules — Internal code sufficient (docstrings cover needs)
 - ⏸️ `docs/TESTING.md` — Can add when expanding test suite
 
-**Current Documentation Coverage:** ~80% of critical needs covered for single-developer workflow.
+**Current Documentation Coverage:** ~90% of critical needs covered for single-developer workflow.

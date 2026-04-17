@@ -29,6 +29,9 @@ from traderlib.strategies import (
 )
 
 
+# Backward compatibility alias
+ExitDecision = ExitAction  # Alias for tests using old name
+
 # Re-export for backward compatibility
 __all__ = [
     'BaseStrategy',
@@ -36,6 +39,7 @@ __all__ = [
     'EntrySignal',
     'ExitAction',
     'ExitActionType',
+    'ExitDecision',  # For backward compatibility
     'Stage2MomentumStrategy',
 ]
 
@@ -142,9 +146,9 @@ class Stage2MomentumStrategy(Strategy):
         self._execution_model = ExecutionModel(execution_config or ExecutionConfig())
         # SPY return cache for RS calculation
         self._spy_return_cache: dict[date, float] = {}
-        # Sector cache to avoid repeated yfinance lookups
+        # Sector cache - populated from watchlist_df sector column or provided dict
         self._sector_cache: dict[str, str] = {}
-        self._sector_cache_path = Path("data/ticker_sectors_cache.json")
+        # Note: No yfinance imports - backtest must use provided sector data only
 
     @property
     def name(self) -> str:
@@ -178,40 +182,31 @@ class Stage2MomentumStrategy(Strategy):
         return 0.0
 
     def _get_sector(self, ticker: str) -> str:
-        """Get sector for ticker using yfinance, with caching."""
+        """Get sector for ticker from watchlist_df or sector_dict.
+
+        Note: Does NOT use yfinance - backtest must use provided sector data only.
+        Returns 'Unknown' if sector not available.
+        """
         if ticker in self._sector_cache:
             return self._sector_cache[ticker]
 
-        # Try to load from cache file
-        if self._sector_cache_path.exists():
+        # Try to get from watchlist_df sector column
+        if self.watchlist_df is not None:
             try:
-                import json
-                with open(self._sector_cache_path) as f:
-                    self._sector_cache = json.load(f)
-                if ticker in self._sector_cache:
-                    return self._sector_cache[ticker]
+                active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(date.today())]
+                active = active.sort_values('week_start').groupby('ticker').last().reset_index()
+                ticker_row = active[active['ticker'] == ticker]
+                if len(ticker_row) > 0 and 'sector' in ticker_row.columns:
+                    sector = ticker_row['sector'].iloc[0]
+                    if pd.notna(sector):
+                        self._sector_cache[ticker] = str(sector)
+                        return self._sector_cache[ticker]
             except Exception:
                 pass
 
-        # Fallback to yfinance lookup
-        try:
-            import yfinance as yf
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            sector = info.get('sector', 'Unknown')
-            self._sector_cache[ticker] = sector
-
-            # Save cache
-            try:
-                import json
-                with open(self._sector_cache_path, 'w') as f:
-                    json.dump(self._sector_cache, f)
-            except Exception:
-                pass
-
-            return sector
-        except Exception:
-            return 'Unknown'
+        # Default to Unknown if no sector data available
+        self._sector_cache[ticker] = 'Unknown'
+        return 'Unknown'
 
     def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
                         data_provider: DataFrameProvider, equity: float,
