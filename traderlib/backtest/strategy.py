@@ -15,7 +15,7 @@ import pandas as pd
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig
 from traderlib.backtest.state import BacktestState
-from traderlib.paper_exits import ExitEngine, ExitSignal
+from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
 from traderlib.paper_state import Position
 from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfig, calculate_position_size_with_constraints
@@ -35,11 +35,9 @@ class EntrySignal:
     stage2_score: int = 0         # Stage 2 compliance score (0-8)
 
 
-@dataclass(frozen=True)
-class ExitDecision:
-    """Decision to exit a position."""
-    ticker: str
-    reason: str
+# ExitDecision is now an alias for ExitAction for backward compatibility
+# Use ExitAction directly for new code
+ExitDecision = ExitAction
 
 
 class Strategy(ABC):
@@ -66,7 +64,7 @@ class Strategy(ABC):
     @abstractmethod
     def evaluate_exits(self, sim_date: date, positions: dict[str, Position],
                        data_provider: DataFrameProvider,
-                       risk_config: Optional[RiskConfig] = None) -> list[ExitDecision]:
+                       risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
         """Evaluate exits for current positions.
 
         Args:
@@ -76,7 +74,7 @@ class Strategy(ABC):
             risk_config: Optional risk configuration
 
         Returns:
-            List of ExitDecision for positions to close
+            List of ExitAction for positions to manage (EXIT, UPDATE_STOP, or HOLD)
         """
         ...
 
@@ -348,13 +346,13 @@ class Stage2MomentumStrategy(Strategy):
 
     def evaluate_exits(self, sim_date: date, positions: dict[str, Position],
                        data_provider: DataFrameProvider,
-                       risk_config: Optional[RiskConfig] = None) -> list[ExitDecision]:
+                       risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
         """Evaluate exits for all held positions.
 
-        Uses ExitEngine.evaluate_exit() which returns stop updates via ExitSignal.
-        The caller (BacktestEngine) applies stop updates to positions.
+        Uses ExitEngine.evaluate_exit_action() which returns atomic ExitAction.
+        The caller (BacktestEngine) applies actions: EXIT, UPDATE_STOP, or HOLD.
         """
-        decisions = []
+        actions = []
 
         for ticker, position in list(positions.items()):
             price = data_provider.get_current_price(ticker, sim_date)
@@ -362,16 +360,9 @@ class Stage2MomentumStrategy(Strategy):
                 continue
 
             hist = data_provider.get_bars(ticker, sim_date)
-            signal = self.exit_engine.evaluate_exit(
+            action = self.exit_engine.evaluate_exit_action(
                 position, price, historical_data=hist
             )
+            actions.append(action)
 
-            # NOTE: stop updates are returned via signal.new_stop/new_stop_type
-            # The engine applies these — we don't mutate here
-            if signal.should_exit:
-                decisions.append(ExitDecision(
-                    ticker=ticker,
-                    reason=signal.reason,
-                ))
-
-        return decisions
+        return actions

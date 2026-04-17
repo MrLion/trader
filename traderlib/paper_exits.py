@@ -2,9 +2,10 @@
 """Exit rule engine for paper trading - trailing stops and profit targets."""
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import pandas as pd
 import warnings
@@ -34,13 +35,54 @@ except ImportError:
 
 @dataclass
 class ExitSignal:
-    """Represents an exit decision."""
+    """Represents an exit decision.
+
+    DEPRECATED: Use ExitAction instead for new code.
+    Maintained for backward compatibility during migration.
+    """
     should_exit: bool
     reason: str
     exit_price: float
     r_multiple: float
     new_stop: Optional[float] = None
     new_stop_type: Optional[str] = None
+
+
+class ExitActionType(Enum):
+    """Exit action types for type-safe exit handling.
+
+    Used with ExitAction for atomic exit decisions.
+    """
+    EXIT = "exit"              # Full position exit
+    UPDATE_STOP = "update_stop"  # Stop loss update only
+    HOLD = "hold"              # No action
+
+
+@dataclass(frozen=True)
+class ExitAction:
+    """Unified exit action — atomic exit decision.
+
+    Replaces ExitSignal with explicit action types for clearer handling.
+    Single method returns one action: EXIT, UPDATE_STOP, or HOLD.
+
+    Attributes:
+        ticker: Stock symbol
+        action: ExitActionType enum (EXIT, UPDATE_STOP, or HOLD)
+        reason: Human-readable reason for the action
+        exit_price: Price for EXIT actions
+        r_multiple: Current R multiple (for trailing logic)
+        new_stop_price: New stop price for UPDATE_STOP actions
+        new_stop_type: Type of stop (e.g., 'TRAIL_EMA10', 'BREAKEVEN')
+        metadata: Strategy-specific additional data
+    """
+    ticker: str
+    action: ExitActionType
+    reason: str
+    exit_price: Optional[float] = None
+    r_multiple: float = 0.0
+    new_stop_price: Optional[float] = None
+    new_stop_type: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class ExitEngine:
@@ -250,6 +292,125 @@ class ExitEngine:
             r_multiple=r_multiple,
             new_stop=new_stop if stop_update else None,
             new_stop_type=new_stop_type if stop_update else None
+        )
+
+    def evaluate_exit_action(self, position, current_price: float,
+                             historical_data: Optional[pd.DataFrame] = None) -> ExitAction:
+        """Evaluate all exit conditions and return atomic ExitAction.
+
+        This is the unified exit method that returns EXIT, UPDATE_STOP, or HOLD
+        explicitly, replacing the ambiguous should_exit flag pattern.
+
+        Exit hierarchy:
+        1. Hard stop (price hit stop level) → EXIT
+        2. Profit target (2R minimum) → EXIT
+        3. Trailing stop update → UPDATE_STOP
+        4. No action → HOLD
+
+        Args:
+            position: Position object with ticker, entry_price, shares, stop_price
+            current_price: Current market price
+            historical_data: Optional DataFrame with OHLCV data for EMA calculation
+
+        Returns:
+            ExitAction with explicit action type
+        """
+        ticker = position.ticker
+        entry_price = position.entry_price
+        shares = position.shares
+        current_stop = position.stop_price
+
+        # FINDING-013: Use immutable initial_stop_price for accurate R-multiple
+        initial_stop = getattr(position, 'initial_stop_price', None)
+        if initial_stop is None and position.stop_price > 0:
+            initial_stop = position.stop_price
+
+        if initial_stop and initial_stop > 0:
+            r_multiple = self._calculate_r_multiple(current_price, entry_price,
+                                                     initial_stop, shares)
+        elif getattr(position, 'initial_risk', 0) > 0:
+            r_multiple = ((current_price - entry_price) * shares) / position.initial_risk
+        else:
+            r_multiple = self._calculate_r_multiple(current_price, entry_price,
+                                                     current_stop, shares)
+
+        # 1. Check hard stop (price hit stop level) → EXIT
+        if current_price <= current_stop:
+            return ExitAction(
+                ticker=ticker,
+                action=ExitActionType.EXIT,
+                reason=f"STOP_HIT",
+                exit_price=current_price,
+                r_multiple=r_multiple
+            )
+
+        # 2. Get EMA values for trailing logic
+        ema10, ema21 = self._get_ema_values(ticker, historical_data)
+
+        # 3. Trailing stop logic based on R multiple
+        new_stop = current_stop
+        new_stop_type = position.current_stop_type
+
+        # Get R thresholds from config or use defaults
+        if self.risk_config:
+            breakeven_r = self.risk_config.profit_target.breakeven_at_r
+            ema10_r = self.risk_config.profit_target.ema10_at_r
+            ema21_r = self.risk_config.profit_target.ema21_at_r
+        else:
+            breakeven_r, ema10_r, ema21_r = 1.0, 1.5, 3.0
+
+        if r_multiple >= ema21_r and ema21 is not None:
+            # +3R: Trail 21 EMA
+            if ema21 > current_stop:
+                new_stop = ema21
+                new_stop_type = "EMA21"
+
+        elif r_multiple >= ema10_r and ema10 is not None:
+            # +1.5R to +2R: Trail 10 EMA
+            if ema10 > current_stop:
+                new_stop = ema10
+                new_stop_type = "EMA10"
+
+        elif r_multiple >= breakeven_r:
+            # +1R: Move to breakeven
+            if entry_price > current_stop:
+                new_stop = entry_price
+                new_stop_type = "BREAKEVEN"
+
+        # Compute stop update
+        stop_update = new_stop > current_stop
+
+        # 4. Check profit target (target hit OR 2R minimum) → EXIT
+        target_price = position.target_price
+        if current_price >= target_price or r_multiple >= 2.0:
+            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= 2.0 else "TARGET_HIT"
+            return ExitAction(
+                ticker=ticker,
+                action=ExitActionType.EXIT,
+                reason=reason,
+                exit_price=current_price,
+                r_multiple=r_multiple,
+                new_stop_price=new_stop if stop_update else None,
+                new_stop_type=new_stop_type if stop_update else None
+            )
+
+        # 5. Stop update only → UPDATE_STOP
+        if stop_update:
+            return ExitAction(
+                ticker=ticker,
+                action=ExitActionType.UPDATE_STOP,
+                reason=f"TRAIL_{new_stop_type}",
+                r_multiple=r_multiple,
+                new_stop_price=new_stop,
+                new_stop_type=new_stop_type
+            )
+
+        # 6. No action → HOLD
+        return ExitAction(
+            ticker=ticker,
+            action=ExitActionType.HOLD,
+            reason="HOLD",
+            r_multiple=r_multiple
         )
 
     def get_position_summary(self, position, current_price: float) -> dict:

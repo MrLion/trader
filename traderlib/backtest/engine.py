@@ -23,8 +23,8 @@ import pandas as pd
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig, FillResult
 from traderlib.backtest.state import BacktestState, BacktestPosition, TradeRecord
-from traderlib.backtest.strategy import Strategy, EntrySignal, ExitDecision
-from traderlib.paper_exits import ExitEngine
+from traderlib.backtest.strategy import Strategy, EntrySignal
+from traderlib.paper_exits import ExitEngine, ExitAction, ExitActionType
 from traderlib.paper_state import Position
 from traderlib.risk_config import RiskConfig, RiskConfigManager
 
@@ -185,14 +185,14 @@ class BacktestEngine:
                     for ticker, bp in state.positions.items()
                 }
 
-                # First, update stops via ExitEngine
-                self._update_stops(state, sim_date)
-
-                # Then, get exit decisions from strategy
-                exit_decisions = self.strategy.evaluate_exits(
+                # Get exit actions from strategy (unified: EXIT, UPDATE_STOP, or HOLD)
+                exit_actions = self.strategy.evaluate_exits(
                     sim_date, current_positions, self.data_provider,
                     self._risk_config
                 )
+
+                # Apply exit actions: handle EXIT and UPDATE_STOP
+                self._apply_exit_actions(state, exit_actions)
 
                 # Step 3: Mark to market
                 state.mark_to_market(self.data_provider)
@@ -217,7 +217,7 @@ class BacktestEngine:
 
                 # Queue signals for T+1 execution
                 self._pending_entries = entry_signals
-                self._pending_exits = exit_decisions
+                self._pending_exits = [a for a in exit_actions if a.action == ExitActionType.EXIT]
 
                 prev_date = sim_date
 
@@ -255,8 +255,8 @@ class BacktestEngine:
         Gap rejection: Skip entry if T+1 open > stop price (risk/reward invalidated).
         """
         # Resolve exits first (free up capital for entries)
-        for exit_decision in self._pending_exits:
-            ticker = exit_decision.ticker
+        for exit_action in self._pending_exits:
+            ticker = exit_action.ticker
             if ticker not in state.positions:
                 continue
 
@@ -272,7 +272,7 @@ class BacktestEngine:
             )
 
             state.close_position(
-                ticker, fill.fill_price, exit_decision.reason
+                ticker, fill.fill_price, exit_action.reason
             )
 
         # Resolve entries
@@ -331,31 +331,32 @@ class BacktestEngine:
                 initial_stop_price=signal.stop_price,
             )
 
-    def _update_stops(self, state: BacktestState, sim_date: date):
-        """Apply stop updates from ExitSignal to positions.
+    def _apply_exit_actions(self, state: BacktestState, actions: list[ExitAction]):
+        """Apply exit actions to positions.
 
-        ExitEngine.evaluate_exit() returns new_stop/new_stop_type via ExitSignal.
-        The engine applies these — no position mutation inside evaluate_exit.
+        Handles EXIT (queued for T+1), UPDATE_STOP (applied immediately),
+        and HOLD (no action) actions atomically.
         """
-        exit_engine = getattr(self.strategy, 'exit_engine', None)
-        if exit_engine is None:
-            return
-
-        for ticker, bp in list(state.positions.items()):
-            price = self.data_provider.get_current_price(ticker, sim_date)
-            if price is None:
+        for action in actions:
+            ticker = action.ticker
+            if ticker not in state.positions:
                 continue
 
-            try:
-                hist = self.data_provider.get_bars(ticker, sim_date)
-                signal = exit_engine.evaluate_exit(
-                    bp.position, price, historical_data=hist
-                )
+            bp = state.positions[ticker]
 
-                if signal.new_stop is not None:
-                    bp.position.stop_price = signal.new_stop
-                    bp.position.current_stop_type = signal.new_stop_type
-            except Exception:
+            if action.action == ExitActionType.UPDATE_STOP:
+                # Apply stop update immediately
+                if action.new_stop_price is not None:
+                    bp.position.stop_price = action.new_stop_price
+                    bp.position.current_stop_type = action.new_stop_type or bp.position.current_stop_type
+
+            elif action.action == ExitActionType.EXIT:
+                # EXIT actions are queued for T+1 execution
+                # (Handled by _pending_exits in main loop)
+                pass
+
+            elif action.action == ExitActionType.HOLD:
+                # No action needed
                 pass
 
     def _liquidate_positions(self, state: BacktestState, last_date: date):
