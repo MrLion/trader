@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file.
   - Phase 4: VCP pattern detection (`traderlib/vcp_utils.py`) with swing high/low detection
   - Phase 5: VCP breakout strategy plugins (`traderlib/strategies/vcp_breakout.py`) — large-cap and high-octane profiles
   - Phase 6: Backtest integration — `scripts/backtest.py` now supports `--strategy` argument for registered strategies
+- **86 new tests** (785 → 871 total)
+  - VCP pattern detection: 16 tests (swing points, contractions, progression validation)
+  - VCP breakout strategies: 18 tests (large-cap, high-octane, exit management, registry)
+  - Composite strategy: 15 tests (union/intersection modes, exit conflict resolution)
+  - MA convergence: 20 tests (scoring components, volume metrics, edge cases)
+  - Strategy ABC: 17 tests (interface, registry, ExitAction types)
 
 ## [0.6.0.4] - 2026-04-16
 
