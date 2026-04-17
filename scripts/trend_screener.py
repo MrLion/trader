@@ -552,7 +552,8 @@ Examples:
 
     # VCP specific
     parser.add_argument('--vcp-min-contractions', type=int, default=2, help='Min contractions for VCP mode (default: 2)')
-    parser.add_argument('--vcp-reversal-threshold', type=float, default=0.05, help='Min % reversal to detect swing (default: 5%%)')
+    parser.add_argument('--vcp-reversal-threshold', type=float, default=0.05, help='Min %% reversal to detect swing (default: 5%%)')
+    parser.add_argument('--detect-vcp', action='store_true', help='Detect and display VCP pattern (sets --entry-mode vcp)')
 
     # Ranking and display
     parser.add_argument('--rank-by', choices=['convergence', 'setup', 'rs'], default='convergence',
@@ -576,6 +577,9 @@ Examples:
     print(f"Loaded {len(tickers)} tickers")
 
     # Build filters dict
+    # --detect-vcp overrides entry_mode to 'vcp'
+    entry_mode = 'vcp' if args.detect_vcp else args.entry_mode
+
     filters = {
         'min_price': args.min_price,
         'min_price_vs_10ma': args.min_price_vs_10ma,
@@ -588,7 +592,7 @@ Examples:
         'min_convergence_score': args.min_convergence_score,
         'cluster_spread_pct': args.cluster_spread_pct,
         'min_cluster_size': args.min_cluster_size,
-        'entry_mode': args.entry_mode,
+        'entry_mode': entry_mode,
         'pivot_proximity': args.pivot_proximity,
         'min_volume_ratio': args.min_volume_ratio,
         'vcp_min_contractions': args.vcp_min_contractions,
