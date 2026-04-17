@@ -36,6 +36,7 @@ from traderlib.stage2_utils import (
     calculate_volume_metrics,
     calculate_ma_support_stop,
 )
+from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
 from traderlib.risk_config import RiskConfigManager
 
 
@@ -234,24 +235,54 @@ class TrendScreener:
         if conv_score['score'] < min_conv_score:
             return None
 
-        # === ENTRY TIMING (Phase 3: pivot-proximity only) ===
+        # === ENTRY TIMING ===
 
         entry_mode = filters.get('entry_mode', 'any')
         entry_ready = False
         setup_type = 'none'
         proximity_pct = 100.0
         volume_ratio = vol_metrics['volume_ratio']
+        vcp_data = None
 
-        if entry_mode in ['pivot', 'any']:
-            # Simple pivot detection (full VCP in Phase 4)
-            pivot_data = self._detect_pivot(hist, lookback_days=20)
-            if pivot_data['valid']:
-                pivot_proximity = ((pivot_data['pivot_high'] - current) / pivot_data['pivot_high']) * 100
+        # VCP mode: Full pattern detection
+        if entry_mode == 'vcp':
+            vcp_pattern = detect_vcp_pattern(
+                hist,
+                min_contractions=filters.get('vcp_min_contractions', 2),
+                reversal_threshold=filters.get('vcp_reversal_threshold', 0.05),
+                require_volume_dry_up=filters.get('vcp_require_volume', True)
+            )
+            if vcp_pattern.valid:
+                # Check proximity to pivot
+                pivot_proximity = ((vcp_pattern.pivot_high - current) / vcp_pattern.pivot_high) * 100
+                max_proximity = filters.get('pivot_proximity', 5.0)
+                if pivot_proximity <= max_proximity and vcp_pattern.volume_declining:
+                    entry_ready = True
+                    setup_type = 'vcp'
+                    proximity_pct = pivot_proximity
+                    vcp_data = format_vcp_summary(vcp_pattern)
+
+        # Pivot mode: Simple pivot detection
+        elif entry_mode in ['pivot', 'any']:
+            pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
+            if pivot_data_simple['valid']:
+                pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
                 max_proximity = filters.get('pivot_proximity', 5.0)
                 if pivot_proximity <= max_proximity:
                     entry_ready = True
                     setup_type = 'pivot'
                     proximity_pct = pivot_proximity
+
+        # Volume mode: Volume spike + proximity
+        if entry_mode == 'volume':
+            if volume_ratio >= filters.get('min_volume_ratio', 1.5):
+                pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
+                if pivot_data_simple['valid']:
+                    pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
+                    if pivot_proximity <= filters.get('pivot_proximity', 5.0):
+                        entry_ready = True
+                        setup_type = 'volume'
+                        proximity_pct = pivot_proximity
 
         if entry_mode == 'any' and not entry_ready:
             # Default to true if no specific filter
@@ -285,6 +316,8 @@ class TrendScreener:
             'ma50': round(s2_details['ma50'], 2),
             'ma150': round(s2_details.get('ma150', 0), 2) if 'ma150' in s2_details else None,
             'ma200': round(s2_details['ma200'], 2),
+            # VCP data (if available)
+            'vcp_data': vcp_data,
         }
 
         return result
@@ -512,9 +545,14 @@ Examples:
     parser.add_argument('--min-cluster-size', type=int, default=2, help='Minimum MAs in cluster (default: 2)')
 
     # Entry timing
-    parser.add_argument('--entry-mode', choices=['any', 'pivot', 'volume'], default='any',
-                        help='Entry timing mode (default: any)')
+    parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pivot', 'volume'], default='any',
+                        help='Entry timing mode: any=vcp|pivot|volume, vcp=full VCP pattern, pivot=near pivot, volume=vol spike (default: any)')
     parser.add_argument('--pivot-proximity', type=float, default=5, help='Max % from pivot (default: 5)')
+    parser.add_argument('--min-volume-ratio', type=float, default=1.5, help='Min volume vs 50-day avg for volume mode (default: 1.5)')
+
+    # VCP specific
+    parser.add_argument('--vcp-min-contractions', type=int, default=2, help='Min contractions for VCP mode (default: 2)')
+    parser.add_argument('--vcp-reversal-threshold', type=float, default=0.05, help='Min % reversal to detect swing (default: 5%%)')
 
     # Ranking and display
     parser.add_argument('--rank-by', choices=['convergence', 'setup', 'rs'], default='convergence',
@@ -552,6 +590,10 @@ Examples:
         'min_cluster_size': args.min_cluster_size,
         'entry_mode': args.entry_mode,
         'pivot_proximity': args.pivot_proximity,
+        'min_volume_ratio': args.min_volume_ratio,
+        'vcp_min_contractions': args.vcp_min_contractions,
+        'vcp_reversal_threshold': args.vcp_reversal_threshold,
+        'vcp_require_volume': True,
         'min_stage2_score': 5,
     }
 
