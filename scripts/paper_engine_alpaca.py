@@ -19,14 +19,19 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.paper_state import PaperState, Position, TRADES_FILE
-from traderlib.paper_exits import ExitEngine, ExitSignal
+from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
 from traderlib.order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
 from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
+from traderlib.strategies import (
+    Strategy, StrategyContext, get_strategy, list_strategies,
+    EntrySignal as StrategyEntrySignal, ExitAction as StrategyExitAction
+)
+from traderlib.backtest.data_provider import DataFrameProvider
 
 # FINDING-007: Weekend/holiday market hours
-from traderlib.market_hours import market_hours, is_market_open, is_trading_day, format_market_status
+from traderlib.market_hours import market_hours, is_market_open, is_trading_day, next_market_open, format_market_status
 
 # Configurable paths - uses environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
@@ -38,10 +43,26 @@ MARKET_OPEN = (9, 30)
 MARKET_CLOSE = (16, 0)
 
 
+# Paper engine data provider adapter
+class AlpacaDataProviderAdapter:
+    """Adapter to make AlpacaClient compatible with DataFrameProvider protocol."""
+
+    def __init__(self, alpaca: AlpacaClient):
+        self.alpaca = alpaca
+
+    def get_bars(self, ticker: str, as_of, min_rows: int = 30):
+        """Get historical bars."""
+        return self.alpaca.get_bars(ticker, limit=min_rows)
+
+    def get_current_price(self, ticker: str, as_of=None):
+        """Get current price (from latest bar or quote)."""
+        return self.alpaca.get_current_price(ticker)
+
+
 class AlpacaPaperEngine:
     """Paper trading engine using Alpaca for real-time data and execution."""
 
-    def __init__(self, mode: str = 'paper', risk_profile: str = None):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None, strategy: str = 'default'):
         print("🔌 Initializing Alpaca client...")
 
         # Load risk configuration first
@@ -54,6 +75,10 @@ class AlpacaPaperEngine:
 
         # Pass risk config to ExitEngine
         self.exits = ExitEngine(risk_config=self.risk_config)
+
+        # Strategy plugin (default uses legacy entry logic)
+        self.strategy = self._load_strategy(strategy)
+        self.data_provider = AlpacaDataProviderAdapter(self.alpaca)
 
         self.running = False
         self.ws_running = False
@@ -94,10 +119,59 @@ class AlpacaPaperEngine:
         self._sync_with_alpaca()
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
+        if self.strategy:
+            print(f"🎯 Strategy: {self.strategy.name}")
         print(f"📋 Pending orders: {self.order_manager.get_pending_count()}")
 
         # Print risk summary
         self.risk_manager.print_summary()
+
+    def _load_strategy(self, strategy_name: str) -> Optional[Strategy]:
+        """Load strategy by name from registry."""
+        if strategy_name == 'default':
+            return None  # Use legacy logic
+
+        strategy = get_strategy(strategy_name, risk_config=self.risk_config)
+        if strategy is None:
+            available = list_strategies()
+            print(f"⚠️  Strategy '{strategy_name}' not found. Available: {available}")
+            print(f"   Using default entry logic")
+            return None
+
+        print(f"✅ Strategy loaded: {strategy_name}")
+        return strategy
+
+    def _build_context(self) -> StrategyContext:
+        """Build unified strategy context."""
+        from datetime import date
+
+        # Get SPY data
+        spy_data = None
+        spy_current = None
+        try:
+            spy_data = self.alpaca.get_bars('SPY', limit=130)
+            spy_current = self.alpaca.get_current_price('SPY')
+        except Exception:
+            pass
+
+        # Convert positions to Position objects
+        positions = {
+            ticker: pos.position if hasattr(pos, 'position') else pos
+            for ticker, pos in self.state.positions.items()
+        }
+
+        return StrategyContext(
+            data_provider=self.data_provider,
+            sim_date=date.today(),
+            spy_data=spy_data,
+            spy_current=spy_current,
+            vix_current=None,  # Could fetch from VIX ticker
+            positions=positions,
+            cash=self.state.cash,
+            equity=self.state.get_equity(),
+            day_pnl=self.state.get_day_pnl(),
+            risk_config=self.risk_config,
+        )
 
     def _get_account_value(self) -> float:
         """Get initial account value from Alpaca."""
@@ -1182,6 +1256,8 @@ def main():
                         help='Risk profile from config (conservative, aggressive, tight_stops)')
     parser.add_argument('--risk-summary', action='store_true',
                         help='Print risk configuration and exit')
+    parser.add_argument('--strategy', type=str, default='default',
+                        help='Strategy plugin to use (default: use legacy entry logic)')
     args = parser.parse_args()
 
     # If just printing risk summary
@@ -1190,17 +1266,64 @@ def main():
         manager.print_summary()
         return
 
-    # NEW: Pre-flight market check - exit if market closed
-    if not is_market_open():
-        next_open = next_market_open()
-        if next_open:
-            print(f"⏳ Market closed. Opens {next_open.strftime('%A at %H:%M')} ET. Exiting.")
-        else:
-            print("⏳ Market closed. Unable to determine next open time. Exiting.")
-        return
+    # Main loop: wait for market open → run → repeat
+    print("🔄 Auto-restart mode enabled. Press Ctrl+C to stop permanently.\n")
 
-    engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile)
-    asyncio.run(engine.run())
+    while True:
+        try:
+            # Wait for market to open if closed
+            if not is_market_open():
+                next_open = next_market_open()
+                if not next_open:
+                    print("⏳ Market closed. Unable to determine next open time. Retrying in 60s...")
+                    import time
+                    time.sleep(60)
+                    continue
+
+                # Calculate wait time
+                now = datetime.now(pytz.timezone('America/New_York'))
+                wait_seconds = (next_open - now).total_seconds()
+
+                if wait_seconds > 0:
+                    print(f"⏳ Market closed. Opens {next_open.strftime('%A at %H:%M')} ET.")
+                    print(f"   Waiting {int(wait_seconds // 60)} minutes... (Ctrl+C to stop)")
+
+                    # Sleep in 10-second chunks to allow interrupt
+                    try:
+                        while wait_seconds > 0:
+                            sleep_chunk = min(10, wait_seconds)
+                            import time
+                            time.sleep(sleep_chunk)
+                            wait_seconds -= sleep_chunk
+                            if is_market_open():
+                                break
+                    except KeyboardInterrupt:
+                        print("\n🛑 Stopped by user.")
+                        return
+
+                    print("   Market is now open. Starting engine...\n")
+
+            # Run the engine (blocks until market closes)
+            engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy)
+            asyncio.run(engine.run())
+
+            # Engine stopped (market closed)
+            print("\n⏳ Market closed. Will restart at next open...\n")
+            import time
+            time.sleep(30)  # Brief pause before checking again
+
+        except KeyboardInterrupt:
+            print("\n🛑 Stopped by user.")
+            break
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+            print("   Restarting in 60 seconds... (Ctrl+C to stop)")
+            try:
+                import time
+                time.sleep(60)
+            except KeyboardInterrupt:
+                print("\n🛑 Stopped by user.")
+                break
 
 
 if __name__ == "__main__":
