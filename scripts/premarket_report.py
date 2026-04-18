@@ -1133,7 +1133,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
                 dist_sign = '+' if stock['dist_to_pivot'] > 0 else ''
                 print(f"{stock['ticker']:<8} {tier_icon} T{stock['tier']:<4} {stock['entry_score']:<6} ${stock['current']:<9.2f} ${stock['pivot']:<9.2f} "
                       f"{dist_sign}{stock['dist_to_pivot']:<6.1f}% {stock['risk_pct']:<7.1f}% "
-                      f"{stock['stage2']}/8  {stock['ret_6m']:>9.1f}% {stock['sector']}")
+                      f"{stock['stage2']}/10 {stock['ret_6m']:>9.1f}% {stock['sector']}")
 
             if report_data['ready_tickers']:
                 print(f"\n✅ Tier 1 Ready (Score ≥60, within 3%): {', '.join(report_data['ready_tickers'])}")

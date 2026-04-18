@@ -206,10 +206,10 @@ class EntrySignalScanner:
             entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
                                           below_50ma=below_50ma, below_20ma=below_20ma)
 
-            # Determine tier (10-point system: Tier 1 needs 6+/8, Tier 2 needs 5+/8)
-            if entry_score >= 60 and stage2 >= 6:
+            # Determine tier (10-point system: Tier 1 needs 8+/10, Tier 2 needs 6+/10)
+            if entry_score >= 60 and stage2 >= 8:
                 tier = "Tier 1"
-            elif entry_score >= 40 and stage2 >= 5:
+            elif entry_score >= 40 and stage2 >= 6:
                 tier = "Tier 2"
             else:
                 tier = "Tier 3"
@@ -367,7 +367,7 @@ class EntrySignalScanner:
             for a in ready_now:
                 age_str = _format_age(a.get('timestamp'))
                 ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
 
         if close_pivot:
             print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{entry_threshold}, Distance 1-3%)")
@@ -375,7 +375,7 @@ class EntrySignalScanner:
             print("-" * 110)
             for a in close_pivot:
                 ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if extended:
             print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{entry_threshold})")
@@ -383,21 +383,21 @@ class EntrySignalScanner:
             print("-" * 110)
             for a in extended:
                 ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if tier2_watch:
             print(f"\n📊 TIER 2 WATCH - Developing Setups (Score 40-59)")
             print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
             print("-" * 90)
             for a in tier2_watch:
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
 
         if tier3_skip and min_tier >= 3:
             print(f"\n⏸️  TIER 3 / BELOW THRESHOLD - Not Ready (Score <40)")
             print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
             print("-" * 90)
             for a in tier3_skip[:10]:  # Show first 10
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/8    {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
             if len(tier3_skip) > 10:
                 print(f"   ... and {len(tier3_skip) - 10} more")
 
@@ -464,13 +464,13 @@ class EntrySignalScanner:
     <h2 class="tier1">🟢 Ready Now (Score ≥60)</h2>
     <table>
         <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>ATR%</th><th>MA%</th><th>Stop</th><th>S2</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s.get("atr_risk_pct", "—"):.1f}%</td><td>{s.get("ma_risk_pct", "—"):.1f}%</td><td>{s["stop_type"]}</td><td>{s["stage2"]}/8</td><td>{s["sector"]}</td></tr>' for s in tier1)}
+        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s.get("atr_risk_pct", "—"):.1f}%</td><td>{s.get("ma_risk_pct", "—"):.1f}%</td><td>{s["stop_type"]}</td><td>{s["stage2"]}/10</td><td>{s["sector"]}</td></tr>' for s in tier1)}
     </table>
 
     <h2 class="tier2">🟡 Tier 2 (Score 40-59)</h2>
     <table>
         <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier2"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/8</td><td>{s["sector"]}</td></tr>' for s in tier2)}
+        {''.join(f'<tr class="tier2"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/10</td><td>{s["sector"]}</td></tr>' for s in tier2)}
     </table>
 </body>
 </html>"""
@@ -525,7 +525,7 @@ class EntrySignalScanner:
                 print(f"| 1M Return | {ret_1m:+.1f}% |")
                 print(f"| 3M Return | {ret_3m:+.1f}% |")
                 print(f"| 6M Return | {ret_6m:+.1f}% |")
-                print(f"| Stage 2 Score | {score}/8 {status} |")
+                print(f"| Stage 2 Score | {score}/10 {status} |")
                 print(f"| From 52W High | {from_high:.1f}% |")
                 print(f"| Above All MAs | {above_20} {above_50} {above_150} {above_200} 20/50/150/200 |")
 
