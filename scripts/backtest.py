@@ -127,11 +127,8 @@ def main():
     else:
         # Try to load from registry
         # VCP strategies only accept risk_config and profile
+        # VCPBreakoutLargeCap / VCPBreakoutHighOctane hardcode their profile internally
         strategy_kwargs = {'risk_config': risk_config}
-        if args.strategy in ['vcp_large_cap', 'vcp_high_octane']:
-            strategy_kwargs['profile'] = args.strategy.split('_')[1]  # 'large' or 'high'
-            if args.strategy == 'vcp_high_octane':
-                strategy_kwargs['profile'] = 'high_octane'
         strategy = get_strategy(args.strategy, **strategy_kwargs)
         if strategy is None:
             available = list_strategies()
