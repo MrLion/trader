@@ -171,11 +171,17 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
             if ticker in context.positions:
                 continue
 
-            hist = context.get_bars(ticker, lookback_days=200)
+            try:
+                hist = context.get_bars(ticker, lookback_days=200)
+            except Exception:
+                continue
             if hist is None or len(hist) < 200:
                 continue
 
-            current = context.get_current_price(ticker)
+            try:
+                current = context.get_current_price(ticker)
+            except Exception:
+                continue
             if current is None:
                 continue
 
@@ -253,11 +259,17 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
         actions = []
 
         for ticker, position in context.positions.items():
-            current = context.get_current_price(ticker)
+            try:
+                current = context.get_current_price(ticker)
+            except Exception:
+                continue
             if current is None:
                 continue
 
-            hist = context.get_bars(ticker, lookback_days=60)
+            try:
+                hist = context.get_bars(ticker, lookback_days=60)
+            except Exception:
+                continue
             if hist is None or len(hist) < 20:
                 continue
 
@@ -373,11 +385,17 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
             if ticker in context.positions:
                 continue
 
-            hist = context.get_bars(ticker, lookback_days=200)
+            try:
+                hist = context.get_bars(ticker, lookback_days=200)
+            except Exception:
+                continue
             if hist is None or len(hist) < 200:
                 continue
 
-            current = context.get_current_price(ticker)
+            try:
+                current = context.get_current_price(ticker)
+            except Exception:
+                continue
             if current is None:
                 continue
 
@@ -456,11 +474,17 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
         actions = []
 
         for ticker, position in context.positions.items():
-            current = context.get_current_price(ticker)
+            try:
+                current = context.get_current_price(ticker)
+            except Exception:
+                continue
             if current is None:
                 continue
 
-            hist = context.get_bars(ticker, lookback_days=60)
+            try:
+                hist = context.get_bars(ticker, lookback_days=60)
+            except Exception:
+                continue
             if hist is None or len(hist) < 10:
                 continue
 
