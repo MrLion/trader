@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.3] — 2026-04-18
+
+### Fixed
+- **`AttributeError: 'VCPBreakoutLargeCap' object has no attribute 'evaluate_exits'`** — backtest engine always called the legacy `(sim_date, positions, data_provider, ...)` interface; VCP strategies implement the unified `(context: StrategyContext)` interface
+  - Added `_uses_legacy_interface` detection at engine init: presence of `evaluate_exits` method → legacy path (Stage2Momentum), absence → unified path (VCP and future strategies)
+  - Added `_build_context()` helper to wrap `DataFrameProvider` into a `BacktestStrategyContext` for unified strategies
+  - Both `Stage2MomentumStrategy` and VCP strategies now work in the backtest engine without changes to either strategy
+
 ## [0.6.2.2] — 2026-04-18
 
 ### Fixed
