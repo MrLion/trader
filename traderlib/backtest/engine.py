@@ -29,6 +29,7 @@ from traderlib.paper_state import Position
 from traderlib.risk_config import RiskConfig, RiskConfigManager
 
 
+
 @dataclass
 class BacktestConfig:
     """Configuration for a backtest run."""
@@ -100,6 +101,13 @@ class BacktestEngine:
 
         # Gap rejections (entries rejected due to T+1 gap)
         self._gap_rejections: list[dict] = []
+
+        # Detect interface: legacy (Stage2MomentumStrategy) vs unified (VCP strategies)
+        # Legacy interface: evaluate_exits(sim_date, positions, data_provider, risk_config)
+        #                   evaluate_entries(sim_date, positions, data_provider, equity, risk_config)
+        # Unified interface: manage_exits(context) / evaluate_entries(context: StrategyContext)
+        # Detection: legacy strategies implement evaluate_exits(); unified strategies do not.
+        self._uses_legacy_interface = hasattr(strategy, 'evaluate_exits') and callable(getattr(strategy, 'evaluate_exits'))
 
     def run(self) -> BacktestResult:
         """Execute the backtest day by day.
@@ -185,11 +193,15 @@ class BacktestEngine:
                     for ticker, bp in state.positions.items()
                 }
 
-                # Get exit actions from strategy (unified: EXIT, UPDATE_STOP, or HOLD)
-                exit_actions = self.strategy.evaluate_exits(
-                    sim_date, current_positions, self.data_provider,
-                    self._risk_config
-                )
+                # Get exit actions from strategy
+                if self._uses_legacy_interface:
+                    exit_actions = self.strategy.evaluate_exits(
+                        sim_date, current_positions, self.data_provider,
+                        self._risk_config
+                    )
+                else:
+                    context = self._build_context(sim_date, current_positions, state.equity)
+                    exit_actions = self.strategy.manage_exits(context)
 
                 # Apply exit actions: handle EXIT and UPDATE_STOP
                 self._apply_exit_actions(state, exit_actions)
@@ -210,10 +222,14 @@ class BacktestEngine:
                     ))
 
                 # Step 4: Evaluate entries (signals fill at T+1)
-                entry_signals = self.strategy.evaluate_entries(
-                    sim_date, current_positions, self.data_provider,
-                    state.equity, self._risk_config
-                )
+                if self._uses_legacy_interface:
+                    entry_signals = self.strategy.evaluate_entries(
+                        sim_date, current_positions, self.data_provider,
+                        state.equity, self._risk_config
+                    )
+                else:
+                    context = self._build_context(sim_date, current_positions, state.equity)
+                    entry_signals = self.strategy.evaluate_entries(context)
 
                 # Queue signals for T+1 execution
                 self._pending_entries = entry_signals
@@ -358,6 +374,18 @@ class BacktestEngine:
             elif action.action == ExitActionType.HOLD:
                 # No action needed
                 pass
+
+    def _build_context(self, sim_date: date, positions: dict,
+                       equity: float) -> BacktestStrategyContext:
+        """Build a StrategyContext for unified-interface strategies."""
+        return BacktestStrategyContext(
+            data_provider=self.data_provider,
+            sim_date=sim_date,
+            positions=positions,
+            equity=equity,
+            cash=equity,
+            risk_config=self._risk_config,
+        )
 
     def _liquidate_positions(self, state: BacktestState, last_date: date):
         """Close all remaining positions at the last trading day's close."""
