@@ -255,10 +255,18 @@ Common issues and fixes.
 - ✅ Backtest data isolation principle
 - ✅ Migration guides for ExitAction and Strategy ABC
 
+**v0.6.1.2 Documentation Additions (New):**
+- ✅ `docs/trend_screener/USER_GUIDE.md` — Trend Screener usage (discovery/entry timing modes, VCP detection)
+- ✅ `docs/trend_screener/MA_CONVERGENCE.md` — Scoring algorithm deep dive (components, cluster detection)
+- ✅ `docs/patterns/VCP.md` — VCP pattern detection (swing detection, progression validation, volume analysis)
+- ✅ `docs/strategies/OVERVIEW.md` — Strategy plugin architecture (Strategy ABC, registry, CompositeStrategy)
+- ✅ `docs/strategies/VCP_BREAKOUT.md` — VCP breakout strategy (profiles, entry/exit logic, configuration)
+- ✅ `docs/universe/DYNAMIC_FILTERING.md` — Universe builder (funnel filtering, ETF exclusion, caching)
+
 **Deferred (Phase 3):**
 - ⏸️ `docs/DEPLOYMENT.md` — When production deployment needed
 - ⏸️ `CONTRIBUTING.md` — When accepting external contributors
 - ⏸️ API docs for traderlib modules — Internal code sufficient (docstrings cover needs)
 - ⏸️ `docs/TESTING.md` — Can add when expanding test suite
 
-**Current Documentation Coverage:** ~90% of critical needs covered for single-developer workflow.
+**Current Documentation Coverage:** ~95% of critical needs covered for single-developer workflow.

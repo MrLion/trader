@@ -144,6 +144,8 @@ python3 scripts/trend_screener.py --tickers NVDA --detect-vcp
 - Dynamic universe building: Fetches ~13,500 Alpaca assets, filters to ~1,150 (excludes ETFs, OTC, low-price, illiquid)
 - ETF exclusion via name-pattern detection (Alpaca API doesn't distinguish stocks/ETFs)
 
+**See [docs/trend_screener/USER_GUIDE.md](docs/trend_screener/USER_GUIDE.md) for complete usage including discovery mode, entry timing, VCP detection, and convergence scoring.**
+
 ### Reports
 
 Generate pre-market and post-market briefings (console or HTML).
