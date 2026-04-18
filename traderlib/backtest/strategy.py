@@ -217,11 +217,16 @@ class Stage2MomentumStrategy(Strategy):
 
         # Get tickers to scan
         if self.watchlist_df is not None:
-            # Date-aware filtering from historical watchlist
-            active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(sim_date)]
-            active = active.sort_values('week_start').groupby('ticker').last().reset_index()
-            ticker_col = 'ticker' if 'ticker' in active.columns else 'Ticker'
-            tickers = active[ticker_col].dropna().unique().tolist()
+            if 'week_start' in self.watchlist_df.columns:
+                # Date-aware filtering from historical watchlist (mcstock_scraper output)
+                active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(sim_date)]
+                active = active.sort_values('week_start').groupby('ticker').last().reset_index()
+                ticker_col = 'ticker' if 'ticker' in active.columns else 'Ticker'
+                tickers = active[ticker_col].dropna().unique().tolist()
+            else:
+                # Plain ticker list (trend screener output or simple watchlist)
+                ticker_col = 'Ticker' if 'Ticker' in self.watchlist_df.columns else 'ticker'
+                tickers = self.watchlist_df[ticker_col].dropna().unique().tolist()
         else:
             tickers = self.watchlist_tickers or []
 
