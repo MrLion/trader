@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.7] — 2026-04-18
+
+### Fixed
+- **`--export-path` now works without `--export`** — format is inferred from file extension (`.csv`, `.json`, `.html`); previously required both flags or the file was silently not written
+
 ## [0.6.1.6] — 2026-04-18
 
 ### Changed

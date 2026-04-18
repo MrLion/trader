@@ -865,8 +865,14 @@ Examples:
         entry_mode=entry_mode,
     )
 
-    if args.export != 'none':
-        screener.export_results(ranked, args.export, args.export_path)
+    export_format = args.export
+    if export_format == 'none' and args.export_path:
+        # Infer format from extension, default to csv
+        ext = Path(args.export_path).suffix.lstrip('.').lower()
+        export_format = ext if ext in ('csv', 'json', 'html') else 'csv'
+
+    if export_format != 'none':
+        screener.export_results(ranked, export_format, args.export_path)
 
     if args.export_watchlist:
         screener.export_watchlist(ranked, args.export_watchlist)
