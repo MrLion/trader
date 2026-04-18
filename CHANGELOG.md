@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.1] — 2026-04-18
+
+### Fixed
+- **`entry_signals.py` tier thresholds updated for 10-point scale** — Tier 1 now requires `stage2 >= 8` (was 6), Tier 2 requires `stage2 >= 6` (was 5); proportionally equivalent to old 8-point thresholds (75% and 62.5%)
+- **`/8` display strings updated to `/10`** — `entry_signals.py` print statements, HTML templates, and `premarket_report.py` watchlist line all showed stale `stage2/8` denominator
+
 ## [0.6.2.0] — 2026-04-18
 
 ### Changed
