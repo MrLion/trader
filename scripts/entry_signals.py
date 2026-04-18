@@ -238,6 +238,11 @@ class EntrySignalScanner:
             }
 
         except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "analyze_ticker", e,
+                severity=TradingExceptionHandler.WARNING,
+                ticker=ticker
+            )
             return None
 
     def _load_watchlist(self) -> List[str]:
@@ -475,7 +480,7 @@ class EntrySignalScanner:
 
     def analyze_single(self, ticker: str) -> Optional[Dict]:
         """Deep analysis of single ticker (like old analyze_ticker.py)."""
-        print(f"\n🔍 Analyzing {ticker.upper()}...")
+        print(f"\n🔍 Analyzing {ticker.upper()}...", flush=True)
 
         analysis = self._analyze_ticker(ticker)
         if not analysis:
@@ -485,7 +490,7 @@ class EntrySignalScanner:
         # Get additional data for deep dive
         try:
             hist = self.alpaca.get_historical_bars(ticker, days=252)  # 1 year
-            if hist is not None and len(hist) >= 200:
+            if hasattr(hist, 'empty') and not hist.empty and len(hist) >= 150:
                 current = analysis['current']
 
                 # Returns

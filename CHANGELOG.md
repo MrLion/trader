@@ -2,9 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.1.3] - 2026-04-17
+## [0.6.1.3] — 2026-04-17
 
-### Changed
+### Fixed
+- **entry_signals.py --ticker silent exit** — `analyze_single()` exited without output when API returned DataFrame with <200 rows and `print_analysis()` call referenced non-existent method. Fixed by lowering threshold to >=150 rows and removing the phantom `print_analysis()` call that never existed.
 - **README.md streamlined** — Reduced from 520 to 130 lines (75% reduction) for better scannability
   - Removed detailed script examples — link to `docs/` instead of duplicating content
   - Removed trading framework details — link to `METHODOLOGY.md` and `RISK_GUIDE.md`
