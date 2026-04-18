@@ -2,14 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.6] — 2026-04-18
+
+### Changed
+- **Renamed `config/scraper_config.yaml` → `config/screener_config.yaml`** — name now reflects actual purpose (screener configuration, not scraping)
+  - Updated all references across `traderlib/`, `scripts/`, `CLAUDE.md`, `README.md`, `TOOLS.md`, and all `docs/` files
+
 ## [0.6.1.5] — 2026-04-18
 
 ### Changed
-- **Config-driven profiles** — `scraper_config.yaml` is now the single source of truth for all profile parameters; no hardcoded values remain in Python
+- **Config-driven profiles** — `screener_config.yaml` is now the single source of truth for all profile parameters; no hardcoded values remain in Python
   - Profile YAML blocks now include screener structural filter defaults alongside universe pre-filter thresholds: `stack_short`, `stack_long`, `rs_near_high_pct`, `min_price_vs_10ma`, `min_share_volume`, `min_stage2_score`, `min_convergence_score`
   - `large_cap`: `stack_long=true`, `rs_near_high_pct=5`, `min_price_vs_10ma=6`, `min_share_volume=1M`, `min_stage2_score=5`
   - `high_octane`: `stack_long=false`, `rs_near_high_pct=12`, `min_price_vs_10ma=4`, `min_share_volume=400K`, `min_stage2_score=4`
-  - `--profile` now accepts any string — add custom profiles as YAML blocks in `scraper_config.yaml` without touching Python
+  - `--profile` now accepts any string — add custom profiles as YAML blocks in `screener_config.yaml` without touching Python
   - CLI flags override config values per-run (e.g. `--rs-near-high 8` overrides the profile's `rs_near_high_pct`)
   - `UniverseBuilder.get_profile_config()` new method — returns full profile dict for a given profile name
 
@@ -19,7 +25,7 @@ All notable changes to this project will be documented in this file.
 - **Trend Screener UX overhaul** — Three buckets of improvements across prefiltering, scanning, and console output
 
 #### Prefiltering
-- `large_cap.min_price` raised from $10 → $30 in `config/scraper_config.yaml` to align universe pre-filter with screener floor (was wasting API calls on tickers that failed immediately)
+- `large_cap.min_price` raised from $10 → $30 in `config/screener_config.yaml` to align universe pre-filter with screener floor (was wasting API calls on tickers that failed immediately)
 - `universe_builder.py`: added `marginable=True` gate for high-octane profile — blocks non-institutional penny stocks ($2–5 range) while allowing fallen large-caps (e.g. EBAY) which remain marginable
 - `universe_builder._compute_dollar_volumes()`: chunked at 500 tickers per `StockBarsRequest` (was unbounded, risked URL-length failures on 6,000+ symbol universes)
 
@@ -78,7 +84,7 @@ All notable changes to this project will be documented in this file.
 ## [0.6.1.1] - 2026-04-17
 
 ### Changed
-- **Rate limiter now configurable via `config/scraper_config.yaml`**
+- **Rate limiter now configurable via `config/screener_config.yaml`**
   - Added `rate_limiter` section with `max_requests` and `window_seconds` settings
   - Default bumped from 200/min (free tier) to 10,000/min (paid tier)
   - Both `traderlib/rate_limiter.py` and `traderlib/alpaca_client.py` now load config on init
@@ -284,7 +290,7 @@ All notable changes to this project will be documented in this file.
 - **MC Stock scraper $Vol_M unit bug** — stored raw dollar volume instead of
   millions, causing watchlist population to overflow `Avg_Volume_50d`.
 - **Scraper validation thresholds now configurable** — added
-  `config/scraper_config.yaml` for min price, market cap, history days, and
+  `config/screener_config.yaml` for min price, market cap, history days, and
   dollar volume filters. Supports `--config` CLI flag for custom config paths
   and `extra_false_positives` list for skipping specific tickers.
 - **risk_config.yaml comment** — corrected risk_per_trade_pct comment from

@@ -133,7 +133,17 @@ python3 scripts/watchlist_manager.py list
 
 ### Entry Score Calculation
 
-Entry scores are calculated by `entry_signals.py` (max 100 points):
+Entry scores are calculated by `entry_signals.py` (max 100 points).
+
+**See [docs/entry_signals/TIER_SCORING.md](docs/entry_signals/TIER_SCORING.md) for complete documentation including:**
+- Tier classification logic (dual-requirement: Entry Score AND Stage 2 Score)
+- Scoring components table
+- Output categories (Ready Now, Close to Pivot, Extended, Tier 2 Watch, Tier 3)
+- Console output column reference
+- Signal age tracking
+- Dual risk parameters (ATR vs MA Support Stop)
+
+**Quick Reference:**
 
 | Component | Criteria | Points |
 |-----------|----------|--------|
@@ -157,9 +167,9 @@ Entry scores are calculated by `entry_signals.py` (max 100 points):
 | **MA Penalties** | Below 50 MA | -20 |
 | | Below 20 MA | -10 |
 
-**Tier Thresholds:**
-- **Tier 1 (>=60 pts):** Best entry setups — ready now. Requires Stage 2 score >= 6.
-- **Tier 2 (40-59 pts):** Good setups — wait for better entry. Requires Stage 2 score >= 5.
+**Tier Thresholds (Dual-Requirement):**
+- **Tier 1 (>=60 pts + Stage 2 >= 6):** Best entry setups — ready now
+- **Tier 2 (40-59 pts + Stage 2 >= 5):** Good setups — wait for better entry
 - **Tier 3 (<40 pts):** Monitor only — too far or too wide
 
 ### Watchlist Schema
@@ -698,7 +708,7 @@ pip install requests beautifulsoup4
 
 ### Configuration
 
-Scraper validation thresholds are configured in `config/scraper_config.yaml`:
+Scraper validation thresholds are configured in `config/screener_config.yaml`:
 
 ```yaml
 validation:
@@ -711,7 +721,7 @@ extra_false_positives: []         # Tickers to skip (e.g. ETFs)
 
 Override with `--config` flag:
 ```bash
-python3 scripts/mcstock_scraper.py --config config/scraper_config.yaml
+python3 scripts/mcstock_scraper.py --config config/screener_config.yaml
 ```
 
 ### Usage
@@ -744,7 +754,7 @@ python3 scripts/mcstock_scraper.py --skip-validation
 | `--output` | Custom CSV output path | scans/mcstock_ideas_YYYY-MM-DD.csv |
 | `--populate-watchlist` | Auto-populate watchlist | False |
 | `--skip-validation` | Skip Yahoo Finance validation | False |
-| `--config` | Custom scraper config path | config/scraper_config.yaml |
+| `--config` | Custom scraper config path | config/screener_config.yaml |
 | `--dry-run` | Preview without saving | False |
 | `--verbose`, `-v` | Debug logging | False |
 

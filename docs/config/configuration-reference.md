@@ -11,7 +11,7 @@ Configuration is managed through YAML files in the `config/` directory:
 | File | Purpose |
 |------|---------|
 | `risk_config.yaml` | Risk management parameters |
-| `scraper_config.yaml` | Scraper validation thresholds |
+| `screener_config.yaml` | Scraper validation thresholds |
 | `secrets/alpaca_config.json` | API credentials |
 
 Configuration can be overridden via environment variables and command-line risk profiles.
@@ -295,7 +295,7 @@ python3 scripts/entry_signals.py
 
 ## Scraper Configuration
 
-**File:** `config/scraper_config.yaml`
+**File:** `config/screener_config.yaml`
 
 ```yaml
 validation:

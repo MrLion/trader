@@ -662,10 +662,10 @@ Examples:
     parser.add_argument('--min-volume-shares', type=float, default=None,
                         help='Min 50-day avg share volume')
 
-    # Profile selection — any name defined in scraper_config.yaml universes section
+    # Profile selection — any name defined in screener_config.yaml universes section
     parser.add_argument('--profile', default='large-cap',
                         help='Universe profile from config (default: large-cap). '
-                             'Add custom profiles as YAML blocks in scraper_config.yaml.')
+                             'Add custom profiles as YAML blocks in screener_config.yaml.')
 
     # Convergence scoring — disabled by default, scoring is for ranking not blocking
     parser.add_argument('--min-convergence-score', type=int, default=-1,
@@ -719,7 +719,7 @@ Examples:
     profile_cfg = _builder.get_profile_config(profile_key)
 
     if not profile_cfg:
-        print(f"❌ Unknown profile '{args.profile}'. Add it to config/scraper_config.yaml under 'universes:'.")
+        print(f"❌ Unknown profile '{args.profile}'. Add it to config/screener_config.yaml under 'universes:'.")
         sys.exit(1)
 
     # Resolve effective values: CLI flag wins if explicitly set, otherwise use config default

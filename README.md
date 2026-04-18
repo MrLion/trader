@@ -59,7 +59,7 @@ trader/
 ├── traderlib/backtest/  # Backtesting engine
 ├── data/             # watchlist.csv, positions, trade logs
 ├── docs/             # All documentation
-├── config/           # Configuration files (risk_config.yaml, scraper_config.yaml)
+├── config/           # Configuration files (risk_config.yaml, screener_config.yaml)
 └── AGENTS.MD         # Complete trading playbook
 ```
 

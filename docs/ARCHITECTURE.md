@@ -714,7 +714,7 @@ trader/
 │
 ├── config/                    # Configuration
 │   ├── risk_config.yaml      # Risk profiles
-│   ├── scraper_config.yaml   # Scraper settings
+│   ├── screener_config.yaml   # Scraper settings
 │   └── secrets/              # API credentials
 │       └── alpaca_config.json
 │

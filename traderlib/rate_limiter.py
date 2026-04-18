@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Rate limiter for Alpaca API with exponential backoff."""
 
+import os
 import threading
 import time
 from collections import deque
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, Dict
+
+import yaml
 
 
 class RateLimiter:
@@ -235,8 +239,37 @@ class APIHealthMonitor:
             }
 
 
-# Global rate limiters
-alpaca_rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
+def _load_rate_limiter_config() -> Dict:
+    """Load rate limiter configuration from screener_config.yaml."""
+    config_paths = [
+        Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/screener_config.yaml'),
+        Path('config/screener_config.yaml'),
+    ]
+
+    # Try to load from project root relative to this file
+    project_root = Path(__file__).parent.parent
+    config_paths.insert(0, project_root / 'config' / 'screener_config.yaml')
+
+    for config_path in config_paths:
+        if config_path.exists():
+            try:
+                with open(config_path, 'r') as f:
+                    config = yaml.safe_load(f)
+                    if config and 'rate_limiter' in config:
+                        return config['rate_limiter']
+            except Exception:
+                pass
+
+    # Default: Paid tier limits (10000/min)
+    return {'max_requests': 10000, 'window_seconds': 60}
+
+
+# Global rate limiters - initialized with config values
+_rate_config = _load_rate_limiter_config()
+alpaca_rate_limiter = RateLimiter(
+    max_requests=_rate_config.get('max_requests', 10000),
+    window_seconds=_rate_config.get('window_seconds', 60)
+)
 health_monitor = APIHealthMonitor()
 
 

@@ -357,7 +357,7 @@ def extract_tickers(html: str, config: Optional[dict] = None) -> List[Dict]:
 def load_scraper_config(config_path: Optional[str] = None) -> dict:
     """Load scraper validation config from YAML."""
     if config_path is None:
-        config_path = PROJECT_ROOT / 'config' / 'scraper_config.yaml'
+        config_path = PROJECT_ROOT / 'config' / 'screener_config.yaml'
 
     defaults = {
         'validation': {

@@ -139,7 +139,7 @@ python3 scripts/trend_screener.py --profile large-cap --export-csv scans/trend_$
 
 ## Configuration
 
-Report configuration in `config/scraper_config.yaml`:
+Report configuration in `config/screener_config.yaml`:
 
 ```yaml
 reports:

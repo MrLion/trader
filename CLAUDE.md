@@ -46,7 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `data/`: Persistence for the watchlist (`watchlist.csv`), portfolio, and regime tracking.
 - `scans/`: Output CSVs from various scanning scripts.
 - `reports/`: Generated HTML market reports.
-- `config/`: YAML configuration files (risk_config.yaml, scraper_config.yaml).
+- `config/`: YAML configuration files (risk_config.yaml, screener_config.yaml).
 - `memory/`: Daily logs (`YYYY-MM-DD.md`) and long-term curated memories (`MEMORY.md`).
 - `AGENTS.MD`: Core operating rhythm, trading protocols, and sector reference.
 - `TOOLS.md`: Technical documentation for `yfinance` and script usage.
@@ -64,7 +64,7 @@ The system follows a strict trading operating rhythm:
 - **Analysis Framework:** Based on Stage 2 (7-point system), Relative Strength (RS), and VCP patterns.
 - **Watchlist Tiering:** A (Actionable), B (Developing), C (Radar).
 - **Position Sizing:** Triple-constraint system (account risk 0.5%, position cap 5%, available cash). Partial positions allowed when cash-limited.
-- **Scraper Config:** Validation thresholds in `config/scraper_config.yaml`. Override with `--config` flag.
+- **Scraper Config:** Validation thresholds in `config/screener_config.yaml`. Override with `--config` flag.
 
 
 ## Code Style

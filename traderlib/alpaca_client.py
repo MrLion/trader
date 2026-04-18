@@ -23,7 +23,7 @@ from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.enums import DataFeed, Adjustment
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, StopLossRequest
+from alpaca.trading.requests import MarketOrderRequest, StopLossRequest, GetAssetsRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 
@@ -83,8 +83,12 @@ class AlpacaClient:
         self.api_error_count = 0
         self.ws_reconnect_delay = 5  # Start with 5 seconds, exponential backoff
 
-        # Rate limiter
-        self.rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
+        # Rate limiter - load from config (default to paid tier: 10000/min)
+        rate_config = self._load_rate_limiter_config()
+        self.rate_limiter = RateLimiter(
+            max_requests=rate_config.get('max_requests', 10000),
+            window_seconds=rate_config.get('window_seconds', 60)
+        )
 
     def _load_config(self, key: str) -> Optional[str]:
         """Load config from file."""
@@ -111,6 +115,30 @@ class AlpacaClient:
                 return int(val) if val is not None else default
         except Exception:
             return default
+
+    def _load_rate_limiter_config(self) -> Dict:
+        """Load rate limiter configuration from screener_config.yaml."""
+        from pathlib import Path
+
+        config_paths = [
+            Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/screener_config.yaml'),
+            PROJECT_ROOT / 'config' / 'screener_config.yaml',
+            Path('config/screener_config.yaml'),
+        ]
+
+        import yaml
+        for config_path in config_paths:
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                        if config and 'rate_limiter' in config:
+                            return config['rate_limiter']
+                except Exception:
+                    pass
+
+        # Default: Paid tier limits (10000/min)
+        return {'max_requests': 10000, 'window_seconds': 60}
 
     def get_account(self) -> Dict:
         """Get account information with rate limiting."""
@@ -152,6 +180,56 @@ class AlpacaClient:
             self.api_error_count += 1
             raise
 
+    def get_assets(self, status: str = 'active', asset_class: str = 'us_equity') -> List:
+        """
+        Get list of assets from Alpaca.
+
+        Args:
+            status: Asset status ('active', 'inactive', 'all')
+            asset_class: Asset class ('us_equity', etc.)
+
+        Returns:
+            List of Asset objects
+        """
+        if not self.rate_limiter.can_make_request():
+            wait = self.rate_limiter.get_wait_time()
+            if wait > 0:
+                import time
+                print(f"⏳ Rate limit: waiting {wait:.1f}s")
+                time.sleep(wait)
+
+        try:
+            self.rate_limiter.record_request()
+            # Use GetAssetsRequest with the get_all_assets method
+            from alpaca.trading.enums import AssetStatus, AssetClass
+            filter_req = GetAssetsRequest(
+                status=AssetStatus(status) if status != 'all' else None,
+                asset_class=AssetClass(asset_class)
+            )
+            assets = self.trading_client.get_all_assets(filter=filter_req)
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
+            self.api_error_count = 0
+            return assets
+        except APIError as e:
+            self.rate_limiter.record_error(is_rate_limit=e.status_code == 429)
+            health_monitor.mark_failure('alpaca')
+            self.api_error_count += 1
+            if e.status_code in (401, 403):
+                raise APIKeyError(
+                    "Alpaca",
+                    f"Authentication failed ({e.status_code}). Keys may be invalid or expired."
+                ) from e
+            raise
+        except Exception as e:
+            self.rate_limiter.record_error(is_rate_limit=False)
+            health_monitor.mark_failure('alpaca')
+            TradingExceptionHandler.log_exception(
+                "get_assets", e,
+                severity=TradingExceptionHandler.ERROR
+            )
+            return []
+
     def get_latest_price(self, ticker: str) -> Optional[float]:
         """Get current marked-to-market price.
 
@@ -185,8 +263,16 @@ class AlpacaClient:
             request = StockLatestQuoteRequest(symbol_or_symbols=ticker)
             quotes = self.data_client.get_stock_latest_quote(request)
 
-            if ticker in quotes.data:
-                quote = quotes.data[ticker]
+            # Handle both dict and object responses (SDK returns dict for single-symbol)
+            if hasattr(quotes, 'data'):
+                quotes_dict = quotes.data
+            elif isinstance(quotes, dict):
+                quotes_dict = quotes
+            else:
+                quotes_dict = {}
+
+            if ticker in quotes_dict:
+                quote = quotes_dict[ticker]
                 # Use bid/ask midpoint for fair value
                 if quote.bid_price and quote.ask_price:
                     price = float((quote.bid_price + quote.ask_price) / 2)
@@ -315,6 +401,27 @@ class AlpacaClient:
                     result[ticker] = None
 
         return result
+
+    def get_bars(self, ticker: str, limit: int = None) -> Optional[pd.DataFrame]:
+        """Get historical daily bars with rate limiting.
+
+        Alias for get_historical_bars for backwards compatibility.
+        Converts limit (trading bars) to calendar days.
+
+        Args:
+            ticker: Stock symbol
+            limit: Number of trading bars to fetch (default: uses configured historical_days)
+
+        Returns:
+            DataFrame with OHLCV data indexed by Timestamp
+        """
+        # Convert limit (trading bars) to calendar days
+        # ~252 trading days per year, so multiply by 365/252 ≈ 1.45
+        if limit:
+            days = int(limit * 1.45)  # Convert trading days to calendar days
+        else:
+            days = self.historical_days
+        return self.get_historical_bars(ticker, days=days)
 
     def get_historical_bars(self, ticker: str, days: int = None) -> Optional[pd.DataFrame]:
         """Get historical daily bars with rate limiting.

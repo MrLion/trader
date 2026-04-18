@@ -304,7 +304,7 @@ rm data/universes/*.csv
 python3 scripts/trend_screener.py --profile large-cap --force-refresh
 
 # If still appearing, add to extra_false_positives in config
-# Edit config/scraper_config.yaml
+# Edit config/screener_config.yaml
 ```
 
 ### Cache showing zeros
@@ -321,7 +321,7 @@ python3 scripts/trend_screener.py --profile large-cap
 
 ## Configuration
 
-Universe settings in `config/scraper_config.yaml`:
+Universe settings in `config/screener_config.yaml`:
 
 ```yaml
 universes:

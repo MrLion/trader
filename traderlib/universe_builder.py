@@ -59,10 +59,10 @@ class UniverseBuilder:
         Initialize universe builder.
 
         Args:
-            config_path: Path to scraper_config.yaml (default: config/scraper_config.yaml)
+            config_path: Path to screener_config.yaml (default: config/screener_config.yaml)
         """
         if config_path is None:
-            config_path = Path(__file__).parent.parent / 'config' / 'scraper_config.yaml'
+            config_path = Path(__file__).parent.parent / 'config' / 'screener_config.yaml'
 
         self.config_path = config_path
         self.config = self._load_config()
