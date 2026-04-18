@@ -148,22 +148,48 @@ class VCPBreakoutBase(Strategy):
             return shares
         return 0
 
-    def _find_recent_higher_low(self, hist: pd.DataFrame, entry_price: float) -> Optional[float]:
-        """Find most recent higher low above entry."""
-        if len(hist) < 10:
-            return None
+    def _find_swing_lows(self, hist: pd.DataFrame, window: int = 3) -> List[float]:
+        """Find local swing low prices using a rolling window.
 
-        # Simple implementation: find highest low in last 20 bars
-        recent_lows = hist['Low'].tail(20)
-        return float(recent_lows.max())
+        A swing low is a bar whose Low is ≤ all surrounding `window` bars on
+        each side. Returns prices in chronological order (oldest first).
+        """
+        lows = hist['Low'].values
+        n = len(lows)
+        result = []
+        for i in range(window, n - window):
+            if (all(lows[i] <= lows[i - j] for j in range(1, window + 1)) and
+                    all(lows[i] <= lows[i + j] for j in range(1, window + 1))):
+                result.append(float(lows[i]))
+        return result
 
-    def _find_last_swing_low(self, hist: pd.DataFrame) -> float:
-        """Find last significant swing low."""
-        if len(hist) < 10:
-            return hist['Low'].iloc[-1]
+    def _find_recent_higher_low(self, hist: pd.DataFrame,
+                                current_stop: float,
+                                current_price: float) -> Optional[float]:
+        """Find the highest swing low that's above current_stop and below current price.
 
-        # Return lowest low of last 10 days
-        return float(hist['Low'].tail(10).min())
+        Used in Phase 1 to ratchet the trailing stop up as the position moves
+        in favour. Returns the highest qualifying swing low (tightest valid stop),
+        or None if none qualifies.
+
+        A 3% buffer below current price prevents setting the stop so close that
+        normal intraday noise triggers an exit.
+        """
+        candidates = [
+            p for p in self._find_swing_lows(hist.tail(40), window=3)
+            if current_stop < p < current_price * 0.97
+        ]
+        return max(candidates) if candidates else None
+
+    def _find_last_swing_low(self, hist: pd.DataFrame) -> Optional[float]:
+        """Find the most recent significant swing low for Phase 2 trailing.
+
+        Uses a wider window (5 bars each side) so only meaningful swing lows
+        qualify — not every 3-bar dip. Returns None if no swing low found in
+        the last 60 bars, in which case the caller falls back to EMA only.
+        """
+        swing_lows = self._find_swing_lows(hist.tail(60), window=5)
+        return swing_lows[-1] if swing_lows else None
 
 
 @register_strategy('vcp_large_cap')
@@ -304,8 +330,9 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
         """
         VCP Exit Management — Two-Phase System.
 
-        Phase 1 (Until ~2R): Hold initial stop (last contraction low)
-        Phase 2 (Once up 2-3R): Trail with 20-day EMA or swing low
+        Phase 1 (Until 2R): Hold initial stop; ratchet up to confirmed swing lows.
+        Phase 2 (2R+):      Trail with EMA and swing low, whichever is tighter.
+        Stop enforcement happens first, before phase logic, in both phases.
         """
         actions = []
 
@@ -324,15 +351,30 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
             if hist is None or len(hist) < 20:
                 continue
 
-            # Calculate R-multiple
+            # R-multiple (needed for all branches including stop check)
             initial_risk = position.entry_price - position.stop_price
             current_gain = current - position.entry_price
             r_multiple = current_gain / initial_risk if initial_risk > 0 else 0
 
-            # Phase 1: Below 2R — hold initial stop (or update to higher low)
+            # Bug 1 fix: enforce stop before any phase logic.
+            # Without this, a stock dropping through its stop in Phase 1
+            # only gets HOLD, never EXIT.
+            if current <= position.stop_price:
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.EXIT,
+                    reason='STOP_HIT',
+                    exit_price=current,
+                    r_multiple=r_multiple
+                ))
+                continue
+
+            # Phase 1: below 2R — hold initial stop, ratchet to swing lows
             if r_multiple < self.params.get('phase2_start_r', 2.0):
-                higher_low = self._find_recent_higher_low(hist, position.entry_price)
-                if higher_low and higher_low > position.stop_price:
+                higher_low = self._find_recent_higher_low(
+                    hist, position.stop_price, current
+                )
+                if higher_low:
                     actions.append(ExitAction(
                         ticker=ticker,
                         action=ExitActionType.UPDATE_STOP,
@@ -350,39 +392,32 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
                     ))
                 continue
 
-            # Phase 2: At 2R+ — trail with 20-day EMA (large-cap)
-            ema20 = hist['Close'].ewm(span=self.params.get('trail_ema_period', 20), adjust=False).mean().iloc[-1]
+            # Phase 2: 2R+ — trail with EMA and most recent swing low
+            ema_period = self.params.get('trail_ema_period', 20)
+            ema = hist['Close'].ewm(span=ema_period, adjust=False).mean().iloc[-1]
             swing_low = self._find_last_swing_low(hist)
 
-            # Use tighter of EMA or swing low (never below initial)
-            new_stop = max(ema20, swing_low, position.stop_price)
+            candidates = [ema, position.stop_price]
+            if swing_low:
+                candidates.append(swing_low)
+            new_stop = max(candidates)
 
             if new_stop > position.stop_price:
                 actions.append(ExitAction(
                     ticker=ticker,
                     action=ExitActionType.UPDATE_STOP,
-                    reason='TRAIL_EMA20',
+                    reason=f'TRAIL_EMA{ema_period}',
                     new_stop_price=new_stop,
-                    new_stop_type=f'TRAIL_EMA20_R{r_multiple:.1f}',
+                    new_stop_type=f'TRAIL_EMA{ema_period}_R{r_multiple:.1f}',
                     r_multiple=r_multiple
                 ))
             else:
-                # Check if stop hit
-                if current <= position.stop_price:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.EXIT,
-                        reason='STOP_HIT',
-                        exit_price=current,
-                        r_multiple=r_multiple
-                    ))
-                else:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.HOLD,
-                        reason=f'TRAILING_R{r_multiple:.1f}',
-                        r_multiple=r_multiple
-                    ))
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.HOLD,
+                    reason=f'TRAILING_R{r_multiple:.1f}',
+                    r_multiple=r_multiple
+                ))
 
         return actions
 
@@ -552,10 +587,23 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
             current_gain = current - position.entry_price
             r_multiple = current_gain / initial_risk if initial_risk > 0 else 0
 
-            # Phase 1: Below 2R
+            # Bug 1 fix: enforce stop before any phase logic
+            if current <= position.stop_price:
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.EXIT,
+                    reason='STOP_HIT',
+                    exit_price=current,
+                    r_multiple=r_multiple
+                ))
+                continue
+
+            # Phase 1: below 2R — hold initial stop, ratchet to swing lows
             if r_multiple < self.params.get('phase2_start_r', 2.0):
-                higher_low = self._find_recent_higher_low(hist, position.entry_price)
-                if higher_low and higher_low > position.stop_price:
+                higher_low = self._find_recent_higher_low(
+                    hist, position.stop_price, current
+                )
+                if higher_low:
                     actions.append(ExitAction(
                         ticker=ticker,
                         action=ExitActionType.UPDATE_STOP,
@@ -573,37 +621,32 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
                     ))
                 continue
 
-            # Phase 2: At 2R+ — trail with 10-day EMA (tighter for high-octane)
-            ema10 = hist['Close'].ewm(span=self.params.get('trail_ema_period', 10), adjust=False).mean().iloc[-1]
+            # Phase 2: 2R+ — trail with EMA and most recent swing low
+            ema_period = self.params.get('trail_ema_period', 10)
+            ema = hist['Close'].ewm(span=ema_period, adjust=False).mean().iloc[-1]
             swing_low = self._find_last_swing_low(hist)
 
-            new_stop = max(ema10, swing_low, position.stop_price)
+            candidates = [ema, position.stop_price]
+            if swing_low:
+                candidates.append(swing_low)
+            new_stop = max(candidates)
 
             if new_stop > position.stop_price:
                 actions.append(ExitAction(
                     ticker=ticker,
                     action=ExitActionType.UPDATE_STOP,
-                    reason='TRAIL_EMA10',
+                    reason=f'TRAIL_EMA{ema_period}',
                     new_stop_price=new_stop,
-                    new_stop_type=f'TRAIL_EMA10_R{r_multiple:.1f}',
+                    new_stop_type=f'TRAIL_EMA{ema_period}_R{r_multiple:.1f}',
                     r_multiple=r_multiple
                 ))
             else:
-                if current <= position.stop_price:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.EXIT,
-                        reason='STOP_HIT',
-                        exit_price=current,
-                        r_multiple=r_multiple
-                    ))
-                else:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.HOLD,
-                        reason=f'TRAILING_R{r_multiple:.1f}',
-                        r_multiple=r_multiple
-                    ))
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.HOLD,
+                    reason=f'TRAILING_R{r_multiple:.1f}',
+                    r_multiple=r_multiple
+                ))
 
         return actions
 
