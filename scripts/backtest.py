@@ -105,7 +105,12 @@ def main():
     try:
         from traderlib.alpaca_client import AlpacaClient
         alpaca = AlpacaClient(mode=args.alpaca_mode, data_only=(args.alpaca_mode == 'data-only'))
-        data_provider = AlpacaDataProvider(alpaca_client=alpaca.data_client)
+        # Use the same rate limit as AlpacaClient (respects paid tier config)
+        alpaca_rate_limit = alpaca.rate_limiter.max_requests
+        data_provider = AlpacaDataProvider(
+            alpaca_client=alpaca.data_client,
+            max_requests_per_min=alpaca_rate_limit,
+        )
     except Exception as e:
         print(f"Warning: Alpaca client unavailable ({e})")
         print("Backtest requires Alpaca data. Set ALPACA_API_KEY and ALPACA_SECRET_KEY.")

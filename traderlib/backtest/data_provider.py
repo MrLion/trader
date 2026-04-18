@@ -79,17 +79,19 @@ class AlpacaDataProvider:
     v2 (deferred): Parquet cache with cache_dir parameter.
     """
 
-    def __init__(self, alpaca_client=None, min_lookback: int = 252):
+    def __init__(self, alpaca_client=None, min_lookback: int = 252,
+                 max_requests_per_min: int = 200):
         """Initialize with an Alpaca historical data client.
 
         Args:
             alpaca_client: StockHistoricalDataClient instance from alpaca-py
             min_lookback: Minimum rows required per ticker (default 252 for 1 year)
+            max_requests_per_min: Alpaca API rate limit (default 200; paid tier: 10000)
         """
         self._client = alpaca_client
         self._min_lookback = min_lookback
         self._cache: dict[str, pd.DataFrame] = {}
-        self._rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
+        self._rate_limiter = RateLimiter(max_requests=max_requests_per_min, window_seconds=60)
         self._prefetched: bool = False
         self._market_hours = MarketHours()
         # Track tickers dropped due to insufficient data
@@ -99,7 +101,7 @@ class AlpacaDataProvider:
                  on_progress: Optional[Callable] = None) -> None:
         """Bulk fetch all ticker data into memory.
 
-        Uses rate limiting to stay within Alpaca's 200 req/min limit.
+        Uses rate limiting to stay within the configured Alpaca req/min limit.
         Tickers with insufficient data are logged in self.tickers_dropped.
 
         Args:
