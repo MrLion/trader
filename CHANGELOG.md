@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.4] — 2026-04-18
+
+### Fixed
+- **VCP strategy generates zero trades in backtest** — two root causes compounding to near-zero joint probability across the five serial entry filters:
+  1. **Breakout volume check removed** (`volume_ratio >= 1.4×`) — this is a live-trading "confirm breakout now" filter. In daily-bar backtesting it fires on <15% of bars and combined with the other filters brought the joint probability to ~0. Removed from both `VCPBreakoutLargeCap` and `VCPBreakoutHighOctane`. T+1 fill realism is preserved by the engine; VCP pattern + Stage 2 + convergence score are the quality gatekeepers.
+  2. **VCP progression ratio loosened** — `max_size_ratio` in `validate_vcp_progression` changed from `0.70` to `0.80` (band: 40-80% of prior contraction). The strict 70% limit is theoretically ideal but real-world VCPs frequently run 71-80% and are still valid setups.
+
 ## [0.6.2.3] — 2026-04-18
 
 ### Fixed
