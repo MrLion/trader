@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.6] — 2026-04-18
+
+### Fixed
+- **VCP exit logic — three bugs causing all positions to hold until year-end liquidation**
+  1. **No stop enforcement** — `manage_exits()` never checked `current <= stop_price` before phase logic. Phase 1 always emitted `HOLD`/`UPDATE_STOP`; Phase 2 only checked inside an `else` branch that was never reached. The engine does not auto-enforce stops; strategy must emit `EXIT`. Added explicit stop check at top of both `manage_exits` loops in `LargeCap` and `HighOctane`.
+  2. **`_find_recent_higher_low` returned wrong value** — was `max(Low[-20:])` (highest daily low of last 20 bars), which approaches current price in a rally and produces a stop above entry. Replaced with proper 3-bar swing detector over last 40 bars; returns the highest swing low above `current_stop` and below `current_price × 0.97`, or `None` to hold stop unchanged.
+  3. **`_find_last_swing_low` returned minimum of last 10 bars** — deepest recent dip, the opposite of a trailing stop reference. Replaced with 5-bar swing detector over last 60 bars; returns the most recent qualifying swing low, or `None` so Phase 2 falls back to EMA-only trailing.
+
 ## [0.6.2.5] — 2026-04-18
 
 ### Fixed
