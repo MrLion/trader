@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.3] - 2026-04-17
+
+### Changed
+- **README.md streamlined** — Reduced from 520 to 130 lines (75% reduction) for better scannability
+  - Removed detailed script examples — link to `docs/` instead of duplicating content
+  - Removed trading framework details — link to `METHODOLOGY.md` and `RISK_GUIDE.md`
+  - Removed configuration tables — link to `docs/config/configuration-reference.md`
+  - Kept essential: Quick Start, navigation tables, FAQ, documentation index
+  - New `docs/README.md` documentation hub organized by user type
+  - New `docs/reports/README.md` for pre/post-market report usage
+  - Benefits: Easier maintenance, single source of truth, faster onboarding
+
 ## [0.6.1.2] - 2026-04-17
 
 ### Fixed
