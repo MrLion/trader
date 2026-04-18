@@ -127,8 +127,11 @@ def main():
     else:
         # Try to load from registry
         # VCP strategies only accept risk_config and profile
-        # VCPBreakoutLargeCap / VCPBreakoutHighOctane hardcode their profile internally
-        strategy_kwargs = {'risk_config': risk_config}
+        strategy_kwargs = {
+            'risk_config': risk_config,
+            'watchlist_tickers': args.tickers,
+            'watchlist_df': watchlist_df,
+        }
         strategy = get_strategy(args.strategy, **strategy_kwargs)
         if strategy is None:
             available = list_strategies()

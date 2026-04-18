@@ -31,10 +31,14 @@ from traderlib.risk_config import RiskConfig, calculate_position_size_with_const
 class VCPBreakoutBase(Strategy):
     """Base class for VCP breakout strategies."""
 
-    def __init__(self, risk_config: Optional[RiskConfig] = None, profile: str = 'large_cap'):
+    def __init__(self, risk_config: Optional[RiskConfig] = None, profile: str = 'large_cap',
+                 watchlist_tickers: Optional[List[str]] = None,
+                 watchlist_df: Optional[pd.DataFrame] = None):
         self.risk_config = risk_config
         self.profile = profile
         self.exit_engine = ExitEngine(risk_config=risk_config)
+        self.watchlist_tickers = watchlist_tickers or []
+        self.watchlist_df = watchlist_df
 
         # Load profile-specific parameters from config
         self._load_profile_params()
@@ -74,9 +78,18 @@ class VCPBreakoutBase(Strategy):
 
     def _get_watchlist_tickers(self, context: StrategyContext) -> List[str]:
         """Get tickers to scan for entries."""
-        # In full implementation, would load from watchlist
-        # For now, scan context positions or use default
-        return []
+        if self.watchlist_df is not None:
+            if 'week_start' in self.watchlist_df.columns:
+                active = self.watchlist_df[
+                    self.watchlist_df['week_start'] <= pd.Timestamp(context.sim_date)
+                ]
+                active = active.sort_values('week_start').groupby('ticker').last().reset_index()
+                col = 'ticker' if 'ticker' in active.columns else 'Ticker'
+                return active[col].dropna().unique().tolist()
+            else:
+                col = 'Ticker' if 'Ticker' in self.watchlist_df.columns else 'ticker'
+                return self.watchlist_df[col].dropna().unique().tolist()
+        return self.watchlist_tickers
 
     def _get_sector(self, ticker: str) -> str:
         """Get sector for ticker (cached)."""
@@ -123,8 +136,11 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
     - Hold as long as it works (no hard profit target)
     """
 
-    def __init__(self, risk_config: Optional[RiskConfig] = None):
-        super().__init__(risk_config=risk_config, profile='large_cap')
+    def __init__(self, risk_config: Optional[RiskConfig] = None,
+                 watchlist_tickers: Optional[List[str]] = None,
+                 watchlist_df: Optional[pd.DataFrame] = None):
+        super().__init__(risk_config=risk_config, profile='large_cap',
+                         watchlist_tickers=watchlist_tickers, watchlist_df=watchlist_df)
 
     @property
     def name(self) -> str:
@@ -335,8 +351,11 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
     - Hold as long as it works (no hard profit target)
     """
 
-    def __init__(self, risk_config: Optional[RiskConfig] = None):
-        super().__init__(risk_config=risk_config, profile='high_octane')
+    def __init__(self, risk_config: Optional[RiskConfig] = None,
+                 watchlist_tickers: Optional[List[str]] = None,
+                 watchlist_df: Optional[pd.DataFrame] = None):
+        super().__init__(risk_config=risk_config, profile='high_octane',
+                         watchlist_tickers=watchlist_tickers, watchlist_df=watchlist_df)
 
     @property
     def name(self) -> str:
