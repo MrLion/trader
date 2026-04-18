@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.5] — 2026-04-18
+
+### Fixed
+- **Backtest prefetch silently drops tickers after #200** — `AlpacaDataProvider` always created `RateLimiter(max_requests=200)` regardless of account tier. With a watchlist > 200 tickers all remaining tickers were marked `rate_limited` and skipped, leaving the simulation with no data for those stocks. `AlpacaClient` already loads the correct limit from `screener_config.yaml` (default 10,000/min for paid tier). Fix: `AlpacaDataProvider` now accepts `max_requests_per_min` param; `backtest.py` reads `alpaca.rate_limiter.max_requests` and passes it through.
+
 ## [0.6.2.4] — 2026-04-18
 
 ### Fixed
