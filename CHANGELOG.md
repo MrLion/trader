@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.2] — 2026-04-18
+
+### Fixed
+- **VCP strategies generate zero signals in backtest** — `_get_watchlist_tickers()` was a stub returning `[]`; root cause was that `watchlist_tickers` and `watchlist_df` were never wired through
+  - `VCPBreakoutBase.__init__()` now accepts `watchlist_tickers` and `watchlist_df` params
+  - `_get_watchlist_tickers()` reads from instance vars; handles `week_start`-aware historical watchlists and plain ticker lists (trend screener output) identically to `Stage2MomentumStrategy`
+  - `VCPBreakoutLargeCap` and `VCPBreakoutHighOctane` forward both params to `super()`
+  - `backtest.py` `strategy_kwargs` now passes `watchlist_tickers` and `watchlist_df` for all registered strategies
+
 ## [0.6.2.1] — 2026-04-18
 
 ### Fixed
