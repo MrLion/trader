@@ -129,11 +129,16 @@ class UniverseBuilder:
             funnel_metrics = {}
             for col in ['TotalAssets', 'AfterTradable', 'AfterPrice', 'AfterDVol']:
                 if col in df.columns:
-                    funnel_metrics[col.lower()] = df[col].iloc[0] if len(df) > 0 else 0
+                    funnel_metrics[col.lower()] = int(df[col].iloc[0]) if len(df) > 0 else 0
 
+            # Populate UniverseResult fields from cached funnel metrics
             return UniverseResult(
                 tickers=tickers,
                 profile='cached',
+                total_assets=funnel_metrics.get('totalassets', 0),
+                after_tradable_filter=funnel_metrics.get('aftertradable', 0),
+                after_price_filter=funnel_metrics.get('afterprice', 0),
+                after_dvol_filter=funnel_metrics.get('afterdvol', 0),
                 cache_path=cache_path,
                 cache_hit=True,
                 cache_age_hours=age_hours,

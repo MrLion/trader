@@ -106,6 +106,8 @@ python3 scripts/entry_signals.py --export-html
 - Distance to Pivot within +/-1.0%
 - Market condition: SPY >= -0.3%
 
+**See [docs/entry_signals/TIER_SCORING.md](docs/entry_signals/TIER_SCORING.md) for complete tier scoring documentation.**
+
 ### Market Scans
 
 Broad market screening for Stage 2 candidates and sector performance.
@@ -139,6 +141,8 @@ python3 scripts/trend_screener.py --tickers NVDA --detect-vcp
 - Volume metrics (volume ratio, trend detection)
 - Entry timing modes: VCP breakout, pivot proximity, volume surge
 - Profile-based filtering: large-cap ($80M+ vol) vs high-octane ($20M+ vol)
+- Dynamic universe building: Fetches ~13,500 Alpaca assets, filters to ~1,150 (excludes ETFs, OTC, low-price, illiquid)
+- ETF exclusion via name-pattern detection (Alpaca API doesn't distinguish stocks/ETFs)
 
 ### Reports
 
@@ -483,6 +487,7 @@ Yes. The engine runs headless. Use `python3 scripts/paper_engine_alpaca.py` with
 | **[docs/RISK_GUIDE.md](docs/RISK_GUIDE.md)** | Risk management, sizing, stops | Configuring engine |
 | **[docs/BACKTESTING_GUIDE.md](docs/BACKTESTING_GUIDE.md)** | Backtesting user guide | Running backtests |
 | **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System architecture, ExitAction, Strategy plugins, MA convergence | Development, strategy authoring |
+| **[docs/entry_signals/TIER_SCORING.md](docs/entry_signals/TIER_SCORING.md)** | Tier classification, scoring components, output categories | Using entry signals scanner |
 
 ### Operational Runbooks
 

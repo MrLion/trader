@@ -11,6 +11,18 @@ All notable changes to this project will be documented in this file.
   - Funnel metrics now show ETF count excluded (e.g., "Filtered to 11,475 (tradable, exclude OTC, AMEX, ~2,000 ETFs)")
   - Benefits: No manual list maintenance, catches all ETFs not just hardcoded ones
 
+### Changed
+- **Trend screener UX improvements** — Replaced 100+ lines of progress spam with single-line Rich progress bar
+  - Per-batch ETA display (e.g., "Batches ━━━ 12/12 • ETA: 45s")
+  - Batch processing (100 tickers/batch) for stable ETA calculation
+  - Elapsed time displayed for universe build and scan phases
+  - Fallback to plain text if Rich not available
+
+### Fixed
+- **Cache bug: funnel metrics showed 0 on cache hit** — `_load_cached()` now populates `UniverseResult` fields from cached CSV columns
+  - `total_assets`, `after_tradable_filter`, `after_price_filter`, `after_dvol_filter` now display correctly
+  - Example: "13,552 → 7,297 → 4,637 → 1,147" instead of "0 → 0 → 0 → 0"
+
 ## [0.6.1.1] - 2026-04-17
 
 ### Changed

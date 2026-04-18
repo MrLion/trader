@@ -327,19 +327,55 @@ class TrendScreener:
         profile: str = 'large-cap'
     ) -> List[Dict]:
         """Run screen on ticker list, return ranked results."""
+        import time
+
         results = []
 
         print(f"Scanning {len(tickers)} tickers with {profile} profile...")
         print(f"  Filters: min_price=${filters.get('min_price', 30)}, "
               f"min_conv_score={filters.get('min_convergence_score', 50)}")
 
-        for i, ticker in enumerate(tickers, 1):
-            if i % 10 == 0:
-                print(f"  Progress: {i}/{len(tickers)}")
+        # Use Rich progress bar with per-batch ETA if available
+        try:
+            from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn
 
-            result = self._analyze_ticker(ticker, filters, profile)
-            if result:
-                results.append(result)
+            batch_size = 100
+            total_batches = (len(tickers) + batch_size - 1) // batch_size
+
+            with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TextColumn("• ETA: {task.fields[eta]:.0f}s"),
+                transient=False
+            ) as progress:
+                batch_task = progress.add_task("Batches", total=total_batches, eta=0)
+
+                for batch_num in range(total_batches):
+                    batch_start = batch_num * batch_size
+                    batch_end = min(batch_start + batch_size, len(tickers))
+                    batch = tickers[batch_start:batch_end]
+
+                    start = time.time()
+                    for ticker in batch:
+                        result = self._analyze_ticker(ticker, filters, profile)
+                        if result:
+                            results.append(result)
+                    elapsed = time.time() - start
+
+                    # Calculate ETA for remaining batches
+                    remaining = total_batches - batch_num - 1
+                    eta = elapsed * remaining if elapsed > 0 else 0
+                    progress.update(batch_task, advance=1, eta=eta)
+
+        except ImportError:
+            # Fallback to plain text
+            for i, ticker in enumerate(tickers, 1):
+                if i % 10 == 0:
+                    print(f"  Progress: {i}/{len(tickers)}")
+                result = self._analyze_ticker(ticker, filters, profile)
+                if result:
+                    results.append(result)
 
         print(f"  Found {len(results)} candidates")
         return results
@@ -599,14 +635,18 @@ Examples:
     # Discovery mode: build universe from Alpaca when --profile is specified
     # and no explicit tickers provided
     if not tickers and args.profile:
+        import time
+
         print("\n🔍 Discovery mode: building universe from Alpaca...")
         print(f"   Profile: {args.profile}")
         if args.refresh:
             print("   Force refresh: bypassing cache")
 
         try:
+            start_build = time.time()
             builder = UniverseBuilder()
             result = builder.load_universe(profile=args.profile.replace('-', '_'), force_refresh=args.refresh)
+            build_time = time.time() - start_build
 
             # Display funnel metrics
             print(f"\n📊 Universe Funnel:")
@@ -617,6 +657,8 @@ Examples:
 
             if result.cache_hit:
                 print(f"\n   Using cache ({result.cache_age_hours:.1f}h old)")
+            else:
+                print(f"\n   Built in {build_time:.1f}s")
 
             tickers = result.tickers
 
@@ -669,8 +711,14 @@ Examples:
     }
 
     # Run screener
+    import time
     screener = TrendScreener()
+
+    print(f"\n📈 Scanning for MA convergence setups...")
+    start_scan = time.time()
     results = screener.scan(tickers, filters, profile=args.profile)
+    scan_time = time.time() - start_scan
+    print(f"   Scan completed in {scan_time:.1f}s")
 
     # Rank results
     ranked = screener.rank_results(results, rank_by=args.rank_by)
