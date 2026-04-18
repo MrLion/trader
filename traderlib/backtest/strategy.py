@@ -193,7 +193,7 @@ class Stage2MomentumStrategy(Strategy):
         # Try to get from watchlist_df sector column
         if self.watchlist_df is not None:
             try:
-                active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(date.today())]
+                active = self.watchlist_df[pd.to_datetime(self.watchlist_df['week_start']) <= pd.Timestamp(date.today())]
                 active = active.sort_values('week_start').groupby('ticker').last().reset_index()
                 ticker_row = active[active['ticker'] == ticker]
                 if len(ticker_row) > 0 and 'sector' in ticker_row.columns:
@@ -219,7 +219,7 @@ class Stage2MomentumStrategy(Strategy):
         if self.watchlist_df is not None:
             if 'week_start' in self.watchlist_df.columns:
                 # Date-aware filtering from historical watchlist (mcstock_scraper output)
-                active = self.watchlist_df[self.watchlist_df['week_start'] <= pd.Timestamp(sim_date)]
+                active = self.watchlist_df[pd.to_datetime(self.watchlist_df['week_start']) <= pd.Timestamp(sim_date)]
                 active = active.sort_values('week_start').groupby('ticker').last().reset_index()
                 ticker_col = 'ticker' if 'ticker' in active.columns else 'Ticker'
                 tickers = active[ticker_col].dropna().unique().tolist()

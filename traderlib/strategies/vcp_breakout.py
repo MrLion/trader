@@ -80,8 +80,9 @@ class VCPBreakoutBase(Strategy):
         """Get tickers to scan for entries."""
         if self.watchlist_df is not None:
             if 'week_start' in self.watchlist_df.columns:
+                week_start = pd.to_datetime(self.watchlist_df['week_start'])
                 active = self.watchlist_df[
-                    self.watchlist_df['week_start'] <= pd.Timestamp(context.sim_date)
+                    week_start <= pd.Timestamp(context.sim_date)
                 ]
                 active = active.sort_values('week_start').groupby('ticker').last().reset_index()
                 col = 'ticker' if 'ticker' in active.columns else 'Ticker'

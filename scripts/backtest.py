@@ -72,6 +72,9 @@ def main():
     if watchlist_path and not args.tickers:
         try:
             watchlist_df = pd.read_csv(watchlist_path)
+            # Parse week_start as datetime so timestamp comparisons work
+            if 'week_start' in watchlist_df.columns:
+                watchlist_df['week_start'] = pd.to_datetime(watchlist_df['week_start'])
             ticker_col = 'Ticker' if 'Ticker' in watchlist_df.columns else 'ticker' if 'ticker' in watchlist_df.columns else None
             if ticker_col:
                 args.tickers = watchlist_df[ticker_col].dropna().unique().tolist()
