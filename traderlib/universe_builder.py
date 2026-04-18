@@ -408,6 +408,11 @@ class UniverseBuilder:
 
         return result
 
+    def get_profile_config(self, profile: str) -> dict:
+        """Return the full config dict for a profile (universe + screener params)."""
+        default_profile = self.config.get('default', 'large_cap')
+        return self.config.get(profile, self.config.get(default_profile, {}))
+
     def load_universe(self, profile: str = None, force_refresh: bool = False) -> UniverseResult:
         """
         Load or build universe for profile.

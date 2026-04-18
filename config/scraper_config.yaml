@@ -52,15 +52,35 @@ universes:
   default: large_cap
 
   # Large-cap profile: institutional-quality names
+  # Universe pre-filter thresholds + screener structural filter defaults.
+  # CLI flags override these for one-off runs. Add new profiles as YAML blocks.
   large_cap:
+    # Universe pre-filter
     min_price: 30
     min_dollar_volume: 80000000    # $80M average daily dollar volume
-    lookback_days: 60              # For dollar volume calculation
+    lookback_days: 60
     exclude_exchanges: ["OTC", "AMEX"]
+    # Screener structural filter defaults
+    stack_short: true              # Require 10D > 21D > 50D
+    stack_long: true               # Require 50D > 150D > 200D
+    rs_near_high_pct: 5            # RS line within 5% of 52-week high
+    min_price_vs_10ma: 6           # Price must be >= 6% above 10-day MA
+    min_share_volume: 1000000      # Min 50-day avg share volume
+    min_stage2_score: 5            # Min Stage 2 score (0-7)
+    min_convergence_score: -1      # -1 = disabled (rank only, don't filter)
 
-  # High-octane profile: more aggressive, smaller names
+  # High-octane profile: smaller, more volatile momentum names
   high_octane:
-    min_price: 2
+    # Universe pre-filter
+    min_price: 5
     min_dollar_volume: 20000000    # $20M average daily dollar volume
     lookback_days: 60
     exclude_exchanges: ["OTC", "AMEX"]
+    # Screener structural filter defaults (relaxed for volatile names)
+    stack_short: true
+    stack_long: false              # 50D>150D>200D too strict for smaller stocks
+    rs_near_high_pct: 12           # More room for volatility
+    min_price_vs_10ma: 4
+    min_share_volume: 400000
+    min_stage2_score: 4
+    min_convergence_score: -1

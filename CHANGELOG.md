@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.5] — 2026-04-18
+
+### Changed
+- **Config-driven profiles** — `scraper_config.yaml` is now the single source of truth for all profile parameters; no hardcoded values remain in Python
+  - Profile YAML blocks now include screener structural filter defaults alongside universe pre-filter thresholds: `stack_short`, `stack_long`, `rs_near_high_pct`, `min_price_vs_10ma`, `min_share_volume`, `min_stage2_score`, `min_convergence_score`
+  - `large_cap`: `stack_long=true`, `rs_near_high_pct=5`, `min_price_vs_10ma=6`, `min_share_volume=1M`, `min_stage2_score=5`
+  - `high_octane`: `stack_long=false`, `rs_near_high_pct=12`, `min_price_vs_10ma=4`, `min_share_volume=400K`, `min_stage2_score=4`
+  - `--profile` now accepts any string — add custom profiles as YAML blocks in `scraper_config.yaml` without touching Python
+  - CLI flags override config values per-run (e.g. `--rs-near-high 8` overrides the profile's `rs_near_high_pct`)
+  - `UniverseBuilder.get_profile_config()` new method — returns full profile dict for a given profile name
+
 ## [0.6.1.4] — 2026-04-18
 
 ### Changed

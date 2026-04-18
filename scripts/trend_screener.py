@@ -144,9 +144,8 @@ class TrendScreener:
 
         # === DISCOVERY FILTERS (MarketSurge-style) ===
 
-        # 1. Price floor — profile-aware if not overridden via CLI
-        default_min_price = 5 if profile == 'high-octane' else 30
-        min_price = filters.get('min_price') or default_min_price
+        # 1. Price floor — from filters (populated from config in main())
+        min_price = filters.get('min_price') or 30
         if current < min_price:
             self._record_rejection('price')
             return None
@@ -189,15 +188,11 @@ class TrendScreener:
             self._record_rejection('rs_near_high')
             return None
 
-        # 6. Liquidity filters
+        # 6. Liquidity filters — thresholds come from config via filters dict
         vol_metrics = calculate_volume_metrics(hist, lookback_days=50)
 
-        if profile == 'large-cap':
-            min_dollar_vol = filters.get('min_volume_dollar') or 80_000_000
-            min_share_vol = filters.get('min_volume_shares') or 1_000_000
-        else:  # high-octane
-            min_dollar_vol = filters.get('min_volume_dollar') or 20_000_000
-            min_share_vol = filters.get('min_volume_shares') or 400_000
+        min_dollar_vol = filters.get('min_volume_dollar') or 80_000_000
+        min_share_vol = filters.get('min_volume_shares') or 1_000_000
 
         if vol_metrics['avg_dollar_volume'] < min_dollar_vol:
             self._record_rejection('liquidity')
@@ -667,9 +662,10 @@ Examples:
     parser.add_argument('--min-volume-shares', type=float, default=None,
                         help='Min 50-day avg share volume')
 
-    # Profile selection
-    parser.add_argument('--profile', choices=['large-cap', 'high-octane', 'custom'], default='large-cap',
-                        help='VCP profile (default: large-cap)')
+    # Profile selection — any name defined in scraper_config.yaml universes section
+    parser.add_argument('--profile', default='large-cap',
+                        help='Universe profile from config (default: large-cap). '
+                             'Add custom profiles as YAML blocks in scraper_config.yaml.')
 
     # Convergence scoring — disabled by default, scoring is for ranking not blocking
     parser.add_argument('--min-convergence-score', type=int, default=-1,
@@ -716,17 +712,26 @@ Examples:
 
     args = parser.parse_args()
 
-    # Profile-aware defaults for flags that couldn't be None in store_true
-    # Detect explicit CLI overrides by checking sys.argv
-    stack_long_explicit = '--stack-long' in sys.argv
-    rs_near_high_explicit = '--rs-near-high' in sys.argv
+    # Load profile config — this is the single source of truth for all defaults.
+    # CLI flags override per-run; config defines the profile's baseline.
+    _builder = UniverseBuilder()
+    profile_key = args.profile.replace('-', '_')
+    profile_cfg = _builder.get_profile_config(profile_key)
 
-    if args.profile == 'high-octane':
-        effective_stack_long = args.stack_long if stack_long_explicit else False
-        effective_rs_near_high = args.rs_near_high if rs_near_high_explicit else 12.0
-    else:
-        effective_stack_long = args.stack_long
-        effective_rs_near_high = args.rs_near_high if args.rs_near_high is not None else 5.0
+    if not profile_cfg:
+        print(f"❌ Unknown profile '{args.profile}'. Add it to config/scraper_config.yaml under 'universes:'.")
+        sys.exit(1)
+
+    # Resolve effective values: CLI flag wins if explicitly set, otherwise use config default
+    _explicit = set(sys.argv)
+    effective_stack_long = args.stack_long if '--stack-long' in _explicit else profile_cfg.get('stack_long', True)
+    effective_rs_near_high = args.rs_near_high if args.rs_near_high is not None else profile_cfg.get('rs_near_high_pct', 5.0)
+    effective_min_price_vs_10ma = args.min_price_vs_10ma if '--min-price-vs-10ma' in _explicit else profile_cfg.get('min_price_vs_10ma', 6)
+    effective_min_price = args.min_price if args.min_price is not None else profile_cfg.get('min_price', 30)
+    effective_min_dollar_vol = args.min_volume_dollar if args.min_volume_dollar is not None else profile_cfg.get('min_dollar_volume')
+    effective_min_share_vol = args.min_volume_shares if args.min_volume_shares is not None else profile_cfg.get('min_share_volume')
+    effective_min_stage2 = profile_cfg.get('min_stage2_score', 5)
+    effective_min_conv = args.min_convergence_score if '--min-convergence-score' in _explicit else profile_cfg.get('min_convergence_score', -1)
 
     # Load tickers from explicit sources first
     tickers = []
@@ -799,16 +804,16 @@ Examples:
     entry_mode = 'vcp' if args.detect_vcp else args.entry_mode
 
     filters = {
-        'min_price': args.min_price,
-        'min_price_vs_10ma': args.min_price_vs_10ma,
+        'min_price': effective_min_price,
+        'min_price_vs_10ma': effective_min_price_vs_10ma,
         'stack_short': args.stack_short,
         'stack_long': effective_stack_long,
         'rs_near_high': effective_rs_near_high,
         'require_rs_near_high': True,
         'exclude_etfs': args.exclude_etfs,
-        'min_volume_dollar': args.min_volume_dollar,
-        'min_volume_shares': args.min_volume_shares,
-        'min_convergence_score': args.min_convergence_score,
+        'min_volume_dollar': effective_min_dollar_vol,
+        'min_volume_shares': effective_min_share_vol,
+        'min_convergence_score': effective_min_conv,
         'cluster_spread_pct': args.cluster_spread_pct,
         'min_cluster_size': args.min_cluster_size,
         'entry_mode': entry_mode,
@@ -817,20 +822,18 @@ Examples:
         'vcp_min_contractions': args.vcp_min_contractions,
         'vcp_reversal_threshold': args.vcp_reversal_threshold,
         'vcp_require_volume': True,
-        'min_stage2_score': 5,
+        'min_stage2_score': effective_min_stage2,
     }
 
     # Build filters summary for context header
-    active_filters = []
-    min_price_display = args.min_price or (5 if args.profile == 'high-octane' else 30)
-    active_filters.append(f"price≥${min_price_display}")
+    active_filters = [f"price≥${effective_min_price}"]
     if filters['stack_short']:
         active_filters.append("MA-short")
     if filters['stack_long']:
         active_filters.append("MA-long")
     active_filters.append(f"RS<{effective_rs_near_high:.0f}%")
-    if args.min_convergence_score >= 0:
-        active_filters.append(f"conv≥{args.min_convergence_score}")
+    if effective_min_conv >= 0:
+        active_filters.append(f"conv≥{effective_min_conv}")
 
     context = {
         'profile': args.profile,
@@ -850,7 +853,7 @@ Examples:
 
     ranked = screener.rank_results(results, rank_by=args.rank_by)
 
-    show_score_stats = args.min_convergence_score < 0
+    show_score_stats = effective_min_conv < 0
 
     screener.display_results(
         ranked,
