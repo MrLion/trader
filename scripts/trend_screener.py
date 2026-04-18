@@ -144,23 +144,24 @@ class TrendScreener:
 
         # === DISCOVERY FILTERS (MarketSurge-style) ===
 
-        # 1. Price floor — from filters (populated from config in main())
-        min_price = filters.get('min_price') or 30
-        if current < min_price:
+        # 1. Price floor — null/None = disabled
+        min_price = filters.get('min_price')
+        if min_price is not None and current < min_price:
             self._record_rejection('price')
             return None
 
-        # 2. Price vs 10 MA
+        # 2. Price vs 10 MA — null/None = disabled
         ma10 = hist['Close'].rolling(10).mean().iloc[-1]
         price_vs_10ma = ((current - ma10) / ma10) * 100
-        min_price_vs_10ma = filters.get('min_price_vs_10ma', 6)
-        if price_vs_10ma < min_price_vs_10ma:
+        min_price_vs_10ma = filters.get('min_price_vs_10ma')
+        if min_price_vs_10ma is not None and price_vs_10ma < min_price_vs_10ma:
             self._record_rejection('price_vs_10ma')
             return None
 
         # Get Stage 2 details (includes all MAs)
         s2_details = get_stage2_details(hist)
-        if s2_details['score'] < filters.get('min_stage2_score', 5):
+        min_stage2 = filters.get('min_stage2_score')
+        if min_stage2 is not None and s2_details['score'] < min_stage2:
             self._record_rejection('stage2')
             return None
 
@@ -181,23 +182,26 @@ class TrendScreener:
                 self._record_rejection('ma_stack_long')
                 return None
 
-        # 5. RS Line within threshold of 52-week high
-        rs_threshold = filters.get('rs_near_high', 5)
-        rs_near_high, rs_from_high = self._is_rs_near_high(ticker, hist, rs_threshold)
-        if filters.get('require_rs_near_high', True) and not rs_near_high:
-            self._record_rejection('rs_near_high')
-            return None
+        # 5. RS Line within threshold of 52-week high — null/None = compute for display only
+        rs_threshold = filters.get('rs_near_high')
+        if rs_threshold is not None:
+            rs_near_high, rs_from_high = self._is_rs_near_high(ticker, hist, rs_threshold)
+            if not rs_near_high:
+                self._record_rejection('rs_near_high')
+                return None
+        else:
+            _, rs_from_high = self._is_rs_near_high(ticker, hist, 100)
 
-        # 6. Liquidity filters — thresholds come from config via filters dict
+        # 6. Liquidity filters — null/None = disabled individually
         vol_metrics = calculate_volume_metrics(hist, lookback_days=50)
 
-        min_dollar_vol = filters.get('min_volume_dollar') or 80_000_000
-        min_share_vol = filters.get('min_volume_shares') or 1_000_000
+        min_dollar_vol = filters.get('min_volume_dollar')
+        min_share_vol = filters.get('min_volume_shares')
 
-        if vol_metrics['avg_dollar_volume'] < min_dollar_vol:
+        if min_dollar_vol is not None and vol_metrics['avg_dollar_volume'] < min_dollar_vol:
             self._record_rejection('liquidity')
             return None
-        if vol_metrics['avg_volume'] < min_share_vol:
+        if min_share_vol is not None and vol_metrics['avg_volume'] < min_share_vol:
             self._record_rejection('liquidity')
             return None
 
@@ -226,8 +230,9 @@ class TrendScreener:
             min_cluster_size=min_cluster
         )
 
-        min_conv_score = filters.get('min_convergence_score', -1)
-        if min_conv_score >= 0 and conv_score['score'] < min_conv_score:
+        # null/None = disabled (rank only, don't filter)
+        min_conv_score = filters.get('min_convergence_score')
+        if min_conv_score is not None and conv_score['score'] < min_conv_score:
             self._record_rejection('convergence')
             return None
 
@@ -324,13 +329,13 @@ class TrendScreener:
         self._filter_counts = {}
         results = []
         total = len(tickers)
-        min_conv = filters.get('min_convergence_score', -1)
-        conv_label = str(min_conv) if min_conv >= 0 else 'disabled'
+        min_conv = filters.get('min_convergence_score')
+        conv_label = str(min_conv) if min_conv is not None else 'disabled'
 
         print(f"Scanning {total} tickers with {profile} profile...")
-        default_price = 5 if profile == 'high-octane' else 30
-        price_display = filters.get('min_price') or default_price
-        print(f"  Filters: min_price=${price_display}, min_conv_score={conv_label}")
+        price_display = filters.get('min_price')
+        price_label = f"${price_display}" if price_display is not None else 'disabled'
+        print(f"  Filters: min_price={price_label}, min_conv_score={conv_label}")
 
         try:
             from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn, TimeRemainingColumn
@@ -361,29 +366,46 @@ class TrendScreener:
                 passed = self._filter_counts.get('passed', 0)
                 print(f"  {ticker} ({i}/{total}) — {passed} passed")
 
-        # Filter breakdown
+        # Filter breakdown with active thresholds
+        def _filter_label(key: str) -> str:
+            if key == 'data':
+                return 'no data'
+            elif key == 'price':
+                val = filters.get('min_price')
+                return f'price floor (≥${val})' if val is not None else 'price floor'
+            elif key == 'price_vs_10ma':
+                val = filters.get('min_price_vs_10ma')
+                return f'price vs 10MA (≥{val}%)' if val is not None else 'price vs 10MA'
+            elif key == 'stage2':
+                val = filters.get('min_stage2_score')
+                return f'stage2 score (≥{val})' if val is not None else 'stage2 score'
+            elif key == 'ma_stack_short':
+                return 'MA stack (10>20>50)'
+            elif key == 'ma_stack_long':
+                return 'MA stack (50>150>200)'
+            elif key == 'rs_near_high':
+                val = filters.get('rs_near_high')
+                return f'RS near high (≤{val}%)' if val is not None else 'RS near high'
+            elif key == 'liquidity':
+                val = filters.get('min_volume_shares')
+                return f'liquidity (≥{val/1e6:.1f}M vol)' if val is not None else 'liquidity'
+            elif key == 'convergence':
+                val = filters.get('min_convergence_score')
+                return f'conv score (≥{val})' if val is not None else 'conv score'
+            elif key == 'passed':
+                return 'passed'
+            return key
+
         breakdown_order = ['data', 'price', 'price_vs_10ma', 'stage2',
                            'ma_stack_short', 'ma_stack_long', 'rs_near_high',
                            'liquidity', 'convergence', 'passed']
-        labels = {
-            'data': 'no data',
-            'price': 'price floor',
-            'price_vs_10ma': 'price vs 10MA',
-            'stage2': 'stage2 score',
-            'ma_stack_short': 'MA stack (short)',
-            'ma_stack_long': 'MA stack (long)',
-            'rs_near_high': 'RS near high',
-            'liquidity': 'liquidity',
-            'convergence': 'convergence score',
-            'passed': 'passed',
-        }
         print(f"\n  Filter breakdown:")
         for key in breakdown_order:
             count = self._filter_counts.get(key, 0)
             if count > 0:
-                label = labels.get(key, key)
+                label = _filter_label(key)
                 action = 'candidates' if key == 'passed' else 'rejected'
-                print(f"    {label:<22} {count:>5} {action}")
+                print(f"    {label:<32} {count:>5} {action}")
 
         return results
 
@@ -415,7 +437,7 @@ class TrendScreener:
         top: int = 20,
         show_score_stats: bool = False,
         context: Optional[Dict] = None,
-        hide_grade_c: bool = True,
+        hide_grade_c: bool = False,
         entry_mode: str = 'any',
     ):
         """Print formatted results table using Rich, grouped by convergence grade."""
@@ -544,7 +566,11 @@ class TrendScreener:
                 _print_group_plain(grade_c, "Grade C — Monitor", "⚪")
 
         # Summary line
-        c_note = f" | Grade C: {len(grade_c)} (hidden)" if hide_grade_c and grade_c else f" | Grade C: {len(grade_c)}"
+        if hide_grade_c and grade_c:
+            c_note = f" | Grade C: {len(grade_c)} (use --hide-grade-c to hide all)"
+            c_note = f" | Grade C: {len(grade_c)} (hidden — rerun with --no-hide-grade-c to show)"
+        else:
+            c_note = f" | Grade C: {len(grade_c)}"
         summary = (f"\nTotal: {len(results)} | Grade A: {len(grade_a)} | "
                    f"Grade B: {len(grade_b)}{c_note}")
         if use_rich:
@@ -644,15 +670,15 @@ Examples:
 
     # Discovery filters (MarketSurge-style)
     parser.add_argument('--min-price', type=float, default=None,
-                        help='Minimum stock price (default: $30 large-cap, $5 high-octane)')
-    parser.add_argument('--min-price-vs-10ma', type=float, default=6,
-                        help='Min %% above 10-day MA (default: 6)')
+                        help='Minimum stock price (default: from profile config)')
+    parser.add_argument('--min-price-vs-10ma', type=float, default=None,
+                        help='Min %% above 10-day MA (default: from profile config; null in config = disabled)')
     parser.add_argument('--stack-short', action='store_true', default=True,
                         help='Require 10D > 21D > 50D')
     parser.add_argument('--stack-long', action='store_true', default=True,
                         help='Require 50D > 150D > 200D (default: on for large-cap, off for high-octane)')
     parser.add_argument('--rs-near-high', type=float, default=None,
-                        help='RS line within %% of 52-week high (default: 5%% large-cap, 12%% high-octane)')
+                        help='RS line within %% of 52-week high (default: from profile config; null in config = disabled)')
     parser.add_argument('--exclude-etfs', action='store_true', default=True,
                         help='Exclude ETFs')
 
@@ -667,9 +693,9 @@ Examples:
                         help='Universe profile from config (default: large-cap). '
                              'Add custom profiles as YAML blocks in screener_config.yaml.')
 
-    # Convergence scoring — disabled by default, scoring is for ranking not blocking
-    parser.add_argument('--min-convergence-score', type=int, default=-1,
-                        help='Filter min convergence score (-1=disabled, 0-100=apply filter)')
+    # Convergence scoring — None = disabled (rank only, don't filter)
+    parser.add_argument('--min-convergence-score', type=int, default=None,
+                        help='Filter min convergence score (default: from profile config; null in config = disabled)')
     parser.add_argument('--cluster-spread-pct', type=float, default=None,
                         help='Max cluster spread %% (default=adaptive, e.g. 0.05 for tight 5%%)')
     parser.add_argument('--min-cluster-size', type=int, default=1,
@@ -698,10 +724,10 @@ Examples:
                         help='Display MA values and cluster details')
     parser.add_argument('--top', type=int, default=20,
                         help='Show top N per grade (default: 20)')
-    parser.add_argument('--hide-grade-c', action='store_true', default=True,
-                        help='Hide Grade C results (default: True; use --no-hide-grade-c to show)')
+    parser.add_argument('--hide-grade-c', action='store_true', default=False,
+                        help='Hide Grade C results (default: shown; use --hide-grade-c to suppress)')
     parser.add_argument('--no-hide-grade-c', dest='hide_grade_c', action='store_false',
-                        help='Show Grade C results')
+                        help='Show Grade C results (default)')
 
     # Export
     parser.add_argument('--export', '-e', choices=['csv', 'json', 'html', 'none'], default='none',
@@ -722,16 +748,17 @@ Examples:
         print(f"❌ Unknown profile '{args.profile}'. Add it to config/screener_config.yaml under 'universes:'.")
         sys.exit(1)
 
-    # Resolve effective values: CLI flag wins if explicitly set, otherwise use config default
+    # Resolve effective values: CLI flag wins if explicitly set, otherwise use config default.
+    # None from config (null in YAML) means "disabled" for that filter.
     _explicit = set(sys.argv)
     effective_stack_long = args.stack_long if '--stack-long' in _explicit else profile_cfg.get('stack_long', True)
-    effective_rs_near_high = args.rs_near_high if args.rs_near_high is not None else profile_cfg.get('rs_near_high_pct', 5.0)
-    effective_min_price_vs_10ma = args.min_price_vs_10ma if '--min-price-vs-10ma' in _explicit else profile_cfg.get('min_price_vs_10ma', 6)
-    effective_min_price = args.min_price if args.min_price is not None else profile_cfg.get('min_price', 30)
+    effective_rs_near_high = args.rs_near_high if '--rs-near-high' in _explicit else profile_cfg.get('rs_near_high_pct')
+    effective_min_price_vs_10ma = args.min_price_vs_10ma if '--min-price-vs-10ma' in _explicit else profile_cfg.get('min_price_vs_10ma')
+    effective_min_price = args.min_price if args.min_price is not None else profile_cfg.get('min_price')
     effective_min_dollar_vol = args.min_volume_dollar if args.min_volume_dollar is not None else profile_cfg.get('min_dollar_volume')
     effective_min_share_vol = args.min_volume_shares if args.min_volume_shares is not None else profile_cfg.get('min_share_volume')
-    effective_min_stage2 = profile_cfg.get('min_stage2_score', 5)
-    effective_min_conv = args.min_convergence_score if '--min-convergence-score' in _explicit else profile_cfg.get('min_convergence_score', -1)
+    effective_min_stage2 = profile_cfg.get('min_stage2_score')
+    effective_min_conv = args.min_convergence_score if '--min-convergence-score' in _explicit else profile_cfg.get('min_convergence_score')
 
     # Load tickers from explicit sources first
     tickers = []
@@ -809,7 +836,6 @@ Examples:
         'stack_short': args.stack_short,
         'stack_long': effective_stack_long,
         'rs_near_high': effective_rs_near_high,
-        'require_rs_near_high': True,
         'exclude_etfs': args.exclude_etfs,
         'min_volume_dollar': effective_min_dollar_vol,
         'min_volume_shares': effective_min_share_vol,
@@ -826,13 +852,16 @@ Examples:
     }
 
     # Build filters summary for context header
-    active_filters = [f"price≥${effective_min_price}"]
+    active_filters = []
+    if effective_min_price is not None:
+        active_filters.append(f"price≥${effective_min_price}")
     if filters['stack_short']:
         active_filters.append("MA-short")
     if filters['stack_long']:
         active_filters.append("MA-long")
-    active_filters.append(f"RS<{effective_rs_near_high:.0f}%")
-    if effective_min_conv >= 0:
+    if effective_rs_near_high is not None:
+        active_filters.append(f"RS≤{effective_rs_near_high:.0f}%")
+    if effective_min_conv is not None:
         active_filters.append(f"conv≥{effective_min_conv}")
 
     context = {
@@ -853,7 +882,7 @@ Examples:
 
     ranked = screener.rank_results(results, rank_by=args.rank_by)
 
-    show_score_stats = effective_min_conv < 0
+    show_score_stats = effective_min_conv is None
 
     screener.display_results(
         ranked,

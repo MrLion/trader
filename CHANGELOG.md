@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.8] — 2026-04-18
+
+### Changed
+- **`null` as universal disable for numeric filters** — set any filter to `null` in `screener_config.yaml` to skip it entirely; replaces the `-1` sentinel for `min_convergence_score` and extends the pattern to `min_price_vs_10ma`, `rs_near_high_pct`, `min_stage2_score`, `min_price`
+  - Config: `min_convergence_score: null` (both `large_cap` and `high_octane` profiles updated)
+  - Python: all filter checks now guard with `if value is not None` — `None` from config or CLI skips the filter
+  - CLI `--min-convergence-score` default changed from `-1` to `None`; not passing the flag uses the profile config value
+- **Filter breakdown now shows active thresholds** — each rejection line displays the value that caused rejections (e.g. `price vs 10MA (≥6%)`, `RS near high (≤5%)`, `conv score (≥10)`)
+- **MA stack labels clarified** — `MA stack (short)` → `MA stack (10>20>50)`, `MA stack (long)` → `MA stack (50>150>200)`
+- **Grade C shown by default** — `--hide-grade-c` now defaults to `False`; use `--hide-grade-c` flag to suppress; summary shows `(hidden — rerun with --no-hide-grade-c to show)` when suppressed
+
 ## [0.6.1.7] — 2026-04-18
 
 ### Fixed

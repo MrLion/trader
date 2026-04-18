@@ -66,8 +66,8 @@ universes:
     rs_near_high_pct: 5            # RS line within 5% of 52-week high
     min_price_vs_10ma: 6           # Price must be >= 6% above 10-day MA
     min_share_volume: 1000000      # Min 50-day avg share volume
-    min_stage2_score: 5            # Min Stage 2 score (0-7)
-    min_convergence_score: -1      # -1 = disabled (rank only, don't filter)
+    min_stage2_score: 5            # Min Stage 2 score (0-7); null = disabled
+    min_convergence_score: null    # null = disabled (rank only, don't filter)
 
   # High-octane profile: smaller, more volatile momentum names
   high_octane:
@@ -82,5 +82,5 @@ universes:
     rs_near_high_pct: 12           # More room for volatility
     min_price_vs_10ma: 4
     min_share_volume: 400000
-    min_stage2_score: 4
-    min_convergence_score: -1
+    min_stage2_score: 4            # null = disabled
+    min_convergence_score: null    # null = disabled
