@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.2] - 2026-04-17
+
+### Fixed
+- **ETF exclusion now handled at universe building stage** — ETFs are filtered using name-pattern detection in `traderlib/universe_builder.py` since Alpaca API doesn't distinguish stocks from ETFs
+  - Removed hardcoded ETF ticker list from `scripts/trend_screener.py` (40+ tickers)
+  - Added name-pattern detection: `'ETF'`, `'EXCHANGE-TRADED FUND'`, `'TRUST'` + provider keywords, `'FUND'` + provider keywords
+  - Funnel metrics now show ETF count excluded (e.g., "Filtered to 11,475 (tradable, exclude OTC, AMEX, ~2,000 ETFs)")
+  - Benefits: No manual list maintenance, catches all ETFs not just hardcoded ones
+
+## [0.6.1.1] - 2026-04-17
+
+### Changed
+- **Rate limiter now configurable via `config/scraper_config.yaml`**
+  - Added `rate_limiter` section with `max_requests` and `window_seconds` settings
+  - Default bumped from 200/min (free tier) to 10,000/min (paid tier)
+  - Both `traderlib/rate_limiter.py` and `traderlib/alpaca_client.py` now load config on init
+  - Free tier users: set `max_requests: 200` in config to restore previous behavior
+
 ## [0.6.1.0] - 2026-04-17
 
 ### Added

@@ -35,9 +35,11 @@ from traderlib.stage2_utils import (
     calculate_convergence_score,
     calculate_volume_metrics,
     calculate_ma_support_stop,
+    get_convergence_grade,
 )
 from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
 from traderlib.risk_config import RiskConfigManager
+from traderlib.universe_builder import UniverseBuilder
 
 
 class TrendScreener:
@@ -185,24 +187,20 @@ class TrendScreener:
         if filters.get('require_rs_near_high', True) and not rs_near_high:
             return None
 
-        # 6. Exclude ETFs (basic check)
-        if filters.get('exclude_etfs', True):
-            etf_keywords = ['ETF', 'FUND', 'TRUST', 'ISHARES', 'VANGUARD', 'SPDR']
-            # Note: Would need proper asset info to check this
-            # For now, skip known ETFs
-            if ticker in ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VOO']:
-                return None
+        # 6. Exclude ETFs (disabled - ETFs are now filtered at universe building stage)
+        # ETFs are excluded in universe_builder.py using name-pattern detection
+        # since Alpaca API doesn't distinguish stocks from ETFs
 
         # 7. Liquidity filters
         vol_metrics = calculate_volume_metrics(hist, lookback_days=50)
 
-        # Profile-specific liquidity
+        # Profile-specific liquidity (only apply if filter is provided)
         if profile == 'large-cap':
-            min_dollar_vol = filters.get('min_volume_dollar', 80_000_000)
-            min_share_vol = filters.get('min_volume_shares', 1_000_000)
+            min_dollar_vol = filters.get('min_volume_dollar') or 80_000_000
+            min_share_vol = filters.get('min_volume_shares') or 1_000_000
         else:  # high-octane
-            min_dollar_vol = filters.get('min_volume_dollar', 20_000_000)
-            min_share_vol = filters.get('min_volume_shares', 400_000)
+            min_dollar_vol = filters.get('min_volume_dollar') or 20_000_000
+            min_share_vol = filters.get('min_volume_shares') or 400_000
 
         if vol_metrics['avg_dollar_volume'] < min_dollar_vol:
             return None
@@ -371,43 +369,60 @@ class TrendScreener:
             return results
 
     def display_results(self, results: List[Dict], show_ma_data: bool = False, top: int = 20):
-        """Print formatted results table."""
+        """Print formatted results table grouped by convergence grade."""
         if not results:
             print("\nNo results found matching criteria.")
             return
 
-        display = results[:top]
+        # Group by grade
+        grade_a = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade A"]
+        grade_b = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade B"]
+        grade_c = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade C"]
+
+        def _print_group(tickers, grade_name, icon):
+            """Print a grade group."""
+            if not tickers:
+                return
+
+            print(f"\n{icon} {grade_name} — {len(tickers)} candidates")
+            print(f"{'=' * 120}")
+
+            # Header
+            header = (f"{'Ticker':<8} {'Price':>8} {'S2':>4} {'Conv':>5} {'Clust':>5} "
+                     f"{'MA_Risk':>7} {'Setup':>8} {'Prox%':>6} {'Vol':>5} {'Entry':>6}")
+            print(header)
+            print('-' * 120)
+
+            display = tickers[:top] if len(tickers) > top else tickers
+            for r in display:
+                entry_status = "READY" if r['entry_ready'] else "WAIT"
+                setup = r['setup_type'][:8]
+
+                row = (f"{r['ticker']:<8} ${r['price']:>7.2f} {r['stage2_score']:>4} "
+                      f"{r['convergence_score']:>5} {r['cluster_size']:>5} "
+                      f"{r['ma_risk_pct']:>6.1f}% {setup:>8} {r['proximity_pct']:>6.1f}% "
+                      f"{r['volume_ratio']:>5.1f}x {entry_status:>6}")
+                print(row)
+
+                if show_ma_data:
+                    ma_row = (f"      MAs: 10=${r['ma10']:.2f} 20=${r['ma20']:.2f} 50=${r['ma50']:.2f} "
+                             f"200=${r['ma200']:.2f}")
+                    print(ma_row)
+
+            if len(tickers) > top:
+                print(f"\n   ... and {len(tickers) - top} more")
 
         print(f"\n{'=' * 120}")
-        print(f"Top {len(display)} Results (sorted by convergence quality)")
+        print(f"TREND SCREENER RESULTS — Sorted by Convergence Quality")
         print(f"{'=' * 120}")
 
-        # Header
-        if show_ma_data:
-            header = (f"{'Rank':<5} {'Ticker':<8} {'Price':>8} {'S2':>4} {'Conv':>5} {'Clust':>5} "
-                     f"{'MA_Risk':>7} {'Setup':>8} {'Prox%':>6} {'Vol':>5} {'Entry':>6}")
-        else:
-            header = (f"{'Rank':<5} {'Ticker':<8} {'Price':>8} {'S2':>4} {'Conv':>5} {'Clust':>5} "
-                     f"{'MA_Risk':>7} {'Setup':>8} {'Prox%':>6} {'Vol':>5} {'Entry':>6}")
+        _print_group(grade_a, "Grade A — Excellent MA Support (technical structure)", "🟢")
+        _print_group(grade_b, "Grade B — Developing Convergence", "🟡")
+        _print_group(grade_c, "Grade C — Monitor (weak/poor convergence)", "⚪")
 
-        print(header)
-        print('-' * 120)
-
-        for i, r in enumerate(display, 1):
-            entry_status = "READY" if r['entry_ready'] else "WAIT"
-            setup = r['setup_type'][:8]
-
-            row = (f"{i:<5} {r['ticker']:<8} ${r['price']:>7.2f} {r['stage2_score']:>4} "
-                  f"{r['convergence_score']:>5} {r['cluster_size']:>5} "
-                  f"{r['ma_risk_pct']:>6.1f}% {setup:>8} {r['proximity_pct']:>6.1f}% "
-                  f"{r['volume_ratio']:>5.1f}x {entry_status:>6}")
-            print(row)
-
-            if show_ma_data:
-                ma_row = (f"      MAs: 10=${r['ma10']:.2f} 20=${r['ma20']:.2f} 50=${r['ma50']:.2f} "
-                         f"150=${r.get('ma150', 'N/A')} 200=${r['ma200']:.2f}")
-                print(ma_row)
-
+        # Summary
+        print(f"\n{'=' * 120}")
+        print(f"Total: {len(results)} | Grade A: {len(grade_a)} | Grade B: {len(grade_b)} | Grade C: {len(grade_c)}")
         print(f"{'=' * 120}")
 
     def export_results(
@@ -522,6 +537,7 @@ Examples:
     # Ticker sources
     parser.add_argument('--tickers', '-t', nargs='+', help='Specific tickers to scan')
     parser.add_argument('--ticker-file', '-f', help='File with tickers (one per line)')
+    parser.add_argument('--refresh', action='store_true', help='Force refresh universe cache')
 
     # Discovery filters (MarketSurge-style)
     parser.add_argument('--min-price', type=float, default=30, help='Minimum stock price (default: 30)')
@@ -568,13 +584,64 @@ Examples:
 
     args = parser.parse_args()
 
-    # Load tickers
-    tickers = load_tickers(args)
+    # Load tickers from explicit sources first (--tickers or --ticker-file)
+    tickers = []
+    if args.tickers:
+        tickers.extend(args.tickers)
+    if args.ticker_file:
+        try:
+            with open(args.ticker_file) as f:
+                file_tickers = [line.strip() for line in f if line.strip()]
+            tickers.extend(file_tickers)
+        except Exception as e:
+            print(f"Error loading ticker file: {e}")
+
+    # Discovery mode: build universe from Alpaca when --profile is specified
+    # and no explicit tickers provided
+    if not tickers and args.profile:
+        print("\n🔍 Discovery mode: building universe from Alpaca...")
+        print(f"   Profile: {args.profile}")
+        if args.refresh:
+            print("   Force refresh: bypassing cache")
+
+        try:
+            builder = UniverseBuilder()
+            result = builder.load_universe(profile=args.profile.replace('-', '_'), force_refresh=args.refresh)
+
+            # Display funnel metrics
+            print(f"\n📊 Universe Funnel:")
+            print(f"   Total assets: {result.total_assets:,}")
+            print(f"   After tradable filter: {result.after_tradable_filter:,}")
+            print(f"   After price filter: {result.after_price_filter:,}")
+            print(f"   After dollar volume filter: {result.after_dvol_filter:,}")
+
+            if result.cache_hit:
+                print(f"\n   Using cache ({result.cache_age_hours:.1f}h old)")
+
+            tickers = result.tickers
+
+            if not tickers:
+                print("\n❌ No tickers found in universe. Try --refresh or check filters.")
+                sys.exit(1)
+
+        except Exception as e:
+            print(f"\n❌ Error building universe: {e}")
+            sys.exit(1)
+    elif not tickers:
+        # Load from watchlist as fallback
+        watchlist_path = Path("data/watchlist.csv")
+        if watchlist_path.exists():
+            df = pd.read_csv(watchlist_path)
+            if 'Ticker' in df.columns:
+                tickers = df['Ticker'].dropna().unique().tolist()
+            elif 'ticker' in df.columns:
+                tickers = df['ticker'].dropna().unique().tolist()
+
     if not tickers:
-        print("Error: No tickers to scan. Provide --tickers, --ticker-file, or populate data/watchlist.csv")
+        print("Error: No tickers to scan. Provide --tickers, --ticker-file, or run with --profile")
         sys.exit(1)
 
-    print(f"Loaded {len(tickers)} tickers")
+    print(f"\nLoaded {len(tickers)} tickers")
 
     # Build filters dict
     # --detect-vcp overrides entry_mode to 'vcp'
