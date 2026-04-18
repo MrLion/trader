@@ -216,16 +216,16 @@ class UniverseBuilder:
         return prices
 
     def _compute_dollar_volumes(self, tickers: List[str], lookback_days: int) -> Dict[str, float]:
-        """Compute average daily dollar volume for multiple tickers in one call.
+        """Compute average daily dollar volume for multiple tickers.
 
-        Uses batch bar request to reduce API overhead.
+        Processes in chunks of 500 to avoid URL-length limits on large universes.
 
         Args:
             tickers: List of ticker symbols
             lookback_days: Number of days to fetch
 
         Returns:
-            Dict mapping ticker to dollar volume (or None if unavailable)
+            Dict mapping ticker to average daily dollar volume
         """
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
@@ -234,38 +234,38 @@ class UniverseBuilder:
         results = {}
         end = datetime.now()
         start = end - timedelta(days=lookback_days)
+        chunk_size = 500
 
-        try:
-            request = StockBarsRequest(
-                symbol_or_symbols=tickers,
-                timeframe=TimeFrame.Day,
-                start=start,
-                end=end,
-                adjustment=Adjustment.ALL
-            )
+        for chunk_start in range(0, len(tickers), chunk_size):
+            chunk = tickers[chunk_start:chunk_start + chunk_size]
+            try:
+                request = StockBarsRequest(
+                    symbol_or_symbols=chunk,
+                    timeframe=TimeFrame.Day,
+                    start=start,
+                    end=end,
+                    adjustment=Adjustment.ALL
+                )
 
-            bars_response = self.alpaca.data_client.get_stock_bars(request)
-            bars_dict = bars_response.data if hasattr(bars_response, 'data') else bars_response
+                bars_response = self.alpaca.data_client.get_stock_bars(request)
+                bars_dict = bars_response.data if hasattr(bars_response, 'data') else bars_response
 
-            for ticker in tickers:
-                if ticker not in bars_dict:
-                    continue
+                for ticker in chunk:
+                    if ticker not in bars_dict:
+                        continue
+                    bars = bars_dict[ticker]
+                    if len(bars) < 10:
+                        continue
+                    dollar_vols = [b.close * b.volume for b in bars]
+                    results[ticker] = sum(dollar_vols) / len(dollar_vols)
 
-                bars = bars_dict[ticker]
-                if len(bars) < 10:
-                    continue
-
-                # Calculate dollar volume
-                dollar_vols = [b.close * b.volume for b in bars]
-                results[ticker] = sum(dollar_vols) / len(dollar_vols)
-
-        except Exception as e:
-            # Fallback: compute individually for failed tickers
-            for ticker in tickers:
-                if ticker not in results:
-                    dvol = self._compute_dollar_volume_single(ticker, lookback_days)
-                    if dvol:
-                        results[ticker] = dvol
+            except Exception:
+                # Fallback: compute individually for failed chunk
+                for ticker in chunk:
+                    if ticker not in results:
+                        dvol = self._compute_dollar_volume_single(ticker, lookback_days)
+                        if dvol:
+                            results[ticker] = dvol
 
         return results
 
@@ -338,15 +338,21 @@ class UniverseBuilder:
                     return True
             return False
 
+        # high_octane: require marginable=True to exclude non-institutional penny stocks
+        # while still admitting fallen large-caps (e.g. EBAY) which remain marginable
+        require_marginable = (profile == 'high_octane')
+
         filtered = [
             a for a in all_assets
             if getattr(a, 'tradable', False)
             and getattr(a, 'exchange', '') not in exclude_exchanges
             and not is_etf(a)
+            and (not require_marginable or getattr(a, 'marginable', False))
         ]
         after_tradable = len(filtered)
         etf_count = sum(1 for a in all_assets if is_etf(a))
-        print(f"  Filtered to {after_tradable:,} (tradable, exclude {', '.join(exclude_exchanges)}, {etf_count:,} ETFs)")
+        marginable_note = ", marginable only" if require_marginable else ""
+        print(f"  Filtered to {after_tradable:,} (tradable, exclude {', '.join(exclude_exchanges)}, {etf_count:,} ETFs{marginable_note})")
 
         # STEP 3: Get current prices for filtered assets (EXPENSIVE — API calls)
         # Extract tickers from assets

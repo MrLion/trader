@@ -2,6 +2,16 @@
 # Validation filters applied to tickers fetched from MC Stock Charts reports.
 
 # =============================================================================
+# RATE LIMITER CONFIGURATION
+# =============================================================================
+# Alpaca API rate limits. Default matches Alpaca Paid Tier (10,000/min).
+# Free tier users: Set max_requests to 200.
+
+rate_limiter:
+  max_requests: 10000      # Requests per window (200 for free tier, 10000 for paid)
+  window_seconds: 60       # Time window in seconds
+
+# =============================================================================
 # TICKER VALIDATION FILTERS
 # =============================================================================
 # Tickers that fail any filter are silently skipped during validation.
@@ -31,3 +41,26 @@ validation:
 # The default list is built into the scraper; add extras here.
 extra_false_positives: []
 #  - VIV   # Uncomment to skip a specific ticker
+
+# =============================================================================
+# UNIVERSE BUILDER CONFIGURATION
+# =============================================================================
+# Profiles for dynamic universe building in trend_screener.py
+# Filters applied in order: asset → price → dollar volume (expensive)
+
+universes:
+  default: large_cap
+
+  # Large-cap profile: institutional-quality names
+  large_cap:
+    min_price: 30
+    min_dollar_volume: 80000000    # $80M average daily dollar volume
+    lookback_days: 60              # For dollar volume calculation
+    exclude_exchanges: ["OTC", "AMEX"]
+
+  # High-octane profile: more aggressive, smaller names
+  high_octane:
+    min_price: 2
+    min_dollar_volume: 20000000    # $20M average daily dollar volume
+    lookback_days: 60
+    exclude_exchanges: ["OTC", "AMEX"]

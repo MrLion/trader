@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1.4] — 2026-04-18
+
+### Changed
+- **Trend Screener UX overhaul** — Three buckets of improvements across prefiltering, scanning, and console output
+
+#### Prefiltering
+- `large_cap.min_price` raised from $10 → $30 in `config/scraper_config.yaml` to align universe pre-filter with screener floor (was wasting API calls on tickers that failed immediately)
+- `universe_builder.py`: added `marginable=True` gate for high-octane profile — blocks non-institutional penny stocks ($2–5 range) while allowing fallen large-caps (e.g. EBAY) which remain marginable
+- `universe_builder._compute_dollar_volumes()`: chunked at 500 tickers per `StockBarsRequest` (was unbounded, risked URL-length failures on 6,000+ symbol universes)
+
+#### Scanning
+- Per-ticker progress with live pass count (`Scanning AAPL — 12 passed`) instead of batch-level granularity
+- Filter breakdown printed after every scan — shows rejections by stage (price, MA stack short/long, RS, liquidity, convergence, passed)
+- Profile-aware structural filter defaults: `stack_long` off by default for high-octane (50D>150D>200D too strict for volatile names), `rs_near_high` threshold relaxed to 12% for high-octane vs 5% for large-cap
+- Note added after universe load: "structural filters will further reduce this list"
+
+#### Console Output
+- Results table replaced with Rich table — color-coded by grade (green=A, yellow=B, dim=C)
+- Column renames: `S2`→`Stage2`, `Conv`→`Score`, `Clust`→`MAs`, `MA_Risk`→`MA Stop%`, `Prox%`→`To Pivot`, `Vol`→`Vol Ratio`
+- Run context header above results: profile, universe size, active filters, rank-by
+- Score distribution shown when no convergence threshold applied (range, mean)
+- `Entry` column hidden in default `--entry-mode any` (always READY, was redundant)
+- `--no-hide-grade-c` flag to show Grade C results (hidden by default in discovery mode)
+
+#### Backtest Compatibility
+- CSV export now uses `Ticker` (capital T) column — matches `backtest.py --watchlist` primary expectation
+- New `--export-watchlist <path>` flag: writes single-column `Ticker` CSV directly usable as `python3 scripts/backtest.py --watchlist <path>`
+
 ## [0.6.1.3] — 2026-04-17
 
 ### Fixed
