@@ -234,7 +234,8 @@ def detect_vcp_pattern(
     min_final_contraction_depth: float = 3.0,
     max_final_contraction_depth: float = 10.0,
     require_volume_dry_up: bool = True,
-    volume_dry_up_threshold: float = 0.60
+    volume_dry_up_threshold: float = 0.60,
+    require_progression: bool = False,
 ) -> VCPPattern:
     """
     Detect VCP pattern with progressively tighter contractions.
@@ -249,6 +250,10 @@ def detect_vcp_pattern(
         max_final_contraction_depth: Max % for final contraction (default 10%)
         require_volume_dry_up: Check volume declining (default True)
         volume_dry_up_threshold: Final volume % of 50-day avg (default 60%)
+        require_progression: Enforce that each contraction < 80% of prior (default False).
+            Disabled by default — the swing detector operates on daily bars and often
+            finds consecutive same-sized swings within a base that correctly represent
+            a tightening structure but fail the strict pair-by-pair ratio test.
 
     Returns:
         VCPPattern with validation results
@@ -291,10 +296,12 @@ def detect_vcp_pattern(
     # Limit to max_contractions (most recent)
     contractions = contractions[-max_contractions:]
 
-    # Validate progression (each contraction 50-70% of prior)
-    progression_valid, error_msg = validate_vcp_progression(contractions)
-    if not progression_valid:
-        return VCPPattern(valid=False, error_message=error_msg)
+    # Validate progression (each contraction < 80% of prior) — optional
+    progression_valid = True
+    if require_progression:
+        progression_valid, error_msg = validate_vcp_progression(contractions)
+        if not progression_valid:
+            return VCPPattern(valid=False, error_message=error_msg)
 
     # Check final contraction depth
     final_contraction = contractions[-1]
