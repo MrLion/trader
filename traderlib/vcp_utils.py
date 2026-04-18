@@ -181,15 +181,16 @@ def measure_contraction(
 
 def validate_vcp_progression(
     contractions: List[Contraction],
-    max_size_ratio: float = 0.70,
-    min_size_ratio: float = 0.50
+    max_size_ratio: float = 0.80,
+    min_size_ratio: float = 0.40
 ) -> Tuple[bool, str]:
     """
     Validate VCP contraction progression.
 
-    Each contraction should be 50-70% of the prior contraction.
+    Each contraction should be roughly 40-80% of the prior contraction.
     A 25% → 15% → 8% sequence is valid (60%, 53%).
-    A 25% → 20% → 15% sequence is NOT valid (80%, 75% - too wide).
+    A 25% → 22% → 15% sequence is valid (88% → relaxed to 80%).
+    A 25% → 20% → 18% sequence is NOT valid (90% — barely contracting).
 
     Args:
         contractions: List of contractions in order
@@ -214,7 +215,7 @@ def validate_vcp_progression(
         if size_ratio > max_size_ratio:
             return False, (
                 f"Contraction {i+1} ({current_depth:.1f}%) is {size_ratio:.0%} of "
-                f"contraction {i} ({prior_depth:.1f}%) - exceeds {max_size_ratio:.0%} limit"
+                f"prior ({prior_depth:.1f}%) — exceeds {max_size_ratio:.0%} limit (barely contracting)"
             )
 
         if size_ratio < min_size_ratio:

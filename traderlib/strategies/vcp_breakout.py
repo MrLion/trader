@@ -201,18 +201,13 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
             if not vcp.valid:
                 continue
 
-            # 3. Volume confirmation
-            vol_metrics = calculate_volume_metrics(hist)
-            if vol_metrics['volume_ratio'] < self.params.get('breakout_volume_min', 1.4):
-                continue
-
-            # 4. MA convergence score
+            # 3. MA convergence score
             s2_details = get_stage2_details(hist)
             conv_score = calculate_convergence_score(current, s2_details)
             if conv_score['score'] < self.params.get('min_convergence_score', 50):
                 continue
 
-            # 5. Proximity to pivot
+            # 4. Proximity to pivot
             pivot = vcp.pivot_high
             proximity = (current - pivot) / pivot
             if proximity > self.params.get('max_pivot_proximity_pct', 5.0) / 100:
@@ -415,12 +410,7 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
             if not vcp.valid:
                 continue
 
-            # Volume confirmation (stricter for high-octane)
-            vol_metrics = calculate_volume_metrics(hist)
-            if vol_metrics['volume_ratio'] < self.params.get('breakout_volume_min', 2.0):
-                continue
-
-            # MA convergence (same)
+            # MA convergence
             s2_details = get_stage2_details(hist)
             conv_score = calculate_convergence_score(current, s2_details)
             if conv_score['score'] < self.params.get('min_convergence_score', 50):
