@@ -421,26 +421,6 @@ class BacktestEngine:
         except Exception:
             return pd.DataFrame()
 
-    def _build_context(self, sim_date: date, state: BacktestState) -> BacktestStrategyContext:
-        """Build unified StrategyContext from backtest state.
-
-        Enables strategies to use unified interface (evaluate_entries_unified,
-        manage_exits) while maintaining backward compatibility.
-        """
-        current_positions = {
-            ticker: bp.position
-            for ticker, bp in state.positions.items()
-        }
-
-        return BacktestStrategyContext(
-            data_provider=self.data_provider,
-            sim_date=sim_date,
-            positions=current_positions,
-            equity=state.equity,
-            cash=state.cash,
-            risk_config=self._risk_config
-        )
-
     def _load_watchlist(self, path: Path) -> list[str]:
         """Load tickers from a watchlist CSV."""
         if not path.exists():
