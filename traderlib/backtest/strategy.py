@@ -250,8 +250,8 @@ class Stage2MomentumStrategy(Strategy):
             below_50ma = not s2_details['criteria'].get('price_above_50ma', True)
             below_20ma = not s2_details['criteria'].get('price_above_20ema', False)
 
-            # Minimum Stage 2 score
-            min_stage2 = 5
+            # Minimum Stage 2 score (0-10 scale; 6 ≈ 60%)
+            min_stage2 = 6
             if stage2 < min_stage2:
                 continue
 

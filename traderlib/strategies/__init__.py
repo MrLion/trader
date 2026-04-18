@@ -40,7 +40,7 @@ class EntrySignal:
         shares: Number of shares to buy
         sector: Stock sector for concentration limits
         entry_score: Entry attractiveness (0-100)
-        stage2_score: Stage 2 compliance (0-8)
+        stage2_score: Stage 2 compliance (0-10)
         metadata: Strategy-specific data (VCP data, convergence, etc.)
     """
     ticker: str

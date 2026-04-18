@@ -150,7 +150,7 @@ ETFS = [
 ]
 
 def calculate_stage2_score_from_hist(hist):
-    """Calculate Stage 2 score using shared 8-point system."""
+    """Calculate Stage 2 score using shared 10-point system."""
     return calculate_stage2_score(hist)
 
 def run_comprehensive_scan():

@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Shared Stage 2 criteria calculation utilities.
 
-Canonical 8-point system based on Mark Minervini's trend template
-plus short-term trend confirmation:
-1. Price > 20 MA (short-term trend)
-2. Price > 50 MA (medium-term trend)
-3. Price > 100 MA (intermediate trend)
-4. Price > 200 MA (long-term trend)
-5. MA Stacking: 50 > 100 > 200 (proper order, 20 MA excluded as too volatile)
-6. 200 MA rising for 20+ days (sustained uptrend)
-7. Price within 25% of 52-week high
-8. Price >= 1.25x 52-week low (strong recovery)
+Canonical 10-point system based on Mark Minervini's trend template
+plus short-term trend confirmation and 150-day MA:
+1.  Price > 20 MA  (short-term trend)
+2.  Price > 50 MA  (medium-term trend)
+3.  Price > 100 MA (intermediate trend)
+4.  Price > 150 MA (long intermediate trend)
+5.  Price > 200 MA (long-term trend)
+6.  MA Stacking: 50 > 100 > 200 (proper order)
+7.  MA Stacking extended: 50 > 100 > 150 > 200
+8.  200 MA rising for 20+ days (sustained uptrend)
+9.  Price within 25% of 52-week high
+10. Price >= 1.25x 52-week low (strong recovery)
 """
 
 from typing import Optional
@@ -20,14 +22,14 @@ import pandas as pd
 
 def calculate_stage2_score(hist: pd.DataFrame) -> int:
     """
-    Calculate Stage 2 score using canonical 8-point system.
+    Calculate Stage 2 score using canonical 10-point system.
 
     Args:
         hist: DataFrame with price history containing 'Close', 'High', 'Low' columns
               Must have at least 200 days for full calculation
 
     Returns:
-        int: Score from 0-8
+        int: Score from 0-10
     """
     if len(hist) < 200:
         return 0
@@ -40,6 +42,7 @@ def calculate_stage2_score(hist: pd.DataFrame) -> int:
     ma20 = hist['Close'].rolling(20).mean().iloc[-1]
     ma50 = hist['Close'].rolling(50).mean().iloc[-1]
     ma100 = hist['Close'].rolling(100).mean().iloc[-1]
+    ma150 = hist['Close'].rolling(150).mean().iloc[-1] if len(hist) >= 150 else None
     ma200 = hist['Close'].rolling(200).mean().iloc[-1]
 
     score = 0
@@ -56,15 +59,23 @@ def calculate_stage2_score(hist: pd.DataFrame) -> int:
     if current > ma100:
         score += 1
 
-    # 4. Price > 200 MA
+    # 4. Price > 150 MA
+    if ma150 is not None and current > ma150:
+        score += 1
+
+    # 5. Price > 200 MA
     if current > ma200:
         score += 1
 
-    # 5. Proper MA stacking: 50 > 100 > 200 (20 MA excluded, too volatile)
+    # 6. MA stacking: 50 > 100 > 200 (20 MA excluded, too volatile)
     if ma50 > ma100 > ma200:
         score += 1
 
-    # 6. 200 MA rising for 20+ days (compare to value 20 days ago)
+    # 7. Extended MA stacking: 50 > 100 > 150 > 200
+    if ma150 is not None and ma50 > ma100 > ma150 > ma200:
+        score += 1
+
+    # 8. 200 MA rising for 20+ days (compare to value 20 days ago)
     if len(hist) >= 221:
         ma200_20days_ago = hist['Close'].rolling(200).mean().iloc[-21]
         if ma200 > ma200_20days_ago:
@@ -75,12 +86,12 @@ def calculate_stage2_score(hist: pd.DataFrame) -> int:
         if ma200 > ma200_1day_ago:
             score += 1
 
-    # 7. Price within 25% of 52-week high
+    # 9. Price within 25% of 52-week high
     from_high = ((high_52w - current) / high_52w) * 100
     if from_high < 25:
         score += 1
 
-    # 8. Price >= 1.25x 52-week low (strong recovery from lows)
+    # 10. Price >= 1.25x 52-week low (strong recovery from lows)
     if current >= low_52w * 1.25:
         score += 1
 
@@ -91,7 +102,7 @@ def get_stage2_details(hist: pd.DataFrame) -> dict:
     """
     Get detailed breakdown of Stage 2 criteria for reporting.
 
-    Includes all MAs: 10, 20, 50, 100, 150, 200 for MarketSurge filter compatibility.
+    Includes all MAs: 10, 20, 50, 100, 150, 200. Score = sum of 10 boolean criteria.
 
     Args:
         hist: DataFrame with price history
@@ -163,7 +174,7 @@ def is_stage2_compliant(score: int, min_score: int = 5) -> bool:
     Check if a stock meets minimum Stage 2 compliance.
 
     Args:
-        score: Stage 2 score (0-8)
+        score: Stage 2 score (0-10)
         min_score: Minimum score to be considered compliant (default 5)
 
     Returns:
@@ -256,10 +267,10 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
                     below_50ma: bool = False,
                     below_20ma: bool = False) -> int:
     """
-    Calculate entry attractiveness score (0-100) using updated thresholds for 8-point system.
+    Calculate entry attractiveness score (0-100) using updated thresholds for 10-point system.
 
     Args:
-        stage2_score: Stage 2 score (0-8)
+        stage2_score: Stage 2 score (0-10)
         risk_pct: Risk percentage
         dist_to_pivot: Distance to pivot point (positive = below pivot)
         ret_6m: 6-month return percentage
@@ -272,18 +283,18 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
     """
     entry_score = 0
 
-    # Stage 2 score component (30 pts max) - updated for 8-point system
-    if stage2_score >= 7:   # Excellent
+    # Stage 2 score component (30 pts max) — scaled for 10-point system
+    if stage2_score >= 9:    # Excellent  (90%+)
         entry_score += 30
-    elif stage2_score >= 6:  # Very good
+    elif stage2_score >= 8:  # Very good  (80%+)
         entry_score += 25
-    elif stage2_score >= 5:  # Good
+    elif stage2_score >= 7:  # Good       (70%+)
         entry_score += 20
-    elif stage2_score >= 4:  # Fair
+    elif stage2_score >= 6:  # Fair       (60%+)
         entry_score += 15
-    elif stage2_score >= 3:  # Weak
+    elif stage2_score >= 5:  # Weak       (50%+)
         entry_score += 10
-    elif stage2_score >= 2:  # Minimal
+    elif stage2_score >= 4:  # Minimal    (40%+)
         entry_score += 5
 
     # Risk % component (30 pts max)
@@ -342,6 +353,27 @@ def get_stage2_tier(entry_score: int) -> str:
         return "Tier 2"
     else:
         return "Tier 3"
+
+
+def get_convergence_grade(convergence_score: int) -> str:
+    """
+    Get convergence grade classification — separate from entry_score tiers.
+
+    Convergence measures MA cluster quality (technical structure),
+    while entry_score measures timing readiness.
+
+    Args:
+        convergence_score: MA convergence quality score (0-100)
+
+    Returns:
+        str: Grade classification (A/B/C)
+    """
+    if convergence_score >= 70:
+        return "Grade A"  # Excellent MA support — tight cluster, great risk structure
+    elif convergence_score >= 50:
+        return "Grade B"  # Developing convergence — monitor for improvement
+    else:
+        return "Grade C"  # Weak/poor convergence — low priority
 
 
 # ============ MA Convergence Scoring (Trend Screener) ============

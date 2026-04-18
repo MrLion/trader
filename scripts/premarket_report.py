@@ -669,7 +669,7 @@ def load_watchlist():
                     # Calculate returns
                     ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
                     
-                    # Calculate Stage 2 score and MA flags using shared 8-point system
+                    # Calculate Stage 2 score and MA flags using shared 10-point system
                     s2_details = get_stage2_details(hist)
                     stage2 = s2_details['score']
                     below_50ma = not s2_details['criteria']['price_above_50ma']
@@ -712,7 +712,7 @@ def load_watchlist():
                     # Distance to pivot
                     dist_to_pivot = ((pivot - current) / current) * 100
                     
-                    # ENTRY SCORE CALCULATION using shared function (8-point system thresholds)
+                    # ENTRY SCORE CALCULATION using shared function (10-point system thresholds)
                     # Note: RS_6M not calculated in premarket, pass 0
                     entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0,
                                                    below_50ma=below_50ma, below_20ma=below_20ma)

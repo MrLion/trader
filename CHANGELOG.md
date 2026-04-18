@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.0] — 2026-04-18
+
+### Changed
+- **Stage 2 scoring formalized as 10-point system** — `calculate_stage2_score()` now matches `get_stage2_details()` which already computed 10 criteria; scores of 9–10 in production output were correct all along, docs and code said "8-point" incorrectly
+  - Added criterion 4: **Price > 150 MA** (long intermediate trend)
+  - Added criterion 7: **Extended MA stacking: 50 > 100 > 150 > 200**
+  - `get_entry_score()` thresholds rescaled: ≥9=30pts, ≥8=25pts, ≥7=20pts, ≥6=15pts, ≥5=10pts, ≥4=5pts
+  - `min_stage2_score` in config: `large_cap` 5→6, `high_octane` 4→5 (proportional to 10-pt scale)
+  - Hardcoded thresholds in `backtest/strategy.py` and `strategies/vcp_breakout.py`: 5→6
+  - All docstrings, comments, and test file updated from "8-point" to "10-point"
+- **Test suite updated** — `tests/test_stage2_8point.py` rewritten for 10-point system; 46 tests all passing
+
 ## [0.6.1.8] — 2026-04-18
 
 ### Changed

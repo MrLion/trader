@@ -206,7 +206,7 @@ class EntrySignalScanner:
             entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
                                           below_50ma=below_50ma, below_20ma=below_20ma)
 
-            # Determine tier (8-point system: Tier 1 needs 6+/8, Tier 2 needs 5+/8)
+            # Determine tier (10-point system: Tier 1 needs 6+/8, Tier 2 needs 5+/8)
             if entry_score >= 60 and stage2 >= 6:
                 tier = "Tier 1"
             elif entry_score >= 40 and stage2 >= 5:
@@ -541,7 +541,7 @@ class EntrySignalScanner:
                     print(f"| MA Support | ${analysis['ma_support_stop']:.2f} ({analysis['ma_risk_pct']:.1f}%) |")
                 print(f"| Stop Type | {analysis['stop_type']} |")
 
-                # Verdict (8-point system thresholds)
+                # Verdict (10-point system thresholds)
                 if score >= 7 and analysis['risk_pct'] < 10:
                     verdict = "🟢 A-TIER — Strong setup. Watch for volume-confirmed breakout."
                 elif score >= 6:

@@ -165,7 +165,7 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
 
             # 1. Stage-2 check
             stage2_score = calculate_stage2_score(hist)
-            if stage2_score < 5:
+            if stage2_score < 6:
                 continue
 
             # 2. VCP pattern detection
@@ -364,7 +364,7 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
 
             # Stage-2 check (same)
             stage2_score = calculate_stage2_score(hist)
-            if stage2_score < 5:
+            if stage2_score < 6:
                 continue
 
             # VCP pattern (stricter volume for thin names)
