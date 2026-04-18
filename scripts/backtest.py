@@ -231,6 +231,11 @@ def main():
     if result.partial:
         print("  Interrupted — showing partial results\n")
 
+    # Print entry filter breakdown for strategies that support it
+    if hasattr(strategy, 'get_rejection_summary') and strategy.rejection_counts['scanned'] > 0:
+        if strategy.rejection_counts['signals'] == 0 or args.trades:
+            print(strategy.get_rejection_summary())
+
     # Generate and print report (Rich by default, plain fallback)
     report = BacktestReporter.generate(result)
     BacktestReporter.print_report_rich(report, show_all_trades=args.trades)

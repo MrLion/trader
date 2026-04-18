@@ -43,6 +43,47 @@ class VCPBreakoutBase(Strategy):
         # Load profile-specific parameters from config
         self._load_profile_params()
 
+        # Rejection counters — accumulated across all simulation days
+        self.rejection_counts: dict = {
+            'scanned': 0,
+            'already_holding': 0,
+            'no_data': 0,
+            'stage2': 0,
+            'vcp': 0,
+            'convergence': 0,
+            'pivot': 0,
+            'sizing': 0,
+            'signals': 0,
+        }
+        # VCP sub-rejection buckets (from error_message prefix)
+        self.vcp_rejection_reasons: dict = {}
+
+    def get_rejection_summary(self) -> str:
+        """Return a human-readable breakdown of entry filter rejections."""
+        c = self.rejection_counts
+        lines = [
+            f"\n{'─'*50}",
+            f"  Entry filter breakdown ({self.name})",
+            f"{'─'*50}",
+            f"  Ticker-days scanned:    {c['scanned']:>6}",
+            f"  Already holding:        {c['already_holding']:>6}",
+            f"  No data (dropped):      {c['no_data']:>6}",
+            f"  Failed Stage 2 (< 6):   {c['stage2']:>6}",
+            f"  Failed VCP pattern:     {c['vcp']:>6}",
+        ]
+        if self.vcp_rejection_reasons:
+            top = sorted(self.vcp_rejection_reasons.items(), key=lambda x: -x[1])[:5]
+            for reason, count in top:
+                lines.append(f"    ↳ {reason[:42]:<42} {count:>5}")
+        lines += [
+            f"  Failed convergence:     {c['convergence']:>6}",
+            f"  Failed pivot prox:      {c['pivot']:>6}",
+            f"  Failed sizing:          {c['sizing']:>6}",
+            f"  Signals generated:      {c['signals']:>6}",
+            f"{'─'*50}",
+        ]
+        return '\n'.join(lines)
+
     def _load_profile_params(self):
         """Load VCP parameters from risk_config."""
         if self.risk_config and hasattr(self.risk_config, 'vcp'):
@@ -167,28 +208,35 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
         if not tickers:
             return signals
 
+        self.rejection_counts['scanned'] += len(tickers)
         for ticker in tickers:
             # Skip if already holding
             if ticker in context.positions:
+                self.rejection_counts['already_holding'] += 1
                 continue
 
             try:
                 hist = context.get_bars(ticker, lookback_days=200)
             except Exception:
+                self.rejection_counts['no_data'] += 1
                 continue
             if hist is None or len(hist) < 200:
+                self.rejection_counts['no_data'] += 1
                 continue
 
             try:
                 current = context.get_current_price(ticker)
             except Exception:
+                self.rejection_counts['no_data'] += 1
                 continue
             if current is None:
+                self.rejection_counts['no_data'] += 1
                 continue
 
             # 1. Stage-2 check
             stage2_score = calculate_stage2_score(hist)
             if stage2_score < 6:
+                self.rejection_counts['stage2'] += 1
                 continue
 
             # 2. VCP pattern detection
@@ -200,18 +248,23 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
                 volume_dry_up_threshold=self.params.get('volume_dry_up_threshold', 0.60)
             )
             if not vcp.valid:
+                self.rejection_counts['vcp'] += 1
+                reason = vcp.error_message.split(' —')[0][:50]
+                self.vcp_rejection_reasons[reason] = self.vcp_rejection_reasons.get(reason, 0) + 1
                 continue
 
             # 3. MA convergence score
             s2_details = get_stage2_details(hist)
             conv_score = calculate_convergence_score(current, s2_details)
             if conv_score['score'] < self.params.get('min_convergence_score', 50):
+                self.rejection_counts['convergence'] += 1
                 continue
 
             # 4. Proximity to pivot
             pivot = vcp.pivot_high
             proximity = (current - pivot) / pivot
             if proximity > self.params.get('max_pivot_proximity_pct', 5.0) / 100:
+                self.rejection_counts['pivot'] += 1
                 continue
 
             # Calculate position sizing
@@ -219,8 +272,10 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
             shares = self._calculate_shares(context, current, stop_price)
 
             if shares <= 0:
+                self.rejection_counts['sizing'] += 1
                 continue
 
+            self.rejection_counts['signals'] += 1
             signals.append(EntrySignal(
                 ticker=ticker,
                 side='LONG',
@@ -377,27 +432,34 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
         if not tickers:
             return signals
 
+        self.rejection_counts['scanned'] += len(tickers)
         for ticker in tickers:
             if ticker in context.positions:
+                self.rejection_counts['already_holding'] += 1
                 continue
 
             try:
                 hist = context.get_bars(ticker, lookback_days=200)
             except Exception:
+                self.rejection_counts['no_data'] += 1
                 continue
             if hist is None or len(hist) < 200:
+                self.rejection_counts['no_data'] += 1
                 continue
 
             try:
                 current = context.get_current_price(ticker)
             except Exception:
+                self.rejection_counts['no_data'] += 1
                 continue
             if current is None:
+                self.rejection_counts['no_data'] += 1
                 continue
 
             # Stage-2 check (same)
             stage2_score = calculate_stage2_score(hist)
             if stage2_score < 6:
+                self.rejection_counts['stage2'] += 1
                 continue
 
             # VCP pattern (stricter volume for thin names)
@@ -409,18 +471,23 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
                 volume_dry_up_threshold=self.params.get('volume_dry_up_threshold', 0.50)
             )
             if not vcp.valid:
+                self.rejection_counts['vcp'] += 1
+                reason = vcp.error_message.split(' —')[0][:50]
+                self.vcp_rejection_reasons[reason] = self.vcp_rejection_reasons.get(reason, 0) + 1
                 continue
 
             # MA convergence
             s2_details = get_stage2_details(hist)
             conv_score = calculate_convergence_score(current, s2_details)
             if conv_score['score'] < self.params.get('min_convergence_score', 50):
+                self.rejection_counts['convergence'] += 1
                 continue
 
             # Proximity to pivot (same)
             pivot = vcp.pivot_high
             proximity = (current - pivot) / pivot
             if proximity > self.params.get('max_pivot_proximity_pct', 5.0) / 100:
+                self.rejection_counts['pivot'] += 1
                 continue
 
             # Position sizing
@@ -428,8 +495,10 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
             shares = self._calculate_shares(context, current, stop_price)
 
             if shares <= 0:
+                self.rejection_counts['sizing'] += 1
                 continue
 
+            self.rejection_counts['signals'] += 1
             signals.append(EntrySignal(
                 ticker=ticker,
                 side='LONG',
