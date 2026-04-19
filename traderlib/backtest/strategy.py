@@ -51,7 +51,8 @@ class BacktestStrategyContext(StrategyContext):
     def __init__(self, data_provider: DataFrameProvider, sim_date: date,
                  positions: Dict[str, Position], equity: float, cash: float,
                  risk_config: Optional[RiskConfig] = None,
-                 spy_data: Optional[pd.DataFrame] = None):
+                 spy_data: Optional[pd.DataFrame] = None,
+                 vix_current: Optional[float] = None):
         self._data_provider = data_provider
         self._sim_date = sim_date
         self.sim_date = sim_date
@@ -61,7 +62,7 @@ class BacktestStrategyContext(StrategyContext):
         self.risk_config = risk_config
         self.spy_data = spy_data
         self.spy_current = None
-        self.vix_current = None
+        self.vix_current = vix_current
         self.day_pnl = 0.0
 
     def get_bars(self, ticker: str, lookback_days: int = 200) -> Optional[pd.DataFrame]:

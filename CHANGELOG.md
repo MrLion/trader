@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.8] — 2026-04-19
+
+### Added
+- **VIX gate — blocks new entries when volatility exceeds `max_vix`** (`config/risk_config.yaml` → `market.max_vix`)
+  - `^VIX` spot data fetched via yfinance (Alpaca does not carry the VIX index; ETF proxies VXX/VIXY have only 0.36 level correlation and are unsuitable for threshold gating)
+  - **Backtest engine** (`traderlib/backtest/engine.py`): prefetches full-period VIX history at run start, caches by date, and gates Step 4 (entry evaluation) for both legacy (`Stage2MomentumStrategy`) and unified (VCP) strategies. VIX is also injected into `BacktestStrategyContext.vix_current` for strategies that want to reference it directly.
+  - **VCP strategies** (`traderlib/strategies/vcp_breakout.py`): `LargeCap` and `HighOctane` both check `context.vix_current` vs `risk_config.market.max_vix` at the top of `evaluate_entries` — covers paper/live execution paths where the engine doesn't gate.
+  - **Paper engine** (`scripts/paper_engine_alpaca.py`) and **entry signals** (`scripts/entry_signals.py`): `_check_market_conditions()` fetches live VIX via `yf.Ticker("^VIX").history(period="2d")` and returns early with a human-readable message when above threshold. VIX level is appended to the SPY status string when within limit.
+  - Fail-open on all paths: if yfinance is unavailable or VIX fetch fails, trading continues unblocked.
+  - `max_vix` defaults to `None` (gate disabled) in `MarketFilterConfig`; opt-in per risk profile in YAML.
+
 ## [0.6.2.7] — 2026-04-18
 
 ### Fixed

@@ -636,11 +636,12 @@ class AlpacaPaperEngine:
             print(f"   ⏱️  Rebuilt cooldown state for {rebuilt} ticker(s)")
 
     def _check_market_conditions(self) -> tuple:
-        """Check SPY market conditions using configured thresholds."""
+        """Check SPY and VIX market conditions using configured thresholds."""
         spy_price = self._get_current_price('SPY')
         if spy_price is None:
             return False, "Cannot fetch SPY"
 
+        spy_status = "SPY OK"
         # Get yesterday's close from Alpaca for comparison
         try:
             hist = self.alpaca.get_historical_bars('SPY', days=5)
@@ -652,7 +653,7 @@ class AlpacaPaperEngine:
                 if change_pct < max_decline:
                     return False, f"SPY {change_pct:+.2f}% (below {max_decline}%)"
 
-                return True, f"SPY {change_pct:+.2f}%"
+                spy_status = f"SPY {change_pct:+.2f}%"
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "market_condition_check", e,
@@ -660,7 +661,21 @@ class AlpacaPaperEngine:
                 ticker="SPY"
             )
 
-        return True, "SPY OK"
+        # VIX gate: block new entries when volatility exceeds configured max
+        max_vix = self.risk_config.market.max_vix
+        if max_vix is not None:
+            try:
+                import yfinance as yf
+                vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+                if not vix_hist.empty:
+                    vix_current = float(vix_hist['Close'].iloc[-1])
+                    if vix_current > max_vix:
+                        return False, f"VIX {vix_current:.1f} > max {max_vix:.0f} — entries paused"
+                    spy_status += f"  VIX {vix_current:.1f}"
+            except Exception:
+                pass  # VIX fetch failed — fail open, don't block trading
+
+        return True, spy_status
 
     def _analyze_ticker(self, ticker: str) -> Optional[Dict]:
         """Analyze ticker for entry."""

@@ -88,7 +88,8 @@ class EntrySignalScanner:
         return None
 
     def _check_market_conditions(self) -> tuple:
-        """Check SPY market conditions."""
+        """Check SPY and VIX market conditions."""
+        spy_status = "SPY OK"
         try:
             hist = self.alpaca.get_historical_bars('SPY', days=5)
             if hist is not None and len(hist) >= 2:
@@ -97,7 +98,7 @@ class EntrySignalScanner:
                 if change_pct < self.risk_config.market.max_spy_decline_pct:
                     return False, f"SPY {change_pct:+.2f}% (below {self.risk_config.market.max_spy_decline_pct}%)"
 
-                return True, f"SPY {change_pct:+.2f}%"
+                spy_status = f"SPY {change_pct:+.2f}%"
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "market_conditions", e,
@@ -105,7 +106,21 @@ class EntrySignalScanner:
                 ticker="SPY"
             )
 
-        return True, "SPY OK"
+        # VIX gate: block entries when volatility exceeds configured max
+        max_vix = self.risk_config.market.max_vix
+        if max_vix is not None:
+            try:
+                import yfinance as yf
+                vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+                if not vix_hist.empty:
+                    vix_current = float(vix_hist['Close'].iloc[-1])
+                    if vix_current > max_vix:
+                        return False, f"VIX {vix_current:.1f} > max {max_vix:.0f} — entries paused"
+                    spy_status += f"  VIX {vix_current:.1f}"
+            except Exception:
+                pass  # VIX fetch failed — fail open, don't block trading
+
+        return True, spy_status
 
     def _analyze_ticker(self, ticker: str) -> Optional[Dict]:
         """Analyze ticker for entry signal."""

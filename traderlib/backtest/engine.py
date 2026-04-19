@@ -102,6 +102,9 @@ class BacktestEngine:
         # Gap rejections (entries rejected due to T+1 gap)
         self._gap_rejections: list[dict] = []
 
+        # VIX daily close cache: {date: float} — populated at run() start via yfinance
+        self._vix_cache: dict[date, float] = {}
+
         # Detect interface: legacy (Stage2MomentumStrategy) vs unified (VCP strategies)
         # Legacy interface: evaluate_exits(sim_date, positions, data_provider, risk_config)
         #                   evaluate_entries(sim_date, positions, data_provider, equity, risk_config)
@@ -167,6 +170,22 @@ class BacktestEngine:
                 print(f"\n  Interrupted during data fetch ({cached} tickers cached)")
                 raise
 
+        # Prefetch VIX historical closes via yfinance (^VIX not available on Alpaca)
+        try:
+            import yfinance as yf
+            vix_start = self.config.start_date - timedelta(days=5)
+            vix_end = self.config.end_date + timedelta(days=1)
+            vix_hist = yf.Ticker("^VIX").history(
+                start=vix_start.isoformat(),
+                end=vix_end.isoformat(),
+                auto_adjust=False,
+            )
+            if not vix_hist.empty:
+                for ts, price in vix_hist['Close'].items():
+                    self._vix_cache[ts.date()] = float(price)
+        except Exception:
+            pass  # VIX unavailable — gate fails open (no entries blocked)
+
         # Collect dropped tickers from provider
         tickers_dropped = []
         if hasattr(self.data_provider, 'tickers_dropped'):
@@ -222,13 +241,25 @@ class BacktestEngine:
                     ))
 
                 # Step 4: Evaluate entries (signals fill at T+1)
-                if self._uses_legacy_interface:
+                # VIX gate: skip new entries when volatility exceeds configured max.
+                # Applies to both legacy and unified strategies — exits still run normally.
+                vix_today = self._vix_cache.get(sim_date)
+                max_vix = (
+                    self._risk_config.market.max_vix
+                    if self._risk_config and self._risk_config.market.max_vix
+                    else None
+                )
+                vix_blocked = bool(max_vix and vix_today and vix_today > max_vix)
+
+                if vix_blocked:
+                    entry_signals = []
+                elif self._uses_legacy_interface:
                     entry_signals = self.strategy.evaluate_entries(
                         sim_date, current_positions, self.data_provider,
                         state.equity, self._risk_config
                     )
                 else:
-                    context = self._build_context(sim_date, current_positions, state.equity)
+                    context = self._build_context(sim_date, current_positions, state.equity, vix_today)
                     entry_signals = self.strategy.evaluate_entries(context)
 
                 # Queue signals for T+1 execution
@@ -376,7 +407,8 @@ class BacktestEngine:
                 pass
 
     def _build_context(self, sim_date: date, positions: dict,
-                       equity: float) -> BacktestStrategyContext:
+                       equity: float,
+                       vix_current: Optional[float] = None) -> BacktestStrategyContext:
         """Build a StrategyContext for unified-interface strategies."""
         return BacktestStrategyContext(
             data_provider=self.data_provider,
@@ -385,6 +417,7 @@ class BacktestEngine:
             equity=equity,
             cash=equity,
             risk_config=self._risk_config,
+            vix_current=vix_current,
         )
 
     def _liquidate_positions(self, state: BacktestState, last_date: date):

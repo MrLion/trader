@@ -227,6 +227,12 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
         """
         signals = []
 
+        # VIX gate: block new entries when volatility exceeds configured max
+        if context.vix_current is not None and self.risk_config:
+            max_vix = getattr(self.risk_config.market, 'max_vix', None)
+            if max_vix and context.vix_current > max_vix:
+                return signals
+
         # Get candidate tickers
         tickers = self._get_watchlist_tickers(context)
 
@@ -462,6 +468,12 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
     def evaluate_entries(self, context: StrategyContext) -> List[EntrySignal]:
         """Scan for high-octane VCP entries (same logic, different parameters)."""
         signals = []
+
+        # VIX gate: block new entries when volatility exceeds configured max
+        if context.vix_current is not None and self.risk_config:
+            max_vix = getattr(self.risk_config.market, 'max_vix', None)
+            if max_vix and context.vix_current > max_vix:
+                return signals
 
         tickers = self._get_watchlist_tickers(context)
         if not tickers:
