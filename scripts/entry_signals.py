@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Scan watchlist for entry signals - report only, no execution."""
+"""Scan watchlist for entry signals — report only, no execution."""
 
 import argparse
 import json
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, date as _date
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import pytz
 
-# Add scripts directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
@@ -26,44 +26,122 @@ DATA_DIR = Path(__file__).parent.parent / 'data'
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
 SCANS_DIR = Path(__file__).parent.parent / 'scans'
 
+# ---------------------------------------------------------------------------
+# Display constants & formatting helpers
+# ---------------------------------------------------------------------------
+
+_W = 84  # terminal width target
+
+
+def _thick(char: str = '━') -> str:
+    return char * _W
+
+
+def _sec(label: str) -> str:
+    """Section divider: '── LABEL ─────────────────────────────────────────'"""
+    # emoji in label throw off len(); pad conservatively
+    pad = max(_W - len(label) - 4, 2)
+    return f"── {label} {'─' * pad}"
+
+
+def _fmt_dist(d: float) -> str:
+    """'+0.4%↑' / '-1.2%↓' distance string."""
+    arrow = '↑' if d > 0 else '↓' if d < 0 else '→'
+    return f"{'+' if d > 0 else ''}{d:.1f}%{arrow}"
+
+
+def _fmt_earnings(days: Optional[int]) -> str:
+    """Compact earnings-proximity badge."""
+    if days is None:
+        return '—'
+    if days <= 0:
+        return '⛔ today'
+    if days == 1:
+        return '🚨 1d'
+    if days <= 7:
+        return f'⚠️ {days}d'
+    if days <= 30:
+        return f'📅 {days}d'
+    return '—'
+
+
+# ---------------------------------------------------------------------------
+# Unified table renderer (same columns for every section)
+# ---------------------------------------------------------------------------
+
+_HDR = (
+    f"  {'TICKER':<8} {'SCORE':<6} {'S2':<6} {'DIST':<10} "
+    f"{'RISK%':<7} {'PRICE':<10} {'PIVOT':<10} EARNINGS"
+)
+_DIV = (
+    f"  {'─'*8} {'─'*5} {'─'*5} {'─'*9} "
+    f"{'─'*6} {'─'*9} {'─'*9} {'─'*8}"
+)
+
+
+def _row(a: Dict) -> str:
+    days = a.get('earnings_days')
+    s2_str    = f"{a['stage2']}/10"
+    dist_str  = _fmt_dist(a['dist_to_pivot'])
+    price_str = f"${a['current']:.2f}"
+    pivot_str = f"${a['pivot']:.2f}"
+    earn_str  = _fmt_earnings(days)
+    return (
+        f"  {a['ticker']:<8} {a['entry_score']:<6.0f} {s2_str:<6} "
+        f"{dist_str:<10} {a['risk_pct']:<7.1f} {price_str:<10} {pivot_str:<10} {earn_str}"
+    )
+
+
+def _print_section(icon: str, title: str, subtitle: str, entries: List[Dict]) -> None:
+    if not entries:
+        return
+    print(f"\n{_sec(icon + ' ' + title)}")
+    if subtitle:
+        print(f"   {subtitle}")
+    print(_HDR)
+    print(_DIV)
+    for a in entries:
+        print(_row(a))
+
+
+# ---------------------------------------------------------------------------
+# Scanner
+# ---------------------------------------------------------------------------
 
 class EntrySignalScanner:
     """Scan watchlist for tickers meeting entry criteria."""
 
     def __init__(self, mode: str = 'paper', risk_profile: str = None):
-        print("🔌 Initializing scanner...")
+        self.mode = mode
         self.risk_manager = RiskConfigManager(profile=risk_profile)
         self.risk_config = self.risk_manager.get_config()
         self.alpaca = AlpacaClient(mode=mode)
         self.spy_cache = {'date': None, 'return_6m': 0.0, 'price': None}
         self.earnings_calendar = EarningsCalendar()
-        print("✅ Scanner ready")
+
+    # ------------------------------------------------------------------
+    # Data helpers
+    # ------------------------------------------------------------------
 
     def _get_spy_return_6m(self) -> float:
-        """Get SPY 6-month return (cached per day)."""
+        """6-month SPY return, cached per day."""
         today = datetime.now().strftime('%Y-%m-%d')
         if self.spy_cache['date'] == today:
             return self.spy_cache['return_6m']
-
         try:
             spy_hist = self.alpaca.get_historical_bars('SPY')
             if spy_hist is not None and len(spy_hist) >= 130:
                 current = spy_hist['Close'].iloc[-1]
                 past = spy_hist['Close'].iloc[-130]
                 ret_6m = ((current / past) - 1) * 100
-                self.spy_cache = {
-                    'date': today,
-                    'return_6m': ret_6m,
-                    'price': current
-                }
+                self.spy_cache = {'date': today, 'return_6m': ret_6m, 'price': current}
                 return ret_6m
-        except Exception as e:
-            print(f"   ⚠️  Could not fetch SPY data: {e}")
-
+        except Exception:
+            pass
         return 0.0
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
-        """Get current price from Alpaca."""
+        """Latest price from Alpaca (quote → historical fallback)."""
         try:
             price = self.alpaca.get_latest_price(ticker)
             if price:
@@ -71,11 +149,8 @@ class EntrySignalScanner:
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "get_current_price_quote", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker
+                severity=TradingExceptionHandler.WARNING, ticker=ticker
             )
-
-        # Fallback to historical
         try:
             hist = self.alpaca.get_historical_bars(ticker, days=5)
             if hist is not None and len(hist) > 0:
@@ -83,32 +158,33 @@ class EntrySignalScanner:
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "get_current_price_hist", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker
+                severity=TradingExceptionHandler.WARNING, ticker=ticker
             )
-
         return None
 
-    def _check_market_conditions(self) -> tuple:
-        """Check SPY and VIX market conditions."""
-        spy_status = "SPY OK"
+    def _check_market_conditions(self) -> Tuple[bool, str, str]:
+        """Check SPY trend and VIX level.
+
+        Returns:
+            (entries_ok, spy_str, vix_str)
+            e.g. (True, 'SPY +0.42%', 'VIX 18.3')
+        """
+        spy_str = 'SPY —'
+        vix_str = ''
+
         try:
             hist = self.alpaca.get_historical_bars('SPY', days=5)
             if hist is not None and len(hist) >= 2:
-                change_pct = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
-
-                if change_pct < self.risk_config.market.max_spy_decline_pct:
-                    return False, f"SPY {change_pct:+.2f}% (below {self.risk_config.market.max_spy_decline_pct}%)"
-
-                spy_status = f"SPY {change_pct:+.2f}%"
+                chg = ((hist['Close'].iloc[-1] / hist['Close'].iloc[-2]) - 1) * 100
+                spy_str = f"SPY {chg:+.2f}%"
+                if chg < self.risk_config.market.max_spy_decline_pct:
+                    return False, spy_str, vix_str
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "market_conditions", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker="SPY"
+                severity=TradingExceptionHandler.WARNING, ticker='SPY'
             )
 
-        # VIX gate: block entries when volatility exceeds configured max
         max_vix = self.risk_config.market.max_vix
         if max_vix is not None:
             try:
@@ -116,18 +192,25 @@ class EntrySignalScanner:
                 vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
                 if not vix_hist.empty:
                     vix_current = float(vix_hist['Close'].iloc[-1])
+                    vix_str = f"VIX {vix_current:.1f}"
                     if vix_current > max_vix:
-                        return False, f"VIX {vix_current:.1f} > max {max_vix:.0f} — entries paused"
-                    spy_status += f"  VIX {vix_current:.1f}"
+                        return False, spy_str, vix_str
             except Exception:
-                pass  # VIX fetch failed — fail open, don't block trading
+                pass  # fail open
 
-        return True, spy_status
+        return True, spy_str, vix_str
+
+    # ------------------------------------------------------------------
+    # Per-ticker analysis
+    # ------------------------------------------------------------------
 
     def _analyze_ticker(self, ticker: str) -> Optional[Dict]:
-        """Analyze ticker for entry signal."""
+        """Full analysis for one ticker. Returns None on data failure.
+
+        Does NOT check earnings blackout — caller handles that so skipped
+        tickers are tracked for display.
+        """
         try:
-            # Get historical data
             hist = self.alpaca.get_historical_bars(ticker)
             if hist is None or len(hist) < 30:
                 return None
@@ -136,19 +219,13 @@ class EntrySignalScanner:
             if current is None:
                 return None
 
-            # Earnings blackout — skip entry on earnings day
-            from datetime import date as _date
-            if self.earnings_calendar.is_earnings_blackout(ticker, _date.today()):
-                print(f"   📅 {ticker}: Skipping — earnings today")
-                return None
-
-            # Calculate Stage 2 score and MA flags
+            # Stage 2 scoring
             s2_details = get_stage2_details(hist)
             stage2 = s2_details['score']
             below_50ma = not s2_details['criteria']['price_above_50ma']
             below_20ma = not s2_details['criteria']['price_above_20ma']
 
-            # Get pivot and sector from watchlist
+            # Pivot & sector from watchlist
             pivot = current
             sector = 'Unknown'
             try:
@@ -156,284 +233,333 @@ class EntrySignalScanner:
                 row = df[df['Ticker'] == ticker]
                 if not row.empty:
                     if 'Pivot_Price' in row.columns:
-                        pivot_val = row['Pivot_Price'].values[0]
-                        if not pd.isna(pivot_val):
-                            pivot = float(pivot_val)
+                        pv = row['Pivot_Price'].values[0]
+                        if not pd.isna(pv):
+                            pivot = float(pv)
                     if 'Sector' in row.columns:
-                        sector_val = row['Sector'].values[0]
-                        if not pd.isna(sector_val):
-                            sector = str(sector_val)
+                        sv = row['Sector'].values[0]
+                        if not pd.isna(sv):
+                            sector = str(sv)
             except Exception as e:
                 TradingExceptionHandler.log_exception(
                     "sector_lookup", e,
                     severity=TradingExceptionHandler.WARNING,
-                    ticker=ticker,
-                    file=str(WATCHLIST_PATH)
+                    ticker=ticker, file=str(WATCHLIST_PATH)
                 )
 
-            # Calculate metrics
-            ret_6m = 0
+            ret_6m = 0.0
             if len(hist) >= 130:
                 ret_6m = ((current / hist['Close'].iloc[-130]) - 1) * 100
 
-            # ATR calculation
+            # ATR
             try:
-                high_low = hist['High'] - hist['Low']
+                high_low   = hist['High'] - hist['Low']
                 high_close = abs(hist['High'] - hist['Close'].shift())
-                low_close = abs(hist['Low'] - hist['Close'].shift())
-                ranges = pd.concat([high_low, high_close, low_close], axis=1)
-                true_range = ranges.max(axis=1)
-                atr = true_range.rolling(14).mean().iloc[-1]
+                low_close  = abs(hist['Low']  - hist['Close'].shift())
+                tr  = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr.rolling(14).mean().iloc[-1]
             except Exception:
-                atr = current * 0.02  # Default 2% ATR
+                atr = current * 0.02
 
-            # Calculate ATR stop
-            atr_stop = current - (2 * atr)
-            atr_risk_pct = abs((atr_stop - pivot) / pivot) * 100 if pivot > atr_stop else 999
+            atr_stop     = current - (2 * atr)
+            atr_risk_pct = abs((atr_stop - pivot) / pivot) * 100 if pivot > atr_stop else 999.0
 
-            # MA Support Stop calculation
+            # MA Support Stop
             ma_support_stop = None
             ma_risk_pct = None
             stop_type = 'ATR'
             if self.risk_config.ma_support.enabled:
                 ma_result = calculate_ma_support_stop(
-                    current,
-                    s2_details,
+                    current, s2_details,
                     buffer_pct=self.risk_config.ma_support.buffer_pct,
                     cluster_spread_pct=self.risk_config.ma_support.cluster_spread_pct,
                     min_cluster_size=self.risk_config.ma_support.min_cluster_size
                 )
                 if ma_result:
                     ma_support_stop = ma_result['ma_support_stop']
-                    ma_risk_pct = abs((ma_support_stop - pivot) / pivot) * 100 if pivot > ma_support_stop else 999
+                    ma_risk_pct = (
+                        abs((ma_support_stop - pivot) / pivot) * 100
+                        if pivot > ma_support_stop else 999.0
+                    )
 
-            # Final stop: tighter risk wins (higher stop = less risk)
+            # Use tighter (higher) stop
             if ma_support_stop and ma_support_stop > atr_stop:
-                stop = ma_support_stop
+                stop     = ma_support_stop
                 risk_pct = ma_risk_pct
                 stop_type = 'MA'
             else:
-                stop = atr_stop
+                stop     = atr_stop
                 risk_pct = atr_risk_pct
 
             risk_per_share = current - stop
             target = current + (2 * risk_per_share) if risk_per_share > 0 else current * 1.04
 
             dist_to_pivot = ((pivot - current) / current) * 100
-
-            # Relative strength
             spy_return_6m = self._get_spy_return_6m()
             rs_6m = ret_6m - spy_return_6m
 
-            # Calculate entry score
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
-                                          below_50ma=below_50ma, below_20ma=below_20ma)
+            entry_score = get_entry_score(
+                stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+                below_50ma=below_50ma, below_20ma=below_20ma
+            )
 
-            # Determine tier (10-point system: Tier 1 needs 8+/10, Tier 2 needs 6+/10)
-            if entry_score >= 60 and stage2 >= 8:
-                tier = "Tier 1"
-            elif entry_score >= 40 and stage2 >= 6:
-                tier = "Tier 2"
-            else:
-                tier = "Tier 3"
+            tier = (
+                "Tier 1" if entry_score >= 60 and stage2 >= 8 else
+                "Tier 2" if entry_score >= 40 and stage2 >= 6 else
+                "Tier 3"
+            )
+
+            # Earnings proximity (already prefetched by scan())
+            earnings_date = self.earnings_calendar.get_next_earnings(ticker)
+            earnings_days = (earnings_date - _date.today()).days if earnings_date else None
 
             return {
-                'ticker': ticker,
-                'current': current,
-                'pivot': pivot,
-                'stop': stop,
-                'target': target,
-                'sector': sector,
-                'stage2': stage2,
-                'entry_score': entry_score,
-                'tier': tier,
-                'dist_to_pivot': dist_to_pivot,
-                'risk_pct': risk_pct,
-                'atr_stop': atr_stop,
-                'atr_risk_pct': atr_risk_pct,
+                'ticker':          ticker,
+                'current':         current,
+                'pivot':           pivot,
+                'stop':            stop,
+                'target':          target,
+                'sector':          sector,
+                'stage2':          stage2,
+                'entry_score':     entry_score,
+                'tier':            tier,
+                'dist_to_pivot':   dist_to_pivot,
+                'risk_pct':        risk_pct,
+                'atr_stop':        atr_stop,
+                'atr_risk_pct':    atr_risk_pct,
                 'ma_support_stop': ma_support_stop,
-                'ma_risk_pct': ma_risk_pct,
-                'stop_type': stop_type,
-                'ret_6m': ret_6m,
-                'rs_6m': rs_6m,
-                'atr': atr,
-                'timestamp': datetime.now()  # DESIGN FIX: Add signal timestamp for age tracking
+                'ma_risk_pct':     ma_risk_pct,
+                'stop_type':       stop_type,
+                'ret_6m':          ret_6m,
+                'rs_6m':           rs_6m,
+                'atr':             atr,
+                'earnings_date':   earnings_date,
+                'earnings_days':   earnings_days,
             }
 
         except Exception as e:
             TradingExceptionHandler.log_exception(
                 "analyze_ticker", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker
+                severity=TradingExceptionHandler.WARNING, ticker=ticker
             )
             return None
 
+    # ------------------------------------------------------------------
+    # Watchlist
+    # ------------------------------------------------------------------
+
     def _load_watchlist(self) -> List[str]:
-        """Load tickers from watchlist."""
         try:
             df = pd.read_csv(WATCHLIST_PATH)
             if 'Ticker' in df.columns:
                 return df['Ticker'].tolist()
         except Exception as e:
             print(f"⚠️  Could not load watchlist: {e}")
-
         return []
 
+    # ------------------------------------------------------------------
+    # Main scan + dashboard
+    # ------------------------------------------------------------------
+
     def scan(self, tickers: Optional[List[str]] = None, min_tier: int = 1) -> List[Dict]:
-        """
-        Scan for entry signals.
-
-        Args:
-            tickers: List of tickers to scan (default: watchlist)
-            min_tier: Minimum tier to include (1=Tier1 only, 2=Tier1+2, 3=All)
-
-        Returns:
-            List of tickers meeting entry criteria
-        """
+        """Scan for entry signals and print the dashboard."""
         if tickers is None:
             tickers = self._load_watchlist()
-
         if not tickers:
             print("⚠️  No tickers to scan")
             return []
 
-        # Check market conditions
-        market_ok, market_msg = self._check_market_conditions()
-        print(f"\n📊 Market Condition: {market_msg}")
-        if not market_ok:
-            # DESIGN FIX: Market filter context - explain reason and reset condition
-            print(f"⚠️  Market filter blocking entries")
-            print(f"   Reason: SPY declined more than {self.risk_config.market.max_spy_decline_pct}% from prior close")
-            print(f"   Resets when: SPY closes above prior day high or filter threshold adjusted")
-            print(f"   Note: Use --i-know-what-im-doing flag to override (not recommended during downtrends)")
+        # Brief progress line (replaced by full dashboard output)
+        print(f"  ⟳  Scanning {len(tickers)} tickers...", end='\r', flush=True)
+        t_start = time.monotonic()
+
+        # Prefetch all earnings in one pass before the scan loop
+        self.earnings_calendar.prefetch(tickers)
+
+        # Market conditions
+        market_ok, spy_str, vix_str = self._check_market_conditions()
 
         entry_threshold = self.risk_config.entry.min_entry_score
-        max_dist = self.risk_config.entry.max_dist_to_pivot_pct
+        max_dist        = self.risk_config.entry.max_dist_to_pivot_pct
+        today           = _date.today()
 
-        print(f"\n🔍 Scanning {len(tickers)} tickers for entry signals...")
-        print(f"   Entry Criteria: Score ≥ {entry_threshold}, Distance ≤ ±{max_dist}%")
+        # ---- Scan loop ------------------------------------------------
+        blackout_tickers: List[str] = []
+        all_analyses:     List[Dict] = []
 
-        # Collect all analyses
-        all_analyses = []
         for ticker in tickers:
+            if self.earnings_calendar.is_earnings_blackout(ticker, today):
+                blackout_tickers.append(ticker)
+                continue
             analysis = self._analyze_ticker(ticker)
             if analysis:
                 all_analyses.append(analysis)
 
-        # Categorize results
-        ready_now = []      # Score ≥60, within ±1%
-        close_pivot = []    # Score ≥60, distance 1-3%
-        extended = []       # Score ≥60, but distance >3% (extended from pivot)
-        tier2_watch = []    # Score 40-59
-        tier3_skip = []     # Score <40
+        t_elapsed = time.monotonic() - t_start
+
+        # ---- Categorise -----------------------------------------------
+        ready_now:     List[Dict] = []
+        close_pivot:   List[Dict] = []
+        extended:      List[Dict] = []
+        near_earnings: List[Dict] = []   # score ≥40, earnings in 1–7 days
+        tier2_watch:   List[Dict] = []
+        tier3_skip:    List[Dict] = []
 
         for a in all_analyses:
-            # Skip if below minimum tier
             tier_num = int(a['tier'][-1])
             if tier_num > min_tier:
                 continue
 
-            score_ok = a['entry_score'] >= entry_threshold
-            dist_ok = -max_dist <= a['dist_to_pivot'] <= max_dist
-            dist_close = abs(a['dist_to_pivot']) <= 3.0  # Within 3%
+            days         = a.get('earnings_days')
+            is_near_earn = days is not None and 1 <= days <= 7
+            score_ok     = a['entry_score'] >= entry_threshold
+            dist_ok      = -max_dist <= a['dist_to_pivot'] <= max_dist
+            dist_close   = abs(a['dist_to_pivot']) <= 3.0
 
-            if score_ok and dist_ok:
+            # Near-earnings tickers (score ≥40) get their own section
+            # regardless of distance / score tier
+            if is_near_earn and a['entry_score'] >= 40:
+                near_earnings.append(a)
+            elif score_ok and dist_ok:
                 ready_now.append(a)
             elif score_ok and dist_close:
-                close_pivot.append(a)  # Score ≥60, distance 1-3%
+                close_pivot.append(a)
             elif score_ok:
-                extended.append(a)  # Score ≥60, but distance >3%
+                extended.append(a)
             elif a['entry_score'] >= 40:
-                tier2_watch.append(a)  # Score 40-59
+                tier2_watch.append(a)
             else:
-                tier3_skip.append(a)  # Score <40
+                tier3_skip.append(a)
 
-        # Sort by entry score (descending)
-        ready_now.sort(key=lambda x: x['entry_score'], reverse=True)
-        close_pivot.sort(key=lambda x: x['entry_score'], reverse=True)
-        extended.sort(key=lambda x: x['entry_score'], reverse=True)
-        tier2_watch.sort(key=lambda x: x['entry_score'], reverse=True)
-        tier3_skip.sort(key=lambda x: x['entry_score'], reverse=True)
+        for lst in [ready_now, close_pivot, extended, near_earnings, tier2_watch, tier3_skip]:
+            lst.sort(key=lambda x: x['entry_score'], reverse=True)
 
-        signals = ready_now  # Return signals that meet entry criteria
+        signals = ready_now
 
-        # Display results by category
-        print("=" * 90)
+        # ================================================================
+        # Dashboard output
+        # ================================================================
 
-        def _format_dist(d):
-            """Format distance with sign and icon."""
-            sign = "+" if d > 0 else "-" if d < 0 else ""
-            icon = "📈" if d > 0 else "📉" if d < 0 else "➡️"
-            return f"{sign}{abs(d):.1f}% {icon}"
+        et_now = datetime.now(pytz.timezone('US/Eastern'))
+        ts_str = et_now.strftime('%a %b %-d  %H:%M  ET')
 
-        def _format_age(timestamp):
-            """Format signal age from timestamp.
+        # ---- Header block ----------------------------------------------
+        print()
+        print(_thick('━'))
 
-            DESIGN FIX: Signal age - Add timestamp/age column to entry signals.
-            """
-            if not timestamp:
-                return "—"
-            age_seconds = (datetime.now() - timestamp).total_seconds()
-            if age_seconds < 60:
-                return f"{int(age_seconds)}s ago"
-            elif age_seconds < 3600:
-                return f"{int(age_seconds / 60)}m ago"
-            else:
-                return f"{int(age_seconds / 3600)}h ago"
+        title_left  = "  🎯  ENTRY SIGNALS"
+        # right-align timestamp (account for emoji width in title)
+        right_pad = _W - len(title_left) - len(ts_str) + 1
+        print(f"{title_left}{ts_str:>{right_pad}}")
 
-        if ready_now:
-            print(f"\n🔥 READY NOW - Entry Signals (Score ≥{entry_threshold}, Within ±{max_dist}%)")
-            # DESIGN FIX: Added Age column for signal staleness visibility
-            # Show dual risk columns when MA support is available
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Price':<10} {'→ Pivot':<10} {'Age':<10}")
-            print("-" * 120)
-            for a in ready_now:
-                age_str = _format_age(a.get('timestamp'))
-                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}  {age_str:<10}")
+        # Market status line
+        if market_ok:
+            mkt_parts = [spy_str]
+            if vix_str:
+                mkt_parts.append(vix_str)
+            mkt_parts += [self.mode.capitalize(), f"{len(tickers)} tickers", f"{t_elapsed:.1f}s"]
+            print("  " + "  │  ".join(mkt_parts))
+        else:
+            paused_parts = [f"⛔ Entries paused", spy_str]
+            if vix_str:
+                paused_parts.append(vix_str)
+            paused_parts += [self.mode.capitalize(), f"{len(tickers)} tickers"]
+            print("  " + "  │  ".join(paused_parts))
 
-        if close_pivot:
-            print(f"\n⏳ CLOSE TO PIVOT - Watch for Breakout (Score ≥{entry_threshold}, Distance 1-3%)")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 110)
-            for a in close_pivot:
-                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+        print(_thick('━'))
 
-        if extended:
-            print(f"\n📈 EXTENDED - High Quality but >3% from Pivot (Score ≥{entry_threshold})")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'ATR%':<8} {'MA%':<8} {'Stop':<6} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 110)
-            for a in extended:
-                ma_risk_str = f"{a['ma_risk_pct']:.1f}" if a.get('ma_risk_pct') else "—"
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  {a['atr_risk_pct']:<7.1f}  {ma_risk_str:<7}  {a['stop_type']:<5}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+        # ---- Summary bar ----------------------------------------------
+        summary_parts = []
+        if ready_now:      summary_parts.append(f"🔥 {len(ready_now)} Ready")
+        if close_pivot:    summary_parts.append(f"⏳ {len(close_pivot)} Near Pivot")
+        if extended:       summary_parts.append(f"📈 {len(extended)} Extended")
+        if near_earnings:  summary_parts.append(f"⚠️  {len(near_earnings)} Near Earnings")
+        if tier2_watch:    summary_parts.append(f"📊 {len(tier2_watch)} Tier 2")
+        if blackout_tickers: summary_parts.append(f"📅 {len(blackout_tickers)} Blackout")
+        if tier3_skip:     summary_parts.append(f"○ {len(tier3_skip)} Tier 3")
 
-        if tier2_watch:
-            print(f"\n📊 TIER 2 WATCH - Developing Setups (Score 40-59)")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 90)
-            for a in tier2_watch:
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+        if summary_parts:
+            print()
+            print("  " + "  ·  ".join(summary_parts))
+
+        # ---- Sections --------------------------------------------------
+        _print_section(
+            "🔥", "READY NOW",
+            f"score ≥{entry_threshold}, within ±{max_dist}%",
+            ready_now
+        )
+        _print_section(
+            "⏳", "NEAR PIVOT",
+            f"score ≥{entry_threshold}, 1–3% from pivot",
+            close_pivot
+        )
+        _print_section(
+            "📈", "EXTENDED",
+            f"score ≥{entry_threshold}, >3% from pivot",
+            extended
+        )
+
+        if near_earnings:
+            print(f"\n{_sec('⚠️  NEAR EARNINGS  (1–7d — hold off on new entries)')}")
+            print(_HDR)
+            print(_DIV)
+            for a in near_earnings:
+                # Append forced-exit note for 1-day cases
+                if self.earnings_calendar.should_force_exit(a['ticker'], today):
+                    print(_row(a) + "  ← paper engine exits today")
+                else:
+                    print(_row(a))
+
+        _print_section(
+            "📊", "TIER 2 WATCH",
+            "score 40–59, developing setups",
+            tier2_watch
+        )
 
         if tier3_skip and min_tier >= 3:
-            print(f"\n⏸️  TIER 3 / BELOW THRESHOLD - Not Ready (Score <40)")
-            print(f"{'Ticker':<8} {'Score':<6} {'Tier':<6} {'Stage2':<8} {'Dist':<12} {'Risk%':<8} {'Current':<10} {'→ Pivot':<10}")
-            print("-" * 90)
-            for a in tier3_skip[:10]:  # Show first 10
-                print(f"{a['ticker']:<8} {a['entry_score']:<6} {a['tier']:<6} {a['stage2']}/10   {_format_dist(a['dist_to_pivot']):<12} {a['risk_pct']:<7.1f}  ${a['current']:<8.2f}  ${a['pivot']:<8.2f}")
+            print(f"\n{_sec('○ TIER 3')}")
+            print(_HDR)
+            print(_DIV)
+            for a in tier3_skip[:10]:
+                print(_row(a))
             if len(tier3_skip) > 10:
-                print(f"   ... and {len(tier3_skip) - 10} more")
+                print(f"  ... and {len(tier3_skip) - 10} more")
 
-        if not any([ready_now, close_pivot, extended, tier2_watch]):
-            print("\n⏸️  No qualifying setups found in Tier 1 or Tier 2")
+        if blackout_tickers:
+            print(f"\n{_sec('📅 EARNINGS BLACKOUT  (skipped today)')}")
+            # Wrap long lists at _W chars
+            line = "  "
+            for t in blackout_tickers:
+                entry = t + "  "
+                if len(line) + len(entry) > _W:
+                    print(line)
+                    line = "  " + entry
+                else:
+                    line += entry
+            if line.strip():
+                print(line)
 
-        print("=" * 90)
-        print(f"\n📊 Scan Complete: {len(ready_now)} Entry Signals | {len(close_pivot)} Close to Pivot | {len(extended)} Extended | {len(tier2_watch)} Tier 2 | {len(tier3_skip)} Tier 3")
+        if not any([ready_now, close_pivot, extended, near_earnings, tier2_watch]):
+            print("\n  No qualifying setups found")
+
+        # ---- Footer ----------------------------------------------------
+        print()
+        print(_thick('═'))
+        profile_str = self.risk_manager.profile or 'default'
+        print(
+            f"  score ≥{entry_threshold}  ·  dist ≤±{max_dist}%  ·  "
+            f"{self.mode}  ·  profile: {profile_str}"
+        )
+        print(_thick('═'))
+        print()
 
         return signals
 
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
+
     def export_signals(self, signals: List[Dict], format: str = 'csv'):
-        """Export signals to file."""
         if not signals:
             print("⚠️  No signals to export")
             return
@@ -445,101 +571,135 @@ class EntrySignalScanner:
             filepath = SCANS_DIR / f'entry_signals_{timestamp}.csv'
             df = pd.DataFrame(signals)
             df.to_csv(filepath, index=False)
-            print(f"\n💾 Exported to: {filepath}")
+            print(f"💾 Exported to: {filepath}")
 
         elif format == 'json':
             filepath = SCANS_DIR / f'entry_signals_{timestamp}.json'
             with open(filepath, 'w') as f:
                 json.dump(signals, f, indent=2, default=str)
-            print(f"\n💾 Exported to: {filepath}")
+            print(f"💾 Exported to: {filepath}")
 
         elif format == 'html':
             filepath = SCANS_DIR / f'entry_signals_{timestamp}.html'
             self._export_html(signals, filepath)
-            print(f"\n💾 Exported to: {filepath}")
+            print(f"💾 Exported to: {filepath}")
 
     def _export_html(self, signals: List[Dict], filepath: Path):
         """Generate HTML report."""
-        tier1 = [s for s in signals if s['entry_score'] >= 60]
-        tier2 = [s for s in signals if 40 <= s['entry_score'] < 60]
-        tier3 = [s for s in signals if s['entry_score'] < 40]
+        def _earn_html(days):
+            s = _fmt_earnings(days)
+            if s.startswith('🚨'):
+                return f'<span style="color:#f87171">{s}</span>'
+            if s.startswith('⚠️'):
+                return f'<span style="color:#facc15">{s}</span>'
+            if s.startswith('📅'):
+                return f'<span style="color:#94a3b8">{s}</span>'
+            return s
 
-        html_content = f"""<!DOCTYPE html>
+        def _rows(group: List[Dict], css_class: str) -> str:
+            rows = []
+            for s in group:
+                earn_cell = _earn_html(s.get('earnings_days'))
+                rows.append(
+                    f'<tr class="{css_class}">'
+                    f'<td>{s["ticker"]}</td>'
+                    f'<td>{s["entry_score"]:.0f}</td>'
+                    f'<td>${s["current"]:.2f}</td>'
+                    f'<td>${s["pivot"]:.2f}</td>'
+                    f'<td>{s["dist_to_pivot"]:+.1f}%</td>'
+                    f'<td>{s["risk_pct"]:.1f}%</td>'
+                    f'<td>{s["stage2"]}/10</td>'
+                    f'<td>{s["sector"]}</td>'
+                    f'<td>{earn_cell}</td>'
+                    f'</tr>'
+                )
+            return ''.join(rows)
+
+        th = '<th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th><th>Earnings</th>'
+
+        ready  = [s for s in signals if s['entry_score'] >= 60 and abs(s['dist_to_pivot']) <= 2]
+        tier2  = [s for s in signals if 40 <= s['entry_score'] < 60]
+
+        html = f"""<!DOCTYPE html>
 <html>
 <head>
     <title>Entry Signals — {datetime.now().strftime('%Y-%m-%d')}</title>
     <style>
-        :root {{ --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #f8fafc;
-                --accent-green: #4ade80; --accent-yellow: #facc15; --accent-red: #f87171; }}
-        body {{ font-family: -apple-system, sans-serif; background: var(--bg-primary);
-               color: var(--text-primary); padding: 20px; }}
-        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #334155; }}
-        th {{ background: var(--bg-secondary); }}
-        .tier1 {{ color: var(--accent-green); }}
-        .tier2 {{ color: var(--accent-yellow); }}
-        .tier3 {{ color: var(--accent-red); }}
+        :root {{ --bg: #0f172a; --bg2: #1e293b; --fg: #f8fafc;
+                --green: #4ade80; --yellow: #facc15; --red: #f87171; }}
+        body {{ font-family: -apple-system, sans-serif; background: var(--bg);
+               color: var(--fg); padding: 20px; }}
+        h1 {{ border-bottom: 1px solid #334155; padding-bottom: 8px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
+        th, td {{ padding: 9px 12px; text-align: left; border-bottom: 1px solid #334155; }}
+        th {{ background: var(--bg2); font-size: 0.85em; text-transform: uppercase;
+              letter-spacing: .05em; }}
+        .ready {{ color: var(--green); }}
+        .t2    {{ color: var(--yellow); }}
     </style>
 </head>
 <body>
-    <h1>🎯 Entry Signals — {datetime.now().strftime('%Y-%m-%d')}</h1>
+<h1>🎯 Entry Signals — {datetime.now().strftime('%Y-%m-%d %H:%M ET')}</h1>
 
-    <h2 class="tier1">🟢 Ready Now (Score ≥60)</h2>
-    <table>
-        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>ATR%</th><th>MA%</th><th>Stop</th><th>S2</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier1"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s.get("atr_risk_pct", "—"):.1f}%</td><td>{s.get("ma_risk_pct", "—"):.1f}%</td><td>{s["stop_type"]}</td><td>{s["stage2"]}/10</td><td>{s["sector"]}</td></tr>' for s in tier1)}
-    </table>
+<h2>🔥 Ready Now</h2>
+<table><tr>{th}</tr>{_rows(ready, 'ready')}</table>
 
-    <h2 class="tier2">🟡 Tier 2 (Score 40-59)</h2>
-    <table>
-        <tr><th>Ticker</th><th>Score</th><th>Price</th><th>Pivot</th><th>Dist%</th><th>Risk%</th><th>S2</th><th>Sector</th></tr>
-        {''.join(f'<tr class="tier2"><td>{s["ticker"]}</td><td>{s["entry_score"]}</td><td>${s["current"]:.2f}</td><td>${s["pivot"]:.2f}</td><td>{s["dist_to_pivot"]:.1f}%</td><td>{s["risk_pct"]:.1f}%</td><td>{s["stage2"]}/10</td><td>{s["sector"]}</td></tr>' for s in tier2)}
-    </table>
-</body>
-</html>"""
+<h2>📊 Tier 2 Watch</h2>
+<table><tr>{th}</tr>{_rows(tier2, 't2')}</table>
+</body></html>"""
 
         with open(filepath, 'w') as f:
-            f.write(html_content)
+            f.write(html)
+
+    # ------------------------------------------------------------------
+    # Single-ticker deep dive
+    # ------------------------------------------------------------------
 
     def analyze_single(self, ticker: str) -> Optional[Dict]:
-        """Deep analysis of single ticker (like old analyze_ticker.py)."""
+        """Deep analysis of one ticker (--ticker mode)."""
         print(f"\n🔍 Analyzing {ticker.upper()}...", flush=True)
+
+        # Prefetch so the earnings lookup is available
+        self.earnings_calendar.prefetch([ticker])
 
         analysis = self._analyze_ticker(ticker)
         if not analysis:
             print(f"❌ Could not analyze {ticker}")
             return None
 
-        # Get additional data for deep dive
         try:
-            hist = self.alpaca.get_historical_bars(ticker, days=252)  # 1 year
+            hist = self.alpaca.get_historical_bars(ticker, days=252)
             if hasattr(hist, 'empty') and not hist.empty and len(hist) >= 150:
                 current = analysis['current']
 
-                # Returns
-                ret_1m = (current / hist['Close'].iloc[-20] - 1) * 100
-                ret_3m = (current / hist['Close'].iloc[-65] - 1) * 100 if len(hist) >= 65 else 0
-                ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
+                ret_1m = (current / hist['Close'].iloc[-20]  - 1) * 100
+                ret_3m = (current / hist['Close'].iloc[-65]  - 1) * 100 if len(hist) >= 65  else 0.0
+                ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0.0
 
-                # Moving averages
-                ma20 = hist['Close'].rolling(20).mean().iloc[-1]
-                ma50 = hist['Close'].rolling(50).mean().iloc[-1]
+                ma20  = hist['Close'].rolling(20).mean().iloc[-1]
+                ma50  = hist['Close'].rolling(50).mean().iloc[-1]
                 ma150 = hist['Close'].rolling(150).mean().iloc[-1]
                 ma200 = hist['Close'].rolling(200).mean().iloc[-1]
 
-                # 52-week high
                 high_52w = hist['Close'].max()
                 from_high = ((high_52w - current) / high_52w) * 100
 
-                # Above MAs check
-                above_20 = '✓' if current > ma20 else '✗'
-                above_50 = '✓' if current > ma50 else '✗'
-                above_150 = '✓' if current > ma150 else '✗'
-                above_200 = '✓' if current > ma200 else '✗'
+                chk = lambda p, ma: '✓' if p > ma else '✗'
+                above = (chk(current, ma20), chk(current, ma50),
+                         chk(current, ma150), chk(current, ma200))
 
-                # Stage 2 status
                 score = analysis['stage2']
                 status = '🟢' if score >= 6 else '🟡' if score >= 4 else '🔴'
+
+                # Earnings badge
+                earn_days = analysis.get('earnings_days')
+                earn_date = analysis.get('earnings_date')
+                if earn_days is not None and earn_days <= 30:
+                    earn_str = f"{_fmt_earnings(earn_days)} ({earn_date})"
+                elif earn_date:
+                    earn_str = str(earn_date)
+                else:
+                    earn_str = '—'
 
                 print(f"\n{ticker.upper()} — ${current:.2f}\n")
                 print("| Metric | Value |")
@@ -550,38 +710,41 @@ class EntrySignalScanner:
                 print(f"| 6M Return | {ret_6m:+.1f}% |")
                 print(f"| Stage 2 Score | {score}/10 {status} |")
                 print(f"| From 52W High | {from_high:.1f}% |")
-                print(f"| Above All MAs | {above_20} {above_50} {above_150} {above_200} 20/50/150/200 |")
+                print(f"| Above MAs | {above[0]} {above[1]} {above[2]} {above[3]}  20/50/150/200 |")
+                print(f"| Next Earnings | {earn_str} |")
 
                 print(f"\n---\n\nENTRY SETUP\n")
                 print("| Level | Price |")
                 print("|:------|:------|")
                 print(f"| Pivot | ${analysis['pivot']:.2f} |")
-                print(f"| Stop | ${analysis['stop']:.2f} |")
+                print(f"| Stop | ${analysis['stop']:.2f} ({analysis['stop_type']}) |")
                 print(f"| Target | ${analysis['target']:.2f} |")
                 print(f"| Risk % | {analysis['risk_pct']:.1f}% |")
                 print(f"| ATR Stop | ${analysis['atr_stop']:.2f} ({analysis['atr_risk_pct']:.1f}%) |")
                 if analysis.get('ma_support_stop'):
-                    print(f"| MA Support | ${analysis['ma_support_stop']:.2f} ({analysis['ma_risk_pct']:.1f}%) |")
-                print(f"| Stop Type | {analysis['stop_type']} |")
+                    print(f"| MA Stop | ${analysis['ma_support_stop']:.2f} ({analysis['ma_risk_pct']:.1f}%) |")
 
-                # Verdict (10-point system thresholds)
                 if score >= 7 and analysis['risk_pct'] < 10:
                     verdict = "🟢 A-TIER — Strong setup. Watch for volume-confirmed breakout."
                 elif score >= 6:
-                    verdict = "🟡 TIER B — Developing Stage 2 setup. Promote to A on breakout."
+                    verdict = "🟡 TIER B — Developing. Promote to A on breakout."
                 elif score >= 5:
                     verdict = "🔵 TIER C — On radar, monitor for improvement."
                 else:
                     verdict = "⚪ PASS — Below Stage 2 criteria."
 
                 print(f"\n**Verdict:** {verdict}")
-
                 return analysis
+
         except Exception as e:
-            print(f"⚠️ Error getting additional data: {e}")
+            print(f"⚠️  Error getting additional data: {e}")
 
         return analysis
 
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(
@@ -591,57 +754,27 @@ def main():
 Examples:
   python3 entry_signals.py                    # Scan full watchlist
   python3 entry_signals.py --ticker AAPL      # Deep dive single ticker
-  python3 entry_signals.py --export-csv         # Scan and export to CSV
-  python3 entry_signals.py --export-html        # Scan and export to HTML
+  python3 entry_signals.py --export-csv       # Scan and export to CSV
+  python3 entry_signals.py --export-html      # Scan and export to HTML
         """
     )
-    parser.add_argument(
-        '--tickers', '-t',
-        nargs='+',
-        help='Specific tickers to scan (default: watchlist)'
-    )
-    parser.add_argument(
-        '--ticker',
-        help='Analyze single ticker in detail (replaces analyze_ticker.py)'
-    )
-    parser.add_argument(
-        '--min-tier', '-m',
-        type=int,
-        choices=[1, 2, 3],
-        default=3,
-        help='Minimum tier to include (1=Tier1 only, 2=Tier1+2, 3=All)'
-    )
-    parser.add_argument(
-        '--export', '-e',
-        choices=['csv', 'json', 'none'],
-        default='none',
-        help='Export format for results'
-    )
-    parser.add_argument(
-        '--export-csv',
-        action='store_true',
-        help='Export results to CSV (replaces analyze_watchlist.py --csv)'
-    )
-    parser.add_argument(
-        '--export-html',
-        action='store_true',
-        help='Export results to HTML (replaces analyze_watchlist.py --html)'
-    )
-    parser.add_argument(
-        '--mode',
-        choices=['paper', 'live'],
-        default='paper',
-        help='Alpaca mode (default: paper)'
-    )
-    parser.add_argument(
-        '--risk-profile',
-        default=None,
-        help='Risk profile to use (conservative, aggressive, tight_stops)'
-    )
+    parser.add_argument('--tickers', '-t', nargs='+',
+                        help='Specific tickers to scan (default: watchlist)')
+    parser.add_argument('--ticker',
+                        help='Analyze single ticker in detail')
+    parser.add_argument('--min-tier', '-m', type=int, choices=[1, 2, 3], default=3,
+                        help='Minimum tier (1=T1 only, 2=T1+T2, 3=All)')
+    parser.add_argument('--export', '-e', choices=['csv', 'json', 'none'], default='none',
+                        help='Export format')
+    parser.add_argument('--export-csv',  action='store_true', help='Export to CSV')
+    parser.add_argument('--export-html', action='store_true', help='Export to HTML')
+    parser.add_argument('--mode', choices=['paper', 'live'], default='paper',
+                        help='Alpaca mode (default: paper)')
+    parser.add_argument('--risk-profile', default=None,
+                        help='Risk profile (conservative, aggressive, tight_stops)')
 
     args = parser.parse_args()
 
-    # FINDING-011: Validate ticker inputs
     if args.ticker:
         try:
             ticker = validate_ticker(args.ticker)
@@ -652,7 +785,6 @@ Examples:
         result = scanner.analyze_single(ticker)
         return 0 if result else 1
 
-    # Validate tickers list if provided
     if args.tickers:
         try:
             validated_tickers = validate_tickers(args.tickers)
@@ -662,32 +794,17 @@ Examples:
     else:
         validated_tickers = None
 
-    # Run scan
     scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
-    signals = scanner.scan(
-        tickers=validated_tickers,
-        min_tier=args.min_tier
-    )
+    signals = scanner.scan(tickers=validated_tickers, min_tier=args.min_tier)
 
-    # Determine export format
     export_format = args.export
     if args.export_csv:
         export_format = 'csv'
     elif args.export_html:
         export_format = 'html'
 
-    # Export if requested
     if export_format != 'none' and signals:
         scanner.export_signals(signals, format=export_format)
-
-    # Summary
-    if signals:
-        print(f"\n✅ Found {len(signals)} entry signal(s):")
-        for s in signals:
-            stop_info = f"({s['stop_type']} stop)" if s.get('stop_type') else ""
-            print(f"   {s['ticker']}: Score {s['entry_score']:.0f} ({s['tier']}) - ${s['current']:.2f} {stop_info}")
-    else:
-        print("\n⏸️  No entry signals found")
 
     return 0 if signals else 1
 

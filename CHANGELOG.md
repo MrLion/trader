@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.3.1] — 2026-04-19
+
+### Changed
+- **`entry_signals.py` — dashboard UI + earnings visibility** (complete display rewrite)
+
+  **Dashboard layout**
+  - Header block: `━━━` border, title left / timestamp right, market status line (SPY%, VIX, mode, ticker count, scan duration). Market-blocked state shows `⛔ Entries paused` in the header instead of a multi-line paragraph.
+  - Summary bar immediately below header: counts for every section visible before scrolling (`🔥 3 Ready · ⏳ 2 Near Pivot · ⚠️ 2 Near Earnings · 📊 8 Tier 2 · 📅 2 Blackout · …`).
+  - Section dividers: `── 🔥 READY NOW ───────────────────────────────────` style, with fill to terminal width.
+  - Unified table columns across **all** sections: `TICKER SCORE S2 DIST RISK% PRICE PIVOT EARNINGS`. Previously TIER 2 and TIER 3 dropped ATR%/MA%/Stop columns; now every section is consistent.
+  - Distance column: `+0.4%↑` / `-1.2%↓` (single-char arrow) replacing `+0.4% 📈` (emoji misaligned columns).
+  - Stop/ATR/MA% columns collapsed into single `RISK%` (best-stop risk wins).
+  - Footer: `═══` border with criteria summary (`score ≥60 · dist ≤±2% · paper · profile: default`).
+  - Init messages (`🔌 Initializing…` / `✅ Scanner ready`) removed from stdout.
+  - Trailing `Found N entry signal(s)` block removed (summary bar covers this).
+
+  **Earnings UX**
+  - `EarningsCalendar.prefetch(tickers)` called once at scan start — eliminates per-ticker FMP HTTP calls during the scan loop.
+  - Earnings blackout check moved from `_analyze_ticker()` to the scan loop; blackout tickers are collected and displayed in a dedicated `📅 EARNINGS BLACKOUT (skipped today)` section at the bottom.
+  - `EARNINGS` column in every table row: `—` (none/>30d), `📅 Nd` (≤30d), `⚠️ Nd` (≤7d), `🚨 1d`, `⛔ today`.
+  - **Near Earnings section**: tickers with earnings in 1–7 days and score ≥ 40 are moved out of their natural section into `⚠️ NEAR EARNINGS (1–7d — hold off on new entries)`. Tickers whose earnings are tomorrow (forced-exit day) get an inline `← paper engine exits today` note.
+  - `--ticker` deep dive: `Next Earnings` row added to the metrics table with date + proximity badge.
+  - `_export_html`: earnings column added with color-coded badges (red/yellow/gray).
+  - `earnings_date` and `earnings_days` fields added to every analysis dict (available in CSV/JSON exports).
+
 ## [0.6.3.0] — 2026-04-19
 
 ### Changed
