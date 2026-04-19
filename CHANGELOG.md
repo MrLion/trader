@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.3.0] — 2026-04-19
+
+### Changed
+- **Alpaca credentials moved from JSON config file to environment variables**
+  - `config/secrets/alpaca_config.json` is no longer used. All credential lookup now goes through the `.env` file (loaded by `python-dotenv`) or shell environment.
+  - New mode-specific env vars: `ALPACA_PAPER_API_KEY` / `ALPACA_PAPER_SECRET_KEY` for paper trading; `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_SECRET_KEY` for live trading. Plain `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` remain supported as a fallback for backward compatibility.
+  - `ALPACA_HISTORICAL_DAYS` env var controls historical bar fetch depth (default: 365).
+  - `traderlib/alpaca_client.py`: removed `_load_config()`, `_load_config_int()`, `CONFIG_FILE`, `CONFIG_DIR`; key loading is now env-only.
+  - `scripts/setup_alpaca.py`: rewritten to write credentials to `.env` instead of JSON. Detects legacy `alpaca_config.json` and offers auto-migration + optional deletion.
+  - `scripts/doctor.py`: credential check now inspects env vars and `.env` via `dotenv_values()`; fixed pre-existing bug where it checked the wrong path (`data/config/` instead of `config/secrets/`).
+  - `traderlib/trading_exceptions.py`: `APIKeyError` message updated to reflect env-var-only setup.
+  - `.env.example`: updated with mode-specific key names and `FMP_API_KEY` for the earnings calendar filter.
+  - `tests/test_alpaca_client_extended.py`: config tests rewritten to cover mode-specific vars, fallback to generic vars, priority ordering, and `ALPACA_HISTORICAL_DAYS`; removed JSON file tests.
+
 ## [0.6.2.9] — 2026-04-18
 
 ### Added

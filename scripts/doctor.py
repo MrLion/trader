@@ -4,7 +4,6 @@
 Checks system configuration and provides actionable fixes.
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -60,29 +59,31 @@ def check_dependencies() -> Tuple[bool, str, str]:
 
 
 def check_alpaca_credentials() -> Tuple[bool, str, str]:
-    """Check Alpaca API credentials are configured."""
-    # Check environment variables
-    if os.environ.get('ALPACA_API_KEY') and os.environ.get('ALPACA_SECRET_KEY'):
-        return True, "Environment variables set", "OK"
+    """Check Alpaca API credentials are configured.
 
-    # Check config file
-    config_path = PROJECT_ROOT / 'data' / 'config' / 'alpaca_config.json'
-    if config_path.exists():
-        try:
-            with open(config_path) as f:
-                config = json.load(f)
-                if config.get('paper', {}).get('api_key'):
-                    return True, "Config file found", "OK"
-        except (json.JSONDecodeError, IOError):
-            pass
+    Checks in priority order:
+      1. Mode-specific env vars (ALPACA_PAPER_API_KEY / ALPACA_LIVE_API_KEY)
+      2. Generic env vars (ALPACA_API_KEY / ALPACA_SECRET_KEY)
+      3. .env file in project root (loaded by alpaca_client on startup)
+    """
+    from dotenv import dotenv_values
 
-    # Check .env file
+    # Merge shell env + .env file to simulate what alpaca_client sees at runtime
     env_path = PROJECT_ROOT / '.env'
+    dotenv_vars = dotenv_values(env_path) if env_path.exists() else {}
+    combined = {**dotenv_vars, **os.environ}  # shell env wins over .env
+
+    paper_key = combined.get('ALPACA_PAPER_API_KEY') or combined.get('ALPACA_API_KEY')
+    paper_secret = combined.get('ALPACA_PAPER_SECRET_KEY') or combined.get('ALPACA_SECRET_KEY')
+
+    if paper_key and paper_secret:
+        source = 'env vars' if 'ALPACA_PAPER_API_KEY' in os.environ or 'ALPACA_API_KEY' in os.environ else '.env file'
+        return True, f"Paper keys found ({source})", "OK"
+
     if env_path.exists():
-        with open(env_path) as f:
-            content = f.read()
-            if 'ALPACA_API_KEY' in content and 'ALPACA_SECRET_KEY' in content:
-                return False, ".env file exists but not loaded", "Run: source .env"
+        content = env_path.read_text()
+        if 'ALPACA' in content:
+            return False, ".env exists but keys incomplete", "Run: python3 scripts/setup_alpaca.py"
 
     return False, "Not configured", "Run: python3 scripts/setup_alpaca.py"
 

@@ -220,22 +220,21 @@ class APIKeyError(ValueError):
         cause = (
             "\n\nCAUSE:\n"
             "  The system could not find valid API credentials.\n"
-            "  Tried in order:\n"
-            "    1. Environment variables (ALPACA_API_KEY, ALPACA_SECRET_KEY)\n"
-            "    2. Config file (config/secrets/alpaca_config.json)"
+            "  Tried in order (paper mode):\n"
+            "    1. ALPACA_PAPER_API_KEY / ALPACA_PAPER_SECRET_KEY\n"
+            "    2. ALPACA_API_KEY / ALPACA_SECRET_KEY  (legacy fallback)\n"
+            "  Live mode uses ALPACA_LIVE_API_KEY / ALPACA_LIVE_SECRET_KEY."
         )
 
         # Fix: How to resolve
         fix = (
-            "\n\nFIX - Choose one:\n"
-            "  Option 1 - Environment variables (Recommended):\n"
-            "    export ALPACA_API_KEY='your_api_key'\n"
-            "    export ALPACA_SECRET_KEY='your_secret_key'\n\n"
-            "  Option 2 - Config file:\n"
+            "\n\nFIX:\n"
+            "  Run the setup wizard (recommended):\n"
             "    python3 scripts/setup_alpaca.py\n\n"
-            "  Option 3 - .env file in project root:\n"
-            "    echo 'ALPACA_API_KEY=your_api_key' > .env\n"
-            "    echo 'ALPACA_SECRET_KEY=your_secret_key' >> .env"
+            "  Or set env vars manually in .env (project root):\n"
+            "    ALPACA_PAPER_API_KEY=your_paper_api_key\n"
+            "    ALPACA_PAPER_SECRET_KEY=your_paper_secret_key\n\n"
+            "  Get keys at: https://app.alpaca.markets/paper"
         )
 
         # Docs: Where to learn more

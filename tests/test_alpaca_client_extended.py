@@ -66,65 +66,87 @@ class MockAlpacaPosition:
 
 
 class TestAlpacaClientConfig(unittest.TestCase):
-    """Test config loading methods."""
+    """Test credential loading from environment variables."""
 
-    @patch.dict('os.environ', {'ALPACA_API_KEY': 'test-key', 'ALPACA_SECRET_KEY': 'test-secret'})
-    def test_load_config_from_env(self):
-        """Test loading config from environment variables."""
+    @patch.dict('os.environ', {'ALPACA_PAPER_API_KEY': 'paper-key', 'ALPACA_PAPER_SECRET_KEY': 'paper-secret'})
+    def test_load_paper_mode_specific_vars(self):
+        """Mode-specific vars (ALPACA_PAPER_*) are used for paper mode."""
         from traderlib.alpaca_client import AlpacaClient
 
-        with patch('alpaca_client.TradingClient'), \
-             patch('alpaca_client.StockHistoricalDataClient'):
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
             client = AlpacaClient(mode='paper')
-            self.assertEqual(client.api_key, 'test-key')
-            self.assertEqual(client.secret_key, 'test-secret')
+            self.assertEqual(client.api_key, 'paper-key')
+            self.assertEqual(client.secret_key, 'paper-secret')
 
-    @patch.dict('os.environ', {}, clear=True)
-    @patch.dict('os.environ', {}, clear=True)
-    def test_load_config_from_file(self):
-        """Test loading config from file when env vars not set."""
-        import tempfile
-        from traderlib.alpaca_client import AlpacaClient, CONFIG_FILE
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_dir = Path(tmpdir) / 'config'
-            config_dir.mkdir(parents=True)
-            config_file = config_dir / 'alpaca_config.json'
-
-            config_file.write_text(json.dumps({
-                'paper': {'api_key': 'file-key', 'secret_key': 'file-secret'},
-                'historical_days': 200
-            }))
-
-            with patch('traderlib.alpaca_client.CONFIG_FILE', config_file), \
-                 patch('traderlib.alpaca_client.TradingClient'), \
-                 patch('traderlib.alpaca_client.StockHistoricalDataClient'):
-                client = AlpacaClient(mode='paper')
-                self.assertEqual(client.api_key, 'file-key')
-                self.assertEqual(client.secret_key, 'file-secret')
-                self.assertEqual(client.historical_days, 200)
-
-    @patch.dict('os.environ', {}, clear=True)
-    def test_load_config_missing(self):
-        """Test error when config is missing."""
+    @patch.dict('os.environ', {'ALPACA_LIVE_API_KEY': 'live-key', 'ALPACA_LIVE_SECRET_KEY': 'live-secret'})
+    def test_load_live_mode_specific_vars(self):
+        """Mode-specific vars (ALPACA_LIVE_*) are used for live mode."""
         from traderlib.alpaca_client import AlpacaClient
 
-        with patch('traderlib.alpaca_client.CONFIG_FILE', Path('/nonexistent/config.json')):
-            with self.assertRaises(ValueError) as ctx:
-                AlpacaClient(mode='paper')
-            self.assertIn('API keys not configured', str(ctx.exception))
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
+            client = AlpacaClient(mode='live')
+            self.assertEqual(client.api_key, 'live-key')
+            self.assertEqual(client.secret_key, 'live-secret')
+
+    @patch.dict('os.environ', {'ALPACA_API_KEY': 'generic-key', 'ALPACA_SECRET_KEY': 'generic-secret'})
+    def test_load_generic_env_vars_fallback(self):
+        """Plain ALPACA_API_KEY / ALPACA_SECRET_KEY work as fallback."""
+        from traderlib.alpaca_client import AlpacaClient
+
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
+            client = AlpacaClient(mode='paper')
+            self.assertEqual(client.api_key, 'generic-key')
+            self.assertEqual(client.secret_key, 'generic-secret')
+
+    @patch.dict('os.environ', {
+        'ALPACA_PAPER_API_KEY': 'paper-key',
+        'ALPACA_PAPER_SECRET_KEY': 'paper-secret',
+        'ALPACA_API_KEY': 'generic-key',
+        'ALPACA_SECRET_KEY': 'generic-secret',
+    })
+    def test_mode_specific_takes_priority_over_generic(self):
+        """ALPACA_PAPER_API_KEY beats ALPACA_API_KEY for paper mode."""
+        from traderlib.alpaca_client import AlpacaClient
+
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
+            client = AlpacaClient(mode='paper')
+            self.assertEqual(client.api_key, 'paper-key')
+
+    @patch.dict('os.environ', {}, clear=True)
+    def test_missing_credentials_raises(self):
+        """No credentials → APIKeyError."""
+        from traderlib.alpaca_client import AlpacaClient
+
+        with self.assertRaises(ValueError) as ctx:
+            AlpacaClient(mode='paper')
+        self.assertIn('API keys not configured', str(ctx.exception))
 
     @patch.dict('os.environ', {'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test'})
-    def test_load_config_int_default(self):
-        """Test loading integer config with default value."""
+    def test_historical_days_default(self):
+        """historical_days defaults to 365 when env var is unset."""
         from traderlib.alpaca_client import AlpacaClient
 
-        with patch('alpaca_client.TradingClient'), \
-             patch('alpaca_client.StockHistoricalDataClient'), \
-             patch('alpaca_client.CONFIG_FILE', Path('/nonexistent')):
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
             client = AlpacaClient(mode='paper')
-            # Should use default when config file doesn't exist
             self.assertEqual(client.historical_days, 365)
+
+    @patch.dict('os.environ', {
+        'ALPACA_API_KEY': 'test', 'ALPACA_SECRET_KEY': 'test',
+        'ALPACA_HISTORICAL_DAYS': '200',
+    })
+    def test_historical_days_from_env(self):
+        """ALPACA_HISTORICAL_DAYS env var overrides default."""
+        from traderlib.alpaca_client import AlpacaClient
+
+        with patch('traderlib.alpaca_client.TradingClient'), \
+             patch('traderlib.alpaca_client.StockHistoricalDataClient'):
+            client = AlpacaClient(mode='paper')
+            self.assertEqual(client.historical_days, 200)
 
 
 class TestAlpacaClientRateLimiter(unittest.TestCase):

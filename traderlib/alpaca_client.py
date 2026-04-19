@@ -2,7 +2,6 @@
 """Alpaca API client - Hybrid REST + WebSocket for paper trading."""
 
 import asyncio
-import json
 import os
 import sys
 from datetime import datetime, timedelta
@@ -13,10 +12,10 @@ import pandas as pd
 from dotenv import load_dotenv
 from alpaca.data.historical import StockHistoricalDataClient
 
-# Load environment variables from .env file (if it exists)
-# This allows credentials to be stored in .env instead of environment variables
+# Load .env from project root — this is the canonical credential source
 PROJECT_ROOT = Path(__file__).parent.parent
 load_dotenv(PROJECT_ROOT / '.env')
+
 from websockets.exceptions import ConnectionClosed
 from alpaca.data.live import StockDataStream
 from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
@@ -26,10 +25,6 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, StopLossRequest, GetAssetsRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
-
-# Config path
-CONFIG_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/secrets')
-CONFIG_FILE = CONFIG_DIR / 'alpaca_config.json'
 
 # Import rate limiter
 sys.path.insert(0, str(Path(__file__).parent))
@@ -51,14 +46,19 @@ class AlpacaClient:
         """
         self.mode = mode
         self.data_only = data_only
-        self.api_key = os.getenv('ALPACA_API_KEY') or self._load_config('api_key')
-        self.secret_key = os.getenv('ALPACA_SECRET_KEY') or self._load_config('secret_key')
+
+        # Key loading: mode-specific vars take priority, plain vars are fallback.
+        # Paper/data-only:  ALPACA_PAPER_API_KEY  → ALPACA_API_KEY
+        # Live:             ALPACA_LIVE_API_KEY   → ALPACA_API_KEY
+        _prefix = 'ALPACA_LIVE_' if mode == 'live' else 'ALPACA_PAPER_'
+        self.api_key = os.getenv(f'{_prefix}API_KEY') or os.getenv('ALPACA_API_KEY')
+        self.secret_key = os.getenv(f'{_prefix}SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
 
         if not self.api_key or not self.secret_key:
             raise APIKeyError("Alpaca")
 
         # Historical data configuration (default 365 days for full Stage 2 scoring)
-        self.historical_days = self._load_config_int('historical_days', default=365)
+        self.historical_days = int(os.getenv('ALPACA_HISTORICAL_DAYS', '365'))
 
         # Initialize REST clients
         if data_only:
@@ -89,32 +89,6 @@ class AlpacaClient:
             max_requests=rate_config.get('max_requests', 10000),
             window_seconds=rate_config.get('window_seconds', 60)
         )
-
-    def _load_config(self, key: str) -> Optional[str]:
-        """Load config from file."""
-        if not CONFIG_FILE.exists():
-            return None
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                # Map 'data-only' mode to 'paper' for credential lookup
-                # (data-only uses paper account data endpoint, just without trading)
-                lookup_mode = self.mode if self.mode != 'data-only' else 'paper'
-                return config.get(lookup_mode, {}).get(key)
-        except Exception:
-            return None
-
-    def _load_config_int(self, key: str, default: int) -> int:
-        """Load integer config value from file."""
-        if not CONFIG_FILE.exists():
-            return default
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                val = config.get(key, default)
-                return int(val) if val is not None else default
-        except Exception:
-            return default
 
     def _load_rate_limiter_config(self) -> Dict:
         """Load rate limiter configuration from screener_config.yaml."""
