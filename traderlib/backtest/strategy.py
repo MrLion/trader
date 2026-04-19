@@ -151,6 +151,23 @@ class Stage2MomentumStrategy(Strategy):
         self._sector_cache: dict[str, str] = {}
         # Note: No yfinance imports - backtest must use provided sector data only
 
+        # Load strategy-specific parameters from config/strategies/stage2_momentum.yaml.
+        # Falls back to hardcoded defaults when file is absent.
+        from traderlib.strategy_config import load_strategy_config, get_param
+        _scfg = load_strategy_config('stage2_momentum') or {}
+        self._strategy_params = {
+            'min_stage2_score':      get_param(_scfg, 'entry', 'min_stage2_score',   default=6),
+            'min_entry_score':       get_param(_scfg, 'entry', 'min_entry_score',     default=60),
+            'atr_period':            get_param(_scfg, 'stop',  'atr_period',          default=14),
+            'atr_multiplier':        get_param(_scfg, 'stop',  'atr_multiplier',      default=2.0),
+            'use_recent_low':        get_param(_scfg, 'stop',  'use_recent_low',      default=True),
+            'min_stop_distance_pct': get_param(_scfg, 'stop',  'min_stop_distance_pct', default=0.03),
+            'max_stop_distance_pct': get_param(_scfg, 'stop',  'max_stop_distance_pct', default=0.15),
+            'breakeven_at_r':        get_param(_scfg, 'exit',  'breakeven_at_r',      default=1.0),
+            'trail_ema_period':      get_param(_scfg, 'exit',  'trail_ema_period',    default=20),
+            'trail_start_r':         get_param(_scfg, 'exit',  'trail_start_r',       default=1.5),
+        }
+
     @property
     def name(self) -> str:
         return "stage2_momentum"
@@ -256,26 +273,27 @@ class Stage2MomentumStrategy(Strategy):
             below_50ma = not s2_details['criteria'].get('price_above_50ma', True)
             below_20ma = not s2_details['criteria'].get('price_above_20ema', False)
 
-            # Minimum Stage 2 score (0-10 scale; 6 ≈ 60%)
-            min_stage2 = 6
-            if stage2 < min_stage2:
+            # Minimum Stage 2 score — from stage2_momentum.yaml (default 6)
+            if stage2 < self._strategy_params['min_stage2_score']:
                 continue
 
-            # Calculate ATR for stop
+            # Calculate ATR for stop — period/multiplier from stage2_momentum.yaml
+            atr_period = self._strategy_params['atr_period']
+            atr_mult   = self._strategy_params['atr_multiplier']
             try:
                 high_low = hist['High'] - hist['Low']
                 high_close = abs(hist['High'] - hist['Close'].shift())
                 low_close = abs(hist['Low'] - hist['Close'].shift())
                 tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-                atr = tr.rolling(window=14, min_periods=1).mean().iloc[-1]
+                atr = tr.rolling(window=atr_period, min_periods=1).mean().iloc[-1]
                 if pd.isna(atr):
                     continue
             except Exception:
                 continue
 
-            atr_stop = current - (2 * atr)
+            atr_stop = current - (atr_mult * atr)
             recent_low = float(hist['Low'].tail(10).min())
-            stop = max(atr_stop, recent_low)
+            stop = max(atr_stop, recent_low) if self._strategy_params['use_recent_low'] else atr_stop
 
             # MA Support Stop calculation
             if config and config.ma_support.enabled:
@@ -291,21 +309,19 @@ class Stage2MomentumStrategy(Strategy):
                     # Use tighter stop (higher = less risk)
                     stop = max(stop, ma_support_stop)
 
-            # Enforce bounds: 3-15% below entry
+            # Enforce bounds — risk_config takes priority, strategy YAML is fallback
             if config:
                 min_pct = config.stop_loss.min_stop_distance_pct
                 max_pct = config.stop_loss.max_stop_distance_pct
-                min_stop = current * (1 - min_pct)
-                max_stop = current * (1 - max_pct)
-                if stop > min_stop:
-                    stop = min_stop
-                if stop < max_stop:
-                    stop = max_stop
             else:
-                if stop > current * 0.97:
-                    stop = current * 0.97
-                elif stop < current * 0.85:
-                    stop = current * 0.85
+                min_pct = self._strategy_params['min_stop_distance_pct']
+                max_pct = self._strategy_params['max_stop_distance_pct']
+            min_stop = current * (1 - min_pct)
+            max_stop = current * (1 - max_pct)
+            if stop > min_stop:
+                stop = min_stop
+            if stop < max_stop:
+                stop = max_stop
 
             # Target price
             target = self.exit_engine.calculate_target_price(current, stop)
@@ -319,18 +335,20 @@ class Stage2MomentumStrategy(Strategy):
             spy_return = self._get_spy_return(data_provider, sim_date)
             rs_6m = ret_6m - spy_return
 
-            # Distance to pivot (use current price as default pivot)
-            # In production, pivot comes from watchlist data
-            pivot = current
-            dist_to_pivot = 0.0  # At pivot = 0%
-            risk_pct = abs((stop - pivot) / pivot) * 100 if pivot > stop else 999
+            # Distance to pivot — use 20-day high as VCP breakout pivot proxy.
+            # This mirrors the 'range_20d' source used in the live screener.
+            # Old code (pivot = current, dist = 0.0) gave every ticker a free
+            # +25 proximity score, inflating entry signals regardless of setup.
+            pivot_20d = float(hist['High'].tail(20).max())
+            dist_to_pivot = ((pivot_20d - current) / current) * 100  # positive = below pivot
+            risk_pct = abs((stop - current) / current) * 100 if current > stop else 999
 
             # Entry score
             entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
                                            below_50ma=below_50ma, below_20ma=below_20ma)
 
-            # Check minimum entry score
-            min_score = 60
+            # Check minimum entry score — risk_config wins, strategy YAML is fallback
+            min_score = self._strategy_params['min_entry_score']
             if config:
                 min_score = config.entry.min_entry_score
             if entry_score < min_score:
@@ -363,6 +381,7 @@ class Stage2MomentumStrategy(Strategy):
                 sector=sector,
                 entry_score=entry_score,
                 stage2_score=stage2,
+                metadata={'pivot': pivot_20d},
             ))
 
         return signals

@@ -376,6 +376,7 @@ class BacktestEngine:
                 target_price=signal.target_price,
                 sector=signal.sector,
                 initial_stop_price=signal.stop_price,
+                pivot_price=signal.metadata.get('pivot') if signal.metadata else None,
             )
 
     def _apply_exit_actions(self, state: BacktestState, actions: list[ExitAction]):

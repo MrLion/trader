@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.4.0] — 2026-04-19
+
+### Fixed
+- **Backtest pivot inflation** — `Stage2MomentumStrategy.evaluate_entries()` used `pivot = current` and `dist_to_pivot = 0.0` as defaults, giving every ticker a free +25 proximity score from `get_entry_score` regardless of setup quality. Fixed by computing `pivot_20d = hist['High'].tail(20).max()` (20-day range high, mirroring the live screener's `range_20d` source) and deriving actual distance. Tickers more than 3% below their 20-day high now correctly score 0 proximity points.
+
+### Added
+- **Pivot flows into backtest position state** — `EntrySignal.metadata` now carries `{'pivot': pivot_20d}`. `BacktestState.enter_position()` accepts `pivot_price: Optional[float]`; `BacktestPosition` and `TradeRecord` store it. `engine._resolve_pending_fills()` extracts `signal.metadata.get('pivot')` and passes it through.
+- **Accurate R-multiple reporting** — `_trade_initial_risk()` helper uses `TradeRecord.initial_stop_price` (actual stop) instead of the hardcoded 7%-of-entry approximation. `avg_r_multiple`, per-trade R in the all-trades table, and top-winners/losers now use real risk. Legacy records with `initial_stop_price == 0.0` fall back to the 7% approximation for backward compatibility.
+- **Commission tracking** — `TradeRecord.commissions` field added (default 0.0). `BacktestState.close_position()` accepts `commission` parameter and deducts it from P&L. `BacktestReport.total_commissions` aggregates commissions across all trades.
+- **Strategy YAML integration in backtest** — `Stage2MomentumStrategy.__init__()` now loads `config/strategies/stage2_momentum.yaml` via `strategy_config.load_strategy_config()`. ATR period/multiplier, stop bounds, Stage 2 minimum score, and entry score threshold are all driven by the YAML with hardcoded fallbacks.
+
 ## [0.6.3.1] — 2026-04-19
 
 ### Changed

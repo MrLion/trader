@@ -50,6 +50,9 @@ class BacktestReport:
     benchmark_return: float
     alpha: float
     trades: list[TradeRecord]
+    # Optional/defaulted fields
+    total_commissions: float = 0.0   # Sum of commissions across all trades
+    total_slippage: float = 0.0      # Reserved for future per-trade slippage tracking
     # Rich report extras
     gap_rejections: list[dict] = field(default_factory=list)
     config: Optional[BacktestConfig] = None
@@ -81,7 +84,7 @@ class BacktestReporter:
                 total_return=0, annualized_return=0, volatility=0,
                 max_drawdown=0, sharpe_ratio=0, sortino_ratio=0,
                 calmar_ratio=0, win_rate=0, profit_factor=0,
-                avg_r_multiple=0,
+                avg_r_multiple=0, total_commissions=0, total_slippage=0,
                 tickers_dropped=0, benchmark_return=0, alpha=0,
                 trades=trades, gap_rejections=result.gap_rejections,
                 config=result.config, equity_curve=equity_curve,
@@ -160,7 +163,7 @@ class BacktestReporter:
         if trades:
             r_multiples = []
             for t in trades:
-                risk = abs(t.entry_price * 0.07 * t.shares)  # Approx initial risk
+                risk = _trade_initial_risk(t)
                 if risk > 0:
                     r_multiples.append(t.pnl / risk)
                 else:
@@ -188,6 +191,10 @@ class BacktestReporter:
         # Tickers dropped
         tickers_dropped = len(result.tickers_dropped)
 
+        # Cost attribution
+        total_commissions = sum(getattr(t, 'commissions', 0.0) for t in trades)
+        total_slippage = 0.0  # Reserved for future slippage tracking per-trade
+
         return BacktestReport(
             total_return=total_return,
             annualized_return=annualized_return,
@@ -199,6 +206,8 @@ class BacktestReporter:
             win_rate=win_rate,
             profit_factor=profit_factor,
             avg_r_multiple=avg_r_multiple,
+            total_commissions=total_commissions,
+            total_slippage=total_slippage,
             tickers_dropped=tickers_dropped,
             benchmark_return=benchmark_return,
             alpha=alpha,
@@ -389,7 +398,8 @@ class BacktestReporter:
             trade_table.add_column("Reason", no_wrap=True, width=12)
 
             for t in sorted(report.trades, key=lambda x: x.entry_date):
-                r_mult = t.pnl / (t.entry_price * 0.07 * t.shares) if t.shares > 0 else 0
+                risk = _trade_initial_risk(t)
+                r_mult = t.pnl / risk if risk > 0 else 0
                 pnl_str = f"[green]+${t.pnl:,.0f}[/]" if t.pnl > 0 else f"[red]-${abs(t.pnl):,.0f}[/]"
                 r_str = f"{r_mult:.1f}R"
                 reason = t.exit_reason.replace("_", " ").title()
@@ -484,6 +494,22 @@ class BacktestReporter:
             })
 
         return pd.DataFrame(rows)
+
+
+# ── Internal helpers ─────────────────────────────────────────────
+
+
+def _trade_initial_risk(t: TradeRecord) -> float:
+    """Return the dollar initial risk for a trade.
+
+    Prefers the actual initial_stop_price stored on the trade record.
+    Falls back to the 7% approximation for legacy records that predate
+    Phase 4 (initial_stop_price == 0.0).
+    """
+    if getattr(t, 'initial_stop_price', 0.0) and t.initial_stop_price < t.entry_price and t.shares > 0:
+        return abs(t.entry_price - t.initial_stop_price) * t.shares
+    # Legacy fallback: approximate 7% stop distance
+    return abs(t.entry_price * 0.07 * t.shares) if t.shares > 0 else 1.0
 
 
 # ── Formatting helpers ────────────────────────────────────────────
@@ -601,14 +627,16 @@ def _top_trades(trades: list[TradeRecord], n: int = 5) -> tuple[list[str], list[
     for t in sorted_trades[:n]:
         if t.pnl <= 0:
             break
-        r_mult = t.pnl / (t.entry_price * 0.07 * t.shares) if t.shares > 0 else 0
+        risk = _trade_initial_risk(t)
+        r_mult = t.pnl / risk if risk > 0 else 0
         winners.append(f"{t.ticker:<6} +${t.pnl:>6,.0f}  {r_mult:.1f}R")
 
     losers = []
     for t in sorted_trades[-n:]:
         if t.pnl >= 0:
             continue
-        r_mult = t.pnl / (t.entry_price * 0.07 * t.shares) if t.shares > 0 else 0
+        risk = _trade_initial_risk(t)
+        r_mult = t.pnl / risk if risk > 0 else 0
         losers.append(f"{t.ticker:<6} -${abs(t.pnl):>6,.0f}  {r_mult:.1f}R")
 
     losers.reverse()  # Worst first

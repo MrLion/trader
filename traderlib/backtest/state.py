@@ -5,7 +5,7 @@ Never calls datetime.now() — all time is controlled by sim_date.
 Never touches the filesystem — no save_state(), no _log_trade().
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
@@ -29,6 +29,9 @@ class TradeRecord:
     shares: int
     pnl: float
     exit_reason: str
+    initial_stop_price: float = 0.0   # Actual initial stop (for accurate R-multiple)
+    pivot_price: Optional[float] = None  # VCP pivot if known (from EntrySignal.metadata)
+    commissions: float = 0.0          # Commissions paid (reserved for future cost tracking)
 
 
 @dataclass
@@ -42,6 +45,7 @@ class BacktestPosition:
     position: Position       # The underlying Position (used by ExitEngine)
     side: str = 'LONG'       # 'LONG' or 'SHORT'
     entry_date: date = None  # Set from sim_date, never datetime.now()
+    pivot_price: Optional[float] = None  # VCP pivot from EntrySignal.metadata
 
 
 class BacktestState:
@@ -128,7 +132,8 @@ class BacktestState:
 
     def enter_position(self, ticker: str, side: str, entry_price: float,
                        shares: int, stop_price: float, target_price: float,
-                       sector: str, initial_stop_price: float) -> Position:
+                       sector: str, initial_stop_price: float,
+                       pivot_price: Optional[float] = None) -> Position:
         """Open a new position.
 
         Args:
@@ -140,6 +145,7 @@ class BacktestState:
             target_price: Profit target price
             sector: Stock sector
             initial_stop_price: The immutable initial stop (for R-multiple calc)
+            pivot_price: VCP breakout pivot, if known (from EntrySignal.metadata)
 
         Returns:
             The Position object (compatible with ExitEngine)
@@ -164,23 +170,25 @@ class BacktestState:
             position=position,
             side=side,
             entry_date=self.sim_date,
+            pivot_price=pivot_price,
         )
 
         self.cash -= position_value
         return position
 
     def close_position(self, ticker: str, exit_price: float,
-                       reason: str) -> TradeRecord:
+                       reason: str, commission: float = 0.0) -> TradeRecord:
         """Close a position and record the trade.
 
-        P&L is side-aware:
-        - LONG: (exit - entry) * shares
-        - SHORT: (entry - exit) * shares
+        P&L is side-aware (net of commissions):
+        - LONG: (exit - entry) * shares - commission
+        - SHORT: (entry - exit) * shares - commission
 
         Args:
             ticker: Stock symbol
             exit_price: Fill price (after slippage)
             reason: Exit reason string
+            commission: Commission paid on this fill (default 0)
 
         Returns:
             TradeRecord with P&L details
@@ -191,11 +199,11 @@ class BacktestState:
         bp = self.positions[ticker]
         pos = bp.position
 
-        # Side-aware P&L
+        # Side-aware P&L (net of commissions)
         if bp.side == 'LONG':
-            pnl = (exit_price - pos.entry_price) * pos.shares
+            pnl = (exit_price - pos.entry_price) * pos.shares - commission
         else:  # SHORT
-            pnl = (pos.entry_price - exit_price) * pos.shares
+            pnl = (pos.entry_price - exit_price) * pos.shares - commission
 
         trade = TradeRecord(
             ticker=ticker,
@@ -207,6 +215,9 @@ class BacktestState:
             shares=pos.shares,
             pnl=pnl,
             exit_reason=reason,
+            initial_stop_price=pos.initial_stop_price or pos.stop_price,
+            pivot_price=bp.pivot_price,
+            commissions=commission,
         )
 
         self.closed_trades.append(trade)

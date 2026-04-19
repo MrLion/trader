@@ -1,0 +1,58 @@
+# VCP High-Octane Strategy Parameters
+# Authoritative source for vcp_high_octane strategy.
+# Loaded by VCPBreakoutHighOctane via traderlib/strategy_config.py.
+# Supersedes the vcp.high_octane section in risk_config.yaml (kept as fallback).
+
+name: vcp_high_octane
+description: "VCP Breakout — Aggressive Growth ($250M+ market cap)"
+
+# ---------------------------------------------------------------------------
+# Universe filters
+# ---------------------------------------------------------------------------
+universe:
+  min_market_cap: 250         # $250M+ in millions (smaller growth names)
+  min_dollar_volume: 20000000 # $20M avg daily dollar volume
+  min_share_volume: 400000    # 400k shares/day
+
+# ---------------------------------------------------------------------------
+# VCP pattern parameters
+# ---------------------------------------------------------------------------
+pattern:
+  min_contractions: 2
+  ideal_contractions: 3
+
+  # Deeper first contraction is typical of smaller, more volatile names.
+  contraction_ranges:
+    - [30, 35]   # 1st contraction: 30-35% (deeper)
+    - [15, 15]   # 2nd contraction: ~15%
+    - [3, 6]     # 3rd contraction: 3-6% (tightest)
+
+  max_contraction_size_ratio: 0.70
+  min_contraction_size_ratio: 0.50
+  reject_if_expanding: true
+
+# ---------------------------------------------------------------------------
+# Volume requirements — stricter for thinner names
+# ---------------------------------------------------------------------------
+volume:
+  dry_up_threshold: 0.50       # <50% of 50-day avg (tighter dry-up requirement)
+  breakout_volume_min: 2.0     # 2x average on breakout (higher bar for thin names)
+  breakout_volume_grade_a: 2.5 # A-grade breakout: 2.5x average
+
+# ---------------------------------------------------------------------------
+# Entry filters
+# ---------------------------------------------------------------------------
+entry:
+  min_stage2_score: 6
+  min_convergence_score: 50
+  max_pivot_proximity_pct: 5.0
+
+# ---------------------------------------------------------------------------
+# Exit management — two-phase system
+# ---------------------------------------------------------------------------
+# Phase 2 uses 10-day EMA trail (tighter) for more volatile names vs
+# the 20-day EMA used by vcp_large_cap.
+exit:
+  phase2_trigger_r: 2.0        # Switch to MA trail at +2R gain
+  phase2_trail_ma: 10          # Trail with 10-day EMA (tighter for volatile names)
+  phase2_swing_low: true

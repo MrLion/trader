@@ -1,0 +1,37 @@
+# Stage 2 Momentum Strategy Parameters
+# Authoritative source for stage2_momentum strategy.
+# Loaded by Stage2MomentumStrategy via traderlib/strategy_config.py.
+# Previously these values were hardcoded literals in backtest/strategy.py.
+
+name: stage2_momentum
+description: "Stage 2 breakout momentum — ATR stop, EMA trail exit"
+
+# ---------------------------------------------------------------------------
+# Entry criteria
+# ---------------------------------------------------------------------------
+entry:
+  min_stage2_score: 6          # Minimum Stage 2 score (0-10 scale; 6 = 60%)
+  min_entry_score: 60          # Minimum composite entry score (0-100)
+                               # Falls back to risk_config.entry.min_entry_score if set
+  max_dist_to_pivot_pct: 2.0   # Enter within ±2% of pivot
+
+# ---------------------------------------------------------------------------
+# Stop calculation
+# ---------------------------------------------------------------------------
+stop:
+  atr_period: 14
+  atr_multiplier: 2.0          # Initial stop = current - (2 × ATR)
+  use_recent_low: true         # Floor = max(ATR stop, 10-day recent low)
+  # Hard bounds (applied after calculation)
+  min_stop_distance_pct: 0.03  # Stop no tighter than 3% below entry
+  max_stop_distance_pct: 0.15  # Stop no wider than 15% below entry
+
+# ---------------------------------------------------------------------------
+# Exit management
+# ---------------------------------------------------------------------------
+# Stage 2 momentum style: trail short MAs rather than taking hard profit targets.
+# The position is held as long as the trend is intact.
+exit:
+  breakeven_at_r: 1.0          # Move stop to breakeven at +1R
+  trail_ema_period: 20         # Trail with 20-day EMA after trail_start_r
+  trail_start_r: 1.5           # Begin EMA trail at +1.5R
