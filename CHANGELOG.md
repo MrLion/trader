@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.5.0] — 2026-04-19
+
+### Fixed
+- **Pivot inflation — live scanner** — `entry_signals.py` and `paper_engine_alpaca.py` both defaulted `pivot = current` when no `Pivot_Price` was set in the watchlist, giving every ticker a free +25 proximity score from `get_entry_score`. Both now default to `pivot = None`; `dist_to_pivot = None` flows through the scan and a 999.0 sentinel is passed to `get_entry_score` so proximity points are never awarded without an explicit pivot.
+- **Risk % measurement** — ATR/MA risk was computed as distance from pivot to stop (`abs((stop - pivot) / pivot)`), which was wrong when `pivot != current`. Now measured from current price: `abs((current - stop) / current)`.
+
+### Added
+- **Pivot source attribution** — `entry_signals.py` now tracks `pivot_source` (`'manual'` / `'vcp_contraction'` / `'none'`) alongside every pivot. The DIST column shows a source badge (`[m]` manual, `[v]` vcp, `[r]` range20d) and displays `—` when no pivot is set. A footer legend explains the badges. `analyze_single()` (`--ticker` mode) displays the source badge or `— (no pivot set)` inline.
+- **Strategy plugin exit routing** — `paper_engine_alpaca.py` now routes exits through the strategy plugin when one is loaded (`--strategy vcp_large_cap`). Added `_process_exit_action()` to bridge `ExitAction` → `ExitSignal`. `_check_exits()` follows a clear priority: earnings (always first) → strategy plugin → legacy `ExitEngine`.
+- **Exit phase badges in status** — `_print_status()` prints one line per open position with a phase badge (`①` = Phase 1 ratchet, `②` = Phase 2 EMA trail), current price, stop, stop type, and unrealized P&L.
+- **`Position.exit_phase` field** — `paper_state.py` adds `exit_phase: str = 'phase1'` to the `Position` dataclass. `update_stop()` accepts an optional `exit_phase` parameter so phase transitions are persisted alongside stop updates.
+- **VCP strategy YAML wiring** — `VCPBreakoutBase._load_profile_params()` now uses a three-tier priority: `config/strategies/vcp_{profile}.yaml` (authoritative) → `risk_config.vcp[profile]` (deprecated legacy fallback) → hardcoded defaults. All VCP parameters (`trail_ema_period`, `phase2_trigger_r`, `max_pivot_proximity_pct`, etc.) are now configurable from YAML without code changes.
+- **Consolidated VCP `manage_exits()`** — The two-phase exit logic (Phase 1: ratchet to swing lows; Phase 2: EMA trail) is now implemented once in `VCPBreakoutBase.manage_exits()`. `VCPBreakoutLargeCap` and `VCPBreakoutHighOctane` both inherit it; profile-specific behaviour (EMA period, phase2 R threshold) comes from `self.params`. All `ExitAction` objects now carry `metadata={'exit_phase': 'phase1'|'phase2'}`.
+
+### Changed
+- **`risk_config.yaml`** — `method: "atr_or_support"` removed from the top-level `stop_loss` block (stop method is now chosen per-strategy in `config/strategies/`). The `vcp:` section now carries a `[DEPRECATED]` notice pointing to the per-strategy YAML files.
+
 ## [0.6.4.0] — 2026-04-19
 
 ### Fixed

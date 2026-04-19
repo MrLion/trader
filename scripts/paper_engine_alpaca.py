@@ -715,7 +715,7 @@ class AlpacaPaperEngine:
             below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Get pivot and sector from watchlist
-            pivot = current
+            pivot = None  # None = no pivot set; avoids phantom proximity score inflation
             sector = 'Unknown'
             try:
                 df = pd.read_csv(WATCHLIST_PATH)
@@ -784,22 +784,25 @@ class AlpacaPaperEngine:
 
             target = self.exits.calculate_target_price(current, stop)
 
-            dist_to_pivot = ((pivot - current) / current) * 100
-            risk_pct = abs((stop - pivot) / pivot) * 100 if pivot > stop else 999
+            # dist_to_pivot: None when no pivot set (no phantom +25 proximity bonus)
+            dist_to_pivot = ((pivot - current) / current) * 100 if pivot is not None else None
+            # 999.0 sentinel for scoring: get_entry_score awards 0 proximity points
+            dist_for_scoring = dist_to_pivot if dist_to_pivot is not None else 999.0
+            risk_pct = abs((current - stop) / current) * 100 if stop < current else 999
 
             # Get SPY 6-month return for relative strength calculation
             spy_return_6m = self._get_spy_return_6m()
             rs_6m = ret_6m - spy_return_6m
 
             # Calculate entry score with RS component and MA penalties
-            entry_score = get_entry_score(stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+            entry_score = get_entry_score(stage2, risk_pct, dist_for_scoring, ret_6m, rs_6m,
                                            below_50ma=below_50ma, below_20ma=below_20ma)
 
             return {
                 'ticker': ticker,
                 'current': current,
-                'pivot': pivot,
-                'dist_to_pivot': dist_to_pivot,
+                'pivot': pivot,           # Optional[float] — None = not set
+                'dist_to_pivot': dist_to_pivot,  # Optional[float] — None = not set
                 'stop': stop,
                 'target': target,
                 'stage2': stage2,
@@ -828,13 +831,64 @@ class AlpacaPaperEngine:
         if signal.should_exit:
             await self._execute_exit(ticker, signal)
 
+    async def _process_exit_action(self, action: StrategyExitAction):
+        """Apply a strategy ExitAction to local state.
+
+        Bridges the unified ExitAction (strategy plugin output) to the paper
+        engine's legacy ExitSignal / state mutation path.
+
+        EXIT        → convert to ExitSignal and call _execute_exit.
+        UPDATE_STOP → ratchet stop upward (never down); persist exit_phase.
+        HOLD        → no-op.
+        """
+        from traderlib.strategies import ExitActionType as EAT
+
+        ticker = action.ticker
+        if ticker not in self.state.positions:
+            return
+
+        position = self.state.positions[ticker]
+        phase = (action.metadata or {}).get('exit_phase') if action.metadata else None
+        phase_badge = f' [{phase}]' if phase else ''
+
+        if action.action == EAT.EXIT:
+            signal = ExitSignal(
+                should_exit=True,
+                reason=action.reason,
+                exit_price=action.exit_price or position.stop_price,
+                r_multiple=action.r_multiple or 0.0,
+            )
+            print(f"   🛑 {ticker}: EXIT{phase_badge} — {action.reason}")
+            await self._execute_exit(ticker, signal)
+
+        elif action.action == EAT.UPDATE_STOP and action.new_stop_price is not None:
+            new_stop  = action.new_stop_price
+            stop_type = action.new_stop_type or 'TRAIL'
+            # Only ratchet upward — never lower the stop
+            if new_stop > position.stop_price:
+                position.stop_price        = new_stop
+                position.current_stop_type = stop_type
+                self.state.update_stop(ticker, new_stop, stop_type, exit_phase=phase)
+                print(
+                    f"   📈 {ticker}: Stop → ${new_stop:.2f} ({stop_type})"
+                    f"{phase_badge}  R={action.r_multiple:.1f}"
+                )
+
+        # HOLD → nothing to do
+
     async def _check_exits(self):
-        """Check all open positions for exits."""
+        """Check all open positions for exits.
+
+        Priority order:
+        1. Earnings exits — always fire regardless of strategy.
+        2. Strategy plugin (if loaded) — manage_exits() returns ExitAction list.
+        3. Legacy ExitEngine path — used when no strategy plugin is active.
+        """
         from datetime import date as _date
         today = _date.today()
 
+        # ── 1. Earnings exits (highest priority) ──────────────────────────
         for ticker in list(self.state.positions.keys()):
-            # Earnings exit — takes priority over stop/target, even on losses
             if self.earnings_calendar.should_force_exit(ticker, today):
                 current_price = await asyncio.to_thread(self._get_current_price, ticker)
                 exit_price = current_price or self.state.positions[ticker].entry_price
@@ -846,9 +900,22 @@ class AlpacaPaperEngine:
                 )
                 print(f"   📅 {ticker}: Exiting before earnings — EARNINGS_EXIT")
                 await self._execute_exit(ticker, earnings_signal)
-                continue
 
-            # Run blocking price fetch in thread
+        # ── 2. Strategy plugin exits ───────────────────────────────────────
+        if self.strategy and hasattr(self.strategy, 'manage_exits'):
+            context = self._build_context()
+            actions = self.strategy.manage_exits(context)
+            for action in actions:
+                if action.ticker not in self.state.positions:
+                    continue  # already exited above
+                await self._process_exit_action(action)
+            return
+
+        # ── 3. Legacy ExitEngine path ──────────────────────────────────────
+        for ticker in list(self.state.positions.keys()):
+            if ticker not in self.state.positions:
+                continue  # already exited above
+
             current_price = await asyncio.to_thread(self._get_current_price, ticker)
             if current_price is None:
                 continue
@@ -909,9 +976,10 @@ class AlpacaPaperEngine:
                 rejected_score += 1
                 continue
 
-            # Symmetric distance filter
-            if not (-max_dist <= analysis['dist_to_pivot'] <= max_dist):
-                logs.append(f"   ⏸️  {ticker}: Distance {analysis['dist_to_pivot']:+.1f}% outside ±{max_dist}%")
+            # Symmetric distance filter — skip when no pivot is set (dist_to_pivot is None)
+            _dist = analysis['dist_to_pivot']
+            if _dist is not None and not (-max_dist <= _dist <= max_dist):
+                logs.append(f"   ⏸️  {ticker}: Distance {_dist:+.1f}% outside ±{max_dist}%")
                 rejected_distance += 1
                 continue
 
@@ -924,7 +992,8 @@ class AlpacaPaperEngine:
                 continue
 
             eligible += 1
-            logs.append(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {analysis['dist_to_pivot']:+.1f}%, Stop {stop_dist_pct:.1f}% - EXECUTING")
+            _dist_str = f"{_dist:+.1f}%" if _dist is not None else "—(no pivot)"
+            logs.append(f"   ✅ {ticker}: Score {analysis['entry_score']:.0f}, Distance {_dist_str}, Stop {stop_dist_pct:.1f}% - EXECUTING")
             print("\n".join(logs))
             logs.clear()
             self._execute_entry(analysis)
@@ -1178,6 +1247,7 @@ class AlpacaPaperEngine:
         # Fetch prices asynchronously if not in cache
         account_value = stats['cash']
         unrealized_pnl = 0.0
+        position_lines = []
         for ticker, pos in self.state.positions.items():
             if pos.status == 'OPEN':
                 # Try cache first
@@ -1189,10 +1259,21 @@ class AlpacaPaperEngine:
                     current_price = await asyncio.to_thread(self.alpaca.get_latest_price, ticker)
                 if current_price:
                     account_value += current_price * pos.shares
-                    unrealized_pnl += (current_price - pos.entry_price) * pos.shares
+                    upnl = (current_price - pos.entry_price) * pos.shares
+                    unrealized_pnl += upnl
+                    # Exit phase badge (P1 = ratchet, P2 = EMA trail)
+                    phase = getattr(pos, 'exit_phase', 'phase1')
+                    phase_badge = '①' if phase == 'phase1' else '②'
+                    position_lines.append(
+                        f"   {ticker:<6} {phase_badge} "
+                        f"${current_price:.2f} | stop ${pos.stop_price:.2f} "
+                        f"({pos.current_stop_type}) | upnl ${upnl:+,.0f}"
+                    )
 
         print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}", flush=True)
         print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}", flush=True)
+        for line in position_lines:
+            print(line, flush=True)
 
         # Rate limit status
         rl = self.alpaca.rate_limiter.get_status()

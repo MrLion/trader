@@ -85,35 +85,63 @@ class VCPBreakoutBase(Strategy):
         return '\n'.join(lines)
 
     def _load_profile_params(self):
-        """Load VCP parameters from risk_config."""
+        """Load VCP parameters — three-tier priority:
+        1. config/strategies/vcp_{profile}.yaml  (authoritative)
+        2. risk_config.vcp[profile]              (legacy, deprecated)
+        3. Hardcoded defaults                    (fallback)
+        """
+        # ── Tier 3: hardcoded defaults ────────────────────────────────────
+        if self.profile == 'large_cap':
+            defaults = {
+                'min_dollar_volume':      80_000_000,
+                'min_share_volume':        1_000_000,
+                'contraction_ranges':     [(15, 25), (8, 12), (3, 8)],
+                'volume_dry_up_threshold': 0.60,
+                'breakout_volume_min':    1.4,
+                'trail_ema_period':       20,
+                'phase2_start_r':         2.0,
+                'max_pivot_proximity_pct': 5.0,
+                'min_convergence_score':  50,
+            }
+        else:  # high_octane
+            defaults = {
+                'min_dollar_volume':      20_000_000,
+                'min_share_volume':          400_000,
+                'contraction_ranges':     [(30, 35), (15, 15), (3, 6)],
+                'volume_dry_up_threshold': 0.50,
+                'breakout_volume_min':    2.0,
+                'trail_ema_period':       10,
+                'phase2_start_r':         2.0,
+                'max_pivot_proximity_pct': 5.0,
+                'min_convergence_score':  50,
+            }
+        profile_params = dict(defaults)
+
+        # ── Tier 2: risk_config.vcp (deprecated — YAML takes priority) ───
         if self.risk_config and hasattr(self.risk_config, 'vcp'):
-            profile_params = self.risk_config.vcp.get(self.profile, {})
-        else:
-            # Defaults
-            if self.profile == 'large_cap':
-                profile_params = {
-                    'min_dollar_volume': 80000000,
-                    'min_share_volume': 1000000,
-                    'contraction_ranges': [(15, 25), (8, 12), (3, 8)],
-                    'volume_dry_up_threshold': 0.60,
-                    'breakout_volume_min': 1.4,
-                    'trail_ema_period': 20,
-                    'phase2_start_r': 2.0,
-                    'max_pivot_proximity_pct': 5.0,
-                    'min_convergence_score': 50,
+            legacy = self.risk_config.vcp.get(self.profile, {})
+            if legacy:
+                profile_params.update(legacy)
+
+        # ── Tier 1: strategy YAML ─────────────────────────────────────────
+        try:
+            from traderlib.strategy_config import load_strategy_config, get_param
+            _scfg = load_strategy_config(f'vcp_{self.profile}') or {}
+            if _scfg:
+                yaml_overrides = {
+                    'min_dollar_volume':       get_param(_scfg, 'universe', 'min_dollar_volume'),
+                    'min_share_volume':        get_param(_scfg, 'universe', 'min_share_volume'),
+                    'volume_dry_up_threshold': get_param(_scfg, 'volume',   'dry_up_threshold'),
+                    'breakout_volume_min':     get_param(_scfg, 'volume',   'breakout_volume_min'),
+                    'trail_ema_period':        get_param(_scfg, 'exit',     'phase2_trail_ma'),
+                    'phase2_start_r':          get_param(_scfg, 'exit',     'phase2_trigger_r'),
+                    'max_pivot_proximity_pct': get_param(_scfg, 'entry',    'max_pivot_proximity_pct'),
+                    'min_convergence_score':   get_param(_scfg, 'entry',    'min_convergence_score'),
                 }
-            else:  # high_octane
-                profile_params = {
-                    'min_dollar_volume': 20000000,
-                    'min_share_volume': 400000,
-                    'contraction_ranges': [(30, 35), (15, 15), (3, 6)],
-                    'volume_dry_up_threshold': 0.50,
-                    'breakout_volume_min': 2.0,
-                    'trail_ema_period': 10,
-                    'phase2_start_r': 2.0,
-                    'max_pivot_proximity_pct': 5.0,
-                    'min_convergence_score': 50,
-                }
+                # Only apply non-None values so missing YAML keys fall through
+                profile_params.update({k: v for k, v in yaml_overrides.items() if v is not None})
+        except Exception:
+            pass  # YAML errors never crash the strategy
 
         self.params = profile_params
 
@@ -190,6 +218,111 @@ class VCPBreakoutBase(Strategy):
         """
         swing_lows = self._find_swing_lows(hist.tail(60), window=5)
         return swing_lows[-1] if swing_lows else None
+
+    def manage_exits(self, context: StrategyContext) -> List[ExitAction]:
+        """VCP Exit Management — Two-Phase System (shared by all VCP profiles).
+
+        Phase 1 (entry → phase2_trigger_r):
+            Hold initial stop; ratchet up to confirmed swing lows.
+            ExitAction carries metadata={'exit_phase': 'phase1'}.
+
+        Phase 2 (phase2_trigger_r+):
+            Trail with EMA + swing low, whichever is tighter.
+            ExitAction carries metadata={'exit_phase': 'phase2'}.
+
+        Stop enforcement fires first in both phases (bug-1 fix).
+        Subclasses inherit this; profile-specific params come from self.params.
+        """
+        actions = []
+        ema_period = self.params.get('trail_ema_period', 20)
+        phase2_r   = self.params.get('phase2_start_r',  2.0)
+
+        for ticker, position in context.positions.items():
+            try:
+                current = context.get_current_price(ticker)
+            except Exception:
+                continue
+            if current is None:
+                continue
+
+            try:
+                hist = context.get_bars(ticker, lookback_days=60)
+            except Exception:
+                continue
+            if hist is None or len(hist) < max(ema_period, 20):
+                continue
+
+            # R-multiple relative to initial stop (needed for all branches)
+            initial_risk = position.entry_price - position.stop_price
+            current_gain = current - position.entry_price
+            r_multiple   = current_gain / initial_risk if initial_risk > 0 else 0
+
+            # ── Stop enforcement first (Phase 1 bug-fix) ──────────────────
+            if current <= position.stop_price:
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.EXIT,
+                    reason='STOP_HIT',
+                    exit_price=current,
+                    r_multiple=r_multiple,
+                    metadata={'exit_phase': getattr(position, 'exit_phase', 'phase1')},
+                ))
+                continue
+
+            # ── Phase 1: below phase2_r — ratchet to swing lows ───────────
+            if r_multiple < phase2_r:
+                higher_low = self._find_recent_higher_low(
+                    hist, position.stop_price, current
+                )
+                if higher_low:
+                    actions.append(ExitAction(
+                        ticker=ticker,
+                        action=ExitActionType.UPDATE_STOP,
+                        reason='HIGHER_LOW',
+                        new_stop_price=higher_low,
+                        new_stop_type='TRAIL_VCP_HL',
+                        r_multiple=r_multiple,
+                        metadata={'exit_phase': 'phase1'},
+                    ))
+                else:
+                    actions.append(ExitAction(
+                        ticker=ticker,
+                        action=ExitActionType.HOLD,
+                        reason='PHASE1_WAITING',
+                        r_multiple=r_multiple,
+                        metadata={'exit_phase': 'phase1'},
+                    ))
+                continue
+
+            # ── Phase 2: phase2_r+ — trail EMA + swing low ────────────────
+            ema = hist['Close'].ewm(span=ema_period, adjust=False).mean().iloc[-1]
+            swing_low = self._find_last_swing_low(hist)
+
+            candidates = [ema, position.stop_price]
+            if swing_low:
+                candidates.append(swing_low)
+            new_stop = max(candidates)
+
+            if new_stop > position.stop_price:
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.UPDATE_STOP,
+                    reason=f'TRAIL_EMA{ema_period}',
+                    new_stop_price=new_stop,
+                    new_stop_type=f'TRAIL_EMA{ema_period}_R{r_multiple:.1f}',
+                    r_multiple=r_multiple,
+                    metadata={'exit_phase': 'phase2'},
+                ))
+            else:
+                actions.append(ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.HOLD,
+                    reason=f'TRAILING_R{r_multiple:.1f}',
+                    r_multiple=r_multiple,
+                    metadata={'exit_phase': 'phase2'},
+                ))
+
+        return actions
 
 
 @register_strategy('vcp_large_cap')
@@ -332,100 +465,7 @@ class VCPBreakoutLargeCap(VCPBreakoutBase):
 
         return signals
 
-    def manage_exits(self, context: StrategyContext) -> List[ExitAction]:
-        """
-        VCP Exit Management — Two-Phase System.
-
-        Phase 1 (Until 2R): Hold initial stop; ratchet up to confirmed swing lows.
-        Phase 2 (2R+):      Trail with EMA and swing low, whichever is tighter.
-        Stop enforcement happens first, before phase logic, in both phases.
-        """
-        actions = []
-
-        for ticker, position in context.positions.items():
-            try:
-                current = context.get_current_price(ticker)
-            except Exception:
-                continue
-            if current is None:
-                continue
-
-            try:
-                hist = context.get_bars(ticker, lookback_days=60)
-            except Exception:
-                continue
-            if hist is None or len(hist) < 20:
-                continue
-
-            # R-multiple (needed for all branches including stop check)
-            initial_risk = position.entry_price - position.stop_price
-            current_gain = current - position.entry_price
-            r_multiple = current_gain / initial_risk if initial_risk > 0 else 0
-
-            # Bug 1 fix: enforce stop before any phase logic.
-            # Without this, a stock dropping through its stop in Phase 1
-            # only gets HOLD, never EXIT.
-            if current <= position.stop_price:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.EXIT,
-                    reason='STOP_HIT',
-                    exit_price=current,
-                    r_multiple=r_multiple
-                ))
-                continue
-
-            # Phase 1: below 2R — hold initial stop, ratchet to swing lows
-            if r_multiple < self.params.get('phase2_start_r', 2.0):
-                higher_low = self._find_recent_higher_low(
-                    hist, position.stop_price, current
-                )
-                if higher_low:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.UPDATE_STOP,
-                        reason='HIGHER_LOW',
-                        new_stop_price=higher_low,
-                        new_stop_type='TRAIL_VCP_HL',
-                        r_multiple=r_multiple
-                    ))
-                else:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.HOLD,
-                        reason='PHASE1_WAITING',
-                        r_multiple=r_multiple
-                    ))
-                continue
-
-            # Phase 2: 2R+ — trail with EMA and most recent swing low
-            ema_period = self.params.get('trail_ema_period', 20)
-            ema = hist['Close'].ewm(span=ema_period, adjust=False).mean().iloc[-1]
-            swing_low = self._find_last_swing_low(hist)
-
-            candidates = [ema, position.stop_price]
-            if swing_low:
-                candidates.append(swing_low)
-            new_stop = max(candidates)
-
-            if new_stop > position.stop_price:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.UPDATE_STOP,
-                    reason=f'TRAIL_EMA{ema_period}',
-                    new_stop_price=new_stop,
-                    new_stop_type=f'TRAIL_EMA{ema_period}_R{r_multiple:.1f}',
-                    r_multiple=r_multiple
-                ))
-            else:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.HOLD,
-                    reason=f'TRAILING_R{r_multiple:.1f}',
-                    r_multiple=r_multiple
-                ))
-
-        return actions
+    # manage_exits() inherited from VCPBreakoutBase
 
     # Lifecycle hooks
     def on_market_regime_change(self, old_regime: str, new_regime: str, context: StrategyContext):
@@ -571,96 +611,7 @@ class VCPBreakoutHighOctane(VCPBreakoutBase):
 
         return signals
 
-    def manage_exits(self, context: StrategyContext) -> List[ExitAction]:
-        """
-        High-Octane Exit Management.
-
-        Same two-phase system but trails with 10-day EMA (tighter)
-        instead of 20-day EMA for more volatile names.
-        """
-        actions = []
-
-        for ticker, position in context.positions.items():
-            try:
-                current = context.get_current_price(ticker)
-            except Exception:
-                continue
-            if current is None:
-                continue
-
-            try:
-                hist = context.get_bars(ticker, lookback_days=60)
-            except Exception:
-                continue
-            if hist is None or len(hist) < 10:
-                continue
-
-            initial_risk = position.entry_price - position.stop_price
-            current_gain = current - position.entry_price
-            r_multiple = current_gain / initial_risk if initial_risk > 0 else 0
-
-            # Bug 1 fix: enforce stop before any phase logic
-            if current <= position.stop_price:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.EXIT,
-                    reason='STOP_HIT',
-                    exit_price=current,
-                    r_multiple=r_multiple
-                ))
-                continue
-
-            # Phase 1: below 2R — hold initial stop, ratchet to swing lows
-            if r_multiple < self.params.get('phase2_start_r', 2.0):
-                higher_low = self._find_recent_higher_low(
-                    hist, position.stop_price, current
-                )
-                if higher_low:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.UPDATE_STOP,
-                        reason='HIGHER_LOW',
-                        new_stop_price=higher_low,
-                        new_stop_type='TRAIL_VCP_HL',
-                        r_multiple=r_multiple
-                    ))
-                else:
-                    actions.append(ExitAction(
-                        ticker=ticker,
-                        action=ExitActionType.HOLD,
-                        reason='PHASE1_WAITING',
-                        r_multiple=r_multiple
-                    ))
-                continue
-
-            # Phase 2: 2R+ — trail with EMA and most recent swing low
-            ema_period = self.params.get('trail_ema_period', 10)
-            ema = hist['Close'].ewm(span=ema_period, adjust=False).mean().iloc[-1]
-            swing_low = self._find_last_swing_low(hist)
-
-            candidates = [ema, position.stop_price]
-            if swing_low:
-                candidates.append(swing_low)
-            new_stop = max(candidates)
-
-            if new_stop > position.stop_price:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.UPDATE_STOP,
-                    reason=f'TRAIL_EMA{ema_period}',
-                    new_stop_price=new_stop,
-                    new_stop_type=f'TRAIL_EMA{ema_period}_R{r_multiple:.1f}',
-                    r_multiple=r_multiple
-                ))
-            else:
-                actions.append(ExitAction(
-                    ticker=ticker,
-                    action=ExitActionType.HOLD,
-                    reason=f'TRAILING_R{r_multiple:.1f}',
-                    r_multiple=r_multiple
-                ))
-
-        return actions
+    # manage_exits() inherited from VCPBreakoutBase (uses trail_ema_period=10 from YAML/params)
 
     def on_market_regime_change(self, old_regime: str, new_regime: str, context: StrategyContext):
         """React to regime changes."""

@@ -32,6 +32,13 @@ SCANS_DIR = Path(__file__).parent.parent / 'scans'
 
 _W = 84  # terminal width target
 
+# Pivot source badge labels — shown after distance string
+_SOURCE_LABEL: dict = {
+    'manual':         'm',   # set explicitly in watchlist Pivot_Price column
+    'vcp_contraction': 'v',  # derived from VCP contraction pattern
+    'range_20d':      'r',   # 20-day high proxy (backtest default)
+}
+
 
 def _thick(char: str = '━') -> str:
     return char * _W
@@ -44,10 +51,18 @@ def _sec(label: str) -> str:
     return f"── {label} {'─' * pad}"
 
 
-def _fmt_dist(d: float) -> str:
-    """'+0.4%↑' / '-1.2%↓' distance string."""
+def _fmt_dist(d: Optional[float], source: str = 'none') -> str:
+    """'+0.4%↑[m]' / '-1.2%↓' / '—' distance string.
+
+    Returns '—' when no pivot is set (d is None).
+    Appends source badge when source is in _SOURCE_LABEL.
+    """
+    if d is None:
+        return '—'
     arrow = '↑' if d > 0 else '↓' if d < 0 else '→'
-    return f"{'+' if d > 0 else ''}{d:.1f}%{arrow}"
+    badge = _SOURCE_LABEL.get(source, '')
+    suffix = f'[{badge}]' if badge else ''
+    return f"{'+' if d > 0 else ''}{d:.1f}%{arrow}{suffix}"
 
 
 def _fmt_earnings(days: Optional[int]) -> str:
@@ -82,9 +97,10 @@ _DIV = (
 def _row(a: Dict) -> str:
     days = a.get('earnings_days')
     s2_str    = f"{a['stage2']}/10"
-    dist_str  = _fmt_dist(a['dist_to_pivot'])
+    dist_str  = _fmt_dist(a.get('dist_to_pivot'), a.get('pivot_source', 'none'))
     price_str = f"${a['current']:.2f}"
-    pivot_str = f"${a['pivot']:.2f}"
+    pv        = a.get('pivot')
+    pivot_str = f"${pv:.2f}" if pv is not None else '—'
     earn_str  = _fmt_earnings(days)
     return (
         f"  {a['ticker']:<8} {a['entry_score']:<6.0f} {s2_str:<6} "
@@ -226,7 +242,8 @@ class EntrySignalScanner:
             below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Pivot & sector from watchlist
-            pivot = current
+            pivot: Optional[float] = None  # None = no pivot set; avoids score inflation
+            pivot_source: str = 'none'
             sector = 'Unknown'
             try:
                 df = pd.read_csv(WATCHLIST_PATH)
@@ -236,6 +253,7 @@ class EntrySignalScanner:
                         pv = row['Pivot_Price'].values[0]
                         if not pd.isna(pv):
                             pivot = float(pv)
+                            pivot_source = 'manual'
                     if 'Sector' in row.columns:
                         sv = row['Sector'].values[0]
                         if not pd.isna(sv):
@@ -262,7 +280,8 @@ class EntrySignalScanner:
                 atr = current * 0.02
 
             atr_stop     = current - (2 * atr)
-            atr_risk_pct = abs((atr_stop - pivot) / pivot) * 100 if pivot > atr_stop else 999.0
+            # Risk is always measured from current price to stop (not pivot)
+            atr_risk_pct = abs((current - atr_stop) / current) * 100 if atr_stop < current else 999.0
 
             # MA Support Stop
             ma_support_stop = None
@@ -278,8 +297,8 @@ class EntrySignalScanner:
                 if ma_result:
                     ma_support_stop = ma_result['ma_support_stop']
                     ma_risk_pct = (
-                        abs((ma_support_stop - pivot) / pivot) * 100
-                        if pivot > ma_support_stop else 999.0
+                        abs((current - ma_support_stop) / current) * 100
+                        if ma_support_stop < current else 999.0
                     )
 
             # Use tighter (higher) stop
@@ -294,12 +313,18 @@ class EntrySignalScanner:
             risk_per_share = current - stop
             target = current + (2 * risk_per_share) if risk_per_share > 0 else current * 1.04
 
-            dist_to_pivot = ((pivot - current) / current) * 100
+            # dist_to_pivot: None when no pivot set (avoids phantom +25 proximity score)
+            dist_to_pivot: Optional[float] = (
+                ((pivot - current) / current) * 100 if pivot is not None else None
+            )
+            # 999.0 sentinel: get_entry_score will award 0 proximity points
+            dist_for_scoring = dist_to_pivot if dist_to_pivot is not None else 999.0
+
             spy_return_6m = self._get_spy_return_6m()
             rs_6m = ret_6m - spy_return_6m
 
             entry_score = get_entry_score(
-                stage2, risk_pct, dist_to_pivot, ret_6m, rs_6m,
+                stage2, risk_pct, dist_for_scoring, ret_6m, rs_6m,
                 below_50ma=below_50ma, below_20ma=below_20ma
             )
 
@@ -316,7 +341,8 @@ class EntrySignalScanner:
             return {
                 'ticker':          ticker,
                 'current':         current,
-                'pivot':           pivot,
+                'pivot':           pivot,           # Optional[float] — None = not set
+                'pivot_source':    pivot_source,    # 'manual' | 'vcp_contraction' | 'none'
                 'stop':            stop,
                 'target':          target,
                 'sector':          sector,
@@ -413,8 +439,9 @@ class EntrySignalScanner:
             days         = a.get('earnings_days')
             is_near_earn = days is not None and 1 <= days <= 7
             score_ok     = a['entry_score'] >= entry_threshold
-            dist_ok      = -max_dist <= a['dist_to_pivot'] <= max_dist
-            dist_close   = abs(a['dist_to_pivot']) <= 3.0
+            _dist        = a['dist_to_pivot']   # Optional[float]
+            dist_ok      = _dist is not None and -max_dist <= _dist <= max_dist
+            dist_close   = _dist is not None and abs(_dist) <= 3.0
 
             # Near-earnings tickers (score ≥40) get their own section
             # regardless of distance / score tier
@@ -550,6 +577,7 @@ class EntrySignalScanner:
             f"  score ≥{entry_threshold}  ·  dist ≤±{max_dist}%  ·  "
             f"{self.mode}  ·  profile: {profile_str}"
         )
+        print(f"  pivot src: [m]=manual  [v]=vcp  [r]=range20d  (—=no pivot set)")
         print(_thick('═'))
         print()
 
@@ -605,8 +633,8 @@ class EntrySignalScanner:
                     f'<td>{s["ticker"]}</td>'
                     f'<td>{s["entry_score"]:.0f}</td>'
                     f'<td>${s["current"]:.2f}</td>'
-                    f'<td>${s["pivot"]:.2f}</td>'
-                    f'<td>{s["dist_to_pivot"]:+.1f}%</td>'
+                    f'<td>{"${:.2f}".format(s["pivot"]) if s.get("pivot") is not None else "—"}</td>'
+                    f'<td>{"{:+.1f}%".format(s["dist_to_pivot"]) if s.get("dist_to_pivot") is not None else "—"}</td>'
                     f'<td>{s["risk_pct"]:.1f}%</td>'
                     f'<td>{s["stage2"]}/10</td>'
                     f'<td>{s["sector"]}</td>'
@@ -716,7 +744,11 @@ class EntrySignalScanner:
                 print(f"\n---\n\nENTRY SETUP\n")
                 print("| Level | Price |")
                 print("|:------|:------|")
-                print(f"| Pivot | ${analysis['pivot']:.2f} |")
+                _pv = analysis.get('pivot')
+                _src = analysis.get('pivot_source', 'none')
+                _src_badge = f' [{_SOURCE_LABEL[_src]}]' if _src in _SOURCE_LABEL else ''
+                pivot_display = f"${_pv:.2f}{_src_badge}" if _pv is not None else '— (no pivot set)'
+                print(f"| Pivot | {pivot_display} |")
                 print(f"| Stop | ${analysis['stop']:.2f} ({analysis['stop_type']}) |")
                 print(f"| Target | ${analysis['target']:.2f} |")
                 print(f"| Risk % | {analysis['risk_pct']:.1f}% |")

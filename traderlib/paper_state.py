@@ -68,6 +68,7 @@ class Position:
     initial_risk: float
     sector: str
     current_stop_type: str = 'HARD'  # HARD, BREAKEVEN, EMA10, EMA21
+    exit_phase: str = 'phase1'  # 'phase1' = ratchet mode | 'phase2' = EMA trail mode
     exit_price: Optional[float] = None
     exit_date: Optional[str] = None
     exit_reason: Optional[str] = None
@@ -433,11 +434,23 @@ class PaperState:
 
         return pos
 
-    def update_stop(self, ticker: str, new_stop: float, stop_type: str):
-        """Update stop price for a position."""
+    def update_stop(self, ticker: str, new_stop: float, stop_type: str,
+                    exit_phase: Optional[str] = None):
+        """Update stop price for a position.
+
+        Args:
+            ticker:     Position symbol.
+            new_stop:   New stop price.
+            stop_type:  Label stored in current_stop_type (e.g. 'TRAIL_EMA20').
+            exit_phase: Optional phase transition ('phase1' | 'phase2').
+                        When supplied the position's exit_phase is updated so
+                        _print_status can show the correct phase badge.
+        """
         if ticker in self.positions:
             self.positions[ticker].stop_price = new_stop
             self.positions[ticker].current_stop_type = stop_type
+            if exit_phase is not None:
+                self.positions[ticker].exit_phase = exit_phase
             self.save_state()
 
     def _validate_trade(self, position: Position) -> tuple[bool, str]:

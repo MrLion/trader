@@ -42,7 +42,7 @@ stop_loss:
   # - "atr_or_ma_support": Use max(2x ATR, recent low, MA support cluster)
   # - "percent": Fixed percentage below entry
   # - "pivot_based": Based on pivot/support levels
-  method: "atr_or_support"
+  # (method key removed — stop method is now chosen per-strategy in config/strategies/)
 
   # When method is "percent"
   fixed_pct: 0.07  # 7% below entry
@@ -190,9 +190,12 @@ profiles:
       min_cluster_size: 3  # Require 3 MAs in cluster
 
 # =============================================================================
-# VCP (Volatility Contraction Pattern) CONFIGURATION
+# VCP (Volatility Contraction Pattern) CONFIGURATION  [DEPRECATED]
 # =============================================================================
-# Profile-specific settings for VCP breakout strategy
+# These values are now superseded by config/strategies/vcp_large_cap.yaml and
+# config/strategies/vcp_high_octane.yaml.  VCPBreakoutBase._load_profile_params()
+# reads the per-strategy YAML first; this block is only consulted as a fallback
+# for any keys not present in the YAML.  Will be removed in a future release.
 vcp:
   # Profile 1: Large-Cap (Institutional Quality)
   large_cap:
