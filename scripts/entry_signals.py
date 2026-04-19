@@ -242,7 +242,7 @@ class EntrySignalScanner:
             below_20ma = not s2_details['criteria']['price_above_20ma']
 
             # Pivot & sector from watchlist
-            pivot: Optional[float] = None  # None = no pivot set; avoids score inflation
+            pivot: Optional[float] = None
             pivot_source: str = 'none'
             sector = 'Unknown'
             try:
@@ -264,6 +264,13 @@ class EntrySignalScanner:
                     severity=TradingExceptionHandler.WARNING,
                     ticker=ticker, file=str(WATCHLIST_PATH)
                 )
+
+            # Fallback: 20-day range high as pivot proxy (mirrors backtest logic).
+            # Ensures every ticker has a real distance-to-pivot for scoring and
+            # section categorisation. Manual pivot takes priority when set.
+            if pivot is None:
+                pivot = float(hist['High'].tail(20).max())
+                pivot_source = 'range_20d'
 
             ret_6m = 0.0
             if len(hist) >= 130:
@@ -522,7 +529,7 @@ class EntrySignalScanner:
         )
         _print_section(
             "📈", "EXTENDED",
-            f"score ≥{entry_threshold}, >3% from pivot",
+            f"score ≥{entry_threshold}, >3% from pivot  ([r] = 20d high proxy)",
             extended
         )
 
