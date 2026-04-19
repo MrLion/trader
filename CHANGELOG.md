@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.2.8] — 2026-04-19
+## [0.6.2.9] — 2026-04-18
+
+### Added
+- **Earnings filter — blocks entries and forces exits around earnings events** (live/paper trading)
+  - New module `traderlib/earnings_calendar.py`: `EarningsCalendar` class fetches upcoming earnings dates from FMP `/stable/earnings` API. In-memory cache per ticker (one call per session). Rate-limited to 300 calls/min matching FMP paid plan. Fail-open: if FMP is unreachable or `FMP_API_KEY` is unset, all gates are skipped.
+  - **Entry blackout**: `is_earnings_blackout(ticker, today)` — returns `True` when today equals the earnings date. Applied in `entry_signals.py` and `paper_engine_alpaca.py` `_analyze_ticker()`: prints `📅 {ticker}: Skipping — earnings today` and skips signal generation.
+  - **Force exit**: `should_force_exit(ticker, today)` — returns `True` when today equals the trading day before earnings (all reports treated as BMC/pre-market since FMP stable API does not expose AMC/BMC timing). Applied in `paper_engine_alpaca.py` `_check_exits()` before normal stop/target logic: exits position with reason `EARNINGS_EXIT`.
+  - `FMP_API_KEY` loaded from environment variable (not config file). Set in shell profile or `.env` before starting the paper engine or scanner.
+  - Backtest path not yet gated (historical earnings data requires a different FMP query pattern; deferred).
+
+## [0.6.2.8] — 2026-04-18
 
 ### Added
 - **VIX gate — blocks new entries when volatility exceeds `max_vix`** (`config/risk_config.yaml` → `market.max_vix`)

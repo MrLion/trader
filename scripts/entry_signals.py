@@ -15,6 +15,7 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
+from traderlib.earnings_calendar import EarningsCalendar
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfigManager
 from traderlib.trading_exceptions import TradingExceptionHandler
@@ -35,6 +36,7 @@ class EntrySignalScanner:
         self.risk_config = self.risk_manager.get_config()
         self.alpaca = AlpacaClient(mode=mode)
         self.spy_cache = {'date': None, 'return_6m': 0.0, 'price': None}
+        self.earnings_calendar = EarningsCalendar()
         print("✅ Scanner ready")
 
     def _get_spy_return_6m(self) -> float:
@@ -132,6 +134,12 @@ class EntrySignalScanner:
 
             current = self._get_current_price(ticker)
             if current is None:
+                return None
+
+            # Earnings blackout — skip entry on earnings day
+            from datetime import date as _date
+            if self.earnings_calendar.is_earnings_blackout(ticker, _date.today()):
+                print(f"   📅 {ticker}: Skipping — earnings today")
                 return None
 
             # Calculate Stage 2 score and MA flags

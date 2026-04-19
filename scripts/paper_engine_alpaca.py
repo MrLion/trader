@@ -18,6 +18,7 @@ import pytz
 sys.path.insert(0, str(Path(__file__).parent))
 
 from traderlib.alpaca_client import AlpacaClient
+from traderlib.earnings_calendar import EarningsCalendar
 from traderlib.paper_state import PaperState, Position, TRADES_FILE
 from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
 from traderlib.order_manager import OrderManager, OrderStatus
@@ -75,6 +76,9 @@ class AlpacaPaperEngine:
 
         # Pass risk config to ExitEngine
         self.exits = ExitEngine(risk_config=self.risk_config)
+
+        # Earnings calendar — gates entries and forces exits before earnings events
+        self.earnings_calendar = EarningsCalendar()
 
         # Strategy plugin (default uses legacy entry logic)
         self.strategy = self._load_strategy(strategy)
@@ -685,6 +689,12 @@ class AlpacaPaperEngine:
         if ticker in self.signaled_tickers:
             return None
 
+        # Earnings blackout — no new entry on earnings date
+        from datetime import date as _date
+        if self.earnings_calendar.is_earnings_blackout(ticker, _date.today()):
+            print(f"   📅 {ticker}: Skipping — earnings today")
+            return None
+
         try:
             # Get historical data from Alpaca (uses configured historical_days, default 365)
             hist = self.alpaca.get_historical_bars(ticker)
@@ -820,7 +830,24 @@ class AlpacaPaperEngine:
 
     async def _check_exits(self):
         """Check all open positions for exits."""
+        from datetime import date as _date
+        today = _date.today()
+
         for ticker in list(self.state.positions.keys()):
+            # Earnings exit — takes priority over stop/target, even on losses
+            if self.earnings_calendar.should_force_exit(ticker, today):
+                current_price = await asyncio.to_thread(self._get_current_price, ticker)
+                exit_price = current_price or self.state.positions[ticker].entry_price
+                earnings_signal = ExitSignal(
+                    should_exit=True,
+                    reason='EARNINGS_EXIT',
+                    exit_price=exit_price,
+                    r_multiple=0.0,
+                )
+                print(f"   📅 {ticker}: Exiting before earnings — EARNINGS_EXIT")
+                await self._execute_exit(ticker, earnings_signal)
+                continue
+
             # Run blocking price fetch in thread
             current_price = await asyncio.to_thread(self._get_current_price, ticker)
             if current_price is None:
