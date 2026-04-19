@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2.7] — 2026-04-18
+
+### Fixed
+- **VCP exits and stop updates silently no-ops** — `traderlib/strategies/__init__.py` defined its own `ExitActionType` and `ExitAction` classes, duplicating those in `paper_exits`. The backtest engine imports from `paper_exits`; VCP strategies imported from `strategies`. Because Python enum identity is class-bound, `action.action == ExitActionType.UPDATE_STOP` always evaluated `False` across the two class hierarchies — meaning `_apply_exit_actions` never applied any stop updates and never queued any EXIT fills. Every VCP position held to year-end regardless of stop hits. Fix: removed duplicate definitions from `strategies/__init__.py`; the module now re-exports `ExitAction` and `ExitActionType` directly from `paper_exits`, ensuring a single canonical class identity across all callers.
+
 ## [0.6.2.6] — 2026-04-18
 
 ### Fixed

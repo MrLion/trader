@@ -7,22 +7,14 @@ with auto-discovery registry for pluggable strategies.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
-from enum import Enum
 from typing import Dict, List, Optional, Type, Any, Protocol
 
 import pandas as pd
 
-
-# ============ Exit Action Types ============
-
-class ExitActionType(Enum):
-    """Exit action types for type-safe exit handling.
-
-    Used with ExitAction for atomic exit decisions.
-    """
-    EXIT = "exit"              # Full position exit
-    UPDATE_STOP = "update_stop"  # Stop loss update only
-    HOLD = "hold"              # No action
+# ExitAction and ExitActionType are the canonical types from paper_exits.
+# Import here so all strategy code uses the same class identity —
+# the backtest engine also imports from paper_exits, so enum comparisons work.
+from traderlib.paper_exits import ExitAction, ExitActionType  # noqa: F401
 
 
 # ============ Signal Dataclasses ============
@@ -52,33 +44,6 @@ class EntrySignal:
     sector: str = 'Unknown'
     entry_score: int = 0
     stage2_score: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class ExitAction:
-    """Unified exit action — atomic exit decision.
-
-    Single method returns one action: EXIT, UPDATE_STOP, or HOLD.
-    Replaces ambiguous should_exit flag pattern.
-
-    Attributes:
-        ticker: Stock symbol
-        action: ExitActionType enum (EXIT, UPDATE_STOP, or HOLD)
-        reason: Human-readable reason for the action
-        exit_price: Price for EXIT actions
-        r_multiple: Current R multiple (for trailing logic)
-        new_stop_price: New stop price for UPDATE_STOP actions
-        new_stop_type: Type of stop (e.g., 'TRAIL_EMA10', 'BREAKEVEN')
-        metadata: Strategy-specific additional data
-    """
-    ticker: str
-    action: ExitActionType
-    reason: str
-    exit_price: Optional[float] = None
-    r_multiple: float = 0.0
-    new_stop_price: Optional[float] = None
-    new_stop_type: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -247,12 +212,6 @@ def list_strategies() -> List[str]:
     """List all registered strategy names."""
     return list(STRATEGY_REGISTRY.keys())
 
-
-# Re-export ExitAction for backward compatibility with paper_exits
-from traderlib.paper_exits import ExitAction as PaperExitAction
-
-# Verify ExitAction compatibility
-assert ExitAction is not None, "ExitAction must be defined"
 
 # Import and register strategy implementations
 # These imports trigger the @register_strategy decorators
