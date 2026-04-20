@@ -1,0 +1,17 @@
+# Backtest-specific configuration
+# These settings control backtest behavior and are separate from live trading risk config.
+
+# =============================================================================
+# EARNINGS FILTER CONFIGURATION
+# =============================================================================
+# Opt-in earnings filtering for backtest. When enabled:
+# - Blocks new entries on earnings day
+# - Forces exits the trading day before earnings
+#
+# Requires: FMP_API_KEY environment variable set
+# Rate limit: 300 API calls/minute (FMP paid plan)
+
+earnings:
+  enable_filter: false           # Set to true to enable earnings gating
+  cache_dir: data/earnings_cache  # Directory to cache earnings data
+  cache_ttl_days: 30              # Refresh cache after N days

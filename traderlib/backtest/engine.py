@@ -21,6 +21,7 @@ from typing import Callable, Optional
 import pandas as pd
 
 from traderlib.backtest.data_provider import DataFrameProvider
+from traderlib.backtest.earnings_provider import HistoricalEarningsProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig, FillResult
 from traderlib.backtest.state import BacktestState, BacktestPosition, TradeRecord
 from traderlib.backtest.strategy import Strategy, EntrySignal, BacktestStrategyContext
@@ -43,6 +44,7 @@ class BacktestConfig:
     max_open_positions: int = 10
     on_progress: Optional[Callable] = None
     progress_interval: int = 1
+    enable_earnings_filter: bool = False  # Opt-in earnings gating
 
 
 @dataclass
@@ -105,12 +107,9 @@ class BacktestEngine:
         # VIX daily close cache: {date: float} — populated at run() start via yfinance
         self._vix_cache: dict[date, float] = {}
 
-        # Detect interface: legacy (Stage2MomentumStrategy) vs unified (VCP strategies)
-        # Legacy interface: evaluate_exits(sim_date, positions, data_provider, risk_config)
-        #                   evaluate_entries(sim_date, positions, data_provider, equity, risk_config)
-        # Unified interface: manage_exits(context) / evaluate_entries(context: StrategyContext)
-        # Detection: legacy strategies implement evaluate_exits(); unified strategies do not.
-        self._uses_legacy_interface = hasattr(strategy, 'evaluate_exits') and callable(getattr(strategy, 'evaluate_exits'))
+        # Earnings provider — initialized if earnings filter enabled
+        self._earnings_provider: Optional[HistoricalEarningsProvider] = None
+        self._earnings_exits: set[str] = set()  # Track tickers with earnings exits
 
     def run(self) -> BacktestResult:
         """Execute the backtest day by day.
@@ -186,6 +185,19 @@ class BacktestEngine:
         except Exception:
             pass  # VIX unavailable — gate fails open (no entries blocked)
 
+        # Prefetch earnings data if filter enabled
+        if self.config.enable_earnings_filter and self.config.tickers:
+            try:
+                self._earnings_provider = HistoricalEarningsProvider()
+                # Fetch all historical earnings (no date filtering needed)
+                self._earnings_provider.prefetch(
+                    self.config.tickers,
+                    self.config.start_date,
+                    self.config.end_date
+                )
+            except Exception:
+                pass  # Fail open - continue without earnings data
+
         # Collect dropped tickers from provider
         tickers_dropped = []
         if hasattr(self.data_provider, 'tickers_dropped'):
@@ -212,15 +224,31 @@ class BacktestEngine:
                     for ticker, bp in state.positions.items()
                 }
 
-                # Get exit actions from strategy
-                if self._uses_legacy_interface:
-                    exit_actions = self.strategy.evaluate_exits(
-                        sim_date, current_positions, self.data_provider,
-                        self._risk_config
-                    )
-                else:
-                    context = self._build_context(sim_date, current_positions, state.equity)
-                    exit_actions = self.strategy.manage_exits(context)
+                # Initialize exit actions list
+                exit_actions: list[ExitAction] = []
+
+                # Step 2a: Earnings exits (highest priority - before strategy exits)
+                self._earnings_exits.clear()
+                if self._earnings_provider:
+                    for ticker in list(current_positions.keys()):
+                        if self._earnings_provider.should_force_exit(
+                            ticker, sim_date, trading_days
+                        ):
+                            self._earnings_exits.add(ticker)
+                            exit_actions.append(ExitAction(
+                                ticker=ticker,
+                                action=ExitActionType.EXIT,
+                                reason='EARNINGS_EXIT',
+                            ))
+
+                # Get exit actions from strategy (unified interface)
+                context = self._build_context(sim_date, current_positions, state.equity)
+                strategy_exit_actions = self.strategy.manage_exits(context)
+
+                # Add strategy exits, filtering out any tickers already in earnings_exits
+                for action in strategy_exit_actions:
+                    if action.ticker not in self._earnings_exits:
+                        exit_actions.append(action)
 
                 # Apply exit actions: handle EXIT and UPDATE_STOP
                 self._apply_exit_actions(state, exit_actions)
@@ -242,7 +270,7 @@ class BacktestEngine:
 
                 # Step 4: Evaluate entries (signals fill at T+1)
                 # VIX gate: skip new entries when volatility exceeds configured max.
-                # Applies to both legacy and unified strategies — exits still run normally.
+                # Exits still run normally.
                 vix_today = self._vix_cache.get(sim_date)
                 max_vix = (
                     self._risk_config.market.max_vix
@@ -253,14 +281,16 @@ class BacktestEngine:
 
                 if vix_blocked:
                     entry_signals = []
-                elif self._uses_legacy_interface:
-                    entry_signals = self.strategy.evaluate_entries(
-                        sim_date, current_positions, self.data_provider,
-                        state.equity, self._risk_config
-                    )
                 else:
                     context = self._build_context(sim_date, current_positions, state.equity, vix_today)
                     entry_signals = self.strategy.evaluate_entries(context)
+
+                    # Earnings blackout: filter out entries on earnings day
+                    if self._earnings_provider:
+                        entry_signals = [
+                            s for s in entry_signals
+                            if not self._earnings_provider.is_earnings_blackout(s.ticker, sim_date)
+                        ]
 
                 # Queue signals for T+1 execution
                 self._pending_entries = entry_signals

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.0] — 2026-04-19
+
+### Added
+- **Earnings filtering in backtest** — Historical earnings gating for backtest simulations, matching live/paper trading behavior.
+  - New `HistoricalEarningsProvider` class fetches earnings dates from FMP `/stable/earnings` endpoint
+  - Disk caching with TTL (default 30 days) to avoid repeated API calls
+  - Rate limited to 300 req/min (FMP paid plan)
+  - Entry blackout: blocks new entries on earnings day
+  - Force exit: exits positions the trading day before earnings (BMC assumption)
+  - Fail-open: if FMP unavailable or key missing, trading continues ungated
+  - Config via `config/backtest_config.yaml` — opt-in with `earnings.enable_filter: true`
+
+### Changed
+- **Strategy interface unified** — `Stage2MomentumStrategy` migrated from legacy interface to unified `StrategyContext` interface.
+  - `evaluate_entries()` now accepts `StrategyContext` parameter
+  - `evaluate_exits()` renamed to `manage_exits()` with `StrategyContext` signature
+  - Removed `_uses_legacy_interface` detection from `BacktestEngine`
+  - All strategies now use unified interface (consistent with VCP strategies)
+
+### Files Added
+- `traderlib/backtest/earnings_provider.py` — Historical earnings provider with caching
+- `config/backtest_config.yaml` — Backtest-specific configuration
+
 ## [0.6.5.1] — 2026-04-19
 
 > ⚠️ **AI fabrication notice** — v0.6.4.0 contained a change invented by Claude Sonnet 4.6 with no basis in any recognised trading methodology. The model presented a made-up concept (`range_20d` — 20-day rolling high as a VCP pivot proxy) as a legitimate fix, confidently committed it, and degraded strategy performance by 63% ($45K → $17K P&L). This release reverts that change.

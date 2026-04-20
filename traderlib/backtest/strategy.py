@@ -75,39 +75,40 @@ class BacktestStrategyContext(StrategyContext):
 
 
 class Strategy(BaseStrategy):
-    """Backtest-compatible Strategy base class.
+    """Backtest-compatible Strategy base class using unified StrategyContext interface.
 
-    Maintains backward compatibility with existing backtest code while
-    supporting the unified StrategyContext interface.
-
-    New strategies should inherit from BaseStrategy (traderlib.strategies.Strategy)
-    directly for cleaner interface.
+    All strategies must implement evaluate_entries(context) and manage_exits(context)
+    using the unified StrategyContext interface.
     """
 
     @abstractmethod
-    def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
-                        data_provider: DataFrameProvider, equity: float,
-                        risk_config: Optional[RiskConfig] = None) -> list[EntrySignal]:
-        """Scan for entry opportunities (legacy interface).
+    def evaluate_entries(self, context: StrategyContext) -> list[EntrySignal]:
+        """Scan for entry opportunities using unified StrategyContext.
 
-        Override this for backtest compatibility, or use evaluate_entries()
-        with StrategyContext for unified interface.
+        Args:
+            context: StrategyContext with data_provider, positions, equity, etc.
+
+        Returns:
+            List of EntrySignal for new positions
         """
         pass
 
     @abstractmethod
-    def evaluate_exits(self, sim_date: date, positions: dict[str, Position],
-                       data_provider: DataFrameProvider,
-                       risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
-        """Evaluate exits for current positions (legacy interface).
+    def manage_exits(self, context: StrategyContext) -> list[ExitAction]:
+        """Manage exits for current positions using unified StrategyContext.
 
-        Returns list[ExitAction] for unified handling.
+        Args:
+            context: StrategyContext with data_provider, positions, etc.
+
+        Returns:
+            List of ExitAction (EXIT, UPDATE_STOP, or HOLD per position)
         """
         pass
 
     def _build_context(self, sim_date: date, positions: dict[str, Position],
                       data_provider: DataFrameProvider, equity: float,
-                      risk_config: Optional[RiskConfig] = None) -> BacktestStrategyContext:
+                      risk_config: Optional[RiskConfig] = None,
+                      vix_current: Optional[float] = None) -> BacktestStrategyContext:
         """Build unified context from backtest parameters."""
         return BacktestStrategyContext(
             data_provider=data_provider,
@@ -115,7 +116,8 @@ class Strategy(BaseStrategy):
             positions=positions,
             equity=equity,
             cash=equity,  # Approximation - backtest tracks cash separately
-            risk_config=risk_config
+            risk_config=risk_config,
+            vix_current=vix_current
         )
 
 
@@ -176,18 +178,19 @@ class Stage2MomentumStrategy(Strategy):
     def side(self) -> str:
         return 'LONG'
 
-    def _get_spy_return(self, data_provider: DataFrameProvider,
-                        as_of: date, lookback_days: int = 130) -> float:
+    def _get_spy_return_from_context(self, context: StrategyContext,
+                                       lookback_days: int = 130) -> float:
         """Get SPY 6-month return for relative strength calculation.
 
         Returns 0.0 if SPY data is unavailable.
         """
+        as_of = context.sim_date
         if as_of in self._spy_return_cache:
             return self._spy_return_cache[as_of]
 
         try:
-            spy_data = data_provider.get_bars('SPY', as_of)
-            if len(spy_data) >= lookback_days:
+            spy_data = context.get_bars('SPY', lookback_days=lookback_days)
+            if spy_data is not None and len(spy_data) >= lookback_days:
                 current = float(spy_data['Close'].iloc[-1])
                 past = float(spy_data['Close'].iloc[-lookback_days])
                 ret = ((current / past) - 1) * 100
@@ -226,12 +229,16 @@ class Stage2MomentumStrategy(Strategy):
         self._sector_cache[ticker] = 'Unknown'
         return 'Unknown'
 
-    def evaluate_entries(self, sim_date: date, positions: dict[str, Position],
-                        data_provider: DataFrameProvider, equity: float,
-                        risk_config: Optional[RiskConfig] = None) -> list[EntrySignal]:
-        """Evaluate entries using Stage 2 momentum criteria."""
-        # Use provided config or instance config
-        config = risk_config or self._risk_config
+    def evaluate_entries(self, context: StrategyContext) -> list[EntrySignal]:
+        """Evaluate entries using Stage 2 momentum criteria.
+
+        Uses unified StrategyContext interface.
+        """
+        # Extract parameters from context
+        sim_date = context.sim_date
+        positions = context.positions
+        equity = context.equity
+        config = context.risk_config or self._risk_config
 
         # Get tickers to scan
         if self.watchlist_df is not None:
@@ -256,11 +263,11 @@ class Stage2MomentumStrategy(Strategy):
                 continue
 
             try:
-                hist = data_provider.get_bars(ticker, sim_date)
+                hist = context.get_bars(ticker, lookback_days=200)
             except Exception:
                 continue
 
-            if len(hist) < 30:
+            if hist is None or len(hist) < 30:
                 continue
 
             current = float(hist['Close'].iloc[-1])
@@ -331,16 +338,14 @@ class Stage2MomentumStrategy(Strategy):
             if len(hist) >= 130:
                 ret_6m = ((current / float(hist['Close'].iloc[-130])) - 1) * 100
 
-            # Relative strength
-            spy_return = self._get_spy_return(data_provider, sim_date)
+            # Relative strength - fetch SPY data via context
+            spy_return = self._get_spy_return_from_context(context)
             rs_6m = ret_6m - spy_return
 
             # Pivot proximity cannot be measured in a historical simulation without
             # live watchlist pivot data. Use dist_to_pivot = 0.0 to neutralise the
             # proximity component — every stock gets the same score, so the factor
-            # does not bias selection. The 20-day high proxy (Phase 4) penalised
-            # base-building setups (below recent high by definition) and rewarded
-            # extended stocks near peaks — the opposite of what the strategy targets.
+            # does not bias selection.
             pivot = current
             dist_to_pivot = 0.0
             risk_pct = abs((stop - current) / current) * 100 if current > stop else 999
@@ -388,45 +393,25 @@ class Stage2MomentumStrategy(Strategy):
 
         return signals
 
-    def evaluate_exits(self, sim_date: date, positions: dict[str, Position],
-                       data_provider: DataFrameProvider,
-                       risk_config: Optional[RiskConfig] = None) -> list[ExitAction]:
-        """Evaluate exits for all held positions.
+    def manage_exits(self, context: StrategyContext) -> list[ExitAction]:
+        """Evaluate exits for all held positions using unified StrategyContext.
 
         Uses ExitEngine.evaluate_exit_action() which returns ExitAction.
         The caller (BacktestEngine) applies actions: EXIT, UPDATE_STOP, or HOLD.
         """
+        positions = context.positions
+
         actions = []
 
         for ticker, position in list(positions.items()):
-            price = data_provider.get_current_price(ticker, sim_date)
+            price = context.get_current_price(ticker)
             if price is None:
                 continue
 
-            hist = data_provider.get_bars(ticker, sim_date)
+            hist = context.get_bars(ticker, lookback_days=50)
             action = self.exit_engine.evaluate_exit_action(
                 position, price, historical_data=hist
             )
             actions.append(action)
 
         return actions
-
-    # Implement unified interface using context adapter
-    def manage_exits(self, context: StrategyContext) -> list[ExitAction]:
-        """Unified exit management using StrategyContext."""
-        return self.evaluate_exits(
-            context.sim_date,
-            context.positions,
-            context.data_provider,
-            context.risk_config
-        )
-
-    def evaluate_entries_unified(self, context: StrategyContext) -> list[EntrySignal]:
-        """Unified entry evaluation using StrategyContext."""
-        return self.evaluate_entries(
-            context.sim_date,
-            context.positions,
-            context.data_provider,
-            context.equity,
-            context.risk_config
-        )
