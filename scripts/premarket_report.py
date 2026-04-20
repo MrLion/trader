@@ -20,9 +20,25 @@ import yfinance as yf
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.stage2_utils import calculate_ma_support_stop
 from traderlib.trading_exceptions import TradingExceptionHandler
+from traderlib.earnings_calendar import EarningsCalendar
 
 # Report output directory
 REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
+
+
+def _format_earnings_badge(days: int | None) -> str:
+    """Format earnings proximity as a badge (matches entry_signals.py)."""
+    if days is None:
+        return '—'
+    if days <= 0:
+        return '⛔ today'
+    if days == 1:
+        return '🚨 1d'
+    if days <= 7:
+        return f'⚠️ {days}d'
+    if days <= 30:
+        return f'📅 {days}d'
+    return '—'
 
 
 def generate_html_report(report_data, output_path):
@@ -123,6 +139,34 @@ def generate_html_report(report_data, output_path):
         </div>
         '''
 
+    # Earnings calendar
+    earnings_html = ""
+    if report_data.get('earnings_today') or report_data.get('earnings_tomorrow'):
+        earnings_rows = ""
+        for stock in report_data.get('earnings_today', []):
+            earnings_rows += f'''
+            <div class="event-item">
+                <span class="event-time">{esc(stock['ticker'])}</span>
+                <span class="event-impact impact-high">⛔</span>
+                <span class="event-name">Reporting TODAY</span>
+            </div>
+            '''
+        for stock in report_data.get('earnings_tomorrow', []):
+            earnings_rows += f'''
+            <div class="event-item">
+                <span class="event-time">{esc(stock['ticker'])}</span>
+                <span class="event-impact impact-high">🚨</span>
+                <span class="event-name">EXIT TODAY - Reports tomorrow</span>
+            </div>
+            '''
+        earnings_html = f'''
+        <div class="section">
+            <h2>Earnings Calendar</h2>
+            <div class="risk-badge risk-high">🔴 Earnings events today - manage positions</div>
+            <div class="events-list">{earnings_rows}</div>
+        </div>
+        '''
+
     # Indices
     indices_html = ""
     for idx in report_data.get('indices', []):
@@ -161,6 +205,8 @@ def generate_html_report(report_data, output_path):
         dist_class = "ready" if abs(stock.get('dist_to_pivot', 99)) < 3 else "close" if abs(stock.get('dist_to_pivot', 99)) < 5 else ""
         dist_sign = '+' if stock.get('dist_to_pivot', 0) > 0 else ''
         tier_priority_class = "tier-1-priority" if stock.get('tier') == '1' else ""
+        earnings_days = stock.get('earnings_days')
+        earnings_badge = _format_earnings_badge(earnings_days)
         watchlist_rows += f'''
         <tr class="{tier_priority_class}">
             <td class="ticker">{esc(stock.get('ticker', ''))}</td>
@@ -173,6 +219,7 @@ def generate_html_report(report_data, output_path):
             <td class="stage2">{stock.get('stage2', 0)}/4</td>
             <td class="momentum">{stock.get('ret_6m', 0):.1f}%</td>
             <td class="sector">{esc(stock.get('sector', ''))}</td>
+            <td class="earnings">{esc(earnings_badge)}</td>
         </tr>
         '''
 
@@ -569,6 +616,8 @@ def generate_html_report(report_data, output_path):
 
         {econ_html}
 
+        {earnings_html}
+
         <div class="section section-indices">
             <h2>Major Indices</h2>
             <div style="overflow-x: auto;">
@@ -593,7 +642,7 @@ def generate_html_report(report_data, output_path):
             <h2>Watchlist Analysis</h2>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Entry Score Tier (1-3)">Tier</abbr></th><th><abbr title="Entry Score (0-100)">Score</abbr></th><th><abbr title="Current Price">Current</abbr></th><th><abbr title="Pivot/Breakout Price">Pivot</abbr></th><th><abbr title="Distance to Pivot Percentage">Dist%</abbr></th><th><abbr title="Risk Percentage from Entry to Stop">Risk%</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th>Sector</th></tr></thead>
+                    <thead><tr><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th><abbr title="Entry Score Tier (1-3)">Tier</abbr></th><th><abbr title="Entry Score (0-100)">Score</abbr></th><th><abbr title="Current Price">Current</abbr></th><th><abbr title="Pivot/Breakout Price">Pivot</abbr></th><th><abbr title="Distance to Pivot Percentage">Dist%</abbr></th><th><abbr title="Risk Percentage from Entry to Stop">Risk%</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th>Sector</th><th><abbr title="Days Until Earnings">Earnings</abbr></th></tr></thead>
                     <tbody>{watchlist_rows}</tbody>
                 </table>
             </div>
@@ -624,13 +673,36 @@ def generate_html_report(report_data, output_path):
 
 
 def load_watchlist():
-    """Load watchlist from CSV with current prices and calculate entry score"""
+    """Load watchlist from CSV with current prices, entry score, and earnings data"""
     watchlist_path = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
-    
+
     if not watchlist_path.exists():
         return None
-    
+
+    # Initialize earnings calendar
+    earnings_cal = EarningsCalendar()
+    today = datetime.now().date()
+
     results = []
+    tickers_to_prefetch = []
+
+    # First pass: collect tickers
+    with open(watchlist_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            ticker = row['Ticker']
+            try:
+                pivot = float(row['Pivot_Price']) if row['Pivot_Price'] else None
+                if pivot:
+                    tickers_to_prefetch.append(ticker)
+            except (ValueError, KeyError):
+                continue
+
+    # Prefetch earnings data for all tickers
+    if tickers_to_prefetch:
+        earnings_cal.prefetch(tickers_to_prefetch)
+
+    # Second pass: analyze tickers
     with open(watchlist_path, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -639,19 +711,23 @@ def load_watchlist():
                 pivot = float(row['Pivot_Price']) if row['Pivot_Price'] else None
                 if not pivot:
                     continue
-                
+
+                # Get earnings data
+                earnings_date = earnings_cal.get_next_earnings(ticker)
+                earnings_days = (earnings_date - today).days if earnings_date else None
+
                 # Get current price and calculate metrics
                 try:
                     stock = yf.Ticker(ticker)
                     hist = stock.history(period='1y')
                     if len(hist) < 200:
                         continue
-                    
+
                     current = hist['Close'].iloc[-1]
-                    
+
                     # Calculate returns
                     ret_6m = (current / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
-                    
+
                     # Calculate Stage 2 score and MA flags using shared 10-point system
                     s2_details = get_stage2_details(hist)
                     stage2 = s2_details['score']
@@ -663,7 +739,7 @@ def load_watchlist():
                     ma50 = hist['Close'].rolling(50).mean().iloc[-1]
                     high_52w = hist['Close'].max()
                     from_high = ((high_52w - current) / high_52w) * 100
-                    
+
                     # ATR for stop
                     high_low = hist['High'] - hist['Low']
                     high_close = abs(hist['High'] - hist['Close'].shift())
@@ -691,20 +767,20 @@ def load_watchlist():
                         stop = max(stop, ma_support_stop)
 
                     risk = (pivot - stop) / pivot * 100 if pivot > stop else 0
-                    
+
                     # Distance to pivot
                     dist_to_pivot = ((pivot - current) / current) * 100
-                    
+
                     # ENTRY SCORE CALCULATION using shared function (10-point system thresholds)
                     # Note: RS_6M not calculated in premarket, pass 0
                     entry_score = get_entry_score(stage2, risk, abs(dist_to_pivot), ret_6m, rs_6m=0,
                                                    below_50ma=below_50ma, below_20ma=below_20ma)
-                    
+
                     # Tier based on score
                     if entry_score >= 60: tier = '1'
                     elif entry_score >= 40: tier = '2'
                     else: tier = '3'
-                    
+
                     results.append({
                         'ticker': ticker,
                         'tier': tier,
@@ -716,7 +792,8 @@ def load_watchlist():
                         'risk_pct': round(risk, 1),
                         'stage2': stage2,
                         'ret_6m': round(ret_6m, 1),
-                        'sector': row.get('Sector', 'Unknown')
+                        'sector': row.get('Sector', 'Unknown'),
+                        'earnings_days': earnings_days
                     })
                 except Exception as e:
                     TradingExceptionHandler.log_exception(
@@ -727,10 +804,10 @@ def load_watchlist():
                     continue
             except (ValueError, KeyError):
                 continue
-    
+
     # Sort by entry score (descending)
     results.sort(key=lambda x: x['entry_score'], reverse=True)
-    
+
     return results
 
 def load_comprehensive_scan():
@@ -832,6 +909,9 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         'watchlist': [],
         'ready_tickers': [],
         'action_items': [],
+        'earnings_today': [],      # Tickers reporting earnings today
+        'earnings_tomorrow': [],   # Tickers reporting earnings tomorrow (exit today)
+        'earnings_7d': [],         # Tickers with earnings in next 7 days
         'verdict_action': ''
     }
 
@@ -973,6 +1053,26 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         ready = [s['ticker'] for s in watchlist if s['tier'] == '1' and abs(s['dist_to_pivot']) < 3]
         report_data['ready_tickers'] = ready
 
+        # Categorize earnings for watchlist tickers
+        for stock in watchlist:
+            days = stock.get('earnings_days')
+            if days is not None:
+                if days == 0:
+                    report_data['earnings_today'].append({
+                        'ticker': stock['ticker'],
+                        'earnings_badge': _format_earnings_badge(days)
+                    })
+                elif days == 1:
+                    report_data['earnings_tomorrow'].append({
+                        'ticker': stock['ticker'],
+                        'earnings_badge': _format_earnings_badge(days)
+                    })
+                elif days <= 7:
+                    report_data['earnings_7d'].append({
+                        'ticker': stock['ticker'],
+                        'earnings_badge': _format_earnings_badge(days)
+                    })
+
     # ACTION ITEMS - Dynamic based on market conditions
     action_items = []
 
@@ -1023,9 +1123,22 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     else:
         action_items.append({'text': '✓ Clear economic calendar - normal trading', 'checked': True})
 
+    # Earnings calendar check
+    if report_data['earnings_today']:
+        tickers = ', '.join([s['ticker'] for s in report_data['earnings_today'][:5]])
+        suffix = '...' if len(report_data['earnings_today']) > 5 else ''
+        action_items.append({'text': f'⛔ {len(report_data["earnings_today"])} ticker(s) reporting earnings TODAY: {tickers}{suffix}', 'checked': False})
+    if report_data['earnings_tomorrow']:
+        tickers = ', '.join([s['ticker'] for s in report_data['earnings_tomorrow'][:5]])
+        suffix = '...' if len(report_data['earnings_tomorrow']) > 5 else ''
+        action_items.append({'text': f'🚨 {len(report_data["earnings_tomorrow"])} position(s) must EXIT before earnings: {tickers}{suffix}', 'checked': False})
+    if report_data['earnings_7d']:
+        action_items.append({'text': f'⚠️ {len(report_data["earnings_7d"])} tickers with earnings in next 7 days', 'checked': False})
+    if not report_data['earnings_today'] and not report_data['earnings_tomorrow'] and not report_data['earnings_7d']:
+        action_items.append({'text': '✓ No earnings events in next 7 days', 'checked': True})
+
     # Standard items
     action_items.append({'text': '📊 Review top 20 for actionable setups', 'checked': False})
-    action_items.append({'text': '📅 Check earnings calendar', 'checked': False})
     action_items.append({'text': '🌅 Monitor pre-market gaps >3%', 'checked': False})
 
     report_data['action_items'] = action_items
@@ -1070,6 +1183,14 @@ def generate_comprehensive_report(output_format='console', output_path=None):
             print("🟢 No major US economic events today")
             print("   → Clear day, trade normally")
 
+        # Earnings calendar
+        if report_data.get('earnings_today') or report_data.get('earnings_tomorrow'):
+            print("\n**📊 EARNINGS CALENDAR**")
+            for stock in report_data.get('earnings_today', []):
+                print(f"   ⛔ {stock['ticker']} — Reporting TODAY")
+            for stock in report_data.get('earnings_tomorrow', []):
+                print(f"   🚨 {stock['ticker']} — EXIT TODAY (reports tomorrow)")
+
         print("\n**📈 MAJOR INDICES vs KEY MAs**")
         for idx in report_data['indices']:
             s20 = "✓" if idx['above_20'] else "✗"
@@ -1100,14 +1221,15 @@ def generate_comprehensive_report(output_format='console', output_path=None):
                 tier_counts[stock['tier']] = tier_counts.get(stock['tier'], 0) + 1
             print(f"Total: {len(report_data['watchlist'])} | 🟢 Tier 1: {tier_counts['1']} | 🟡 Tier 2: {tier_counts['2']} | 🔴 Tier 3: {tier_counts['3']}")
 
-            print(f"\n{'Ticker':<8} {'Tier':<8} {'Score':<7} {'Current':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<4} {'6M':<10} {'Sector'}")
-            print("-" * 95)
+            print(f"\n{'Ticker':<8} {'Tier':<8} {'Score':<7} {'Current':<10} {'Pivot':<10} {'Dist%':<8} {'Risk%':<8} {'S2':<4} {'6M':<10} {'Sector':<12} {'Earnings'}")
+            print("-" * 110)
             for stock in report_data['watchlist']:
                 tier_icon = '🟢' if stock['tier'] == '1' else '🟡' if stock['tier'] == '2' else '🔴'
                 dist_sign = '+' if stock['dist_to_pivot'] > 0 else ''
+                earnings_badge = _format_earnings_badge(stock.get('earnings_days'))
                 print(f"{stock['ticker']:<8} {tier_icon} T{stock['tier']:<4} {stock['entry_score']:<6} ${stock['current']:<9.2f} ${stock['pivot']:<9.2f} "
                       f"{dist_sign}{stock['dist_to_pivot']:<6.1f}% {stock['risk_pct']:<7.1f}% "
-                      f"{stock['stage2']}/10 {stock['ret_6m']:>9.1f}% {stock['sector']}")
+                      f"{stock['stage2']}/10 {stock['ret_6m']:>9.1f}% {stock['sector']:<12} {earnings_badge}")
 
             if report_data['ready_tickers']:
                 print(f"\n✅ Tier 1 Ready (Score ≥60, within 3%): {', '.join(report_data['ready_tickers'])}")

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.9] — 2026-04-20
+
+### Added
+- **Earnings data integration in premarket report** — Full integration of FMP earnings calendar data into daily premarket briefings:
+  - **Earnings Calendar section** — New report section (after Economic Calendar) showing watchlist tickers with earnings TODAY and tickers requiring force exit (earnings tomorrow)
+  - **Earnings column in Watchlist Analysis** — Added "Earnings" column to the watchlist table displaying proximity badges:
+    - `⛔ today` — reporting today (entry blackout)
+    - `🚨 1d` — reporting tomorrow (force exit today)
+    - `⚠️ {days}d` — 2-7 days until earnings
+    - `📅 {days}d` — 8-30 days until earnings
+    - `—` — no earnings within 30 days
+  - **Earnings action items** — Dynamic checklist entries showing counts of tickers reporting today, positions requiring exit, and tickers with earnings in next 7 days
+  - Uses existing `EarningsCalendar` infrastructure with same fail-open behavior (gracefully skips if FMP_API_KEY not set)
+
 ## [0.6.6.8] — 2026-04-20
 
 ### Changed
