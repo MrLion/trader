@@ -605,24 +605,6 @@ def generate_html_report(report_data, output_path):
             {action_html}
         </div>
 
-        <div class="section section-levels">
-            <h2>Key Levels</h2>
-            <div class="key-levels">
-                <div class="key-level">
-                    <div class="label">SPY 50MA</div>
-                    <div class="value">${levels.get('spy_ma50', 0):.0f}</div>
-                </div>
-                <div class="key-level">
-                    <div class="label">QQQ 50MA</div>
-                    <div class="value">${levels.get('qqq_ma50', 0):.0f}</div>
-                </div>
-                <div class="key-level">
-                    <div class="label">VIX Watch</div>
-                    <div class="value">${levels.get('vix_watch', 28):.1f}</div>
-                </div>
-            </div>
-        </div>
-
         <div class="verdict">
             <strong>Verdict:</strong> {esc(report_data.get('regime', '').split()[1] if report_data.get('regime') else 'NEUTRAL')} regime.
             {report_data.get('verdict_action', 'Be selective.')}
@@ -850,7 +832,6 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         'watchlist': [],
         'ready_tickers': [],
         'action_items': [],
-        'key_levels': {},
         'verdict_action': ''
     }
 
@@ -1049,14 +1030,6 @@ def generate_comprehensive_report(output_format='console', output_path=None):
 
     report_data['action_items'] = action_items
 
-    # KEY LEVELS - use dynamic VIX watch level (75th percentile of last 20 days)
-    vix_watch_dynamic = report_data['vix'].get('watch_level', 28)
-    report_data['key_levels'] = {
-        'spy_ma50': spy_ma50,
-        'qqq_ma50': qqq_ma50,
-        'vix_watch': vix_watch_dynamic
-    }
-
     # VERDICT
     report_data['verdict_action'] = 'Stay flat.' if bullish < 2 else 'Be selective.'
 
@@ -1145,10 +1118,6 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         print("\n**🎯 TODAY'S ACTION ITEMS**")
         for i, item in enumerate(report_data['action_items'], 1):
             print(f"{i}. ☐ {item['text']}")
-
-        print(f"\n**⚡ KEY LEVELS**")
-        vix_watch = report_data['key_levels']['vix_watch']
-        print(f"SPY: Reclaim ${report_data['key_levels']['spy_ma50']:.0f} | QQQ: Reclaim ${report_data['key_levels']['qqq_ma50']:.0f} | VIX: Watch {vix_watch:.1f}")
 
         print("\n" + "—" * 60)
         print(f"Verdict: {regime.split()[1] if regime else 'NEUTRAL'} regime. {report_data['verdict_action']}")

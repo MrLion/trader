@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.8] — 2026-04-20
+
+### Changed
+- **Premarket report UX** — Removed the "Key Levels" section from both HTML and console output. The section displayed SPY/QQQ 50MA reclaim levels and VIX current price, but provided limited actionable value compared to the full Regime Assessment and Indices tables above it.
+
 ## [0.6.6.7] — 2026-04-20
 
 ### Added
