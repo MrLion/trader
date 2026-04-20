@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.5] — 2026-04-20
+
+### Added
+- **Sector scan automation** — Scheduled daily sector scan at 7:50 AM ET (weekdays) to ensure `scans/YYYY-MM-DD_sector_scan.csv` exists before premarket report generation. Prevents "no sector scan data found" warnings in premarket reports.
+
 ## [0.6.6.4] — 2026-04-20
 
 ### Fixed

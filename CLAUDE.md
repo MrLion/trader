@@ -37,6 +37,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - Discussion: `-1002652699578`
 - **Media Attachments:** Use `--media /path/to/file --force-document` for charts and HTML reports.
 
+### Scheduled Automation
+- **Sector Scan:** Daily at 7:50 AM ET (weekdays) — runs `python3 scripts/sector_scan_comprehensive.py` to generate sector rankings before premarket report
+
 ## Architecture & Structure
 
 ### Repository Layout
