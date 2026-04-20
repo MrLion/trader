@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.7] — 2026-04-20
+
+### Added
+- **VIX regime status in paper engine** — `_print_status()` now displays real-time VIX level with regime indicator:
+  - 🟢 LOW (< 20), 🟡 ELEVATED (20-30), 🟠 HIGH (30-40), 🔴 EXTREME (> 40)
+- **Earnings gate status in paper engine** — Each status refresh now shows:
+  - `🚦 Earnings Gate: ON (N tickers cached)` when FMP_API_KEY is set
+  - `🚦 Earnings Gate: OFF (FMP_API_KEY not set)` when disabled
+
 ## [0.6.6.6] — 2026-04-20
 
 ### Fixed
