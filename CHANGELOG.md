@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.6] — 2026-04-20
+
+### Fixed
+- **Graceful shutdown improvement** — Added `if not self.running: return` checks at the start of `_check_entries()` and `_check_exits()` in `scripts/paper_engine_alpaca.py`. Previously, pressing Ctrl+C during market hours would allow the full entry/exit scan to complete before shutting down. Now shutdown is immediate. Double Ctrl+C still force-exits via `os._exit(1)`.
+
 ## [0.6.6.5] — 2026-04-20
 
 ### Added

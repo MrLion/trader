@@ -884,6 +884,9 @@ class AlpacaPaperEngine:
         2. Strategy plugin (if loaded) — manage_exits() returns ExitAction list.
         3. Legacy ExitEngine path — used when no strategy plugin is active.
         """
+        if not self.running:
+            return
+
         from datetime import date as _date
         today = _date.today()
 
@@ -934,6 +937,9 @@ class AlpacaPaperEngine:
 
     async def _check_entries(self):
         """Scan for entry opportunities using configured thresholds."""
+        if not self.running:
+            return
+
         watchlist = self._load_watchlist_tickers()
         if not watchlist:
             print("⏸️  No tickers in watchlist")
