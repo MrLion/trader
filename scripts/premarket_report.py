@@ -18,6 +18,7 @@ import pandas as pd
 import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
+from traderlib.stage2_utils import calculate_ma_support_stop
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 # Report output directory

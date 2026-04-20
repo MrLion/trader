@@ -74,6 +74,7 @@ universes:
     # Universe pre-filter
     min_price: 5
     min_dollar_volume: 20000000    # $20M average daily dollar volume
+    max_dollar_volume: 150000000   # $150M cap — excludes large-cap stocks
     lookback_days: 60
     exclude_exchanges: ["OTC", "AMEX"]
     # Screener structural filter defaults (relaxed for volatile names)

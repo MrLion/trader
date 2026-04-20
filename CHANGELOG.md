@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.4] — 2026-04-20
+
+### Fixed
+- **High-octane universe pollution** — Added `max_dollar_volume: 150000000` to `high_octane` profile in `config/screener_config.yaml`. Universe builder now enforces upper bound on dollar volume, excluding large-cap stocks (DIS, AMD, NVDA) that were incorrectly appearing in high-octane universe. Universe size reduced from ~2,100 to ~1,300 tickers.
+- **Premarket report missing import** — Added `from traderlib.stage2_utils import calculate_ma_support_stop` to `scripts/premarket_report.py`. Fixes runtime warning where MA support stop calculation was silently skipped for all watchlist tickers.
+
 ## [0.6.6.3] — 2026-04-20
 
 ### Added

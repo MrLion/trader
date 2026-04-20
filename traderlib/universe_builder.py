@@ -379,10 +379,19 @@ class UniverseBuilder:
         # Batch compute dollar volumes (single API call for all tickers)
         dollar_volumes = self._compute_dollar_volumes(tickers_for_dvol, lookback_days)
 
-        # Filter by minimum dollar volume
-        validated = [t for t, dvol in dollar_volumes.items() if dvol and dvol >= min_dvol]
-        after_dvol = len(validated)
-        print(f"  Filtered to {after_dvol:,} (dollar vol ≥ ${min_dvol/1e6:.0f}M)")
+        # Filter by dollar volume (min and optional max)
+        max_dvol = profile_config.get('max_dollar_volume')
+        if max_dvol:
+            validated = [
+                t for t, dvol in dollar_volumes.items()
+                if dvol and dvol >= min_dvol and dvol <= max_dvol
+            ]
+            after_dvol = len(validated)
+            print(f"  Filtered to {after_dvol:,} (dollar vol ${min_dvol/1e6:.0f}M-${max_dvol/1e6:.0f}M)")
+        else:
+            validated = [t for t, dvol in dollar_volumes.items() if dvol and dvol >= min_dvol]
+            after_dvol = len(validated)
+            print(f"  Filtered to {after_dvol:,} (dollar vol ≥ ${min_dvol/1e6:.0f}M)")
 
         # Build result
         result = UniverseResult(
