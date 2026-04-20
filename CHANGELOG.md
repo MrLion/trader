@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.5.1] — 2026-04-19
+
+### Fixed
+- **Backtest pivot regression (reverted Phase 4)** — `Stage2MomentumStrategy.evaluate_entries()` was using `pivot_20d = hist['High'].tail(20).max()` as a pivot proxy, introduced in Phase 4 (v0.6.4.0). This penalised base-building setups (always below their recent high by definition) and rewarded extended stocks near peaks — the opposite of what the strategy targets. Total P&L dropped from $45K to $17K on identical trade count (172/256 entries changed). Reverted to `pivot = current` / `dist_to_pivot = 0.0` which neutralises proximity scoring in the backtest, since live watchlist pivot data is not available in a historical simulation. The 20-day high concept has no basis in Minervini SEPA or O'Neil/IBD methodology and was fabricated by Claude Sonnet 4.6 as a "fix" that broke the strategy. Baseline performance restored: 45.44% return, 53.5% win rate, 1.51 profit factor.
+
 ## [0.6.5.0] — 2026-04-19
 
 ### Fixed

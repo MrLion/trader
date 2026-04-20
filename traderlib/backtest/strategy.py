@@ -335,12 +335,14 @@ class Stage2MomentumStrategy(Strategy):
             spy_return = self._get_spy_return(data_provider, sim_date)
             rs_6m = ret_6m - spy_return
 
-            # Distance to pivot — use 20-day high as VCP breakout pivot proxy.
-            # This mirrors the 'range_20d' source used in the live screener.
-            # Old code (pivot = current, dist = 0.0) gave every ticker a free
-            # +25 proximity score, inflating entry signals regardless of setup.
-            pivot_20d = float(hist['High'].tail(20).max())
-            dist_to_pivot = ((pivot_20d - current) / current) * 100  # positive = below pivot
+            # Pivot proximity cannot be measured in a historical simulation without
+            # live watchlist pivot data. Use dist_to_pivot = 0.0 to neutralise the
+            # proximity component — every stock gets the same score, so the factor
+            # does not bias selection. The 20-day high proxy (Phase 4) penalised
+            # base-building setups (below recent high by definition) and rewarded
+            # extended stocks near peaks — the opposite of what the strategy targets.
+            pivot = current
+            dist_to_pivot = 0.0
             risk_pct = abs((stop - current) / current) * 100 if current > stop else 999
 
             # Entry score
@@ -381,7 +383,7 @@ class Stage2MomentumStrategy(Strategy):
                 sector=sector,
                 entry_score=entry_score,
                 stage2_score=stage2,
-                metadata={'pivot': pivot_20d},
+                metadata={'pivot': pivot},
             ))
 
         return signals
