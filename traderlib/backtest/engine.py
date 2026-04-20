@@ -185,6 +185,18 @@ class BacktestEngine:
         except Exception:
             pass  # VIX unavailable — gate fails open (no entries blocked)
 
+        # VIX status message
+        max_vix = (
+            self._risk_config.market.max_vix
+            if self._risk_config and self._risk_config.market.max_vix
+            else None
+        )
+        if max_vix:
+            vix_dates = len(self._vix_cache)
+            print(f"📈 VIX gating ON — max {max_vix} ({vix_dates} days cached)")
+        else:
+            print("ℹ️  VIX gating OFF — max_vix not set in risk_config")
+
         # Prefetch earnings data if filter enabled
         if self.config.enable_earnings_filter and self.config.tickers:
             import os

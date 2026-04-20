@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.3] — 2026-04-20
+
+### Added
+- **VIX status message in backtest** — `BacktestEngine` now prints VIX gating status at startup:
+  - `📈 VIX gating ON — max 35 (N days cached)` when `max_vix` is configured
+  - `ℹ️ VIX gating OFF — max_vix not set in risk_config` when not configured
+
 ## [0.6.6.2] — 2026-04-19
 
 ### Added
