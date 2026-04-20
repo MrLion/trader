@@ -406,6 +406,7 @@ def generate_html_report(report_data, output_path):
         .tier-3 {{ color: var(--accent-red); }}
         .dist.ready {{ color: var(--accent-green); font-weight: bold; }}
         .dist.close {{ color: var(--accent-yellow); }}
+        .earnings {{ white-space: nowrap; font-size: 0.9rem; color: var(--text-secondary); min-width: 60px; text-align: center; }}
 
         .ready-banner {{
             background: rgba(74, 222, 128, 0.15);
@@ -564,6 +565,7 @@ def generate_html_report(report_data, output_path):
             .tier-3 {{ color: #dc2626 !important; }}
             .positive {{ color: #15803d !important; }}
             .negative {{ color: #dc2626 !important; }}
+            .earnings {{ color: #64748b !important; }}
             .ready-banner {{
                 background: #f0fdf4 !important;
                 border: 1px solid #22c55e !important;
