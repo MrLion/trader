@@ -22,7 +22,8 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from traderlib import calculate_stage2_score
+from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
+from traderlib.stage2_utils import calculate_ma_support_stop
 
 REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
 WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
@@ -549,7 +550,7 @@ def generate_html_report(report_data, output_path):
     return output_path
 
 def analyze_watchlist_performance(watchlist_df):
-    """Analyze today's performance for all watchlist stocks."""
+    """Analyze today's performance for all watchlist stocks with proper entry scoring."""
     if watchlist_df is None or watchlist_df.empty:
         return []
 
@@ -559,9 +560,9 @@ def analyze_watchlist_performance(watchlist_df):
         ticker = row['Ticker']
         try:
             stock = yf.Ticker(ticker)
-            hist = stock.history(period="60d")
+            hist = stock.history(period="1y")
 
-            if len(hist) < 2:
+            if len(hist) < 200:
                 continue
 
             # Today's data
@@ -587,10 +588,49 @@ def analyze_watchlist_performance(watchlist_df):
                 pivot = None
                 dist_to_pivot = None
 
-            # Determine tier from watchlist (updated for 10-point system)
-            stage = row.get('Stage', 0)
-            # Tier thresholds: 6+ = Tier 1, 4-5 = Tier 2, <4 = Tier 3
-            tier = '1' if stage >= 6 else '2' if stage >= 4 else '3'
+            # Calculate comprehensive metrics for proper entry scoring
+            ret_6m = (close / hist['Close'].iloc[-130] - 1) * 100 if len(hist) >= 130 else 0
+
+            # Stage 2 score and MA flags
+            s2_details = get_stage2_details(hist)
+            stage2 = s2_details['score']
+            below_50ma = not s2_details['criteria']['price_above_50ma']
+            below_20ma = not s2_details['criteria']['price_above_20ma']
+
+            # Calculate ATR for risk
+            high_low = hist['High'] - hist['Low']
+            high_close = abs(hist['High'] - hist['Close'].shift())
+            low_close = abs(hist['Low'] - hist['Close'].shift())
+            ranges = pd.concat([high_low, high_close, low_close], axis=1)
+            true_range = ranges.max(axis=1)
+            atr = true_range.rolling(14).mean().iloc[-1]
+
+            atr_stop = close - (2 * atr)
+            recent_low = hist['Low'].tail(10).min()
+            stop = max(recent_low, atr_stop)
+
+            # MA Support Stop calculation
+            ma_result = calculate_ma_support_stop(
+                close, s2_details, buffer_pct=0.01, cluster_spread_pct=0.05, min_cluster_size=2
+            )
+            if ma_result:
+                stop = max(stop, ma_result['ma_support_stop'])
+
+            risk = (pivot - stop) / pivot * 100 if pivot and pivot > stop else 0
+
+            # Calculate entry score using same logic as premarket report
+            entry_score = get_entry_score(
+                stage2, risk, abs(dist_to_pivot) if dist_to_pivot else 99,
+                ret_6m, rs_6m=0, below_50ma=below_50ma, below_20ma=below_20ma
+            )
+
+            # Tier based on entry score
+            if entry_score >= 60:
+                tier = '1'
+            elif entry_score >= 40:
+                tier = '2'
+            else:
+                tier = '3'
 
             results.append({
                 'ticker': ticker,
@@ -601,15 +641,18 @@ def analyze_watchlist_performance(watchlist_df):
                 'volume_ratio': round(volume_ratio, 1),
                 'pivot': round(pivot, 2) if pivot else None,
                 'dist_to_pivot': round(dist_to_pivot, 1) if dist_to_pivot else None,
-                'tier': tier
+                'tier': tier,
+                'entry_score': entry_score,
+                'stage2': stage2,
+                'ret_6m': round(ret_6m, 1)
             })
 
         except Exception as e:
             print(f"⚠️ Error analyzing {ticker}: {e}")
             continue
 
-    # Sort by absolute change (most active first)
-    results.sort(key=lambda x: abs(x['change_pct']), reverse=True)
+    # Sort by entry score (descending) to match premarket report
+    results.sort(key=lambda x: (x['entry_score'], abs(x['change_pct'])), reverse=True)
     return results
 
 def detect_gaps(watchlist_performance):

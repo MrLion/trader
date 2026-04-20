@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.10] — 2026-04-20
+
+### Fixed
+- **Postmarket report tier calculation** — `analyze_watchlist_performance()` now uses the same comprehensive `get_entry_score()` function as the premarket report:
+  - Previously used simplified logic: `tier = '1' if stage >= 6 else '2' if stage >= 4 else '3'` based only on watchlist CSV Stage field
+  - Now calculates full entry score using: Stage 2 score, risk %, distance to pivot, 6M return, and MA penalties (below 50MA/20MA)
+  - Fixed tier mismatch: postmarket was showing all watchlist stocks as Tier 3 (red), now correctly shows 14 Tier 1 / 1 Tier 2 matching premarket report
+
 ## [0.6.6.9] — 2026-04-20
 
 ### Added
