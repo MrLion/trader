@@ -171,26 +171,6 @@ def generate_html_report(report_data, output_path):
         checked = "checked" if item.get('checked') else ""
         action_html += f'<div class="action-item"><input type="checkbox" {checked} disabled> {esc(item.get("text", ""))}</div>\n'
 
-    # Key levels (include MA50 from indices)
-    levels_html = ""
-    for idx in report_data.get('indices', []):
-        ticker = idx['ticker']
-        ma50 = idx.get('ma50', idx.get('close', 0))
-        levels_html += f'''
-        <div class="key-level">
-            <div class="label">{ticker} 50MA</div>
-            <div class="value">${ma50:.0f}</div>
-        </div>
-        '''
-
-    # Add VIX watch level
-    levels_html += f'''
-    <div class="key-level">
-        <div class="label">VIX Watch</div>
-        <div class="value">28</div>
-    </div>
-    '''
-
     html_content = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -532,11 +512,6 @@ def generate_html_report(report_data, output_path):
             {action_html}
         </div>
 
-        <div class="section section-levels">
-            <h2>⚡ Key Levels for Tomorrow</h2>
-            <div class="key-levels">{levels_html}</div>
-        </div>
-
         <div class="timestamp">
             Report generated on {esc(report_data.get('date', ''))} at {esc(datetime.now().strftime('%H:%M %Z'))} | Data via Yahoo Finance
         </div>
@@ -685,7 +660,6 @@ def generate_postmarket_report(output_format='console', output_path=None):
         'watchlist_performance': [],
         'gaps': [],
         'action_items': [],
-        'key_levels': {},
         'regime_signals': [],
         'bullish_count': 0
     }
@@ -881,18 +855,6 @@ def generate_postmarket_report(output_format='console', output_path=None):
 
     report_data['action_items'] = action_items
 
-    # 8. KEY LEVELS
-    for idx in report_data['indices']:
-        ticker = idx['ticker']
-        close = idx['close']
-        high = idx['high']
-        low = idx['low']
-
-        report_data['key_levels'][ticker] = {
-            'support': low,
-            'resistance': high
-        }
-
     # OUTPUT
     if output_format == 'html':
         if not output_path:
@@ -975,10 +937,6 @@ def generate_postmarket_report(output_format='console', output_path=None):
             print(f"{i}. ☐ {item['text']}")
 
         # Key levels
-        print("\n**⚡ KEY LEVELS FOR TOMORROW**")
-        for ticker, levels in report_data['key_levels'].items():
-            print(f"{ticker}: Support ~${levels['support']:.0f} | Resistance ~${levels['resistance']:.0f}")
-
         print("\n" + "—" * 60)
         print(f"Market status: {regime_today} day")
         print("\n— Ace 🎯")

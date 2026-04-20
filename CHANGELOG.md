@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.11] — 2026-04-20
+
+### Changed
+- **Postmarket report UX** — Removed "⚡ Key Levels for Tomorrow" section from both HTML and console output. The section displayed index support/resistance levels from daily highs/lows, but these short-term levels had limited predictive value for the next trading session.
+
 ## [0.6.6.10] — 2026-04-20
 
 ### Fixed
