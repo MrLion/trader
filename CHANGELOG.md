@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.2] — 2026-04-19
+
+### Added
+- **Earnings filter status messages** — `BacktestEngine` now prints clear feedback:
+  - `📊 Earnings gating ON — N tickers` when filter is active and FMP_API_KEY is set
+  - `⚠️ Earnings filter enabled but FMP_API_KEY not set — earnings gating disabled` when key is missing
+
 ## [0.6.6.1] — 2026-04-19
 
 ### Fixed

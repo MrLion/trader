@@ -187,16 +187,23 @@ class BacktestEngine:
 
         # Prefetch earnings data if filter enabled
         if self.config.enable_earnings_filter and self.config.tickers:
-            try:
-                self._earnings_provider = HistoricalEarningsProvider()
-                # Fetch all historical earnings (no date filtering needed)
-                self._earnings_provider.prefetch(
-                    self.config.tickers,
-                    self.config.start_date,
-                    self.config.end_date
-                )
-            except Exception:
-                pass  # Fail open - continue without earnings data
+            import os
+            fmp_key = os.environ.get("FMP_API_KEY")
+            if not fmp_key:
+                print("⚠️  Earnings filter enabled but FMP_API_KEY not set — earnings gating disabled")
+            else:
+                try:
+                    self._earnings_provider = HistoricalEarningsProvider()
+                    # Fetch all historical earnings (no date filtering needed)
+                    self._earnings_provider.prefetch(
+                        self.config.tickers,
+                        self.config.start_date,
+                        self.config.end_date
+                    )
+                    print(f"📊 Earnings gating ON — {len(self.config.tickers)} tickers")
+                except Exception as e:
+                    print(f"⚠️  Earnings provider failed: {e} — continuing without earnings data")
+                    pass  # Fail open - continue without earnings data
 
         # Collect dropped tickers from provider
         tickers_dropped = []
