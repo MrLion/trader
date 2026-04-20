@@ -12,6 +12,6 @@
 # Rate limit: 300 API calls/minute (FMP paid plan)
 
 earnings:
-  enable_filter: false           # Set to true to enable earnings gating
+  enable_filter: true           # Set to true to enable earnings gating
   cache_dir: data/earnings_cache  # Directory to cache earnings data
   cache_ttl_days: 30              # Refresh cache after N days

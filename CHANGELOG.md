@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.6.1] — 2026-04-19
+
+### Fixed
+- **Backtest earnings filter wiring** — `scripts/backtest.py` now loads `config/backtest_config.yaml` and passes `enable_earnings_filter` to `BacktestConfig`. Previously the config file existed but was never read, so earnings gating was inactive even with `earnings.enable_filter: true`.
+
 ## [0.6.6.0] — 2026-04-19
 
 ### Added

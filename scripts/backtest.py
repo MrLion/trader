@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -51,6 +52,18 @@ def main():
 
     start_date = date.fromisoformat(args.start)
     end_date = date.fromisoformat(args.end)
+
+    # Load backtest config YAML for earnings filter setting
+    backtest_config_path = PROJECT_ROOT / 'config' / 'backtest_config.yaml'
+    enable_earnings_filter = False
+    try:
+        if backtest_config_path.exists():
+            with open(backtest_config_path) as f:
+                bt_config = yaml.safe_load(f)
+                if bt_config and 'earnings' in bt_config:
+                    enable_earnings_filter = bt_config['earnings'].get('enable_filter', False)
+    except Exception:
+        pass  # Fail open - continue without earnings filter
 
     # Execution config
     exec_config = ExecutionConfig(
@@ -91,6 +104,7 @@ def main():
         risk_profile=args.risk_profile,
         execution_config=exec_config,
         max_open_positions=args.max_positions,
+        enable_earnings_filter=enable_earnings_filter,
     )
 
     if args.dry_run:
