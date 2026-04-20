@@ -86,6 +86,7 @@ class AlpacaPaperEngine:
 
         self.running = False
         self.ws_running = False
+        self.shutdown_requested = False  # Set True on Ctrl+C for graceful shutdown
 
         # Price cache from WebSocket
         self.price_cache: Dict[str, Dict] = {}
@@ -354,6 +355,7 @@ class AlpacaPaperEngine:
             import os
             os._exit(1)
         print("\n\n🛑 Shutdown signal received...")
+        self.shutdown_requested = True  # Signal to main() not to restart
         self.running = False
         self.ws_running = False
 
@@ -1240,6 +1242,33 @@ class AlpacaPaperEngine:
         # FINDING-007: Use detailed market status including holidays
         print(f"📈 Market: {format_market_status()}")
 
+        # VIX Regime Status
+        try:
+            import yfinance as yf
+            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+            if not vix_hist.empty:
+                vix_current = float(vix_hist['Close'].iloc[-1])
+                if vix_current < 20:
+                    vix_regime = "🟢 LOW"
+                elif vix_current < 30:
+                    vix_regime = "🟡 ELEVATED"
+                elif vix_current < 40:
+                    vix_regime = "🟠 HIGH"
+                else:
+                    vix_regime = "🔴 EXTREME"
+                print(f"📊 VIX: {vix_current:.1f} {vix_regime}")
+            else:
+                print(f"📊 VIX: unavailable")
+        except Exception:
+            print(f"📊 VIX: unavailable")
+
+        # Earnings Gate Status
+        if self.earnings_calendar._api_key:
+            cached_tickers = len(self.earnings_calendar._cache)
+            print(f"🚦 Earnings Gate: ON ({cached_tickers} tickers cached)")
+        else:
+            print(f"🚦 Earnings Gate: OFF (FMP_API_KEY not set)")
+
         # WebSocket status
         if self.alpaca.is_ws_healthy():
             print(f"📡 WebSocket: Connected ({len(self.price_cache)} tickers cached)")
@@ -1375,6 +1404,7 @@ class AlpacaPaperEngine:
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
         print("✅ Engine stopped gracefully")
+        return {'shutdown_requested': self.shutdown_requested}
 
 
 def main():
@@ -1432,9 +1462,14 @@ def main():
 
                     print("   Market is now open. Starting engine...\n")
 
-            # Run the engine (blocks until market closes)
+            # Run the engine (blocks until market closes or user stops)
             engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy)
-            asyncio.run(engine.run())
+            result = asyncio.run(engine.run())
+
+            # Check if user requested shutdown
+            if result and result.get('shutdown_requested'):
+                print("\n👋 Goodbye!")
+                break
 
             # Engine stopped (market closed)
             print("\n⏳ Market closed. Will restart at next open...\n")
