@@ -13,7 +13,7 @@ entry:
   min_stage2_score: 6          # Minimum Stage 2 score (0-10 scale; 6 = 60%)
   min_entry_score: 60          # Minimum composite entry score (0-100)
                                # Falls back to risk_config.entry.min_entry_score if set
-  max_dist_to_pivot_pct: 2.0   # Enter within ±2% of pivot
+  max_dist_to_pivot_pct: 3.0   # Enter within ±2% of pivot
 
 # ---------------------------------------------------------------------------
 # Stop calculation

@@ -108,7 +108,7 @@ entry:
   min_entry_score: 60
 
   # Maximum distance from pivot (in %)
-  max_dist_to_pivot_pct: 2.0
+  max_dist_to_pivot_pct: 3.0
 
   # Minimum volume ratio vs 20-day average
   min_volume_ratio: 1.5
@@ -118,10 +118,10 @@ entry:
 # =============================================================================
 market:
   # Maximum SPY decline to allow new entries
-  max_spy_decline_pct: -0.5  # -0.5%
+  max_spy_decline_pct: -1.0  # -0.5%
 
   # Maximum VIX level for new entries
-  # max_vix: 35  # Uncomment to enable
+  max_vix: 60  # Uncomment to enable
 
 # =============================================================================
 # RE-ENTRY COOLDOWN CONFIGURATION

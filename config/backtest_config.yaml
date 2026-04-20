@@ -14,4 +14,4 @@
 earnings:
   enable_filter: true           # Set to true to enable earnings gating
   cache_dir: data/earnings_cache  # Directory to cache earnings data
-  cache_ttl_days: 30              # Refresh cache after N days
+  cache_ttl_days: 365              # Refresh cache after N days
