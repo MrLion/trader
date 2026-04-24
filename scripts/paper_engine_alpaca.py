@@ -151,8 +151,12 @@ class AlpacaPaperEngine:
         try:
             spy_data = self.alpaca.get_bars('SPY', limit=130)
             spy_current = self.alpaca.get_current_price('SPY')
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"   ⚠️  _build_context: SPY data unavailable ({e}) — strategy context degraded")
+            TradingExceptionHandler.log_exception(
+                "build_context_spy", e,
+                severity=TradingExceptionHandler.WARNING, ticker='SPY'
+            )
 
         # Convert positions to Position objects
         positions = {

@@ -349,6 +349,9 @@ class TickerAnalyzer:
                 print(f"   ℹ️  {ticker}: {stop_type} stop clamped to bounds, reverting stop_type to ATR")
                 stop_type = 'ATR'
 
+            # Recompute risk_pct after clamping so scoring reflects the actual stop
+            risk_pct = abs((current - stop) / current) * 100 if stop < current else 999.0
+
             risk_per_share = current - stop
             if detected_signal and detected_signal.target_price:
                 # Use technique-specific target if available (e.g. VCP 2R from pivot high)
