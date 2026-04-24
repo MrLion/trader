@@ -27,8 +27,6 @@ import pandas as pd
 import pytz
 
 # Add parent directories to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.rate_limiter import RateLimiter
@@ -151,7 +149,7 @@ class TestCascadeFailure(unittest.TestCase):
                                         self.assertIsNotNone(engine.state)
 
                                         # Analysis should fail gracefully (no data available)
-                                        analysis = engine._analyze_ticker('AAPL')
+                                        analysis = engine.analyzer.analyze('AAPL')
                                         self.assertIsNone(analysis)  # No data available
 
         print("✅ Cascade failure: Engine handles total provider failure gracefully")

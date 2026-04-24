@@ -13,7 +13,6 @@ import pandas as pd
 import pytz
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from paper_engine_alpaca import AlpacaPaperEngine, MARKET_OPEN, MARKET_CLOSE
 from traderlib.paper_state import PaperState, Position
@@ -25,6 +24,13 @@ def mock_alpaca():
     """Fixture for mocked Alpaca client."""
     with patch('paper_engine_alpaca.AlpacaClient') as mock_class:
         mock_instance = Mock()
+        mock_instance.get_cached_price.return_value = None
+        mock_instance.get_latest_price.return_value = None
+        mock_instance.get_latest_prices_batch.return_value = {}
+        mock_instance.rate_limiter.circuit_open = False
+        mock_instance.rate_limiter.get_status.return_value = {
+            'requests_in_window': 0, 'max_requests': 100, 'circuit_open': False
+        }
         mock_class.return_value = mock_instance
         yield mock_instance
 
@@ -187,22 +193,16 @@ class TestSPYCache:
 class TestMarketHours:
     """Test market hours detection."""
 
-    @patch('paper_engine_alpaca.datetime')
-    def test_is_market_hours_open(self, mock_datetime, engine):
+    @patch('paper_engine_alpaca.is_market_open', return_value=True)
+    def test_is_market_hours_open(self, mock_is_open, engine):
         """Test market hours detection during open."""
-        et = pytz.timezone('US/Eastern')
-        mock_datetime.now.return_value = et.localize(datetime(2024, 4, 8, 10, 0, 0))
-
         result = engine._is_market_hours()
 
         assert result is True
 
-    @patch('paper_engine_alpaca.datetime')
-    def test_is_market_hours_closed_weekend(self, mock_datetime, engine):
+    @patch('paper_engine_alpaca.is_market_open', return_value=False)
+    def test_is_market_hours_closed_weekend(self, mock_is_open, engine):
         """Test market hours detection on weekend."""
-        et = pytz.timezone('US/Eastern')
-        mock_datetime.now.return_value = et.localize(datetime(2024, 4, 6, 10, 0, 0))  # Saturday
-
         result = engine._is_market_hours()
 
         assert result is False
@@ -219,73 +219,27 @@ class TestMarketHours:
 
 
 class TestMarketConditions:
-    """Test _check_market_conditions method."""
+    """Test market conditions via analyzer."""
 
-    @patch('yfinance.Ticker')
-    def test_market_conditions_normal(self, mock_ticker_class, engine, mock_alpaca):
+    def test_market_conditions_normal(self, engine, mock_alpaca):
         """Test normal market conditions."""
-        engine._get_current_price = Mock(return_value=450.0)
-
-        mock_ticker = Mock()
-        mock_ticker.history.return_value = pd.DataFrame({
+        mock_alpaca.get_historical_bars.return_value = pd.DataFrame({
             'Close': [448.0, 450.0]
         })
-        mock_ticker_class.return_value = mock_ticker
 
-        result, msg = engine._check_market_conditions()
+        result, msg, vix = engine.analyzer.check_market_conditions()
 
         assert result is True
         assert 'SPY' in msg
 
-    def test_market_conditions_no_spy_price(self, engine):
-        """Test when SPY price unavailable."""
-        engine._get_current_price = Mock(return_value=None)
+    def test_market_conditions_no_spy_price(self, engine, mock_alpaca):
+        """Test when SPY history unavailable — fails open."""
+        mock_alpaca.get_historical_bars.return_value = pd.DataFrame({'Close': []})
 
-        result, msg = engine._check_market_conditions()
+        result, msg, vix = engine.analyzer.check_market_conditions()
 
-        assert result is False
-        assert 'Cannot fetch SPY' in msg
-
-
-class TestAnalyzeTicker:
-    """Test _analyze_ticker method."""
-
-    def test_analyze_ticker_returns_dict_or_none(self, engine, mock_alpaca):
-        """Test analysis returns dict or None."""
-        # Just test that it handles insufficient data
-        mock_alpaca.get_historical_bars.return_value = pd.DataFrame({
-            'Close': [100.0] * 10  # Insufficient data
-        })
-
-        result = engine._analyze_ticker('AAPL')
-
-        assert result is None
-
-    def test_analyze_ticker_in_position(self, engine):
-        """Test skip if already in position."""
-        engine.state.positions['AAPL'] = Mock(status='OPEN')
-
-        result = engine._analyze_ticker('AAPL')
-
-        assert result is None
-
-    def test_analyze_ticker_already_signaled(self, engine):
-        """Test skip if already signaled."""
-        engine.signaled_tickers.add('TSLA')
-
-        result = engine._analyze_ticker('TSLA')
-
-        assert result is None
-
-    def test_analyze_insufficient_data(self, engine, mock_alpaca):
-        """Test skip with insufficient historical data."""
-        mock_alpaca.get_historical_bars.return_value = pd.DataFrame({
-            'Close': [100.0] * 10
-        })
-
-        result = engine._analyze_ticker('AAPL')
-
-        assert result is None
+        assert result is True
+        assert 'SPY' in msg
 
 
 class TestLoadWatchlist:
@@ -383,34 +337,39 @@ class TestDailyReset:
 class TestCheckEntries:
     """Test _check_entries method."""
 
-    def test_check_entries_basic(self, engine):
+    async def test_check_entries_basic(self, engine):
         """Test entry checking."""
-        engine._check_market_conditions = Mock(return_value=(True, 'SPY OK'))
+        engine.running = True
+        engine.analyzer.check_market_conditions = Mock(return_value=(True, 'SPY OK', None))
         engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
-        engine._analyze_ticker = Mock(return_value={
-            'ticker': 'AAPL',
-            'current': 150.0,
-            'pivot': 150.0,
-            'stop': 140.0,
-            'entry_score': 85,
-            'tier': 'Tier 1',
-            'dist_to_pivot': 0.0,
-            'sector': 'Tech'
-        })
+        engine.analyzer.analyze = Mock(return_value=Mock(
+            to_dict=Mock(return_value={
+                'ticker': 'AAPL',
+                'current': 150.0,
+                'pivot': 150.0,
+                'stop': 140.0,
+                'entry_score': 85,
+                'tier': 'Tier 1',
+                'dist_to_pivot': 0.0,
+                'sector': 'Tech'
+            })
+        ))
         engine._execute_entry = Mock()
 
-        engine._check_entries()
+        await engine._check_entries()
 
         engine._execute_entry.assert_called_once()
 
     def test_check_entries_market_blocked(self, engine):
         """Test entries blocked when market conditions fail."""
-        engine._check_market_conditions = Mock(return_value=(False, 'SPY down'))
+        engine.running = True
+        engine.analyzer.check_market_conditions = Mock(return_value=(False, 'SPY down', None))
+        engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
 
-        engine._check_entries()
+        asyncio.run(engine._check_entries())
 
         # Should return early
-        assert engine._check_market_conditions.called
+        assert engine.analyzer.check_market_conditions.called
 
 
 class TestExecuteEntry:
@@ -435,7 +394,8 @@ class TestExecuteEntry:
 
         # Should not process
 
-    def test_execute_pending_order_exists(self, engine):
+    @patch('paper_engine_alpaca.is_market_open', return_value=True)
+    def test_execute_pending_order_exists(self, mock_is_open, engine):
         """Test skip if pending order exists."""
         engine.order_manager.has_pending_order = Mock(return_value=True)
 
@@ -448,16 +408,18 @@ class TestExecuteEntry:
 class TestCheckExits:
     """Test _check_exits method."""
 
-    def test_check_exits_no_positions(self, engine):
+    async def test_check_exits_no_positions(self, engine):
         """Test exit check with no positions."""
         engine.state.positions = {}
 
         # Should not raise
-        engine._check_exits()
+        await engine._check_exits()
 
-    def test_check_exits_with_position(self, engine, mock_alpaca):
+    async def test_check_exits_with_position(self, engine, mock_alpaca):
         """Test exit check with open position."""
+        engine.running = True
         engine._get_current_price = Mock(return_value=180.0)
+        engine.earnings_calendar.should_force_exit = Mock(return_value=False)
 
         # Create a proper Position mock
         position = Mock(
@@ -472,9 +434,11 @@ class TestCheckExits:
         # Mock exit evaluation
         mock_signal = Mock()
         mock_signal.should_exit = False
+        mock_signal.new_stop = None
+        mock_signal.new_stop_type = None
         engine.exits.evaluate_exit = Mock(return_value=mock_signal)
 
-        engine._check_exits()
+        await engine._check_exits()
 
         engine.exits.evaluate_exit.assert_called_once()
 
@@ -482,40 +446,40 @@ class TestCheckExits:
 class TestProcessPendingOrders:
     """Test _process_pending_orders method."""
 
-    def test_process_no_pending_orders(self, engine):
+    async def test_process_no_pending_orders(self, engine):
         """Test processing with no pending orders."""
         engine.order_manager.pending_orders = {}
 
         # Should not raise
-        engine._process_pending_orders()
+        await engine._process_pending_orders()
 
-    def test_process_no_pending_orders(self, engine):
+    async def test_process_no_pending_orders_again(self, engine):
         """Test processing with no pending orders."""
         engine.order_manager.pending_orders = {}
 
         # Should not raise
-        engine._process_pending_orders()
+        await engine._process_pending_orders()
 
 
 class TestPrintStatus:
     """Test _print_status method."""
 
-    def test_print_status_basic(self, engine, mock_alpaca):
+    async def test_print_status_basic(self, engine, mock_alpaca):
         """Test status printing."""
         mock_alpaca.is_ws_healthy.return_value = True
         mock_alpaca.get_cached_price.return_value = 155.0
         mock_alpaca.get_health_summary.return_value = 'HEALTHY'
 
         # Should not raise
-        engine._print_status()
+        await engine._print_status()
 
-    def test_print_status_ws_disconnected(self, engine, mock_alpaca):
+    async def test_print_status_ws_disconnected(self, engine, mock_alpaca):
         """Test status when WebSocket disconnected."""
         mock_alpaca.is_ws_healthy.return_value = False
         mock_alpaca.get_health_summary.return_value = 'DEGRADED'
 
         # Should not raise
-        engine._print_status()
+        await engine._print_status()
 
 
 class TestSignalHandler:

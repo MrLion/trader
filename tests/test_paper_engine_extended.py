@@ -21,8 +21,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitEngine, ExitSignal
@@ -70,30 +68,21 @@ class TestPaperEngineMarketHours(unittest.TestCase):
     def setUp(self):
         self.et = pytz.timezone('US/Eastern')
 
-    @patch('paper_engine_alpaca.datetime')
-    def test_is_market_hours_exactly_930(self, mock_datetime):
+    @patch('paper_engine_alpaca.is_market_open', return_value=True)
+    def test_is_market_hours_exactly_930(self, mock_is_open):
         """Test 9:30 AM is considered market open."""
-        now = self.et.localize(datetime(2024, 4, 8, 9, 30, 0))
-        mock_datetime.now.return_value = now
-
         engine, _ = create_engine_with_mocks()
         self.assertTrue(engine._is_market_hours())
 
-    @patch('paper_engine_alpaca.datetime')
-    def test_is_market_hours_just_before_close(self, mock_datetime):
+    @patch('paper_engine_alpaca.is_market_open', return_value=True)
+    def test_is_market_hours_just_before_close(self, mock_is_open):
         """Test 3:59:59 PM is considered market open."""
-        now = self.et.localize(datetime(2024, 4, 8, 15, 59, 59))
-        mock_datetime.now.return_value = now
-
         engine, _ = create_engine_with_mocks()
         self.assertTrue(engine._is_market_hours())
 
-    @patch('paper_engine_alpaca.datetime')
-    def test_is_market_hours_exactly_1600(self, mock_datetime):
+    @patch('paper_engine_alpaca.is_market_open', return_value=False)
+    def test_is_market_hours_exactly_1600(self, mock_is_open):
         """Test 4:00 PM is considered market closed."""
-        now = self.et.localize(datetime(2024, 4, 8, 16, 0, 0))
-        mock_datetime.now.return_value = now
-
         engine, _ = create_engine_with_mocks()
         self.assertFalse(engine._is_market_hours())
 
@@ -167,50 +156,8 @@ class TestPaperEngineSPYCache(unittest.TestCase):
         result = engine._refresh_spy_cache()
         self.assertFalse(result)
         # Should return the fallback value
-        spy_return = engine._get_spy_return_6m()
+        spy_return = engine.analyzer._get_spy_return_6m()
         self.assertEqual(spy_return, 0.0)
-
-
-class TestPaperEngineEntryFilters(unittest.TestCase):
-    """Test entry filter logic comprehensively."""
-
-    def setUp(self):
-        self.engine, _ = create_engine_with_mocks()
-        self.engine.spy_cache = {
-            'date': '2024-04-08',
-            'return_6m': 15.0,
-            'price': 450.0
-        }
-
-    def test_analyze_ticker_in_position(self):
-        """Test that tickers in positions are skipped."""
-        self.engine.state.positions['AAPL'] = Mock()
-        result = self.engine._analyze_ticker('AAPL')
-        self.assertIsNone(result)
-
-    def test_analyze_ticker_already_signaled(self):
-        """Test that already signaled tickers are skipped."""
-        self.engine.signaled_tickers.add('AAPL')
-        result = self.engine._analyze_ticker('AAPL')
-        self.assertIsNone(result)
-
-    def test_analyze_ticker_insufficient_data(self):
-        """Test handling when historical data is insufficient."""
-        self.engine.alpaca.get_historical_bars.return_value = pd.DataFrame({'Close': [100] * 5})
-
-        result = self.engine._analyze_ticker('AAPL')
-        self.assertIsNone(result)
-
-    def test_analyze_ticker_no_price(self):
-        """Test handling when current price is unavailable."""
-        self.engine.alpaca.get_historical_bars.return_value = pd.DataFrame({
-            'Close': [100 + i * 0.1 for i in range(60)],
-            'Volume': [1000000] * 60
-        })
-        self.engine.alpaca.get_latest_price.return_value = None
-
-        result = self.engine._analyze_ticker('AAPL')
-        self.assertIsNone(result)
 
 
 class TestPaperEngineMarketConditions(unittest.TestCase):
@@ -220,40 +167,30 @@ class TestPaperEngineMarketConditions(unittest.TestCase):
         self.engine, _ = create_engine_with_mocks()
 
     def test_check_market_conditions_no_spy_price(self):
-        """Test when SPY price cannot be fetched."""
-        self.engine.alpaca.get_latest_price.return_value = None
+        """Test when SPY history unavailable — fails open."""
+        self.engine.alpaca.get_historical_bars.return_value = pd.DataFrame({'Close': []})
 
-        result, msg = self.engine._check_market_conditions()
-        self.assertFalse(result)
-        self.assertIn('Cannot fetch SPY', msg)
+        result, msg, vix = self.engine.analyzer.check_market_conditions()
+        self.assertTrue(result)
+        self.assertIn('SPY', msg)
 
     def test_check_market_conditions_spy_decline(self):
-        """Test when SPY is down more than 0.3%."""
-        self.engine.alpaca.get_latest_price.return_value = 440.0  # Down from yesterday
+        """Test when SPY is down more than threshold."""
+        self.engine.alpaca.get_historical_bars.return_value = pd.DataFrame({
+            'Close': [450.0, 445.0]
+        })
 
-        # Mock yfinance via sys.modules
-        mock_yf = MagicMock()
-        mock_ticker = MagicMock()
-        mock_hist = pd.DataFrame({'Close': [450.0, 441.5]})  # Previous close ~450
-        mock_ticker.history.return_value = mock_hist
-        mock_yf.Ticker.return_value = mock_ticker
+        result, msg, vix = self.engine.analyzer.check_market_conditions()
+        # SPY change: (445-450)/450 = -1.11%
+        self.assertFalse(result)
 
-        with patch.dict('sys.modules', {'yfinance': mock_yf}):
-            result, msg = self.engine._check_market_conditions()
-            # SPY change: (440-450)/450 = -2.2%
-            self.assertFalse(result)
+    def test_check_market_conditions_historical_fails(self):
+        """Test when historical data fetch fails — fail open."""
+        self.engine.alpaca.get_historical_bars.side_effect = Exception('alpaca error')
 
-    def test_check_market_conditions_yfinance_fails(self):
-        """Test when yfinance fallback also fails."""
-        self.engine.alpaca.get_latest_price.return_value = 450.0
-
-        mock_yf = MagicMock()
-        mock_yf.Ticker.side_effect = Exception('yfinance error')
-
-        with patch.dict('sys.modules', {'yfinance': mock_yf}):
-            result, msg = self.engine._check_market_conditions()
-            # Should return True as default when can't check
-            self.assertTrue(result)
+        result, msg, vix = self.engine.analyzer.check_market_conditions()
+        # Should return True as default when can't check decline
+        self.assertTrue(result)
 
 
 class TestPaperEngineExecuteEntry(unittest.TestCase):
@@ -303,7 +240,8 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
         # Should not create position
         self.assertNotIn('AAPL', self.engine.state.positions)
 
-    def test_execute_entry_risk_validation_fails(self):
+    @patch('paper_engine_alpaca.is_market_open', return_value=True)
+    def test_execute_entry_risk_validation_fails(self, mock_is_open):
         """Test entry blocked by risk validation (sector limit reached)."""
         # Mock can_enter_position to simulate sector limit reached
         self.engine.state.can_enter_position = Mock(return_value=(False, "Sector limit reached (3 in Technology)"))

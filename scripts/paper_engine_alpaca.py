@@ -30,6 +30,7 @@ from traderlib.strategies import (
     EntrySignal as StrategyEntrySignal, ExitAction as StrategyExitAction
 )
 from traderlib.backtest.data_provider import DataFrameProvider
+from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 
 # FINDING-007: Weekend/holiday market hours
 from traderlib.market_hours import market_hours, is_market_open, is_trading_day, next_market_open, format_market_status
@@ -73,6 +74,7 @@ class AlpacaPaperEngine:
         self.alpaca = AlpacaClient(mode=mode)
         self.order_manager = OrderManager(self.alpaca)
         self.state = PaperState(initial_capital=self._get_account_value())
+        self.analyzer = TickerAnalyzer(self.alpaca, self.risk_config, WATCHLIST_PATH)
 
         # Pass risk config to ExitEngine
         self.exits = ExitEngine(risk_config=self.risk_config)
@@ -338,14 +340,6 @@ class AlpacaPaperEngine:
         except Exception as e:
             print(f"⚠️ Failed to refresh SPY cache: {e}")
             return False
-
-    def _get_spy_return_6m(self) -> float:
-        """Get cached SPY 6-month return (refresh if needed)."""
-        if not self._refresh_spy_cache():
-            # Return 0 if refresh fails, but log warning
-            if self.spy_cache['return_6m'] == 0:
-                print("⚠️ SPY cache unavailable, RS calculations will use 0")
-        return self.spy_cache['return_6m']
 
     def _signal_handler(self, signum, frame):
         """Graceful shutdown. Force-exits on second Ctrl+C."""
@@ -641,181 +635,6 @@ class AlpacaPaperEngine:
         if rebuilt:
             print(f"   ⏱️  Rebuilt cooldown state for {rebuilt} ticker(s)")
 
-    def _check_market_conditions(self) -> tuple:
-        """Check SPY and VIX market conditions using configured thresholds."""
-        spy_price = self._get_current_price('SPY')
-        if spy_price is None:
-            return False, "Cannot fetch SPY"
-
-        spy_status = "SPY OK"
-        # Get yesterday's close from Alpaca for comparison
-        try:
-            hist = self.alpaca.get_historical_bars('SPY', days=5)
-            if hist is not None and len(hist) >= 2:
-                prev_close = hist['Close'].iloc[-2]
-                change_pct = ((spy_price / prev_close) - 1) * 100
-
-                max_decline = self.risk_config.market.max_spy_decline_pct
-                if change_pct < max_decline:
-                    return False, f"SPY {change_pct:+.2f}% (below {max_decline}%)"
-
-                spy_status = f"SPY {change_pct:+.2f}%"
-        except Exception as e:
-            TradingExceptionHandler.log_exception(
-                "market_condition_check", e,
-                severity=TradingExceptionHandler.ERROR,
-                ticker="SPY"
-            )
-
-        # VIX gate: block new entries when volatility exceeds configured max
-        max_vix = self.risk_config.market.max_vix
-        if max_vix is not None:
-            try:
-                import yfinance as yf
-                vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
-                if not vix_hist.empty:
-                    vix_current = float(vix_hist['Close'].iloc[-1])
-                    if vix_current > max_vix:
-                        return False, f"VIX {vix_current:.1f} > max {max_vix:.0f} — entries paused"
-                    spy_status += f"  VIX {vix_current:.1f}"
-            except Exception:
-                pass  # VIX fetch failed — fail open, don't block trading
-
-        return True, spy_status
-
-    def _analyze_ticker(self, ticker: str) -> Optional[Dict]:
-        """Analyze ticker for entry."""
-        if ticker in self.state.positions:
-            return None
-
-        if ticker in self.signaled_tickers:
-            return None
-
-        # Earnings blackout — no new entry on earnings date
-        from datetime import date as _date
-        if self.earnings_calendar.is_earnings_blackout(ticker, _date.today()):
-            print(f"   📅 {ticker}: Skipping — earnings today")
-            return None
-
-        try:
-            # Get historical data from Alpaca (uses configured historical_days, default 365)
-            hist = self.alpaca.get_historical_bars(ticker)
-            if hist is None or len(hist) < 30:
-                bar_count = len(hist) if hist is not None else 0
-                print(f"   ⏸️  {ticker}: Insufficient historical data ({bar_count} bars)")
-                return None
-
-            current = self._get_current_price(ticker)
-            if current is None:
-                print(f"   ⏸️  {ticker}: Cannot get current price")
-                return None
-
-            # Calculate Stage 2 score and MA flags
-            s2_details = get_stage2_details(hist)
-            stage2 = s2_details['score']
-            below_50ma = not s2_details['criteria']['price_above_50ma']
-            below_20ma = not s2_details['criteria']['price_above_20ma']
-
-            # Get pivot and sector from watchlist
-            pivot = None  # None = no pivot set; avoids phantom proximity score inflation
-            sector = 'Unknown'
-            try:
-                df = pd.read_csv(WATCHLIST_PATH)
-                row = df[df['Ticker'] == ticker]
-                if not row.empty:
-                    if 'Pivot_Price' in row.columns:
-                        pivot_val = row['Pivot_Price'].values[0]
-                        if not pd.isna(pivot_val):
-                            pivot = float(pivot_val)
-                    if 'Sector' in row.columns:
-                        sector_val = row['Sector'].values[0]
-                        if not pd.isna(sector_val):
-                            sector = str(sector_val)
-            except Exception as e:
-                TradingExceptionHandler.log_exception(
-                    "sector_lookup", e,
-                    severity=TradingExceptionHandler.WARNING,
-                    ticker=ticker,
-                    file=str(WATCHLIST_PATH)
-                )
-
-            # Calculate metrics
-            ret_6m = 0
-            if len(hist) >= 130:
-                ret_6m = ((current / hist['Close'].iloc[-130]) - 1) * 100
-
-            # ATR and stop
-            try:
-                high_low = hist['High'] - hist['Low']
-                high_close = abs(hist['High'] - hist['Close'].shift())
-                low_close = abs(hist['Low'] - hist['Close'].shift())
-                ranges = pd.concat([high_low, high_close, low_close], axis=1)
-                true_range = ranges.max(axis=1)
-                atr = true_range.rolling(14).mean().iloc[-1]
-            except Exception as e:
-                print(f"   ⏸️  {ticker}: ATR calculation error - {e}")
-                print(f"      hist columns: {hist.columns.tolist()}, shape: {hist.shape}")
-                return None
-
-            # Use ATR from Alpaca data (already calculated above)
-            atr_stop = current - (2 * atr)
-            # Get recent low from Alpaca data for support
-            recent_low = hist['Low'].tail(10).min()
-            stop = max(atr_stop, recent_low)
-
-            # MA Support Stop calculation
-            if self.risk_config.ma_support.enabled:
-                from traderlib.stage2_utils import calculate_ma_support_stop
-                ma_result = calculate_ma_support_stop(
-                    current,
-                    s2_details,
-                    buffer_pct=self.risk_config.ma_support.buffer_pct,
-                    cluster_spread_pct=self.risk_config.ma_support.cluster_spread_pct,
-                    min_cluster_size=self.risk_config.ma_support.min_cluster_size
-                )
-                if ma_result:
-                    ma_support_stop = ma_result['ma_support_stop']
-                    # Use tighter stop (higher = less risk)
-                    stop = max(stop, ma_support_stop)
-
-            # Sanity check: stop should be 3-15% below entry
-            if stop > current * 0.97:
-                stop = current * 0.97
-            elif stop < current * 0.85:
-                stop = current * 0.85
-
-            target = self.exits.calculate_target_price(current, stop)
-
-            # dist_to_pivot: None when no pivot set (no phantom +25 proximity bonus)
-            dist_to_pivot = ((pivot - current) / current) * 100 if pivot is not None else None
-            # 999.0 sentinel for scoring: get_entry_score awards 0 proximity points
-            dist_for_scoring = dist_to_pivot if dist_to_pivot is not None else 999.0
-            risk_pct = abs((current - stop) / current) * 100 if stop < current else 999
-
-            # Get SPY 6-month return for relative strength calculation
-            spy_return_6m = self._get_spy_return_6m()
-            rs_6m = ret_6m - spy_return_6m
-
-            # Calculate entry score with RS component and MA penalties
-            entry_score = get_entry_score(stage2, risk_pct, dist_for_scoring, ret_6m, rs_6m,
-                                           below_50ma=below_50ma, below_20ma=below_20ma)
-
-            return {
-                'ticker': ticker,
-                'current': current,
-                'pivot': pivot,           # Optional[float] — None = not set
-                'dist_to_pivot': dist_to_pivot,  # Optional[float] — None = not set
-                'stop': stop,
-                'target': target,
-                'stage2': stage2,
-                'entry_score': entry_score,
-                'sector': sector
-            }
-
-        except Exception as e:
-            print(f"   ⏸️  {ticker}: Analysis error - {type(e).__name__}: {e}")
-            return None
-
     async def _check_exit_async(self, ticker: str, current_price: float):
         """Check if position should exit (async version)."""
         if ticker not in self.state.positions:
@@ -954,7 +773,7 @@ class AlpacaPaperEngine:
         if missing:
             print(f"   ℹ️  Batch pre-fetch: {len(batch_tickers) - len(missing)}/{len(batch_tickers)} prices fetched, {len(missing)} unavailable ({', '.join(missing[:5])}{'...' if len(missing) > 5 else ''})")
 
-        market_ok, market_msg = self._check_market_conditions()
+        market_ok, market_msg, _ = self.analyzer.check_market_conditions()
         if not market_ok:
             print(f"⏸️  Market condition failed: {market_msg}")
             return
@@ -972,11 +791,25 @@ class AlpacaPaperEngine:
         rejected_stop = 0
         logs = []
 
+        from datetime import date as _date
+        today = _date.today()
+
         for ticker in watchlist:
             checked += 1
-            analysis = await asyncio.to_thread(self._analyze_ticker, ticker)
-            if not analysis:
+
+            # Engine-specific entry gates
+            if ticker in self.state.positions:
                 continue
+            if ticker in self.signaled_tickers:
+                continue
+            if self.earnings_calendar.is_earnings_blackout(ticker, today):
+                print(f"   📅 {ticker}: Skipping — earnings today")
+                continue
+
+            result = await asyncio.to_thread(self.analyzer.analyze, ticker)
+            if not result:
+                continue
+            analysis = result.to_dict()
 
             # Entry criteria with detailed logging (accumulate for batch output)
             if analysis['entry_score'] < entry_threshold:

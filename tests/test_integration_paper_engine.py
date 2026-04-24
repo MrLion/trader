@@ -145,6 +145,10 @@ class FrozenAlpacaClient:
         """Always healthy for tests."""
         return True
 
+    def get_cached_price(self, ticker, max_age_seconds=None):
+        """Return frozen price from cache (simulated)."""
+        return self._prices.get(ticker, 100.0)
+
     def get_health_summary(self):
         """Return healthy status."""
         return 'HEALTHY'
@@ -218,25 +222,25 @@ class TestEntrySignalE2E(unittest.TestCase):
                                     }
 
                                     # Analyze AAPL (at pivot, should qualify)
-                                    analysis = engine._analyze_ticker('AAPL')
+                                    analysis = engine.analyzer.analyze('AAPL')
 
                                     # Verify analysis succeeded
                                     self.assertIsNotNone(analysis)
-                                    self.assertEqual(analysis['ticker'], 'AAPL')
-                                    self.assertEqual(analysis['current'], 150.0)
-                                    self.assertEqual(analysis['pivot'], 150.0)
+                                    self.assertEqual(analysis.ticker, 'AAPL')
+                                    self.assertEqual(analysis.current, 150.0)
+                                    self.assertEqual(analysis.pivot, 150.0)
 
                                     # Distance should be ~0% (at pivot)
-                                    self.assertAlmostEqual(analysis['dist_to_pivot'], 0.0, delta=0.1)
+                                    self.assertAlmostEqual(analysis.dist_to_pivot, 0.0, delta=0.1)
 
                                     # Stage 2 should be high (perfect uptrend data)
-                                    self.assertGreaterEqual(analysis['stage2'], 6)
+                                    self.assertGreaterEqual(analysis.stage2, 6)
 
                                     # Entry score should be >= 60 (Tier 1)
-                                    self.assertGreaterEqual(analysis['entry_score'], 60)
+                                    self.assertGreaterEqual(analysis.entry_score, 60)
 
-        print(f"✅ E2E Entry signal: {analysis['ticker']} Score={analysis['entry_score']}, "
-              f"Stage2={analysis['stage2']}, Distance={analysis['dist_to_pivot']:.2f}%")
+        print(f"✅ E2E Entry signal: {analysis.ticker} Score={analysis.entry_score}, "
+              f"Stage2={analysis.stage2}, Distance={analysis.dist_to_pivot:.2f}%")
 
 
 class TestPositionSync(unittest.TestCase):

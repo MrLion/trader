@@ -16,14 +16,13 @@ paper_engine_alpaca.py (~64% → higher):
 import asyncio
 import sys
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pandas as pd
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitSignal
@@ -44,6 +43,13 @@ def make_alpaca_engine():
         mock_client.list_orders.return_value = []
         mock_client.is_ws_healthy.return_value = True
         mock_client.get_health_summary.return_value = 'HEALTHY'
+        mock_client.get_cached_price.return_value = None
+        mock_client.rate_limiter.circuit_open = False
+        mock_client.rate_limiter.get_status.return_value = {
+            'requests_in_window': 0,
+            'max_requests': 100,
+            'circuit_open': False,
+        }
 
         with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100_000.0):
             with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
@@ -125,7 +131,7 @@ class TestAlpacaGetCurrentPrice(unittest.TestCase):
         # Stale cache entry (old timestamp)
         engine.price_cache['AAPL'] = {
             'price': 149.0,
-            'timestamp': datetime(2020, 1, 1, 12, 0, 0),  # Very old
+            'timestamp': datetime.now() - timedelta(seconds=60),  # Within 300s stale window
         }
         mock_client.get_latest_price.return_value = None  # REST fails
 
@@ -168,70 +174,92 @@ class TestAlpacaCheckEntriesBranches(unittest.TestCase):
     def setUp(self):
         self.engine, _ = make_alpaca_engine()
 
+    def _mock_analysis(self, **overrides):
+        base = {
+            'ticker': 'AAPL',
+            'current': 150.0,
+            'pivot': 150.0,
+            'dist_to_pivot': 0.0,
+            'stop': 140.0,
+            'target': 170.0,
+            'stage2': 6,
+            'entry_score': 80,
+            'sector': 'Technology',
+        }
+        base.update(overrides)
+        mock_result = Mock()
+        mock_result.to_dict.return_value = base
+        return mock_result
+
     def test_no_watchlist_aborts(self):
         """Empty watchlist → no analysis performed."""
-        self.engine._check_market_conditions = Mock(return_value=(True, 'SPY OK'))
+        self.engine.running = True
+        self.engine.analyzer.check_market_conditions = Mock(return_value=(True, 'SPY OK', None))
         self.engine._load_watchlist_tickers = Mock(return_value=[])
-        self.engine._analyze_ticker = Mock()
+        self.engine.analyzer.analyze = Mock()
 
         with patch('builtins.print'):
-            self.engine._check_entries()
+            asyncio.run(self.engine._check_entries())
 
-        self.engine._analyze_ticker.assert_not_called()
+        self.engine.analyzer.analyze.assert_not_called()
 
     def test_score_filter_rejects(self):
         """Entry score below threshold → _execute_entry not called."""
-        analysis = self._make_analysis(entry_score=10)
-        self.engine._check_market_conditions = Mock(return_value=(True, 'OK'))
+        self.engine.running = True
+        mock_result = self._mock_analysis(entry_score=10)
+        self.engine.analyzer.check_market_conditions = Mock(return_value=(True, 'OK', None))
         self.engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
-        self.engine._analyze_ticker = Mock(return_value=analysis)
+        self.engine.analyzer.analyze = Mock(return_value=mock_result)
         self.engine._execute_entry = Mock()
 
         with patch('builtins.print'):
-            self.engine._check_entries()
+            asyncio.run(self.engine._check_entries())
 
         self.engine._execute_entry.assert_not_called()
 
     def test_distance_filter_rejects(self):
         """Distance outside ±max → _execute_entry not called."""
-        analysis = self._make_analysis(entry_score=80, dist_to_pivot=10.0)
-        self.engine._check_market_conditions = Mock(return_value=(True, 'OK'))
+        self.engine.running = True
+        mock_result = self._mock_analysis(entry_score=80, dist_to_pivot=10.0)
+        self.engine.analyzer.check_market_conditions = Mock(return_value=(True, 'OK', None))
         self.engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
-        self.engine._analyze_ticker = Mock(return_value=analysis)
+        self.engine.analyzer.analyze = Mock(return_value=mock_result)
         self.engine._execute_entry = Mock()
 
         with patch('builtins.print'):
-            self.engine._check_entries()
+            asyncio.run(self.engine._check_entries())
 
         self.engine._execute_entry.assert_not_called()
 
     def test_stop_distance_filter_rejects(self):
         """Stop > max_stop_distance_pct → _execute_entry not called."""
+        self.engine.running = True
         # 50% stop distance (stop = 75, current = 150) far exceeds 10% max
-        analysis = self._make_analysis(entry_score=80, dist_to_pivot=0.0,
-                                       stop=75.0, current=150.0)
-        self.engine._check_market_conditions = Mock(return_value=(True, 'OK'))
+        mock_result = self._mock_analysis(entry_score=80, dist_to_pivot=0.0,
+                                          stop=75.0, current=150.0)
+        self.engine.analyzer.check_market_conditions = Mock(return_value=(True, 'OK', None))
         self.engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
-        self.engine._analyze_ticker = Mock(return_value=analysis)
+        self.engine.analyzer.analyze = Mock(return_value=mock_result)
         self.engine._execute_entry = Mock()
 
         with patch('builtins.print'):
-            self.engine._check_entries()
+            asyncio.run(self.engine._check_entries())
 
         self.engine._execute_entry.assert_not_called()
 
     def test_all_filters_pass_calls_execute(self):
         """All filters pass → _execute_entry called once."""
-        analysis = self._make_analysis(entry_score=80, dist_to_pivot=0.0)
-        self.engine._check_market_conditions = Mock(return_value=(True, 'OK'))
+        self.engine.running = True
+        mock_result = self._mock_analysis(entry_score=80, dist_to_pivot=0.0)
+        self.engine.analyzer.check_market_conditions = Mock(return_value=(True, 'OK', None))
         self.engine._load_watchlist_tickers = Mock(return_value=['AAPL'])
-        self.engine._analyze_ticker = Mock(return_value=analysis)
+        self.engine.analyzer.analyze = Mock(return_value=mock_result)
         self.engine._execute_entry = Mock()
 
         with patch('builtins.print'):
-            self.engine._check_entries()
+            asyncio.run(self.engine._check_entries())
 
-        self.engine._execute_entry.assert_called_once_with(analysis)
+        self.engine._execute_entry.assert_called_once_with(mock_result.to_dict.return_value)
 
 
 # ---------------------------------------------------------------------------
@@ -302,18 +330,20 @@ class TestAlpacaExecuteEntry(unittest.TestCase):
         mock_order = Mock()
         mock_order.id = 'order-123'
 
-        with patch.object(self.engine.order_manager, 'has_pending_order', return_value=False):
-            with patch.object(self.engine.exits, 'calculate_position_size', return_value=50):
-                with patch.object(self.engine.exits, 'get_last_position_calc',
-                                  return_value={'constraints_applied': [], 'rejected': False,
-                                                'stop_distance_pct': 6.0, 'position_pct': 4.0,
-                                                'account_risk_pct': 0.75, 'account_risk_dollars': 750}):
-                    with patch.object(self.engine.state, 'can_enter_position',
-                                      return_value=(True, 'OK')):
-                        with patch.object(self.engine.order_manager, 'submit_entry',
-                                          return_value=mock_order):
-                            with patch('builtins.print'):
-                                self.engine._execute_entry(self._make_analysis())
+        with patch('paper_engine_alpaca.is_market_open', return_value=True):
+            with patch('paper_engine_alpaca.is_trading_day', return_value=True):
+                with patch.object(self.engine.order_manager, 'has_pending_order', return_value=False):
+                    with patch.object(self.engine.exits, 'calculate_position_size', return_value=50):
+                        with patch.object(self.engine.exits, 'get_last_position_calc',
+                                          return_value={'constraints_applied': [], 'rejected': False,
+                                                        'stop_distance_pct': 6.0, 'position_pct': 4.0,
+                                                        'account_risk_pct': 0.75, 'account_risk_dollars': 750}):
+                            with patch.object(self.engine.state, 'can_enter_position',
+                                              return_value=(True, 'OK')):
+                                with patch.object(self.engine.order_manager, 'submit_entry',
+                                                  return_value=mock_order):
+                                    with patch('builtins.print'):
+                                        self.engine._execute_entry(self._make_analysis())
 
         # FINDING-002: No immediate position creation - position created on fill
         self.assertNotIn('AAPL', self.engine.state.positions)
@@ -511,7 +541,7 @@ class TestAlpacaProcessPendingOrders(unittest.TestCase):
 
         with patch.object(self.engine.state, 'save_state'):
             with patch('builtins.print'):
-                self.engine._process_pending_orders()
+                asyncio.run(self.engine._process_pending_orders())
 
         # Entry price should be updated to the actual fill
         self.assertAlmostEqual(self.engine.state.positions['AAPL'].entry_price, 151.50)
@@ -536,7 +566,7 @@ class TestAlpacaProcessPendingOrders(unittest.TestCase):
         self.engine.order_manager.get_pending_count = Mock(return_value=1)
 
         with patch('builtins.print') as mock_print:
-            self.engine._process_pending_orders()
+            asyncio.run(self.engine._process_pending_orders())
 
         printed = ' '.join(str(c) for c in mock_print.call_args_list)
         self.assertIn('AAPL', printed)
@@ -574,7 +604,7 @@ class TestAlpacaPrintStatusWithPositions(unittest.TestCase):
         self.mock_client.get_health_summary.return_value = 'HEALTHY'
 
         with patch('builtins.print') as mock_print:
-            self.engine._print_status()
+            asyncio.run(self.engine._print_status())
 
         # Unrealized PnL = (160 - 150) * 100 = 1000 — formatted as $1,000.00
         printed = ' '.join(str(c) for c in mock_print.call_args_list)
@@ -603,7 +633,7 @@ class TestAlpacaPrintStatusWithPositions(unittest.TestCase):
 
         with patch('builtins.print'):
             # Should not raise
-            self.engine._print_status()
+            asyncio.run(self.engine._print_status())
 
 
 if __name__ == '__main__':

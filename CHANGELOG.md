@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.7.0] — 2026-04-23
+
+### Added
+- **`traderlib/ticker_analyzer.py`** — New shared `TickerAnalyzer` module extracted from duplicated analysis logic in `entry_signals.py` and `paper_engine_alpaca.py`:
+  - `TickerAnalyzer` class with `analyze()`, `check_market_conditions()`, `_get_spy_return_6m()`, `_get_current_price()`
+  - `TickerAnalysis` dataclass with `to_dict()` for backward compatibility
+  - Combines best of both original implementations: paper engine's `recent_low` support + entry signals' comprehensive field set
+  - Standardized analysis output used by both entry scanner and paper trading engine
+
+### Changed
+- **`scripts/entry_signals.py`** — Refactored to use `TickerAnalyzer`:
+  - Removed duplicated `_get_spy_return_6m`, `_get_current_price`, `_check_market_conditions`, `_analyze_ticker`
+  - `scan()` and `analyze_single()` now delegate to `self.analyzer`
+- **`scripts/paper_engine_alpaca.py`** — Refactored to use `TickerAnalyzer`:
+  - Removed duplicated `_get_spy_return_6m`, `_check_market_conditions`, `_analyze_ticker`
+  - Kept engine-specific `_get_current_price` (exit logic) and `_refresh_spy_cache` (main loop logging)
+  - `_check_entries()` delegates analysis to `self.analyzer.analyze()`
+- **Tests updated** — `test_entry_signals.py`, `test_paper_engine_coverage.py`, `test_paper_engine_alpaca_additional.py`, `test_paper_engine_extended.py`, `test_paper_engine_new_coverage.py`, `test_integration_paper_engine.py`, `test_chaos.py` all updated to reference `analyzer` methods instead of removed engine methods
+- **`tests/test_ticker_analyzer.py`** — New test suite (15 tests) covering `_get_spy_return_6m`, `_get_current_price`, `check_market_conditions`, and `analyze`
+
 ## [0.6.6.11] — 2026-04-20
 
 ### Changed

@@ -24,8 +24,6 @@ import pandas as pd
 import pytz
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitSignal
@@ -280,11 +278,13 @@ class TestEntryExecution(unittest.TestCase):
         # Mark as already signaled
         engine.signaled_tickers.add('AAPL')
 
-        with patch('builtins.print') as mock_print:
-            engine._execute_entry(analysis)
-            # Should print skip message
-            printed = ' '.join([str(c) for c in mock_print.call_args_list])
-            self.assertIn('Already signaled', printed)
+        with patch('paper_engine_alpaca.is_market_open', return_value=True):
+            with patch('paper_engine_alpaca.is_trading_day', return_value=True):
+                with patch('builtins.print') as mock_print:
+                    engine._execute_entry(analysis)
+                    # Should print skip message
+                    printed = ' '.join([str(c) for c in mock_print.call_args_list])
+                    self.assertIn('Already signaled', printed)
 
     def test_execute_entry_skips_pending_order(self):
         """Test entry skipped when order already pending."""
@@ -301,10 +301,12 @@ class TestEntryExecution(unittest.TestCase):
         # Mock has_pending_order to return True
         engine.order_manager.has_pending_order = Mock(return_value=True)
 
-        with patch('builtins.print') as mock_print:
-            engine._execute_entry(analysis)
-            printed = ' '.join([str(c) for c in mock_print.call_args_list])
-            self.assertIn('pending', printed.lower())
+        with patch('paper_engine_alpaca.is_market_open', return_value=True):
+            with patch('paper_engine_alpaca.is_trading_day', return_value=True):
+                with patch('builtins.print') as mock_print:
+                    engine._execute_entry(analysis)
+                    printed = ' '.join([str(c) for c in mock_print.call_args_list])
+                    self.assertIn('pending', printed.lower())
 
 
 class TestExitExecution(unittest.TestCase):
@@ -368,24 +370,23 @@ class TestDailySignalReset(unittest.TestCase):
 
 
 class TestMarketConditions(unittest.TestCase):
-    """Test _check_market_conditions method."""
+    """Test market conditions via TickerAnalyzer."""
 
     def test_market_conditions_structure(self):
         """Test market conditions returns correct structure."""
         engine, mock_client = create_engine_with_full_mocks()
 
-        # Mock price data
-        mock_client.get_latest_quote.return_value = {'price': 450.0}
+        # Mock SPY historical data
+        mock_client.get_historical_bars.return_value = pd.DataFrame({'Close': [450.0, 450.0]})
 
-        with patch.object(engine, '_get_current_price', return_value=450.0):
-            result, msg = engine._check_market_conditions()
+        result, msg, vix = engine.analyzer.check_market_conditions()
 
         self.assertIsInstance(result, bool)
         self.assertIsInstance(msg, str)
 
 
 class TestAnalysis(unittest.TestCase):
-    """Test _analyze_ticker method."""
+    """Test TickerAnalyzer.analyze method."""
 
     def test_analyze_ticker_success(self):
         """Test successful ticker analysis."""
@@ -407,13 +408,20 @@ class TestAnalysis(unittest.TestCase):
             'Sector': ['Technology']
         })
 
-        with patch.object(engine, '_get_current_price', return_value=150.0):
-            with patch.object(engine, '_get_spy_return_6m', return_value=15.0):
-                with patch('paper_engine_alpaca.pd.read_csv', return_value=mock_watchlist):
-                    result = engine._analyze_ticker('AAPL')
+        with patch('traderlib.ticker_analyzer.get_stage2_details', return_value={
+            'score': 8,
+            'criteria': {
+                'price_above_20ma': True,
+                'price_above_50ma': True,
+            }
+        }):
+            with patch.object(engine.analyzer, '_get_current_price', return_value=150.0):
+                with patch.object(engine.analyzer, '_get_spy_return_6m', return_value=15.0):
+                    with patch('traderlib.ticker_analyzer.pd.read_csv', return_value=mock_watchlist):
+                        result = engine.analyzer.analyze('AAPL')
 
         self.assertIsNotNone(result)
-        self.assertEqual(result['ticker'], 'AAPL')
+        self.assertEqual(result.ticker, 'AAPL')
 
     def test_analyze_ticker_no_data(self):
         """Test analysis returns None when no data."""
@@ -421,7 +429,7 @@ class TestAnalysis(unittest.TestCase):
 
         mock_client.get_historical_bars.return_value = None
 
-        result = engine._analyze_ticker('AAPL')
+        result = engine.analyzer.analyze('AAPL')
 
         self.assertIsNone(result)
 
@@ -433,10 +441,18 @@ class TestPrintStatus(unittest.TestCase):
         """Test status printing."""
         engine, _ = create_engine_with_full_mocks()
 
-        # Should not raise
-        with patch('builtins.print') as mock_print:
-            engine._print_status()
-            self.assertTrue(mock_print.called)
+        engine.alpaca.rate_limiter.get_status.return_value = {
+            'requests_in_window': 0,
+            'max_requests': 100,
+            'circuit_open': False,
+        }
+
+        async def async_print_status():
+            with patch('builtins.print') as mock_print:
+                await engine._print_status()
+                self.assertTrue(mock_print.called)
+
+        asyncio.run(async_print_status())
 
 
 if __name__ == '__main__':
