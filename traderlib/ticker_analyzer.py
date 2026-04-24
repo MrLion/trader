@@ -15,6 +15,7 @@ import pandas as pd
 import pytz
 
 from traderlib import get_entry_score, get_stage2_details, calculate_ma_support_stop
+from traderlib.pivot_detection import detect_pivot, PivotSignal
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 
@@ -44,7 +45,8 @@ class TickerAnalysis:
     spy_return_6m: float = 0.0
     below_50ma: bool = False
     below_20ma: bool = False
-    hist: Optional[pd.DataFrame] = None  # Kept for consumers that need raw data
+    pivot_type: str = 'none'
+    entry_mode: str = 'immediate'
 
     def to_dict(self) -> Dict:
         """Return analysis as a plain dict for backward compatibility."""
@@ -72,6 +74,8 @@ class TickerAnalysis:
             'spy_return_6m': self.spy_return_6m,
             'below_50ma': self.below_50ma,
             'below_20ma': self.below_20ma,
+            'pivot_type': self.pivot_type,
+            'entry_mode': self.entry_mode,
         }
 
 
@@ -235,11 +239,24 @@ class TickerAnalyzer:
             # Pivot and sector from watchlist
             pivot, sector = self._load_watchlist_pivot_and_sector(ticker)
             pivot_source = 'manual' if pivot is not None else 'none'
+            pivot_type = 'manual' if pivot is not None else 'none'
+            entry_mode = 'breakout' if pivot is not None else 'immediate'
+            detected_signal = None
 
-            # Fallback: 20-day range high as pivot proxy
+            # Automatic pivot detection when no manual pivot
             if pivot is None:
-                pivot = float(hist['High'].tail(20).max())
-                pivot_source = 'range_20d'
+                detected_signal = detect_pivot(ticker, hist, technique='auto')
+                if detected_signal is not None:
+                    pivot = detected_signal.pivot_price
+                    pivot_source = detected_signal.pivot_type
+                    pivot_type = detected_signal.pivot_type
+                    entry_mode = detected_signal.entry_mode
+                else:
+                    # Ultimate fallback: 20-day range high
+                    pivot = float(hist['High'].tail(20).max())
+                    pivot_source = 'range_20d'
+                    pivot_type = 'range_20d'
+                    entry_mode = 'immediate'
 
             # 6-month return
             ret_6m = 0.0
@@ -286,6 +303,15 @@ class TickerAnalyzer:
                 stop_type = 'MA'
             else:
                 risk_pct = atr_risk_pct
+
+            # Technique-specific stop override (e.g. VCP stop_low, pocket pivot prior low)
+            if detected_signal and detected_signal.stop_price:
+                tech_stop = detected_signal.stop_price
+                # Only use technique stop if it's tighter (higher) but still valid
+                if tech_stop > stop and tech_stop >= min_stop:
+                    stop = tech_stop
+                    risk_pct = abs((current - tech_stop) / current) * 100
+                    stop_type = detected_signal.pivot_type.upper()
 
             # Sanity check: stop 3–15% below entry
             min_stop = current * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
@@ -347,7 +373,8 @@ class TickerAnalyzer:
                 spy_return_6m=spy_return_6m,
                 below_50ma=below_50ma,
                 below_20ma=below_20ma,
-                hist=hist,
+                pivot_type=pivot_type,
+                entry_mode=entry_mode,
             )
 
         except Exception as e:

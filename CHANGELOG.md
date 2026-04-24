@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8.0] — 2026-04-23
+
+### Added
+- **`traderlib/pivot_detection.py`** — New unified pivot detection module supporting multiple breakout techniques:
+  - `PivotSignal` dataclass with standardized fields: `pivot_price`, `pivot_type`, `confidence`, `stop_price`, `target_price`, `entry_mode`, `context`
+  - `detect_range_20d_pivot(hist)` — 20-day range high with confidence based on position within range
+  - `detect_vcp_pivot(hist)` — wrapper around existing `detect_vcp_pattern()`, requires valid pattern + declining volume
+  - `detect_pocket_pivot(hist)` — up-day with volume spike above max down-volume in prior 10 days
+  - `detect_pivot(ticker, hist, technique='auto')` — dispatcher that tries all techniques and returns highest-confidence signal
+- **`tests/test_pivot_detection.py`** — New test suite (16 tests) covering all detectors and the dispatcher
+
+### Changed
+- **`traderlib/ticker_analyzer.py`** — Integrated automatic pivot detection:
+  - `TickerAnalysis` dataclass: removed `hist` field (R0.2), added `pivot_type` and `entry_mode` fields
+  - `analyze()` now calls `detect_pivot(ticker, hist, technique='auto')` when no manual watchlist pivot exists
+  - Technique-specific stop override: detected signal's `stop_price` replaces ATR/MA stop when tighter (higher) but still valid
+  - Entry mode per pivot type: `vcp` → `breakout`, `manual` → `breakout`, `range_20d` → `immediate`, `pocket_pivot` → `immediate`
+  - Ultimate fallback to 20-day range high when no technique produces a valid signal
+- **`scripts/entry_signals.py`** — Updated `_SOURCE_LABEL` to include `vcp` (`v`) and `pocket_pivot` (`p`) badges
+
 ## [0.6.7.0] — 2026-04-23
 
 ### Added

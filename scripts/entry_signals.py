@@ -34,9 +34,10 @@ _W = 84  # terminal width target
 
 # Pivot source badge labels — shown after distance string
 _SOURCE_LABEL: dict = {
-    'manual':         'm',   # set explicitly in watchlist Pivot_Price column
-    'vcp_contraction': 'v',  # derived from VCP contraction pattern
-    'range_20d':      'r',   # 20-day high proxy (backtest default)
+    'manual':          'm',   # set explicitly in watchlist Pivot_Price column
+    'vcp':             'v',   # volatility contraction pattern
+    'range_20d':       'r',   # 20-day high proxy (backtest default)
+    'pocket_pivot':    'p',   # pocket pivot volume spike
 }
 
 
