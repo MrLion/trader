@@ -66,6 +66,10 @@ class Order:
     target_price: Optional[float] = None
     sector: Optional[str] = None
     expected_entry_price: Optional[float] = None  # Used for position creation on fill
+    # Telemetry — pivot technique and entry mode for performance evaluation (Phase 5)
+    pivot_type: Optional[str] = None       # 'vcp', 'range_20d', 'pocket_pivot', 'manual'
+    entry_mode: Optional[str] = None       # 'breakout' or 'immediate'
+    trigger_price: Optional[float] = None  # For buy-stop: the resting trigger price
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -96,6 +100,10 @@ class QueuedOrder:
     expected_entry_price: Optional[float] = None
     # Exit-specific fields
     reason: Optional[str] = None
+    # Telemetry
+    pivot_type: Optional[str] = None
+    entry_mode: Optional[str] = None
+    trigger_price: Optional[float] = None
     # Queue metadata
     queued_at: str = field(default_factory=lambda: datetime.now().isoformat())
     priority: int = 0  # Higher = processed first
@@ -188,6 +196,18 @@ class OrderManager:
                     target_price=queued.target_price,
                     sector=queued.sector,
                     expected_entry_price=queued.expected_entry_price
+                )
+            elif queued.order_type == 'stop_entry':
+                result = self._submit_stop_entry_to_alpaca(
+                    ticker=queued.ticker,
+                    shares=queued.shares,
+                    trigger_price=queued.trigger_price,
+                    stop_price=queued.stop_price,
+                    target_price=queued.target_price,
+                    sector=queued.sector,
+                    expected_entry_price=queued.expected_entry_price,
+                    pivot_type=queued.pivot_type,
+                    entry_mode=queued.entry_mode
                 )
             else:  # exit
                 result = self._submit_exit_direct(
@@ -351,6 +371,136 @@ class OrderManager:
 
         print(f"📤 Order submitted: {ticker} {shares} shares @ market")
         return order
+
+    def submit_stop_entry(self, ticker: str, shares: int, trigger_price: float,
+                          stop_price: float,
+                          target_price: Optional[float] = None,
+                          sector: Optional[str] = None,
+                          expected_entry_price: Optional[float] = None,
+                          pivot_type: Optional[str] = None,
+                          entry_mode: Optional[str] = None,
+                          priority: int = 0,
+                          callback: Optional[Callable] = None) -> Optional[Order]:
+        """Submit a buy-stop order (resting order above pivot).
+
+        Args:
+            ticker: Stock symbol
+            shares: Number of shares to buy
+            trigger_price: Stop price (triggers market order when reached)
+            stop_price: Stop-loss price for the position
+            target_price: Target price for the position
+            sector: Stock sector
+            expected_entry_price: Expected fill price
+            pivot_type: Technique that produced the pivot (for telemetry)
+            entry_mode: 'breakout' or 'immediate' (for telemetry)
+            priority: Higher priority orders processed first (default 0)
+            callback: Optional callback function(order_result) called when processed
+
+        Returns:
+            Order object if submitted directly, None if queued or failed
+        """
+        if self._can_submit_directly():
+            result = self._submit_stop_entry_to_alpaca(
+                ticker, shares, trigger_price, stop_price, target_price,
+                sector, expected_entry_price, pivot_type, entry_mode
+            )
+            if callback:
+                try:
+                    callback(result)
+                except Exception as e:
+                    print(f"⚠️ Callback error for {ticker}: {e}")
+            return result
+
+        try:
+            queued = QueuedOrder(
+                order_type='stop_entry',
+                ticker=ticker,
+                shares=shares,
+                stop_price=stop_price,
+                target_price=target_price,
+                sector=sector,
+                expected_entry_price=expected_entry_price,
+                pivot_type=pivot_type,
+                entry_mode=entry_mode,
+                trigger_price=trigger_price,
+                priority=priority,
+                callback=callback
+            )
+            self.submission_queue.put((-priority, queued), block=False)
+            self.queue_stats['queued'] += 1
+            print(f"⏳ Stop-entry queued: {ticker} {shares} shares @ ${trigger_price:.2f} (position {self.submission_queue.qsize()} in queue)")
+            return None
+
+        except queue.Full:
+            self.queue_stats['rejected'] += 1
+            print(f"❌ Stop-entry rejected: {ticker} - submission queue full (max {self.submission_queue.maxsize})")
+            return None
+
+    def _submit_stop_entry_to_alpaca(self, ticker: str, shares: int, trigger_price: float,
+                                     stop_price: float,
+                                     target_price: Optional[float] = None,
+                                     sector: Optional[str] = None,
+                                     expected_entry_price: Optional[float] = None,
+                                     pivot_type: Optional[str] = None,
+                                     entry_mode: Optional[str] = None) -> Optional[Order]:
+        """Internal: Submit stop-entry directly to Alpaca."""
+        result = self.alpaca.submit_stop_order(ticker, shares, trigger_price, 'buy')
+
+        if not result:
+            print(f"❌ Failed to submit stop-entry order for {ticker}")
+            return None
+
+        order = Order(
+            id=result['id'],
+            ticker=ticker,
+            side='buy',
+            qty=shares,
+            status=OrderStatus.SUBMITTED,
+            submitted_at=datetime.now().isoformat(),
+            stop_price=stop_price,
+            target_price=target_price,
+            sector=sector,
+            expected_entry_price=expected_entry_price,
+            pivot_type=pivot_type,
+            entry_mode=entry_mode,
+            trigger_price=trigger_price
+        )
+
+        self.pending_orders[order.id] = order
+        self._save_orders()
+
+        print(f"📤 Stop-entry submitted: {ticker} {shares} shares @ ${trigger_price:.2f} (triggers market order)")
+        return order
+
+    def cancel_stop_entry(self, ticker: str) -> bool:
+        """Cancel pending stop-entry orders for a ticker.
+
+        Called when setup degrades (score drops, VCP invalidates, etc.).
+
+        Returns:
+            True if any orders were cancelled, False otherwise
+        """
+        cancelled = False
+        orders_to_cancel = [
+            (oid, o) for oid, o in self.pending_orders.items()
+            if o.ticker == ticker and o.entry_mode == 'breakout' and o.trigger_price is not None
+        ]
+
+        for oid, order in orders_to_cancel:
+            try:
+                self.alpaca.cancel_order(oid)
+                order.status = OrderStatus.CANCELED
+                self.filled_orders[oid] = order
+                del self.pending_orders[oid]
+                cancelled = True
+                print(f"🚫 Stop-entry cancelled: {ticker} @ ${order.trigger_price:.2f}")
+            except Exception as e:
+                print(f"⚠️ Failed to cancel stop-entry for {ticker}: {e}")
+
+        if cancelled:
+            self._save_orders()
+
+        return cancelled
 
     def submit_exit(self, ticker: str, shares: int, reason: str,
                    priority: int = 0,

@@ -22,7 +22,14 @@ from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.enums import DataFeed, Adjustment
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, StopLossRequest, GetAssetsRequest
+from alpaca.trading.requests import (
+    MarketOrderRequest, StopLossRequest, GetAssetsRequest,
+    StopOrderRequest, LimitOrderRequest
+)
+
+# SDK capability guard — fail gracefully on older SDK versions
+STOP_ORDER_AVAILABLE = True
+LIMIT_ORDER_AVAILABLE = True
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 
@@ -514,6 +521,145 @@ class AlpacaClient:
             print(f"❌ Order submission failed: {e}")
             return None
 
+    def submit_stop_order(self, ticker: str, shares: int, stop_price: float,
+                          side: str = 'buy') -> Optional[Dict]:
+        """Submit a stop-entry order (triggers when price >= stop_price).
+
+        Args:
+            ticker: Stock symbol
+            shares: Number of shares
+            stop_price: Stop price (triggers market order when reached)
+            side: 'buy' or 'sell'
+
+        Returns:
+            Order dict or None if submission failed
+        """
+        if not STOP_ORDER_AVAILABLE:
+            print("⚠️  StopOrderRequest not available in Alpaca SDK. Update alpaca-py.")
+            return None
+
+        if not self.rate_limiter.can_make_request():
+            wait = self.rate_limiter.get_wait_time()
+            print(f"⏳ Rate limited: waiting {wait:.1f}s before order")
+            import time
+            time.sleep(wait)
+
+        try:
+            self.rate_limiter.record_request()
+            order_side = OrderSide.BUY if side == 'buy' else OrderSide.SELL
+
+            request = StopOrderRequest(
+                symbol=ticker,
+                qty=shares,
+                side=order_side,
+                time_in_force=TimeInForce.DAY,
+                stop_price=stop_price
+            )
+            order = self.trading_client.submit_order(request)
+
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
+
+            return {
+                'id': str(order.id),
+                'symbol': order.symbol,
+                'qty': float(order.qty),
+                'side': order.side.value,
+                'type': order.order_type.value,
+                'status': order.status.value,
+                'stop_price': float(order.stop_price) if order.stop_price else None
+            }
+
+        except APIError as e:
+            is_rate_limit = e.status_code == 429
+            self.rate_limiter.record_error(is_rate_limit=is_rate_limit)
+            health_monitor.mark_failure('alpaca')
+            if e.status_code in (401, 403):
+                print(f"\n❌ Stop order failed: Authentication error ({e.status_code})")
+                print("   Your API keys may be invalid or expired.")
+                print("   Run: python3 scripts/setup_alpaca.py")
+            else:
+                print(f"❌ Stop order failed: {e}")
+            return None
+        except Exception as e:
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
+            print(f"❌ Stop order failed: {e}")
+            return None
+
+    def submit_limit_order(self, ticker: str, shares: int, limit_price: float,
+                           side: str = 'buy',
+                           stop_price: Optional[float] = None) -> Optional[Dict]:
+        """Submit a limit order.
+
+        Args:
+            ticker: Stock symbol
+            shares: Number of shares
+            limit_price: Maximum/minimum price for fill
+            side: 'buy' or 'sell'
+            stop_price: Optional stop loss price (for entries)
+
+        Returns:
+            Order dict or None if submission failed
+        """
+        if not LIMIT_ORDER_AVAILABLE:
+            print("⚠️  LimitOrderRequest not available in Alpaca SDK. Update alpaca-py.")
+            return None
+
+        if not self.rate_limiter.can_make_request():
+            wait = self.rate_limiter.get_wait_time()
+            print(f"⏳ Rate limited: waiting {wait:.1f}s before order")
+            import time
+            time.sleep(wait)
+
+        try:
+            self.rate_limiter.record_request()
+            order_side = OrderSide.BUY if side == 'buy' else OrderSide.SELL
+
+            order_data = {
+                'symbol': ticker,
+                'qty': shares,
+                'side': order_side,
+                'time_in_force': TimeInForce.DAY,
+                'limit_price': limit_price
+            }
+
+            if stop_price and side == 'buy':
+                order_data['stop_loss'] = StopLossRequest(stop_price=stop_price)
+
+            request = LimitOrderRequest(**order_data)
+            order = self.trading_client.submit_order(request)
+
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
+
+            return {
+                'id': str(order.id),
+                'symbol': order.symbol,
+                'qty': float(order.qty),
+                'side': order.side.value,
+                'type': order.order_type.value,
+                'status': order.status.value,
+                'limit_price': float(order.limit_price) if order.limit_price else None
+            }
+
+        except APIError as e:
+            is_rate_limit = e.status_code == 429
+            self.rate_limiter.record_error(is_rate_limit=is_rate_limit)
+            health_monitor.mark_failure('alpaca')
+            if e.status_code in (401, 403):
+                print(f"\n❌ Limit order failed: Authentication error ({e.status_code})")
+                print("   Your API keys may be invalid or expired.")
+                print("   Run: python3 scripts/setup_alpaca.py")
+            else:
+                print(f"❌ Limit order failed: {e}")
+            return None
+        except Exception as e:
+            self.rate_limiter.record_error()
+            health_monitor.mark_failure('alpaca')
+            print(f"❌ Limit order failed: {e}")
+            return None
+
     def get_order(self, order_id: str) -> Optional[Dict]:
         """Get order by ID."""
         try:
@@ -529,6 +675,22 @@ class AlpacaClient:
             }
         except Exception:
             return None
+
+    def cancel_order(self, order_id: str) -> bool:
+        """Cancel a specific order by ID.
+
+        Args:
+            order_id: Alpaca order ID
+
+        Returns:
+            True if cancelled successfully, False otherwise
+        """
+        try:
+            self.trading_client.cancel_order_by_id(order_id)
+            return True
+        except Exception as e:
+            print(f"⚠️ Failed to cancel order {order_id}: {e}")
+            return False
 
     def list_positions(self) -> List[Dict]:
         """Get all open positions."""

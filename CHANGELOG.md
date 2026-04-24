@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.9.0] — 2026-04-24
+
+### Added
+- **`traderlib/alpaca_client.py`** — Added `submit_stop_order()` and `submit_limit_order()` methods for Alpaca SDK buy-stop and limit order support. Includes rate limiting, auth error handling, and health monitoring.
+- **`traderlib/alpaca_client.py`** — Added SDK capability guards `STOP_ORDER_AVAILABLE` and `LIMIT_ORDER_AVAILABLE` for graceful fallback on older SDK versions.
+- **`traderlib/order_manager.py`** — Added telemetry fields to `Order` and `QueuedOrder` dataclasses: `pivot_type`, `entry_mode`, `trigger_price`.
+- **`traderlib/order_manager.py`** — Added `submit_stop_entry()` for buy-stop (breakout) orders, `cancel_stop_entry()` for cancelling resting breakout orders, and `_submit_stop_entry_to_alpaca()` internal handler.
+- **`tests/test_order_manager_stop.py`** — Comprehensive test coverage for stop-entry submission, queueing, cancellation, telemetry serialization, and AlpacaClient stop/limit order methods.
+
 ## [0.6.8.4] — 2026-04-24
 
 ### Fixed
