@@ -31,7 +31,7 @@ class PivotSignal:
     context: Dict = field(default_factory=dict)
 
 
-def detect_range_20d_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
+def detect_range_20d_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect 20-day range high pivot.
 
     Pivot = highest high of last 20 bars.
@@ -48,17 +48,17 @@ def detect_range_20d_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
 
     # Confidence: how close to the pivot is current price?
     # 0.0 = at range low, 1.0 = at or above pivot
-    if pivot_high > range_low:
-        confidence = max(0.0, min(1.0, (current - range_low) / (pivot_high - range_low)))
-    else:
-        confidence = 0.5
+    if range_low >= pivot_high:
+        # Degenerate range (zero width or inverted) — unusable signal
+        return None
+    confidence = max(0.0, min(1.0, (current - range_low) / (pivot_high - range_low)))
 
     # Risk-based target: 2R from pivot
     risk = pivot_high - range_low
     target = pivot_high + (2 * risk) if risk > 0 else pivot_high * 1.05
 
     return PivotSignal(
-        ticker='',
+        ticker=ticker,
         pivot_price=round(pivot_high, 2),
         pivot_type='range_20d',
         confidence=round(confidence, 2),
@@ -73,7 +73,7 @@ def detect_range_20d_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
     )
 
 
-def detect_vcp_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
+def detect_vcp_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect VCP pivot via existing detect_vcp_pattern().
 
     Requires valid VCP pattern with declining volume.
@@ -82,6 +82,10 @@ def detect_vcp_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
     if not pattern.valid:
         return None
     if not pattern.volume_declining:
+        return None
+
+    # Validate pattern values to prevent catastrophic stops
+    if not (pattern.stop_low > 0 and pattern.pivot_high > pattern.stop_low):
         return None
 
     # Confidence based on contraction quality
@@ -105,7 +109,7 @@ def detect_vcp_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
     target = pattern.pivot_high + (2 * risk) if risk > 0 else pattern.pivot_high * 1.05
 
     return PivotSignal(
-        ticker='',
+        ticker=ticker,
         pivot_price=round(pattern.pivot_high, 2),
         pivot_type='vcp',
         confidence=round(confidence, 2),
@@ -122,7 +126,7 @@ def detect_vcp_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
     )
 
 
-def detect_pocket_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
+def detect_pocket_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect pocket pivot: up-day with volume > max down-volume in prior 10 days.
 
     Pocket pivot is an intraday signal. For EOD scans, we look for the most
@@ -159,6 +163,8 @@ def detect_pocket_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
 
             # Stop: lowest low of the 10 days prior to the pocket pivot
             prior_lows = lows[i - 10:i]
+            if np.isnan(prior_lows).any():
+                continue
             stop_price = float(np.min(prior_lows))
 
             # Confidence: stronger volume = higher confidence
@@ -170,7 +176,7 @@ def detect_pocket_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
             target = pivot_price + (2 * risk) if risk > 0 else pivot_price * 1.05
 
             return PivotSignal(
-                ticker='',
+                ticker=ticker,
                 pivot_price=round(pivot_price, 2),
                 pivot_type='pocket_pivot',
                 confidence=round(confidence, 2),
@@ -191,7 +197,6 @@ def detect_pivot(
     ticker: str,
     hist: pd.DataFrame,
     technique: str = 'auto',
-    **kwargs
 ) -> Optional[PivotSignal]:
     """Detect pivot for a given technique.
 
@@ -199,7 +204,6 @@ def detect_pivot(
         ticker: Stock symbol (populated into result)
         hist: DataFrame with OHLCV data
         technique: 'auto', 'range_20d', 'vcp', 'pocket_pivot'
-        **kwargs: passed to individual detectors
 
     Returns:
         PivotSignal or None if no valid pivot found.
@@ -218,9 +222,8 @@ def detect_pivot(
         order = ['vcp', 'pocket_pivot', 'range_20d']
         signals = []
         for name in order:
-            signal = detectors[name](hist)
+            signal = detectors[name](hist, ticker=ticker)
             if signal is not None:
-                signal.ticker = ticker
                 signals.append(signal)
 
         if not signals:
@@ -230,9 +233,6 @@ def detect_pivot(
         return max(signals, key=lambda s: s.confidence)
 
     if technique in detectors:
-        signal = detectors[technique](hist)
-        if signal:
-            signal.ticker = ticker
-        return signal
+        return detectors[technique](hist, ticker=ticker)
 
     return None
