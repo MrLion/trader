@@ -64,6 +64,7 @@ class TestOrderManagerStopEntry(unittest.TestCase):
         self.assertEqual(result.pivot_type, 'vcp')
         self.assertEqual(result.entry_mode, 'breakout')
         self.assertEqual(result.trigger_price, 155.0)
+        self.assertEqual(result.order_type, 'stop_entry')
         self.mock_alpaca.submit_stop_order.assert_called_once_with('AAPL', 100, 155.0, 'buy')
 
     def test_submit_stop_entry_fallback_when_sdk_unavailable(self):
@@ -93,7 +94,8 @@ class TestOrderManagerStopEntry(unittest.TestCase):
             stop_price=140.0,
             trigger_price=155.0,
             entry_mode='breakout',
-            pivot_type='vcp'
+            pivot_type='vcp',
+            order_type='stop_entry'
         )
         self.om.pending_orders['stop-123'] = order
 
@@ -111,8 +113,8 @@ class TestOrderManagerStopEntry(unittest.TestCase):
         self.assertFalse(result)
         self.mock_alpaca.cancel_order.assert_not_called()
 
-    def test_cancel_stop_entry_skips_non_breakout(self):
-        """Test that immediate-entry orders are not cancelled."""
+    def test_cancel_stop_entry_skips_non_stop_entry(self):
+        """Test that non-stop-entry orders are not cancelled."""
         order = Order(
             id='market-123',
             ticker='AAPL',
@@ -121,7 +123,7 @@ class TestOrderManagerStopEntry(unittest.TestCase):
             status=OrderStatus.SUBMITTED,
             submitted_at=datetime.now().isoformat(),
             stop_price=140.0,
-            entry_mode='immediate'
+            order_type='entry'
         )
         self.om.pending_orders['market-123'] = order
 
@@ -143,7 +145,8 @@ class TestOrderManagerStopEntry(unittest.TestCase):
             stop_price=140.0,
             trigger_price=155.0,
             entry_mode='breakout',
-            pivot_type='vcp'
+            pivot_type='vcp',
+            order_type='stop_entry'
         )
         self.om.pending_orders['stop-123'] = order
         self.mock_alpaca.cancel_order.return_value = False
@@ -166,6 +169,8 @@ class TestOrderManagerStopEntry(unittest.TestCase):
             )
         self.assertIn('trigger_price', str(ctx.exception))
         self.mock_alpaca.submit_stop_order.assert_not_called()
+
+    def test_stop_entry_queued_when_rate_limited(self):
         """Test stop-entry is queued when TPS limit reached."""
         # Force queue by making _can_submit_directly return False
         with patch.object(self.om, '_can_submit_directly', return_value=False):
@@ -327,13 +332,15 @@ class TestOrderTelemetry(unittest.TestCase):
             submitted_at=datetime.now().isoformat(),
             pivot_type='range_20d',
             entry_mode='immediate',
-            trigger_price=None
+            trigger_price=155.0,
+            order_type='stop_entry'
         )
 
         d = order.to_dict()
         self.assertEqual(d['pivot_type'], 'range_20d')
         self.assertEqual(d['entry_mode'], 'immediate')
-        self.assertIsNone(d['trigger_price'])
+        self.assertEqual(d['trigger_price'], 155.0)
+        self.assertEqual(d['order_type'], 'stop_entry')
 
     def test_order_from_dict_preserves_telemetry(self):
         """Test Order.from_dict restores telemetry fields."""
@@ -346,13 +353,59 @@ class TestOrderTelemetry(unittest.TestCase):
             'submitted_at': datetime.now().isoformat(),
             'pivot_type': 'vcp',
             'entry_mode': 'breakout',
-            'trigger_price': 155.0
+            'trigger_price': 155.0,
+            'order_type': 'stop_entry'
         }
 
         order = Order.from_dict(data)
         self.assertEqual(order.pivot_type, 'vcp')
         self.assertEqual(order.entry_mode, 'breakout')
         self.assertEqual(order.trigger_price, 155.0)
+        self.assertEqual(order.order_type, 'stop_entry')
+
+    def test_order_from_dict_backward_compat_no_order_type(self):
+        """Test Order.from_dict handles old persisted orders without order_type."""
+        data = {
+            'id': 'test-1',
+            'ticker': 'AAPL',
+            'side': 'buy',
+            'qty': 100,
+            'status': 'submitted',
+            'submitted_at': datetime.now().isoformat(),
+            'stop_price': 140.0,
+        }
+
+        order = Order.from_dict(data)
+        self.assertIsNone(order.order_type)
+        self.assertIsNone(order.pivot_type)
+        self.assertIsNone(order.entry_mode)
+
+    def test_order_post_init_invalid_side(self):
+        """Test Order.__post_init__ rejects invalid side values."""
+        with self.assertRaises(ValueError) as ctx:
+            Order(
+                id='test-1',
+                ticker='AAPL',
+                side='hold',
+                qty=100,
+                status=OrderStatus.SUBMITTED,
+                submitted_at=datetime.now().isoformat()
+            )
+        self.assertIn("side must be 'buy' or 'sell'", str(ctx.exception))
+
+    def test_order_post_init_stop_entry_requires_trigger(self):
+        """Test Order.__post_init__ rejects stop_entry without trigger_price."""
+        with self.assertRaises(ValueError) as ctx:
+            Order(
+                id='test-1',
+                ticker='AAPL',
+                side='buy',
+                qty=100,
+                status=OrderStatus.SUBMITTED,
+                submitted_at=datetime.now().isoformat(),
+                order_type='stop_entry'
+            )
+        self.assertIn("stop_entry orders must have trigger_price", str(ctx.exception))
 
 
 if __name__ == '__main__':

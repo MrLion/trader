@@ -585,10 +585,14 @@ class AlpacaClient:
             else:
                 print(f"❌ Stop order failed: {e}")
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError) as e:
             self.rate_limiter.record_error()
             health_monitor.mark_failure('alpaca')
-            print(f"❌ Stop order failed: {e}")
+            TradingExceptionHandler.log_exception(
+                "submit_stop_order", e,
+                severity=TradingExceptionHandler.ERROR,
+                ticker=ticker
+            )
             return None
 
     def submit_limit_order(self, ticker: str, shares: int, limit_price: float,
@@ -658,10 +662,14 @@ class AlpacaClient:
             else:
                 print(f"❌ Limit order failed: {e}")
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError) as e:
             self.rate_limiter.record_error()
             health_monitor.mark_failure('alpaca')
-            print(f"❌ Limit order failed: {e}")
+            TradingExceptionHandler.log_exception(
+                "submit_limit_order", e,
+                severity=TradingExceptionHandler.ERROR,
+                ticker=ticker
+            )
             return None
 
     def get_order(self, order_id: str) -> Optional[Dict]:
@@ -677,7 +685,12 @@ class AlpacaClient:
                 'status': order.status.value,
                 'filled_price': float(order.filled_avg_price) if order.filled_avg_price else None
             }
-        except Exception:
+        except (ConnectionError, TimeoutError) as e:
+            TradingExceptionHandler.log_exception(
+                "get_order", e,
+                severity=TradingExceptionHandler.WARNING,
+                order_id=order_id
+            )
             return None
 
     def cancel_order(self, order_id: str) -> bool:
@@ -692,8 +705,12 @@ class AlpacaClient:
         try:
             self.trading_client.cancel_order_by_id(order_id)
             return True
-        except Exception as e:
-            print(f"⚠️ Failed to cancel order {order_id}: {e}")
+        except (ConnectionError, TimeoutError) as e:
+            TradingExceptionHandler.log_exception(
+                "cancel_order", e,
+                severity=TradingExceptionHandler.WARNING,
+                order_id=order_id
+            )
             return False
 
     def list_positions(self) -> List[Dict]:

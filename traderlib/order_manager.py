@@ -70,6 +70,13 @@ class Order:
     pivot_type: Optional[str] = None       # 'vcp', 'range_20d', 'pocket_pivot', 'manual'
     entry_mode: Optional[str] = None       # 'breakout' or 'immediate'
     trigger_price: Optional[float] = None  # For buy-stop: the resting trigger price
+    order_type: Optional[str] = None       # 'entry', 'exit', 'stop_entry'
+
+    def __post_init__(self):
+        if self.side not in ('buy', 'sell'):
+            raise ValueError(f"side must be 'buy' or 'sell', got {self.side!r}")
+        if self.order_type == 'stop_entry' and self.trigger_price is None:
+            raise ValueError("stop_entry orders must have trigger_price")
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -80,7 +87,8 @@ class Order:
     def from_dict(cls, data: dict) -> 'Order':
         data['status'] = OrderStatus(data['status'])
         # Handle optional fields that may not exist in older saved orders
-        for field in ['target_price', 'sector', 'expected_entry_price']:
+        for field in ['target_price', 'sector', 'expected_entry_price',
+                        'order_type', 'pivot_type', 'entry_mode', 'trigger_price']:
             if field not in data:
                 data[field] = None
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
@@ -363,7 +371,8 @@ class OrderManager:
             stop_price=stop_price,
             target_price=target_price,
             sector=sector,
-            expected_entry_price=expected_entry_price
+            expected_entry_price=expected_entry_price,
+            order_type='entry'
         )
 
         self.pending_orders[order.id] = order
@@ -469,7 +478,8 @@ class OrderManager:
             expected_entry_price=expected_entry_price,
             pivot_type=pivot_type,
             entry_mode=entry_mode,
-            trigger_price=trigger_price
+            trigger_price=trigger_price,
+            order_type='stop_entry'
         )
 
         self.pending_orders[order.id] = order
@@ -489,7 +499,7 @@ class OrderManager:
         cancelled = False
         orders_to_cancel = [
             (oid, o) for oid, o in self.pending_orders.items()
-            if o.ticker == ticker and o.entry_mode == 'breakout' and o.trigger_price is not None
+            if o.ticker == ticker and o.order_type == 'stop_entry'
         ]
 
         for oid, order in orders_to_cancel:
@@ -570,7 +580,8 @@ class OrderManager:
             qty=shares,
             status=OrderStatus.SUBMITTED,
             submitted_at=datetime.now().isoformat(),
-            reason=reason
+            reason=reason,
+            order_type='exit'
         )
 
         self.pending_orders[order.id] = order
