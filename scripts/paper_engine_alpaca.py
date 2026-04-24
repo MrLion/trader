@@ -185,8 +185,17 @@ class AlpacaPaperEngine:
         try:
             account = self.alpaca.get_account()
             return account['equity']
-        except Exception:
-            return 100000.0
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "account_value_fetch", e,
+                severity=TradingExceptionHandler.WARNING,
+            )
+            print(f"❌ Alpaca account fetch failed: {e}")
+            print("   ⚠️  Paper engine MUST start with real account value.")
+            raise RuntimeError(
+                f"Cannot start engine: Alpaca account fetch failed ({e}). "
+                "Check API credentials and network."
+            ) from e
 
     def _sync_with_alpaca(self):
         """Sync local state with Alpaca positions."""
@@ -226,7 +235,7 @@ class AlpacaPaperEngine:
 
                     # Try to get proper stop from watchlist
                     try:
-                        row = watchlist_df[watchlist_df['Ticker'] == ticker]
+                        row = df[df['Ticker'] == ticker]
                         if not row.empty and 'Stop_Level' in row.columns:
                             stop_val = row['Stop_Level'].values[0]
                             if pd.notna(stop_val) and stop_val > 0:
@@ -235,8 +244,12 @@ class AlpacaPaperEngine:
                                 risk = pos['avg_price'] - stop_price
                                 target_price = pos['avg_price'] + (2 * risk) if risk > 0 else pos['avg_price'] * 1.05
                                 print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        TradingExceptionHandler.log_exception(
+                            "watchlist_stop_lookup", e,
+                            severity=TradingExceptionHandler.WARNING,
+                            ticker=ticker, file=str(WATCHLIST_PATH)
+                        )
 
                     if stop_price == pos['avg_price'] * 0.95:
                         print(f"   ⚠️  {ticker}: No watchlist stop found - marking UNSYNCED")

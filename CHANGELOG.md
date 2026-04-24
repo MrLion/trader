@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8.3] — 2026-04-24
+
+### Fixed
+- **`traderlib/ticker_analyzer.py`** — `risk_pct` now reflects the actual stop after `recent_low` override, not the raw ATR stop. Previously a tighter `recent_low` stop was used for stop placement but the looser ATR risk was passed to scoring, causing tickers to be downgraded incorrectly.
+- **`traderlib/ticker_analyzer.py`** — SPY return failure now prints a visible warning (`⚠️ SPY return unavailable`) instead of silently returning `0.0` and corrupting all RS calculations.
+- **`traderlib/ticker_analyzer.py`** — VIX fetch failure now prints a visible warning (`⚠️ VIX fetch failed — volatility gate OPEN`) so users know the gate is bypassed.
+- **`traderlib/ticker_analyzer.py`** — ATR calculation failure now prints a visible warning and logs the exception before falling back to the 2% heuristic.
+- **`scripts/paper_engine_alpaca.py`** — `_get_account_value()` no longer silently falls back to hardcoded `$100,000`. If the Alpaca account fetch fails, the engine now logs the error and raises `RuntimeError`, preventing phantom-equity position sizing.
+
 ## [0.6.8.2] — 2026-04-24
 
 ### Fixed

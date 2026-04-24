@@ -111,8 +111,12 @@ class TickerAnalyzer:
                 ret_6m = ((current / past) - 1) * 100
                 self.spy_cache = {'date': today, 'return_6m': ret_6m, 'price': current}
                 return ret_6m
-        except Exception:
-            pass
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "spy_return_fetch", e,
+                severity=TradingExceptionHandler.WARNING, ticker='SPY'
+            )
+            print(f"   ⚠️  SPY return unavailable: {e}")
         return 0.0
 
     def _get_current_price(self, ticker: str) -> Optional[float]:
@@ -169,8 +173,13 @@ class TickerAnalyzer:
                     vix_str = f"VIX {vix_current:.1f}"
                     if vix_current > max_vix:
                         return False, spy_str, vix_str
-            except Exception:
-                pass  # fail open
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "vix_fetch", e,
+                    severity=TradingExceptionHandler.WARNING, ticker='^VIX'
+                )
+                vix_str = 'VIX unavailable (gate open)'
+                print(f"   ⚠️  VIX fetch failed: {e} — volatility gate OPEN")
 
         return True, spy_str, vix_str
 
@@ -224,16 +233,20 @@ class TickerAnalyzer:
         try:
             hist = self.alpaca.get_historical_bars(ticker)
             if hist is None or len(hist) < 30:
+                bar_count = len(hist) if hist is not None else 0
+                print(f"   ⏸️  {ticker}: Insufficient history ({bar_count} bars, need 30)")
                 return None
 
             current = current_price if current_price is not None else self._get_current_price(ticker)
             if current is None:
+                print(f"   ⏸️  {ticker}: Cannot get current price")
                 return None
 
             # Stage 2 scoring
             s2_details = get_stage2_details(hist)
             stage2 = s2_details['score']
             if not s2_details.get('criteria'):
+                print(f"   ⏸️  {ticker}: Stage 2 criteria missing (score={stage2})")
                 return None
             below_50ma = not s2_details['criteria'].get('price_above_50ma', True)
             below_20ma = not s2_details['criteria'].get('price_above_20ma', True)
@@ -272,13 +285,20 @@ class TickerAnalyzer:
                 low_close = abs(hist['Low'] - hist['Close'].shift())
                 tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
                 atr = tr.rolling(14).mean().iloc[-1]
-            except Exception:
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "atr_calculation", e,
+                    severity=TradingExceptionHandler.WARNING, ticker=ticker
+                )
+                print(f"   ⚠️  {ticker}: ATR calculation failed ({e}), using 2% fallback")
                 atr = current * 0.02
 
             atr_stop = current - (2 * atr)
             recent_low = hist['Low'].tail(10).min()
             stop = max(atr_stop, recent_low)
             atr_risk_pct = abs((current - atr_stop) / current) * 100 if atr_stop < current else 999.0
+            # Risk from the actual stop after recent_low override (used for scoring)
+            base_risk_pct = abs((current - stop) / current) * 100 if stop < current else 999.0
 
             # MA Support Stop
             ma_support_stop = None
@@ -304,7 +324,7 @@ class TickerAnalyzer:
                 risk_pct = ma_risk_pct
                 stop_type = 'MA'
             else:
-                risk_pct = atr_risk_pct
+                risk_pct = base_risk_pct
 
             # Sanity-check bounds (computed once, used by technique override + final clip)
             min_stop = current * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
@@ -313,8 +333,11 @@ class TickerAnalyzer:
             # Technique-specific stop override (e.g. VCP stop_low, pocket pivot prior low)
             if detected_signal and detected_signal.stop_price:
                 tech_stop = detected_signal.stop_price
-                # Only use technique stop if it's tighter (higher) but still within bounds
-                if tech_stop > stop and min_stop <= tech_stop <= max_stop:
+                if tech_stop <= stop:
+                    print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} looser than ATR/MA stop {stop:.2f}, keeping ATR/MA")
+                elif not (min_stop <= tech_stop <= max_stop):
+                    print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} outside bounds [{min_stop:.2f}, {max_stop:.2f}], clamped to ATR/MA")
+                else:
                     stop = tech_stop
                     risk_pct = abs((current - tech_stop) / current) * 100
                     stop_type = detected_signal.pivot_type.upper()
@@ -326,7 +349,10 @@ class TickerAnalyzer:
                 stop = min_stop
 
             risk_per_share = current - stop
-            if risk_per_share > 0:
+            if detected_signal and detected_signal.target_price:
+                # Use technique-specific target if available (e.g. VCP 2R from pivot high)
+                target = detected_signal.target_price
+            elif risk_per_share > 0:
                 min_r = self.risk_config.profit_target.min_r_multiple
                 target = current + (risk_per_share * min_r)
             else:
