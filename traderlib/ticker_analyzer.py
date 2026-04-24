@@ -28,14 +28,13 @@ class TickerAnalysis:
     entry_score: float
     tier: str
     pivot: Optional[float] = None
-    pivot_source: str = 'none'
     dist_to_pivot: Optional[float] = None
     stop: float = 0.0
     target: float = 0.0
     sector: str = 'Unknown'
     risk_pct: float = 0.0
     atr_stop: float = 0.0
-    atr_risk_pct: float = 0.0
+    atr_risk_pct: Optional[float] = None
     ma_support_stop: Optional[float] = None
     ma_risk_pct: Optional[float] = None
     stop_type: str = 'ATR'
@@ -54,7 +53,6 @@ class TickerAnalysis:
             'ticker': self.ticker,
             'current': self.current,
             'pivot': self.pivot,
-            'pivot_source': self.pivot_source,
             'stop': self.stop,
             'target': self.target,
             'sector': self.sector,
@@ -253,7 +251,6 @@ class TickerAnalyzer:
 
             # Pivot and sector from watchlist
             pivot, sector = self._load_watchlist_pivot_and_sector(ticker)
-            pivot_source = 'manual' if pivot is not None else 'none'
             pivot_type = 'manual' if pivot is not None else 'none'
             entry_mode = 'breakout' if pivot is not None else 'immediate'
             detected_signal = None
@@ -263,13 +260,11 @@ class TickerAnalyzer:
                 detected_signal = detect_pivot(ticker, hist, technique=technique)
                 if detected_signal is not None:
                     pivot = detected_signal.pivot_price
-                    pivot_source = detected_signal.pivot_type
                     pivot_type = detected_signal.pivot_type
                     entry_mode = detected_signal.entry_mode
                 else:
                     # Ultimate fallback: 20-day range high
                     pivot = float(hist['High'].tail(20).max())
-                    pivot_source = 'range_20d'
                     pivot_type = 'range_20d'
                     entry_mode = 'immediate'
 
@@ -296,7 +291,7 @@ class TickerAnalyzer:
             atr_stop = current - (2 * atr)
             recent_low = hist['Low'].tail(10).min()
             stop = max(atr_stop, recent_low)
-            atr_risk_pct = abs((current - atr_stop) / current) * 100 if atr_stop < current else 999.0
+            atr_risk_pct = abs((current - atr_stop) / current) * 100 if atr_stop < current else None
             # Risk from the actual stop after recent_low override (used for scoring)
             base_risk_pct = abs((current - stop) / current) * 100 if stop < current else 999.0
 
@@ -315,7 +310,7 @@ class TickerAnalyzer:
                     ma_support_stop = ma_result['ma_support_stop']
                     ma_risk_pct = (
                         abs((current - ma_support_stop) / current) * 100
-                        if ma_support_stop < current else 999.0
+                        if ma_support_stop < current else None
                     )
 
             # Use tighter (higher) stop
@@ -342,11 +337,17 @@ class TickerAnalyzer:
                     risk_pct = abs((current - tech_stop) / current) * 100
                     stop_type = detected_signal.pivot_type.upper()
 
-            # Final sanity check: stop 3–15% below entry
+            # Final sanity check: clamp stop to configured min/max distance from entry
+            clamped = False
             if stop > max_stop:
                 stop = max_stop
+                clamped = True
             elif stop < min_stop:
                 stop = min_stop
+                clamped = True
+            if clamped and stop_type not in ('ATR', 'MA'):
+                print(f"   ℹ️  {ticker}: {stop_type} stop clamped to bounds, reverting stop_type to ATR")
+                stop_type = 'ATR'
 
             risk_per_share = current - stop
             if detected_signal and detected_signal.target_price:
@@ -386,7 +387,6 @@ class TickerAnalyzer:
                 entry_score=entry_score,
                 tier=tier,
                 pivot=pivot,
-                pivot_source=pivot_source,
                 dist_to_pivot=dist_to_pivot,
                 stop=stop,
                 target=target,
@@ -412,4 +412,5 @@ class TickerAnalyzer:
                 "analyze_ticker", e,
                 severity=TradingExceptionHandler.WARNING, ticker=ticker
             )
+            print(f"   ⏸️  {ticker}: Analysis failed ({e})")
             return None

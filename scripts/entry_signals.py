@@ -98,7 +98,7 @@ _DIV = (
 def _row(a: Dict) -> str:
     days = a.get('earnings_days')
     s2_str    = f"{a['stage2']}/10"
-    dist_str  = _fmt_dist(a.get('dist_to_pivot'), a.get('pivot_source', 'none'))
+    dist_str  = _fmt_dist(a.get('dist_to_pivot'), a.get('pivot_type', 'none'))
     price_str = f"${a['current']:.2f}"
     pv        = a.get('pivot')
     pivot_str = f"${pv:.2f}" if pv is not None else '—'
@@ -150,7 +150,10 @@ class EntrySignalScanner:
         path = Path(source)
 
         # Case 1: Explicit file path
-        if path.suffix in ('.csv', '.txt') and path.exists():
+        if path.suffix in ('.csv', '.txt'):
+            if not path.exists():
+                print(f"❌ Watchlist file not found: {source}")
+                return []
             try:
                 if path.suffix == '.csv':
                     df = pd.read_csv(path)
@@ -570,16 +573,20 @@ class EntrySignalScanner:
                 print("| Level | Price |")
                 print("|:------|:------|")
                 _pv = analysis.get('pivot')
-                _src = analysis.get('pivot_source', 'none')
+                _src = analysis.get('pivot_type', 'none')
                 _src_badge = f' [{_SOURCE_LABEL[_src]}]' if _src in _SOURCE_LABEL else ''
                 pivot_display = f"${_pv:.2f}{_src_badge}" if _pv is not None else '— (no pivot set)'
                 print(f"| Pivot | {pivot_display} |")
                 print(f"| Stop | ${analysis['stop']:.2f} ({analysis['stop_type']}) |")
                 print(f"| Target | ${analysis['target']:.2f} |")
                 print(f"| Risk % | {analysis['risk_pct']:.1f}% |")
-                print(f"| ATR Stop | ${analysis['atr_stop']:.2f} ({analysis['atr_risk_pct']:.1f}%) |")
+                _atr_risk = analysis.get('atr_risk_pct')
+                atr_risk_str = f"{_atr_risk:.1f}%" if _atr_risk is not None else "N/A"
+                print(f"| ATR Stop | ${analysis['atr_stop']:.2f} ({atr_risk_str}) |")
                 if analysis.get('ma_support_stop'):
-                    print(f"| MA Stop | ${analysis['ma_support_stop']:.2f} ({analysis['ma_risk_pct']:.1f}%) |")
+                    _ma_risk = analysis.get('ma_risk_pct')
+                    ma_risk_str = f"{_ma_risk:.1f}%" if _ma_risk is not None else "N/A"
+                    print(f"| MA Stop | ${analysis['ma_support_stop']:.2f} ({ma_risk_str}) |")
 
                 if score >= 7 and analysis['risk_pct'] < 10:
                     verdict = "🟢 A-TIER — Strong setup. Watch for volume-confirmed breakout."

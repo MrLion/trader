@@ -46,6 +46,10 @@ def detect_range_20d_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[Piv
     range_low = float(recent['Low'].min())
     current = float(hist['Close'].iloc[-1])
 
+    # Guard against NaN data
+    if pd.isna(pivot_high) or pd.isna(range_low) or pd.isna(current):
+        return None
+
     # Confidence: how close to the pivot is current price?
     # 0.0 = at range low, 1.0 = at or above pivot
     if range_low >= pivot_high:

@@ -83,8 +83,7 @@ class TestEngineInitialization:
         assert engine.ws_running is False
         assert engine.price_cache == {}
         assert engine.signaled_tickers == set()
-        assert isinstance(engine.spy_cache, dict)
-        assert engine.spy_cache['date'] is None
+        assert hasattr(engine, 'analyzer')
 
     def test_get_account_value_success(self, engine, mock_alpaca):
         """Test getting account value from Alpaca."""
@@ -94,13 +93,12 @@ class TestEngineInitialization:
 
         assert result == 150000.0
 
-    def test_get_account_value_fallback(self, engine, mock_alpaca):
-        """Test fallback to default on error."""
+    def test_get_account_value_raises_on_error(self, engine, mock_alpaca):
+        """Test that API errors raise RuntimeError."""
         mock_alpaca.get_account.side_effect = Exception('API error')
 
-        result = engine._get_account_value()
-
-        assert result == 100000.0
+        with pytest.raises(RuntimeError):
+            engine._get_account_value()
 
 
 class TestPositionSync:
@@ -149,45 +147,6 @@ class TestPositionSync:
             engine._sync_with_alpaca()
 
         engine.state.close_position.assert_called_once()
-
-
-class TestSPYCache:
-    """Test SPY cache functionality."""
-
-    def test_refresh_spy_cache_success(self, engine, mock_alpaca):
-        """Test successful SPY cache refresh."""
-        hist_data = pd.DataFrame({
-            'Close': [400.0] * 200  # 200 days of data
-        })
-        hist_data.loc[199, 'Close'] = 450.0  # Current price
-        mock_alpaca.get_historical_bars.return_value = hist_data
-
-        result = engine._refresh_spy_cache()
-
-        assert result is True
-        assert engine.spy_cache['return_6m'] > 0
-
-    def test_refresh_spy_cache_insufficient_data(self, engine, mock_alpaca):
-        """Test cache refresh with insufficient data."""
-        hist_data = pd.DataFrame({'Close': [450.0] * 50})  # Only 50 bars
-        mock_alpaca.get_historical_bars.return_value = hist_data
-
-        result = engine._refresh_spy_cache()
-
-        assert result is False
-
-    def test_refresh_spy_cache_already_fresh(self, engine):
-        """Test no refresh when cache is current."""
-        today = datetime.now().strftime('%Y-%m-%d')
-        engine.spy_cache = {
-            'date': today,
-            'return_6m': 15.0,
-            'price': 450.0
-        }
-
-        result = engine._refresh_spy_cache()
-
-        assert result is True
 
 
 class TestMarketHours:

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8.4] — 2026-04-24
+
+### Fixed
+- **`traderlib/ticker_analyzer.py`** — Removed redundant `pivot_source` field from `TickerAnalysis` dataclass; `pivot_type` already carries the same information. Updated `entry_signals.py` and all tests to use `pivot_type` exclusively.
+- **`traderlib/ticker_analyzer.py`** — Changed `atr_risk_pct` sentinel from `999.0` to `Optional[float] = None`. Changed `ma_risk_pct` computation to return `None` instead of `999.0` when stop is not below current. Added formatting guards in `entry_signals.py` to display "N/A" when risk values are `None`.
+- **`tests/test_paper_engine_extended.py`** — Added `rate_limiter.get_status` mock to `create_engine_with_mocks`, fixing `TypeError: '>' not supported between instances of 'MagicMock' and 'int'` in `_print_status`.
+- **`tests/test_paper_engine_alpaca_additional.py`** — Removed `TestSPYCache` class and `spy_cache` assertions since `_refresh_spy_cache()` was deleted. Fixed `test_get_account_value_fallback` to expect `RuntimeError` instead of silent `$100,000` fallback.
+- **`tests/test_paper_engine_integration.py`** — Removed all `_refresh_spy_cache` mock references.
+- **`tests/test_paper_engine_extended.py`** — Removed references to deleted `TestPaperEngineSPYCache` and `TestPaperEngineEntryFilters` from `run_tests()` suite loader.
+
 ## [0.6.8.3] — 2026-04-24
 
 ### Fixed

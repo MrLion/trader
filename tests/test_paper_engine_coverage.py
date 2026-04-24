@@ -40,6 +40,11 @@ def create_engine_with_full_mocks(mode='paper'):
         mock_client.list_orders.return_value = []
         mock_client.is_ws_healthy.return_value = True
         mock_client.get_health_summary.return_value = 'HEALTHY'
+        mock_client.rate_limiter.get_status.return_value = {
+            'requests_in_window': 0,
+            'max_requests': 100,
+            'circuit_open': False,
+        }
 
         with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
             with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
@@ -141,35 +146,6 @@ class TestSyncWithAlpaca(unittest.TestCase):
         with patch('paper_engine_alpaca.pd.read_csv', side_effect=FileNotFoundError()):
             # Should not raise
             engine._sync_with_alpaca()
-
-
-class TestSPYCache(unittest.TestCase):
-    """Test SPY cache refresh logic."""
-
-    def test_refresh_spy_cache_success(self):
-        """Test successful SPY cache refresh."""
-        engine, mock_client = create_engine_with_full_mocks()
-
-        # Mock historical data
-        mock_hist = pd.DataFrame({
-            'Close': [400.0] * 130 + [450.0]
-        })
-        mock_client.get_historical_bars.return_value = mock_hist
-
-        result = engine._refresh_spy_cache()
-
-        self.assertTrue(result)
-        self.assertEqual(engine.spy_cache['return_6m'], 12.5)  # (450/400 - 1) * 100
-
-    def test_refresh_spy_cache_failure(self):
-        """Test SPY cache refresh failure handling."""
-        engine, mock_client = create_engine_with_full_mocks()
-
-        mock_client.get_historical_bars.return_value = None
-
-        result = engine._refresh_spy_cache()
-
-        self.assertFalse(result)
 
 
 class TestPreMarketHours(unittest.TestCase):
@@ -348,7 +324,7 @@ class TestPendingOrders(unittest.TestCase):
 
         # Should complete without error
         try:
-            engine._process_pending_orders()
+            asyncio.run(engine._process_pending_orders())
         except Exception:
             self.fail("_process_pending_orders raised exception on empty orders")
 

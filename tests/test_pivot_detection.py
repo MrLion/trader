@@ -231,6 +231,18 @@ class TestDetectVCPPivot:
         signal = detect_vcp_pivot(hist)
         assert signal is None
 
+    @patch('traderlib.pivot_detection.detect_vcp_pattern')
+    def test_invalid_when_not_valid(self, mock_detect):
+        """Test wrapper rejects VCP when pattern.valid is False."""
+        from traderlib.vcp_utils import VCPPattern
+        mock_detect.return_value = VCPPattern(
+            valid=False,
+            volume_declining=True,
+        )
+        hist = make_hist(days=60)
+        signal = detect_vcp_pivot(hist)
+        assert signal is None
+
     def test_insufficient_data(self):
         hist = make_hist(days=30)
         signal = detect_vcp_pivot(hist)

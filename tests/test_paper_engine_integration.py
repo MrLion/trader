@@ -346,7 +346,6 @@ class TestRunLoopIterations(unittest.TestCase):
         from order_manager import OrderStatus
 
         # Mock all the methods called in run loop
-        self.engine._refresh_spy_cache = Mock(return_value=True)
         self.engine._reset_daily_signals = Mock()
         self.engine._print_status = Mock()
         self.engine._process_pending_orders = Mock()
@@ -373,7 +372,6 @@ class TestRunLoopIterations(unittest.TestCase):
         asyncio.run(self._run_with_timeout(self.engine.run(), timeout=2))
 
         # Verify all expected methods were called
-        self.engine._refresh_spy_cache.assert_called()
         self.engine._reset_daily_signals.assert_called()
         self.engine._print_status.assert_called()
         self.engine._process_pending_orders.assert_called()
@@ -386,7 +384,6 @@ class TestRunLoopIterations(unittest.TestCase):
         from order_manager import OrderStatus
 
         # Mock all the methods
-        self.engine._refresh_spy_cache = Mock(return_value=True)
         self.engine._reset_daily_signals = Mock()
         self.engine._print_status = Mock()
         self.engine._process_pending_orders = Mock()
@@ -412,7 +409,6 @@ class TestRunLoopIterations(unittest.TestCase):
         asyncio.run(self._run_with_timeout(self.engine.run(), timeout=2))
 
         # Verify market-closed behavior: no entry/exit checks
-        self.engine._refresh_spy_cache.assert_called()
         self.engine._process_pending_orders.assert_called()
         self.engine._check_exits.assert_not_called()
         self.engine._check_entries.assert_not_called()
@@ -425,7 +421,6 @@ class TestRunLoopIterations(unittest.TestCase):
         mock_task.done.return_value = True
         mock_task.exception.return_value = Exception("Connection lost")
 
-        self.engine._refresh_spy_cache = Mock(return_value=True)
         self.engine._reset_daily_signals = Mock()
         self.engine._print_status = Mock()
         self.engine._process_pending_orders = Mock()
@@ -450,7 +445,6 @@ class TestRunLoopIterations(unittest.TestCase):
 
     def test_run_loop_graceful_shutdown(self):
         """Test graceful shutdown on signal."""
-        self.engine._refresh_spy_cache = Mock(return_value=True)
         self.engine._reset_daily_signals = Mock()
         self.engine._print_status = Mock()
         self.engine._process_pending_orders = Mock()

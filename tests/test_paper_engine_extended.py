@@ -11,6 +11,7 @@ Tests additional code paths:
 - WebSocket lifecycle
 """
 
+import asyncio
 import json
 import sys
 import unittest
@@ -38,6 +39,11 @@ def create_engine_with_mocks(mode='paper', mock_datetime=None):
         mock_alpaca.list_orders.return_value = []
         mock_alpaca.is_ws_healthy.return_value = True
         mock_alpaca.get_health_summary.return_value = 'HEALTHY'
+        mock_alpaca.rate_limiter.get_status.return_value = {
+            'requests_in_window': 0,
+            'max_requests': 100,
+            'circuit_open': False,
+        }
 
         # Create engine with patched methods to avoid file operations
         with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
@@ -103,61 +109,6 @@ class TestPaperEngineMarketHours(unittest.TestCase):
 
         engine, _ = create_engine_with_mocks()
         self.assertTrue(engine._is_pre_market())
-
-
-class TestPaperEngineSPYCache(unittest.TestCase):
-    """Test SPY cache refresh logic."""
-
-    @patch('paper_engine_alpaca.datetime')
-    def test_spy_cache_already_fresh(self, mock_datetime):
-        """Test that fresh cache is not refreshed unnecessarily."""
-        today = datetime(2024, 4, 8, 10, 0, 0)
-        mock_datetime.now.return_value = today
-        mock_datetime.strftime = datetime.strftime
-
-        engine, mock_alpaca = create_engine_with_mocks()
-        # Set cache to today
-        engine.spy_cache = {'date': '2024-04-08', 'return_6m': 15.0, 'price': 450.0}
-
-        # Should return True without fetching new data
-        result = engine._refresh_spy_cache()
-        self.assertTrue(result)
-        # get_historical_bars should NOT be called again
-        mock_alpaca.get_historical_bars.assert_not_called()
-
-    @patch('paper_engine_alpaca.datetime')
-    def test_spy_cache_insufficient_data(self, mock_datetime):
-        """Test handling when SPY data has insufficient bars."""
-        today = datetime(2024, 4, 8, 10, 0, 0)
-        mock_datetime.now.return_value = today
-        mock_datetime.strftime = datetime.strftime
-
-        engine, mock_alpaca = create_engine_with_mocks()
-        # Return very few bars
-        mock_alpaca.get_historical_bars.return_value = pd.DataFrame({'Close': [450]}, index=[0])
-
-        engine.spy_cache = {'date': None}
-
-        result = engine._refresh_spy_cache()
-        self.assertFalse(result)
-
-    @patch('paper_engine_alpaca.datetime')
-    def test_spy_cache_exception(self, mock_datetime):
-        """Test handling when SPY fetch raises exception."""
-        today = datetime(2024, 4, 8, 10, 0, 0)
-        mock_datetime.now.return_value = today
-        mock_datetime.strftime = datetime.strftime
-
-        engine, mock_alpaca = create_engine_with_mocks()
-        mock_alpaca.get_historical_bars.side_effect = Exception('Network error')
-
-        engine.spy_cache = {'date': None, 'return_6m': 0.0}
-
-        result = engine._refresh_spy_cache()
-        self.assertFalse(result)
-        # Should return the fallback value
-        spy_return = engine.analyzer._get_spy_return_6m()
-        self.assertEqual(spy_return, 0.0)
 
 
 class TestPaperEngineMarketConditions(unittest.TestCase):
@@ -314,26 +265,40 @@ class TestPaperEngineSignalHandler(unittest.TestCase):
 class TestPaperEnginePrintStatus(unittest.TestCase):
     """Test status printing."""
 
+    @patch('yfinance.Ticker')
     @patch('paper_engine_alpaca.datetime')
-    def test_print_status_market_open(self, mock_datetime):
+    def test_print_status_market_open(self, mock_datetime, mock_ticker):
         """Test status printing when market is open."""
         et = pytz.timezone('US/Eastern')
         now = et.localize(datetime(2024, 4, 8, 10, 0, 0))  # Market open
         mock_datetime.now.return_value = now
+
+        # Mock VIX data
+        mock_vix_hist = Mock()
+        mock_vix_hist.empty = False
+        mock_vix_hist.__getitem__ = Mock(return_value=Mock(iloc=[15.0]))
+        mock_ticker.return_value.history.return_value = mock_vix_hist
 
         engine, mock_alpaca = create_engine_with_mocks()
         mock_alpaca.is_ws_healthy.return_value = True
         mock_alpaca.get_health_summary.return_value = 'HEALTHY'
 
         # Should print without error
-        engine._print_status()
+        asyncio.run(engine._print_status())
 
+    @patch('yfinance.Ticker')
     @patch('paper_engine_alpaca.datetime')
-    def test_print_status_ws_disconnected(self, mock_datetime):
+    def test_print_status_ws_disconnected(self, mock_datetime, mock_ticker):
         """Test status printing when WebSocket is disconnected."""
         et = pytz.timezone('US/Eastern')
         now = et.localize(datetime(2024, 4, 8, 10, 0, 0))  # Market open
         mock_datetime.now.return_value = now
+
+        # Mock VIX data
+        mock_vix_hist = Mock()
+        mock_vix_hist.empty = False
+        mock_vix_hist.__getitem__ = Mock(return_value=Mock(iloc=[15.0]))
+        mock_ticker.return_value.history.return_value = mock_vix_hist
 
         engine, mock_alpaca = create_engine_with_mocks()
         mock_alpaca.is_ws_healthy.return_value = False
@@ -341,7 +306,7 @@ class TestPaperEnginePrintStatus(unittest.TestCase):
         engine.price_cache = {}  # Empty cache
 
         # Should print without error
-        engine._print_status()
+        asyncio.run(engine._print_status())
 
 
 class TestPaperEngineProcessPendingOrders(unittest.TestCase):
@@ -352,7 +317,7 @@ class TestPaperEngineProcessPendingOrders(unittest.TestCase):
         engine, _ = create_engine_with_mocks()
 
         # Should complete without error
-        engine._process_pending_orders()
+        asyncio.run(engine._process_pending_orders())
 
     def test_pending_orders_processed(self):
         """Test processing filled orders."""
@@ -374,7 +339,7 @@ class TestPaperEngineProcessPendingOrders(unittest.TestCase):
         engine.order_manager.pending_orders['test-order'] = order
 
         # Should process without error
-        engine._process_pending_orders()
+        asyncio.run(engine._process_pending_orders())
 
 
 class TestPaperEngineLoadWatchlist(unittest.TestCase):
@@ -437,8 +402,6 @@ def run_tests():
     suite = unittest.TestSuite()
 
     suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineMarketHours))
-    suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineSPYCache))
-    suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineEntryFilters))
     suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineMarketConditions))
     suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineExecuteEntry))
     suite.addTests(loader.loadTestsFromTestCase(TestPaperEngineDailyReset))
