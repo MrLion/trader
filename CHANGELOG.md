@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8.2] — 2026-04-24
+
+### Fixed
+- **`traderlib/validation.py`** — Removed 24 confirmed real ticker symbols from `TICKER_FALSE_POSITIVES` that were incorrectly blocked as common words: `A`, `AN`, `AS`, `BE`, `BY`, `DO`, `GO`, `HE`, `IN`, `IT`, `ON`, `OR`, `SO`, `ALL`, `NOW`, `OIL`, `ONE`, `OUT`, `RUN`, `SEE`, `ARE`, `LIVE`, `NEXT`, `REAL`.
+
+### Added
+- **`tests/test_validation.py`** — `test_previously_blocked_real_tickers_now_valid` covering all 24 restored tickers.
+
 ## [0.6.8.1] — 2026-04-23
 
 ### Fixed

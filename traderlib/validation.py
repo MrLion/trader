@@ -65,19 +65,19 @@ TICKER_PATTERN = re.compile(r'^[A-Z]{1,5}$')
 
 # Common false positives that look like tickers but aren't
 TICKER_FALSE_POSITIVES = {
-    'A', 'I', 'AN', 'AS', 'AT', 'BE', 'BY', 'DO', 'GO', 'HE', 'IF', 'IN', 'IS', 'IT',
-    'MY', 'NO', 'OF', 'ON', 'OR', 'SO', 'TO', 'UP', 'US', 'WE', 'ALL', 'AND', 'ANY',
-    'ARE', 'BUT', 'CAN', 'HAD', 'HER', 'HIM', 'HIS', 'HOW', 'ITS', 'NEW', 'NOT', 'NOW',
-    'OIL', 'OLD', 'ONE', 'OUR', 'OUT', 'PUT', 'RUN', 'SEE', 'SET', 'SHE', 'THE', 'TOP',
-    'TWO', 'USE', 'WAY', 'WHO', 'BEST', 'EACH', 'EVEN', 'GOOD', 'JUST', 'LIKE', 'LIVE',
-    'LONG', 'LOOK', 'MADE', 'MAKE', 'MANY', 'MOST', 'MOVE', 'MUCH', 'NEXT', 'ONLY',
-    'OVER', 'REAL', 'SAID', 'SOME', 'SUCH', 'TAKE', 'THAN', 'THEM', 'THEN', 'THEY',
-    'TIME', 'VERY', 'WANT', 'WELL', 'WENT', 'WERE', 'WHAT', 'WHEN', 'WITH', 'ZERO',
-    'ABOUT', 'AFTER', 'BACK', 'BEEN', 'BEING', 'COULD', 'FIRST', 'GREAT', 'NEVER',
-    'OTHER', 'RIGHT', 'SHOULD', 'THEIR', 'THERE', 'THESE', 'THINK', 'THREE', 'UNDER',
-    'WHERE', 'WHICH', 'WHILE', 'WORLD', 'WOULD', 'YEARS', 'CRYPTO', 'STOCK', 'TRADE',
-    'MARKET', 'PRICE', 'SHARE', 'FUND', 'BANK', 'CASH', 'MONEY', 'GOLD', 'FUTURE',
-    'OPTION', 'BOND', 'INDEX', 'EQUITY', 'ASSET', 'RALLY', 'CRASH', 'PENNY'
+    'I', 'AT', 'IF', 'IS', 'MY', 'NO', 'OF', 'TO', 'UP', 'US', 'WE',
+    'AND', 'ANY', 'BUT', 'CAN', 'HAD', 'HER', 'HIM', 'HIS', 'HOW', 'ITS',
+    'NEW', 'NOT', 'OLD', 'OUR', 'PUT', 'SET', 'SHE', 'THE', 'TOP',
+    'TWO', 'USE', 'WAY', 'WHO', 'BEST', 'EACH', 'EVEN', 'GOOD', 'JUST',
+    'LIKE', 'LONG', 'LOOK', 'MADE', 'MAKE', 'MANY', 'MOST', 'MOVE', 'MUCH',
+    'ONLY', 'OVER', 'SAID', 'SOME', 'SUCH', 'TAKE', 'THAN', 'THEM', 'THEN',
+    'THEY', 'TIME', 'VERY', 'WANT', 'WELL', 'WENT', 'WERE', 'WHAT', 'WHEN',
+    'WITH', 'ZERO', 'ABOUT', 'AFTER', 'BACK', 'BEEN', 'BEING', 'COULD',
+    'FIRST', 'GREAT', 'NEVER', 'OTHER', 'RIGHT', 'SHOULD', 'THEIR', 'THERE',
+    'THESE', 'THINK', 'THREE', 'UNDER', 'WHERE', 'WHICH', 'WHILE', 'WORLD',
+    'WOULD', 'YEARS', 'CRYPTO', 'STOCK', 'TRADE', 'MARKET', 'PRICE', 'SHARE',
+    'FUND', 'BANK', 'CASH', 'MONEY', 'GOLD', 'FUTURE', 'OPTION', 'BOND',
+    'INDEX', 'EQUITY', 'ASSET', 'RALLY', 'CRASH', 'PENNY'
 }
 
 

@@ -108,9 +108,7 @@ class TestTickerValidation(unittest.TestCase):
 
     def test_false_positive_single_letters_rejected(self):
         """Common words that look like tickers should be rejected."""
-        false_positives = ['A', 'I', 'AN', 'AS', 'AT', 'BE', 'BY', 'DO', 'GO', 'HE',
-                          'IF', 'IN', 'IS', 'IT', 'MY', 'NO', 'OF', 'ON', 'OR', 'SO',
-                          'TO', 'UP', 'US', 'WE']
+        false_positives = ['I', 'AT', 'IF', 'IS', 'MY', 'NO', 'OF', 'TO', 'UP', 'US', 'WE']
         for ticker in false_positives:
             with self.assertRaises(ValueError) as ctx:
                 validate_ticker(ticker)
@@ -118,13 +116,23 @@ class TestTickerValidation(unittest.TestCase):
 
     def test_false_positive_common_words_rejected(self):
         """Common 3-letter words should be rejected."""
-        false_positives = ['ALL', 'AND', 'ANY', 'ARE', 'BUT', 'CAN', 'HAD', 'HER',
-                          'HIM', 'HIS', 'HOW', 'ITS', 'NEW', 'NOT', 'NOW', 'OIL',
-                          'OLD', 'ONE', 'OUR', 'OUT', 'PUT', 'RUN', 'SEE', 'SET',
-                          'SHE', 'THE', 'TOP', 'TWO', 'USE', 'WAY', 'WHO']
+        false_positives = ['AND', 'ANY', 'BUT', 'CAN', 'HAD', 'HER',
+                          'HIM', 'HIS', 'HOW', 'ITS', 'NEW', 'NOT', 'OLD',
+                          'OUR', 'PUT', 'SET', 'SHE', 'THE', 'TOP', 'TWO',
+                          'USE', 'WAY', 'WHO']
         for ticker in false_positives:
             with self.assertRaises(ValueError):
                 validate_ticker(ticker)
+
+    def test_previously_blocked_real_tickers_now_valid(self):
+        """Real ticker symbols previously blocked as false positives should now pass."""
+        real_tickers = ['A', 'AN', 'AS', 'BE', 'BY', 'DO', 'GO', 'HE',
+                       'IN', 'IT', 'ON', 'OR', 'SO', 'ALL', 'NOW', 'OIL',
+                       'ONE', 'OUT', 'RUN', 'SEE', 'ARE', 'LIVE', 'NEXT', 'REAL']
+        for ticker in real_tickers:
+            with self.subTest(ticker=ticker):
+                result = validate_ticker(ticker)
+                self.assertEqual(result, ticker)
 
     def test_false_positive_trading_terms_rejected(self):
         """Trading-related common words should be rejected."""
@@ -150,7 +158,7 @@ class TestIsValidTicker(unittest.TestCase):
         self.assertFalse(is_valid_ticker(''))
         self.assertFalse(is_valid_ticker('AAPLEE'))  # 6 chars, too long
         self.assertFalse(is_valid_ticker('THE'))
-        self.assertFalse(is_valid_ticker('A'))  # False positive
+        self.assertFalse(is_valid_ticker('I'))  # False positive
         self.assertFalse(is_valid_ticker(None))
 
 
