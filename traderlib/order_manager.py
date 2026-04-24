@@ -444,6 +444,12 @@ class OrderManager:
                                      pivot_type: Optional[str] = None,
                                      entry_mode: Optional[str] = None) -> Optional[Order]:
         """Internal: Submit stop-entry directly to Alpaca."""
+        if trigger_price <= stop_price:
+            raise ValueError(
+                f"trigger_price (${trigger_price:.2f}) must be above stop_price (${stop_price:.2f}) "
+                f"for {ticker}"
+            )
+
         result = self.alpaca.submit_stop_order(ticker, shares, trigger_price, 'buy')
 
         if not result:
@@ -488,12 +494,14 @@ class OrderManager:
 
         for oid, order in orders_to_cancel:
             try:
-                self.alpaca.cancel_order(oid)
-                order.status = OrderStatus.CANCELED
-                self.filled_orders[oid] = order
-                del self.pending_orders[oid]
-                cancelled = True
-                print(f"🚫 Stop-entry cancelled: {ticker} @ ${order.trigger_price:.2f}")
+                if self.alpaca.cancel_order(oid):
+                    order.status = OrderStatus.CANCELED
+                    self.filled_orders[oid] = order
+                    del self.pending_orders[oid]
+                    cancelled = True
+                    print(f"🚫 Stop-entry cancelled: {ticker} @ ${order.trigger_price:.2f}")
+                else:
+                    print(f"⚠️ Alpaca refused cancel for {ticker} order {oid} — order remains pending")
             except Exception as e:
                 print(f"⚠️ Failed to cancel stop-entry for {ticker}: {e}")
 

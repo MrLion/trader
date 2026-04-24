@@ -24,12 +24,16 @@ from alpaca.data.enums import DataFeed, Adjustment
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import (
     MarketOrderRequest, StopLossRequest, GetAssetsRequest,
-    StopOrderRequest, LimitOrderRequest
 )
 
 # SDK capability guard — fail gracefully on older SDK versions
-STOP_ORDER_AVAILABLE = True
-LIMIT_ORDER_AVAILABLE = True
+try:
+    from alpaca.trading.requests import StopOrderRequest, LimitOrderRequest
+    STOP_ORDER_AVAILABLE = True
+    LIMIT_ORDER_AVAILABLE = True
+except ImportError:
+    STOP_ORDER_AVAILABLE = False
+    LIMIT_ORDER_AVAILABLE = False
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 

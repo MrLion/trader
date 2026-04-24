@@ -131,7 +131,41 @@ class TestOrderManagerStopEntry(unittest.TestCase):
         self.mock_alpaca.cancel_order.assert_not_called()
         self.assertIn('market-123', self.om.pending_orders)
 
-    def test_stop_entry_queued_when_rate_limited(self):
+    def test_cancel_stop_entry_alpaca_refuses(self):
+        """Test that local state is NOT mutated when Alpaca refuses cancel."""
+        order = Order(
+            id='stop-123',
+            ticker='AAPL',
+            side='buy',
+            qty=100,
+            status=OrderStatus.SUBMITTED,
+            submitted_at=datetime.now().isoformat(),
+            stop_price=140.0,
+            trigger_price=155.0,
+            entry_mode='breakout',
+            pivot_type='vcp'
+        )
+        self.om.pending_orders['stop-123'] = order
+        self.mock_alpaca.cancel_order.return_value = False
+
+        result = self.om.cancel_stop_entry('AAPL')
+
+        self.assertFalse(result)
+        self.assertIn('stop-123', self.om.pending_orders)
+        self.assertNotIn('stop-123', self.om.filled_orders)
+        self.assertEqual(self.om.pending_orders['stop-123'].status, OrderStatus.SUBMITTED)
+
+    def test_submit_stop_entry_invalid_price(self):
+        """Test that trigger_price <= stop_price raises ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.om.submit_stop_entry(
+                ticker='AAPL',
+                shares=100,
+                trigger_price=140.0,
+                stop_price=155.0
+            )
+        self.assertIn('trigger_price', str(ctx.exception))
+        self.mock_alpaca.submit_stop_order.assert_not_called()
         """Test stop-entry is queued when TPS limit reached."""
         # Force queue by making _can_submit_directly return False
         with patch.object(self.om, '_can_submit_directly', return_value=False):
