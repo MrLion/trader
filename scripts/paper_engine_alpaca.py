@@ -308,7 +308,7 @@ class AlpacaPaperEngine:
         Returns:
             True if successful, False otherwise
         """
-        current_date = datetime.now().strftime('%Y-%m-%d')
+        current_date = datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d')
 
         # Check if already cached for today
         if self.spy_cache['date'] == current_date:

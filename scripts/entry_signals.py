@@ -128,13 +128,15 @@ def _print_section(icon: str, title: str, subtitle: str, entries: List[Dict]) ->
 class EntrySignalScanner:
     """Scan watchlist for tickers meeting entry criteria."""
 
-    def __init__(self, mode: str = 'paper', risk_profile: str = None):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None,
+                 pivot_mode: str = 'auto'):
         self.mode = mode
         self.risk_manager = RiskConfigManager(profile=risk_profile)
         self.risk_config = self.risk_manager.get_config()
         self.alpaca = AlpacaClient(mode=mode)
         self.analyzer = TickerAnalyzer(self.alpaca, self.risk_config, WATCHLIST_PATH)
         self.earnings_calendar = EarningsCalendar()
+        self.pivot_mode = pivot_mode
 
     # ------------------------------------------------------------------
     # Watchlist
@@ -196,7 +198,8 @@ class EntrySignalScanner:
     # ------------------------------------------------------------------
 
     def scan(self, tickers: Optional[List[str]] = None, min_tier: int = 1,
-             source: Optional[str] = None) -> List[Dict]:
+             source: Optional[str] = None,
+             pivot_mode: Optional[str] = None) -> List[Dict]:
         """Scan for entry signals and print the dashboard."""
         if tickers is None:
             tickers = self._load_tickers_from_source(source)
@@ -222,11 +225,12 @@ class EntrySignalScanner:
         blackout_tickers: List[str] = []
         all_analyses:     List[Dict] = []
 
+        technique = pivot_mode or self.pivot_mode
         for ticker in tickers:
             if self.earnings_calendar.is_earnings_blackout(ticker, today):
                 blackout_tickers.append(ticker)
                 continue
-            result = self.analyzer.analyze(ticker)
+            result = self.analyzer.analyze(ticker, technique=technique)
             if result:
                 analysis = result.to_dict()
                 earnings_date = self.earnings_calendar.get_next_earnings(ticker)
@@ -497,14 +501,15 @@ class EntrySignalScanner:
     # Single-ticker deep dive
     # ------------------------------------------------------------------
 
-    def analyze_single(self, ticker: str) -> Optional[Dict]:
+    def analyze_single(self, ticker: str, pivot_mode: Optional[str] = None) -> Optional[Dict]:
         """Deep analysis of one ticker (--ticker mode)."""
         print(f"\n🔍 Analyzing {ticker.upper()}...", flush=True)
 
         # Prefetch so the earnings lookup is available
         self.earnings_calendar.prefetch([ticker])
 
-        result = self.analyzer.analyze(ticker)
+        technique = pivot_mode or self.pivot_mode
+        result = self.analyzer.analyze(ticker, technique=technique)
         if not result:
             print(f"❌ Could not analyze {ticker}")
             return None
@@ -633,6 +638,9 @@ Examples:
                         help='Alpaca mode (default: paper)')
     parser.add_argument('--risk-profile', default=None,
                         help='Risk profile (conservative, aggressive, tight_stops)')
+    parser.add_argument('--pivot-mode', choices=['auto', 'range_20d', 'vcp', 'pocket_pivot'],
+                        default='auto',
+                        help='Pivot detection technique (default: auto)')
 
     args = parser.parse_args()
 
@@ -642,7 +650,8 @@ Examples:
         except ValueError as e:
             print(f"❌ {e}")
             return 1
-        scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
+        scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile,
+                                     pivot_mode=args.pivot_mode)
         result = scanner.analyze_single(ticker)
         return 0 if result else 1
 
@@ -664,7 +673,8 @@ Examples:
     elif args.use_universe:
         source = 'large_cap'
 
-    scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile)
+    scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile,
+                                 pivot_mode=args.pivot_mode)
     signals = scanner.scan(tickers=validated_tickers, min_tier=args.min_tier, source=source)
 
     export_format = args.export

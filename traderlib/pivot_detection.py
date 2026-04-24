@@ -145,7 +145,7 @@ def detect_pocket_pivot(hist: pd.DataFrame) -> Optional[PivotSignal]:
 
         # Look back 10 days for max down-day volume
         max_down_volume = 0.0
-        for j in range(i - 10, i):
+        for j in range(max(1, i - 10), i):
             if closes[j] < closes[j - 1]:  # down-day
                 max_down_volume = max(max_down_volume, float(volumes[j]))
 

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8.1] — 2026-04-23
+
+### Fixed
+- **`traderlib/pivot_detection.py`** — Pocket pivot bounds bug: `range(i - 10, i)` could access `closes[-1]` via negative index when `j=0`. Changed to `range(max(1, i - 10), i)`.
+- **`traderlib/ticker_analyzer.py`** — Technique-specific stop override referenced `min_stop` before it was defined. Moved sanity-check bounds computation before the override block and added `tech_stop <= max_stop` guard.
+- **`scripts/paper_engine_alpaca.py`** — `_refresh_spy_cache()` now uses Eastern timezone for cache key, matching `TickerAnalyzer._get_spy_return_6m()`.
+
+### Added
+- **`scripts/entry_signals.py`** — `--pivot-mode` CLI flag (`auto`, `range_20d`, `vcp`, `pocket_pivot`) threaded through `EntrySignalScanner` → `TickerAnalyzer.analyze()`.
+- **`tests/test_ticker_analyzer.py`** — `test_analyze_technique_stop_override` verifies that a detected VCP stop replaces the ATR stop when tighter and within bounds.
+
 ## [0.6.8.0] — 2026-04-23
 
 ### Added

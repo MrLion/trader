@@ -10,6 +10,7 @@ import pytest
 import pytz
 
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
+from traderlib.pivot_detection import PivotSignal
 from traderlib.risk_config import RiskConfigManager
 
 
@@ -192,6 +193,53 @@ class TestAnalyze:
         assert result.ticker == 'AAPL'
         assert result.current == 150.0
         assert result.entry_score == 85
+
+    @patch('traderlib.ticker_analyzer.detect_pivot')
+    @patch('traderlib.ticker_analyzer.calculate_ma_support_stop')
+    @patch('traderlib.ticker_analyzer.get_stage2_details')
+    @patch('traderlib.ticker_analyzer.get_entry_score')
+    def test_analyze_technique_stop_override(self, mock_get_entry_score, mock_stage2,
+                                              mock_ma_stop, mock_detect_pivot,
+                                              analyzer, mock_alpaca):
+        """Test that a tighter detected technique stop overrides ATR stop."""
+        hist_data = pd.DataFrame({
+            'Close': [100.0 + i * 0.5 for i in range(130)] + [150.0],
+            'High': [101.0 + i * 0.5 for i in range(130)] + [151.0],
+            'Low': [99.0 + i * 0.5 for i in range(130)] + [149.0],
+            'Volume': [1000000] * 131
+        })
+        mock_alpaca.get_historical_bars.return_value = hist_data
+
+        mock_stage2.return_value = {'score': 8, 'criteria': {'price_above_50ma': True, 'price_above_20ma': True}}
+        mock_ma_stop.return_value = None
+        mock_get_entry_score.return_value = 85
+
+        # recent_low from synthetic data is 149.0; technique stop at 149.5 is tighter
+        mock_detect_pivot.return_value = PivotSignal(
+            ticker='AAPL',
+            pivot_price=152.0,
+            pivot_type='vcp',
+            confidence=0.85,
+            stop_price=149.5,
+            target_price=155.0,
+            entry_mode='breakout',
+            context={'num_contractions': 3}
+        )
+
+        # Widen bounds so the technique stop (148.5) isn't clipped by max_stop
+        analyzer.risk_config.stop_loss.max_stop_distance_pct = 0.5
+        analyzer.risk_config.stop_loss.min_stop_distance_pct = 0.0
+
+        analyzer._get_current_price = Mock(return_value=150.0)
+        analyzer._get_spy_return_6m = Mock(return_value=15.0)
+
+        result = analyzer.analyze('AAPL', technique='vcp')
+
+        assert result is not None
+        assert result.stop == 149.5
+        assert result.stop_type == 'VCP'
+        assert result.pivot_type == 'vcp'
+        assert result.entry_mode == 'breakout'
 
 
 class TestTickerAnalysis:

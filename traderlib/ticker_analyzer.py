@@ -209,12 +209,14 @@ class TickerAnalyzer:
     # Core analysis
     # ------------------------------------------------------------------
 
-    def analyze(self, ticker: str, current_price: Optional[float] = None) -> Optional[TickerAnalysis]:
+    def analyze(self, ticker: str, current_price: Optional[float] = None,
+                technique: str = 'auto') -> Optional[TickerAnalysis]:
         """Full analysis for one ticker.
 
         Args:
             ticker: Stock symbol
             current_price: Optional pre-fetched price (e.g. from WebSocket cache)
+            technique: Pivot detection technique ('auto', 'range_20d', 'vcp', 'pocket_pivot')
 
         Returns:
             TickerAnalysis dataclass, or None on data failure.
@@ -245,7 +247,7 @@ class TickerAnalyzer:
 
             # Automatic pivot detection when no manual pivot
             if pivot is None:
-                detected_signal = detect_pivot(ticker, hist, technique='auto')
+                detected_signal = detect_pivot(ticker, hist, technique=technique)
                 if detected_signal is not None:
                     pivot = detected_signal.pivot_price
                     pivot_source = detected_signal.pivot_type
@@ -304,18 +306,20 @@ class TickerAnalyzer:
             else:
                 risk_pct = atr_risk_pct
 
+            # Sanity-check bounds (computed once, used by technique override + final clip)
+            min_stop = current * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
+            max_stop = current * (1 - self.risk_config.stop_loss.min_stop_distance_pct)
+
             # Technique-specific stop override (e.g. VCP stop_low, pocket pivot prior low)
             if detected_signal and detected_signal.stop_price:
                 tech_stop = detected_signal.stop_price
-                # Only use technique stop if it's tighter (higher) but still valid
-                if tech_stop > stop and tech_stop >= min_stop:
+                # Only use technique stop if it's tighter (higher) but still within bounds
+                if tech_stop > stop and min_stop <= tech_stop <= max_stop:
                     stop = tech_stop
                     risk_pct = abs((current - tech_stop) / current) * 100
                     stop_type = detected_signal.pivot_type.upper()
 
-            # Sanity check: stop 3–15% below entry
-            min_stop = current * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
-            max_stop = current * (1 - self.risk_config.stop_loss.min_stop_distance_pct)
+            # Final sanity check: stop 3–15% below entry
             if stop > max_stop:
                 stop = max_stop
             elif stop < min_stop:
