@@ -1,4 +1,8 @@
-# AGENTS.md - Trading Operations & Workflow
+# AGENTS.md - AI Assistant Instructions & Trading Reference
+
+**Purpose:** Operational instructions for AI assistants working in this repository. Also contains the complete trading playbook (daily rhythm, entry protocol, risk rules, exit management).
+
+**Audience:** AI assistants (primary). Human traders can reference the trading sections directly.
 
 This folder is home. Treat it that way.
 
@@ -54,19 +58,10 @@ This is a starting point. Add conventions, style, and rules as you figure out wh
 
 ### Sector Dashboard
 
-| Sector | ETF | EW | Key Sub-Industry ETFs |
-|--------|-----|-----|----------------------|
-| Technology | XLK | RSPT | IGV (SW), SMH/SOXX (Semis), HACK/CIBR (Cyber), SKYY/WCLD (Cloud), AIQ (AI) |
-| Health Care | XLV | RSPH | XBI/IBB (Bio), IHI (Devices), IHF (Providers), PPH (Pharma) |
-| Financials | XLF | RSPF | KRE (Regional Banks), KBE (Banks), IAI (Brokers), KIE (Insurance) |
-| Cons Disc | XLY | RSPD | XRT (Retail), XHB/ITB (Homebuilders), PEJ (Leisure) |
-| Cons Staples | XLP | RSPS | PBJ (Food & Bev) |
-| Energy | XLE | — | XOP (E&P), OIH (Services), AMLP (MLPs), FCG (NatGas), URA (Uranium) |
-| Industrials | XLI | RSPN | ITA/XAR (A&D), IYT (Transport), JETS (Airlines), PAVE (Infra) |
-| Materials | XLB | RSPM | GDX (Gold), XME (Metals), LIT (Lithium), COPX (Copper) |
-| Real Estate | XLRE | — | VNQ (REITs), MORT (Mortgage REITs) |
-| Utilities | XLU | RSPU | TAN (Solar), ICLN (Clean Energy) |
-| Comm Svcs | XLC | — | VOX, IYZ/XTL (Telecom), FDN (Internet) |
+- **The latest sector scan is located in 'scans/YYYY-MM-DD_sector_scan.csv'
+
+Read this file to provide the latest analytics.
+
 
 ### Factor & Signal ETFs
 - **Momentum:** MTUM (outperforming SPY = your edge is working)
@@ -79,10 +74,9 @@ This is a starting point. Add conventions, style, and rules as you figure out wh
 - **Commodities:** GLD, SLV, USO, UNG, DBC
 
 ### Sector Rotation Rules
-1. **Daily:** Rank 11 sector SPDRs by 1w and 1m relative perf vs SPY. Concentrate watchlist in top 3.
+1. **Daily:** Rank sector ETFs by 1w and 1m relative perf vs SPY. Concentrate watchlist in top 3.
 2. **Weekly:** Compare cap-weighted vs equal-weight (XLK vs RSPT). If diverging, move is mega-cap driven, not broad.
 3. **Rotation signals:** Staples/Utils/HC → Tech/Disc/Ind = risk-on. Reverse = risk-off. Energy+Materials leading = inflationary. Financials leading = steepening curve, early-cycle.
-4. **Max 3 positions per GICS sector.** No longs in sectors with ETF below 50 SMA and underperforming SPY on 1-month basis.
 
 ---
 
@@ -109,7 +103,7 @@ This is a starting point. Add conventions, style, and rules as you figure out wh
 
 ## Watchlist Management
 
-**Universe Filter:** Price ≥ $10, avg daily $ vol ≥ $20M, mkt cap ≥ $1B, NYSE/NASDAQ only.
+**Universe Filter:** Price ≥ $30, avg daily $ vol ≥ $150M, mkt cap ≥ $1B, NYSE/NASDAQ only.
 
 **Stage 2:** Price > 100 SMA > 200 SMA, 200 SMA slope up ≥1 month, price ≥ 1.25× 52w low, price within 25% of 52w high.
 

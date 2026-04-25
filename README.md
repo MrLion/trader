@@ -41,12 +41,13 @@ python3 scripts/entry_signals.py
 | Category | Scripts | Documentation |
 |----------|---------|---------------|
 | **Analysis** | `entry_signals.py` | [Entry Signals](docs/entry_signals/TIER_SCORING.md) |
-| **Scans** | `sector_scan.py`, `trend_screener.py`, `stage2_rs_screen.py` | [Trend Screener](docs/trend_screener/USER_GUIDE.md) |
+| **Scans** | `sector_scan_comprehensive.py`, `trend_screener.py`, `stage2_rs_screen.py` | [Trend Screener](docs/trend_screener/USER_GUIDE.md) |
 | **Reports** | `premarket_report.py`, `postmarket_report.py`, `deliver_report.py` | [Reports](docs/reports/) |
 | **Backtesting** | `backtest.py` | [Backtesting Guide](docs/BACKTESTING_GUIDE.md) |
-| **Trading** | `paper_engine_alpaca.py`, `paper_portfolio.py` | [AGENTS.MD](AGENTS.MD) |
+| **Trading** | `paper_engine_alpaca.py`, `paper_portfolio.py`, `show_positions.py` | [AGENTS.MD](AGENTS.MD) |
 | **Watchlist** | `watchlist_manager.py`, `mcstock_scraper.py` | [TOOLS.md](TOOLS.md) |
 | **Setup** | `setup_alpaca.py`, `validate_alpaca.py`, `doctor.py` | [docs/getting-started.md](docs/getting-started.md) |
+| **Utilities** | `sync_state.py`, `clean_test_trades.py`, `risk_config_demo.py` | [docs/scripts/utility_scripts.md](docs/scripts/utility_scripts.md) |
 
 ---
 
@@ -60,7 +61,7 @@ trader/
 ├── data/             # watchlist.csv, positions, trade logs
 ├── docs/             # All documentation
 ├── config/           # Configuration files (risk_config.yaml, screener_config.yaml)
-└── AGENTS.MD         # Complete trading playbook
+└── AGENTS.MD         # AI assistant instructions & trading reference
 ```
 
 ---
@@ -117,7 +118,7 @@ Yes. The engine runs headless with environment variables set.
 | For... | Start Here |
 |--------|------------|
 | New users | [Getting Started](docs/getting-started.md) |
-| Traders | [AGENTS.MD](AGENTS.MD) — Trading playbook |
+| Traders | [AGENTS.MD](AGENTS.MD) — AI assistant instructions & trading reference |
 | Strategy authors | [Strategy Overview](docs/strategies/OVERVIEW.md) |
 | Developers | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 

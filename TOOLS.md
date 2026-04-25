@@ -1,6 +1,8 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Internal Developer Notes
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+**Purpose:** Quick-reference notes for developers working in this repository. yfinance cheat sheet, watchlist manager commands, and tool-specific details.
+
+**Audience:** Developers. For user-facing documentation, see [docs/README.md](docs/README.md).
 
 ---
 
@@ -351,19 +353,6 @@ python3 scripts/paper_portfolio.py reconcile
 ---
 
 ## Market Scanning Tools
-
-### Sector Scan (Quick)
-
-**Script:** `scripts/sector_scan.py`
-
-**Purpose:** Quick scan of 11 sector ETFs + 7 factor ETFs. Uses yfinance for data.
-
-```bash
-python3 scripts/sector_scan.py
-# Output: scans/YYYY-MM-DD_sector_scan.csv
-```
-
-No CLI options — just run it.
 
 ### Sector Scan (Comprehensive)
 
