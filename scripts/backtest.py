@@ -29,25 +29,30 @@ from traderlib.paper_exits import ExitEngine
 from traderlib.risk_config import RiskConfigManager
 
 
-def main():
-    available_strategies = list_strategies()
-    strategy_help = f'Strategy to use (default: stage2_momentum). Available: {", ".join(available_strategies) if available_strategies else "stage2_momentum only"}'
-    parser = argparse.ArgumentParser(description='Run backtest with configurable strategy')
-    parser.add_argument('--start', required=True, help='Start date (YYYY-MM-DD)')
-    parser.add_argument('--end', required=True, help='End date (YYYY-MM-DD)')
-    parser.add_argument('--capital', type=float, default=100_000, help='Initial capital (default: $100,000)')
-    parser.add_argument('--tickers', nargs='+', help='Ticker symbols to backtest')
-    parser.add_argument('--watchlist', type=Path, help='Path to watchlist CSV')
-    parser.add_argument('--risk-profile', default='conservative', help='Risk profile (default: conservative)')
-    parser.add_argument('--slippage', type=float, default=5.0, help='Slippage in bps (default: 5)')
-    parser.add_argument('--max-positions', type=int, default=10, help='Max open positions (default: 10)')
-    parser.add_argument('--csv', help='Export trades to CSV file')
-    parser.add_argument('--trades', action='store_true', help='Show all trades in report')
-    parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
-    parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
-                        help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
-    parser.add_argument('--strategy', default='stage2_momentum', help=strategy_help)
+_AVAILABLE_STRATEGIES = list_strategies()
+_STRATEGY_HELP = (
+    'Strategy to use (default: stage2_momentum). Available: '
+    f'{", ".join(_AVAILABLE_STRATEGIES) if _AVAILABLE_STRATEGIES else "stage2_momentum only"}'
+)
 
+parser = argparse.ArgumentParser(description='Run backtest with configurable strategy')
+parser.add_argument('--start', required=True, help='Start date (YYYY-MM-DD)')
+parser.add_argument('--end', required=True, help='End date (YYYY-MM-DD)')
+parser.add_argument('--capital', type=float, default=100_000, help='Initial capital (default: $100,000)')
+parser.add_argument('--tickers', nargs='+', help='Ticker symbols to backtest')
+parser.add_argument('--watchlist', type=Path, help='Path to watchlist CSV')
+parser.add_argument('--risk-profile', default='conservative', help='Risk profile (default: conservative)')
+parser.add_argument('--slippage', type=float, default=5.0, help='Slippage in bps (default: 5)')
+parser.add_argument('--max-positions', type=int, default=10, help='Max open positions (default: 10)')
+parser.add_argument('--csv', help='Export trades to CSV file')
+parser.add_argument('--trades', action='store_true', help='Show all trades in report')
+parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
+parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
+                    help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
+parser.add_argument('--strategy', default='stage2_momentum', help=_STRATEGY_HELP)
+
+
+def main():
     args = parser.parse_args()
 
     start_date = date.fromisoformat(args.start)
@@ -218,8 +223,6 @@ def main():
 
     except ImportError:
         # Fallback: plain-text progress
-        import sys
-
         def _on_progress(p: BacktestProgress):
             if p.phase == "prefetch":
                 msg = f"\rFetching data: {p.current}/{p.total} {p.ticker or ''}"

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.9.1] — 2026-04-24
+
+### Added
+- `tests/test_earnings_calendar.py` — 35 tests covering `EarningsCalendar` init, `_prev_trading_day`, cache hit/miss, blackout detection, force-exit logic, prefetch, invalidate, and rate limiting.
+- `tests/test_earnings_provider.py` — 39 tests covering `HistoricalEarningsProvider` cache round-trip, disk TTL, prefetch, `get_next_earnings`, blackout/force-exit with trading-day awareness, and rate limiting.
+- `tests/test_universe_builder.py` — 23 tests covering `UniverseBuilder` config loading, cache logic, ETF detection, marginable filtering, and full pipeline build.
+- `tests/test_strategy_config.py` — 12 tests covering `load_strategy_config` and `get_param` nested traversal.
+- `tests/test_doctor.py` — 26 tests covering `scripts/doctor.py` Python version checks, dependency checks, Alpaca credentials, directory existence, watchlist validation, Telegram config, and git hooks.
+- `tests/test_reports.py` — 35 tests covering retry decorator, Telegram reporter, file validation, config loading, earnings badge formatting, gap detection, and HTML report generation.
+- `tests/test_backtest_cli.py` — 11 tests covering `scripts/backtest.py` argparse behavior, dry-run path, invalid strategy handling, watchlist resolution, and date parsing.
+
+### Fixed
+- `scripts/backtest.py` — Moved `argparse.ArgumentParser` to module level so CLI tests can import it. Removed nested `import sys` inside `main()` that caused `UnboundLocalError` when `sys.exit()` was called before the local import.
+
 ## [0.6.9.0] — 2026-04-24
 
 ### Added
