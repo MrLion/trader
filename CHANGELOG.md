@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.11.0] — 2026-04-25
+
+### Changed
+- **`scripts/entry_signals.py`** — Redesigned console output for improved scannability and information hierarchy:
+  - **Clustered columns**: Combined PRICE/PIVOT/STOP/TYPE into single `ENTRY → STOP` column (e.g., `$162.22 → $157.35 ATR`), reducing cognitive load
+  - **Inline section counts**: Section headers now show ticker count inline (`🔥 READY NOW  (2)`) with criteria (`score≥60 · dist≤±3%`)
+  - **Simplified footer**: Two-line layout with pivot source legend and configuration summary
+  - **Removed redundant summary bar**: Section headers now serve dual purpose
+  - Total columns reduced from 10→6 for better horizontal scanning
+
 ## [0.6.10.5] — 2026-04-25
 
 ### Changed

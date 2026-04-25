@@ -88,13 +88,23 @@ def _fmt_earnings(days: Optional[int]) -> str:
 # Unified table renderer (same columns for every section)
 # ---------------------------------------------------------------------------
 
+def _fmt_entry_stop(a: Dict) -> str:
+    """Format ENTRY → STOP (TYPE) cluster."""
+    price = a['current']
+    stop = a.get('stop')
+    stop_type = a.get('stop_type', '—')
+    if stop is not None:
+        return f"${price:.2f} → ${stop:.2f} {stop_type}"
+    return f"${price:.2f} → —"
+
+
 _HDR = (
     f"  {'TICKER':<8} {'SCORE':<6} {'S2':<6} {'DIST':<10} "
-    f"{'RISK%':<7} {'PRICE':<9} {'PIVOT':<9} {'STOP':<9} {'TYPE':<6} EARNINGS"
+    f"{'ENTRY → STOP':<28} {'RISK':<6} EARNINGS"
 )
 _DIV = (
     f"  {'─'*8} {'─'*5} {'─'*5} {'─'*9} "
-    f"{'─'*6} {'─'*8} {'─'*8} {'─'*8} {'─'*5} {'─'*8}"
+    f"{'─'*28} {'─'*6} {'─'*8}"
 )
 
 
@@ -102,25 +112,26 @@ def _row(a: Dict) -> str:
     days = a.get('earnings_days')
     s2_str    = f"{a['stage2']}/10"
     dist_str  = _fmt_dist(a.get('dist_to_pivot'), a.get('pivot_type', 'none'))
-    price_str = f"${a['current']:.2f}"
-    pv        = a.get('pivot')
-    pivot_str = f"${pv:.2f}" if pv is not None else '—'
-    st        = a.get('stop')
-    stop_str  = f"${st:.2f}" if st is not None else '—'
-    stop_type = a.get('stop_type', '—')
+    entry_stop_str = _fmt_entry_stop(a)
     earn_str  = _fmt_earnings(days)
+    risk_str  = f"{a['risk_pct']:.1f}%"
     return (
         f"  {a['ticker']:<8} {a['entry_score']:<6.0f} {s2_str:<6} "
-        f"{dist_str:<10} {a['risk_pct']:<7.1f} {price_str:<9} {pivot_str:<9} {stop_str:<9} {stop_type:<6} {earn_str}"
+        f"{dist_str:<10} {entry_stop_str:<28} {risk_str:<6} {earn_str}"
     )
 
 
-def _print_section(icon: str, title: str, subtitle: str, entries: List[Dict]) -> None:
+def _print_section(icon: str, title: str, criteria: str, entries: List[Dict]) -> None:
     if not entries:
         return
-    print(f"\n{_sec(icon + ' ' + title)}")
-    if subtitle:
-        print(f"   {subtitle}")
+    # Inline count with criteria: "🔥 READY NOW  (2)  score≥60 · within ±3%"
+    count_str = f"({len(entries)})" if len(entries) > 0 else ""
+    header = f"{icon} {title}"
+    if count_str:
+        header = f"{header}  {count_str}"
+    if criteria:
+        header = f"{header}    {criteria}"
+    print(f"\n{_sec(header)}")
     print(_HDR)
     print(_DIV)
     for a in entries:
@@ -322,39 +333,28 @@ class EntrySignalScanner:
 
         print(_thick('━'))
 
-        # ---- Summary bar ----------------------------------------------
-        summary_parts = []
-        if ready_now:      summary_parts.append(f"🔥 {len(ready_now)} Ready")
-        if close_pivot:    summary_parts.append(f"⏳ {len(close_pivot)} Near Pivot")
-        if extended:       summary_parts.append(f"📈 {len(extended)} Extended")
-        if near_earnings:  summary_parts.append(f"⚠️  {len(near_earnings)} Near Earnings")
-        if tier2_watch:    summary_parts.append(f"📊 {len(tier2_watch)} Tier 2")
-        if blackout_tickers: summary_parts.append(f"📅 {len(blackout_tickers)} Blackout")
-        if tier3_skip:     summary_parts.append(f"○ {len(tier3_skip)} Tier 3")
-
-        if summary_parts:
-            print()
-            print("  " + "  ·  ".join(summary_parts))
+        # ---- Section counts inline (shown in section headers) -----------
 
         # ---- Sections --------------------------------------------------
         _print_section(
             "🔥", "READY NOW",
-            f"score ≥{entry_threshold}, within ±{max_dist}%",
+            f"score≥{entry_threshold} · dist≤±{max_dist}%",
             ready_now
         )
         _print_section(
             "⏳", "NEAR PIVOT",
-            f"score ≥{entry_threshold}, 1–3% from pivot",
+            f"score≥{entry_threshold} · dist 3–5%",
             close_pivot
         )
         _print_section(
             "📈", "EXTENDED",
-            f"score ≥{entry_threshold}, >3% from pivot  ([r] = 20d high proxy)",
+            f"score≥{entry_threshold} · dist>5%",
             extended
         )
 
         if near_earnings:
-            print(f"\n{_sec('⚠️  NEAR EARNINGS  (1–7d — hold off on new entries)')}")
+            count_str = f"({len(near_earnings)})"
+            print(f"\n{_sec(f'⚠️  NEAR EARNINGS  {count_str}  1–7d · hold off on new entries')}")
             print(_HDR)
             print(_DIV)
             for a in near_earnings:
@@ -366,12 +366,13 @@ class EntrySignalScanner:
 
         _print_section(
             "📊", "TIER 2 WATCH",
-            "score 40–59, developing setups",
+            "score 40–59 · developing setups",
             tier2_watch
         )
 
         if tier3_skip and min_tier >= 3:
-            print(f"\n{_sec('○ TIER 3')}")
+            count_str = f"({len(tier3_skip)})"
+            print(f"\n{_sec(f'○ TIER 3  {count_str}  score<40 · early stage')}")
             print(_HDR)
             print(_DIV)
             for a in tier3_skip[:10]:
@@ -380,7 +381,8 @@ class EntrySignalScanner:
                 print(f"  ... and {len(tier3_skip) - 10} more")
 
         if blackout_tickers:
-            print(f"\n{_sec('📅 EARNINGS BLACKOUT  (skipped today)')}")
+            count_str = f"({len(blackout_tickers)})"
+            print(f"\n{_sec(f'📅 EARNINGS BLACKOUT  {count_str}  skipped today')}")
             # Wrap long lists at _W chars
             line = "  "
             for t in blackout_tickers:
@@ -400,11 +402,9 @@ class EntrySignalScanner:
         print()
         print(_thick('═'))
         profile_str = self.risk_manager.profile or 'default'
-        print(
-            f"  score ≥{entry_threshold}  ·  dist ≤±{max_dist}%  ·  "
-            f"{self.mode}  ·  profile: {profile_str}"
-        )
-        print(f"  pivot src: [m]=manual  [v]=vcp  [r]=range20d  [p]=pocket_pivot  (—=no pivot set)")
+        # Two-line footer: legend on left, mode/profile on right
+        print(f"  [m]=manual  [v]=vcp  [r]=range20d  [p]=pocket_pivot")
+        print(f"  score≥{entry_threshold} · dist≤±{max_dist}% · {self.mode} · profile: {profile_str}")
         print(_thick('═'))
         print()
 
