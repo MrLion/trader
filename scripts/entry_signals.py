@@ -398,7 +398,7 @@ class EntrySignalScanner:
             f"  score ≥{entry_threshold}  ·  dist ≤±{max_dist}%  ·  "
             f"{self.mode}  ·  profile: {profile_str}"
         )
-        print(f"  pivot src: [m]=manual  [v]=vcp  [r]=range20d  (—=no pivot set)")
+        print(f"  pivot src: [m]=manual  [v]=vcp  [r]=range20d  [p]=pocket_pivot  (—=no pivot set)")
         print(_thick('═'))
         print()
 

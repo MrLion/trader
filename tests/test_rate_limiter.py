@@ -204,7 +204,7 @@ class TestRateLimiter(unittest.TestCase):
     def test_default_rate_limiter_exists(self):
         """Global rate limiter should exist."""
         self.assertIsNotNone(alpaca_rate_limiter)
-        self.assertEqual(alpaca_rate_limiter.max_requests, 200)
+        self.assertEqual(alpaca_rate_limiter.max_requests, 10000)
         self.assertEqual(alpaca_rate_limiter.window_seconds, 60)
 
 

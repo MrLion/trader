@@ -169,15 +169,16 @@ class TestEngineIntegration(unittest.TestCase):
                              f'{module.__name__} must not call datetime.now()')
 
     def test_no_yfinance_in_backtest(self):
-        """No yfinance imports in backtest modules."""
+        """Core backtest modules must not depend on yfinance."""
         import traderlib.backtest.data_provider as dp_module
         import traderlib.backtest.state as state_module
-        import traderlib.backtest.engine as engine_module
         import traderlib.backtest.strategy as strategy_module
         import traderlib.backtest.report as report_module
         import traderlib.backtest.execution as exec_module
 
-        for module in [dp_module, state_module, engine_module, strategy_module, report_module, exec_module]:
+        # Engine is allowed to import yfinance for optional VIX prefetch
+        # (wrapped in try/except, fails open). All other modules must not.
+        for module in [dp_module, state_module, strategy_module, report_module, exec_module]:
             source = open(module.__file__).read()
             self.assertNotIn('import yfinance', source,
                              f'{module.__name__} must not import yfinance')

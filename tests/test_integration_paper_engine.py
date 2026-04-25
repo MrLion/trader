@@ -399,34 +399,19 @@ class TestAlpacaTimeout(unittest.TestCase):
 
 
 class TestSPYCache(unittest.TestCase):
-    """Test SPY 6M return cache updates daily."""
+    """SPY cache was removed — engine now fetches SPY data on demand."""
 
     def setUp(self):
         self.frozen_now = datetime(2024, 4, 8, 10, 0, 0)
         self.mock_client = FrozenAlpacaClient()
 
-    @patch('paper_engine_alpaca.datetime')
-    @patch('paper_state.datetime')
-    def test_spy_cache_daily_refresh(self, mock_state_datetime, mock_engine_datetime):
-        """Test SPY cache refreshes daily.
-
-        Verifies that:
-        1. Cache is empty initially
-        2. First call fetches and caches SPY data
-        3. Same-day calls use cached value (no new API calls)
-        """
-        mock_engine_datetime.now.return_value = self.frozen_now
-        mock_engine_datetime.strftime = datetime.strftime
-        mock_state_datetime.now.return_value = self.frozen_now
-        mock_state_datetime.strftime = datetime.strftime
-
+    def test_spy_cache_removed(self):
+        """AlpacaPaperEngine no longer has spy_cache attribute."""
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             data_dir = Path(tmpdir)
-
-            watchlist_data = pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']})
             watchlist_path = data_dir / 'watchlist.csv'
-            watchlist_data.to_csv(watchlist_path, index=False)
+            pd.DataFrame({'Ticker': ['AAPL'], 'Pivot_Price': [150.0], 'Sector': ['Tech']}).to_csv(watchlist_path, index=False)
 
             (data_dir / 'paper_positions.json').write_text('{}')
             (data_dir / 'daily_tracker.json').write_text(json.dumps({
@@ -442,31 +427,11 @@ class TestSPYCache(unittest.TestCase):
 
                                 with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
                                     mock_alpaca.return_value = self.mock_client
-
                                     engine = AlpacaPaperEngine(mode='paper')
+                                    self.assertFalse(hasattr(engine, 'spy_cache'))
+                                    self.assertFalse(hasattr(engine, '_refresh_spy_cache'))
 
-                                    # Initially cache is not set for today
-                                    self.assertNotEqual(engine.spy_cache.get('date'), '2024-04-08')
-
-                                    # First call should refresh cache
-                                    result = engine._refresh_spy_cache()
-                                    self.assertTrue(result)
-                                    self.assertEqual(engine.spy_cache['date'], '2024-04-08')
-                                    self.assertIn('return_6m', engine.spy_cache)
-                                    self.assertIsNotNone(engine.spy_cache['return_6m'])
-
-                                    spy_return = engine.spy_cache['return_6m']
-                                    self.assertIsInstance(spy_return, (int, float))
-
-                                    # Clear call log to check for new calls
-                                    self.mock_client.call_log.clear()
-
-                                    # Second call should use cached value
-                                    result = engine._refresh_spy_cache()
-                                    self.assertTrue(result)
-                                    self.assertEqual(len(self.mock_client.call_log), 0)
-
-        print(f"✅ SPY cache: Daily refresh working, 6M return = {spy_return:.1f}%")
+        print("✅ SPY cache: spy_cache attribute removed as expected")
 
 
 class TestSectorLimit(unittest.TestCase):

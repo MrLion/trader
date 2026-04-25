@@ -49,23 +49,25 @@ def create_engine_with_mocks(mode='paper', mock_datetime=None):
         with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
             with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
                 with patch.object(PaperState, '_load_state', return_value=None):
-                    engine = AlpacaPaperEngine(mode=mode)
-                    engine.alpaca = mock_alpaca
+                    with patch.object(AlpacaPaperEngine, '_check_market_hours_for_trading', return_value=(True, "")):
+                        with patch.object(AlpacaPaperEngine, '_check_cooldown', return_value=(True, "")):
+                            engine = AlpacaPaperEngine(mode=mode)
+                            engine.alpaca = mock_alpaca
 
-                    # Ensure clean state
-                    engine.state.positions = {}
-                    engine.state.cash = 100000.0
-                    engine.state.day_pnl = 0.0
+                            # Ensure clean state
+                            engine.state.positions = {}
+                            engine.state.cash = 100000.0
+                            engine.state.day_pnl = 0.0
 
-                    # Mock state.get_stats() to return actual float values
-                    engine.state.get_stats = Mock(return_value={
-                        'equity': 100000.0,
-                        'cash': 100000.0,
-                        'open_positions': 0,
-                        'day_pnl': 0.0
-                    })
+                            # Mock state.get_stats() to return actual float values
+                            engine.state.get_stats = Mock(return_value={
+                                'equity': 100000.0,
+                                'cash': 100000.0,
+                                'open_positions': 0,
+                                'day_pnl': 0.0
+                            })
 
-                    return engine, mock_alpaca
+                            return engine, mock_alpaca
 
 
 class TestPaperEngineMarketHours(unittest.TestCase):
@@ -154,6 +156,9 @@ class TestPaperEngineExecuteEntry(unittest.TestCase):
             'return_6m': 15.0,
             'price': 450.0
         }
+        # Prevent market-hours and cooldown guards from blocking entry tests
+        self.engine._check_market_hours_for_trading = Mock(return_value=(True, ""))
+        self.engine._check_cooldown = Mock(return_value=(True, ""))
 
     def test_execute_entry_already_signaled(self):
         """Test entry rejected when already signaled."""

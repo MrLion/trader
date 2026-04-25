@@ -166,7 +166,7 @@ class TestCmdStatus:
         }
         mock_alpaca.list_positions.return_value = []
 
-        with patch('alpaca_client.AlpacaClient', return_value=mock_alpaca):
+        with patch('traderlib.alpaca_client.AlpacaClient', return_value=mock_alpaca):
             cmd_status(Mock())
             captured = capsys.readouterr()
 

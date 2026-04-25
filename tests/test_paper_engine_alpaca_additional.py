@@ -58,20 +58,28 @@ def mock_risk_manager():
 @pytest.fixture
 def engine(mock_alpaca, mock_risk_manager):
     """Fixture for AlpacaPaperEngine with mocked dependencies."""
+    # Patch init-only methods so engine creation doesn't hit the network/disk.
+    # These are restored after __init__ so tests can exercise the real methods.
     with patch.object(AlpacaPaperEngine, '_get_account_value', return_value=100000.0):
         with patch.object(AlpacaPaperEngine, '_sync_with_alpaca'):
             with patch.object(AlpacaPaperEngine, '_rebuild_cooldown_state'):
                 with patch('signal.signal'):  # Prevent signal handler registration
                     engine = AlpacaPaperEngine(mode='paper')
-                engine.state.positions = {}
-                engine.state.cash = 100000.0
-                engine.state.get_stats = Mock(return_value={
-                    'equity': 100000.0,
-                    'cash': 100000.0,
-                    'open_positions': 0,
-                    'day_pnl': 0.0
-                })
-                return engine
+
+    engine.state.positions = {}
+    engine.state.cash = 100000.0
+    engine.state.get_stats = Mock(return_value={
+        'equity': 100000.0,
+        'cash': 100000.0,
+        'open_positions': 0,
+        'day_pnl': 0.0
+    })
+
+    # Prevent market-hours and cooldown guards from blocking entry tests
+    engine._check_market_hours_for_trading = Mock(return_value=(True, ""))
+    engine._check_cooldown = Mock(return_value=(True, ""))
+
+    yield engine
 
 
 class TestEngineInitialization:

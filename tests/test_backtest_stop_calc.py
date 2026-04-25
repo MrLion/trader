@@ -10,17 +10,14 @@ Targets uncovered paths in traderlib/backtest/strategy.py:
 - Sector lookup default
 """
 
-import sys
 from datetime import date
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
 import pytest
 
-
-from traderlib.backtest.strategy import Stage2MomentumStrategy
+from traderlib.backtest.strategy import Stage2MomentumStrategy, BacktestStrategyContext
 from traderlib.paper_exits import ExitEngine
 from traderlib.risk_config import RiskConfigManager
 
@@ -58,6 +55,26 @@ def make_hist_data(n=250, start_price=100.0, trend=0.05, volatility=1.0):
     }, index=dates)
 
 
+def make_provider(aapl_hist, spy_hist):
+    """Build a mock data provider that returns the right hist for each ticker."""
+    provider = Mock()
+    provider.get_bars = Mock(side_effect=lambda ticker, as_of: (
+        aapl_hist if ticker == 'AAPL' else spy_hist if ticker == 'SPY' else None
+    ))
+    return provider
+
+
+def make_context(provider, positions=None, equity=100000):
+    """Build a BacktestStrategyContext for testing."""
+    return BacktestStrategyContext(
+        data_provider=provider,
+        sim_date=date(2024, 1, 31),
+        positions=positions or {},
+        equity=equity,
+        cash=equity,
+    )
+
+
 class TestStopCalculation:
     """Test stop price calculation in evaluate_entries."""
 
@@ -66,18 +83,11 @@ class TestStopCalculation:
         strategy, risk_config = make_strategy()
 
         hist = make_hist_data(n=250, start_price=150.0)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
-        # Provide SPY data for RS calculation
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         # Should produce signals if data is good enough
         # The important thing is no crash from ATR calculation
@@ -92,17 +102,11 @@ class TestStopCalculation:
 
         # With conservative config, min_stop_distance_pct is 0.03 (3%)
         hist = make_hist_data(n=250, start_price=150.0, volatility=0.01)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         if signals:
             for sig in signals:
@@ -118,15 +122,11 @@ class TestStopCalculation:
 
         # Only 20 bars (insufficient for stage2)
         hist = make_hist_data(n=20, start_price=150.0)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
+        spy_hist = make_hist_data(n=250, start_price=400.0)
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         assert len(signals) == 0
 
@@ -139,17 +139,11 @@ class TestStopCalculation:
         )
 
         hist = make_hist_data(n=250, start_price=150.0, volatility=0.01)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         # Should not crash without config
         if signals:
@@ -167,17 +161,11 @@ class TestPositionSizing:
         strategy, risk_config = make_strategy()
 
         hist = make_hist_data(n=250, start_price=150.0)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         if signals:
             for sig in signals:
@@ -195,26 +183,18 @@ class TestPositionSizing:
         strategy, risk_config = make_strategy()
 
         hist = make_hist_data(n=250, start_price=150.0)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
-
-        # With tiny equity, shares might be zero
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100,  # Tiny equity
-        )
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider, equity=100)  # Tiny equity
 
         # With only $100 equity, likely no signals (shares would be 0)
         # Or signals with shares > 0 from minimum position sizes
+        signals = strategy.evaluate_entries(context)
         for sig in signals:
             assert sig.shares > 0
 
     def test_sector_lookup_default(self):
-        """When yfinance returns nothing → sector defaults to 'Unknown'."""
+        """When sector data unavailable → defaults to 'Unknown'."""
         exit_engine = ExitEngine()
         strategy = Stage2MomentumStrategy(
             exit_engine=exit_engine,
@@ -224,17 +204,11 @@ class TestPositionSizing:
         strategy._get_sector = Mock(return_value='Unknown')
 
         hist = make_hist_data(n=250, start_price=150.0)
-        data_provider = Mock()
-        data_provider.get_bars = Mock(return_value=hist)
         spy_hist = make_hist_data(n=250, start_price=400.0)
-        data_provider.get_bars.side_effect = lambda ticker, as_of: hist if ticker == 'AAPL' else spy_hist
+        provider = make_provider(hist, spy_hist)
+        context = make_context(provider)
 
-        signals = strategy.evaluate_entries(
-            date(2024, 1, 31),
-            positions={},
-            data_provider=data_provider,
-            equity=100000,
-        )
+        signals = strategy.evaluate_entries(context)
 
         if signals:
             for sig in signals:

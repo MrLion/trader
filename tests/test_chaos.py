@@ -139,18 +139,10 @@ class TestCascadeFailure(unittest.TestCase):
                                     with patch('paper_engine_alpaca.AlpacaClient') as mock_alpaca:
                                         mock_alpaca.return_value = failing_client
 
-                                        # Should not raise exception during init
-                                        try:
-                                            engine = AlpacaPaperEngine(mode='paper')
-                                        except Exception as e:
-                                            self.fail(f"Engine init should handle cascade failure gracefully: {e}")
-
-                                        # Engine should initialize without crashing
-                                        self.assertIsNotNone(engine.state)
-
-                                        # Analysis should fail gracefully (no data available)
-                                        analysis = engine.analyzer.analyze('AAPL')
-                                        self.assertIsNone(analysis)  # No data available
+                                        # Engine now raises RuntimeError when Alpaca
+                                        # account fetch fails (no phantom-equity fallback).
+                                        with self.assertRaises(RuntimeError):
+                                            AlpacaPaperEngine(mode='paper')
 
         print("✅ Cascade failure: Engine handles total provider failure gracefully")
 

@@ -322,7 +322,7 @@ class TestListWatchlist(unittest.TestCase):
     def test_list_empty_watchlist(self, mock_print):
         """Test listing empty watchlist."""
         wm.list_watchlist()
-        mock_print.assert_any_call("Watchlist is empty")
+        mock_print.assert_any_call("📭 Watchlist is empty")
 
     @patch('builtins.print')
     def test_list_populated_watchlist(self, mock_print):

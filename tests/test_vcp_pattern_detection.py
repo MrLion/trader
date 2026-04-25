@@ -241,15 +241,15 @@ class TestVCPProgressionValidation(unittest.TestCase):
         self.assertEqual(msg, "")
 
     def test_invalid_wide_progression(self):
-        """Progression with 80% ratio should be invalid."""
+        """Progression with 85% ratio should be invalid."""
         contractions = [
             Contraction(0, 10, None, None, 100, 75, 25.0, 1000000, 1.0),   # 25%
-            Contraction(10, 20, None, None, 80, 60, 20.0, 800000, 0.8),    # 20% (80% - too wide)
+            Contraction(10, 20, None, None, 80, 58, 22.0, 800000, 0.8),    # 22% (88% - too wide)
         ]
 
         is_valid, msg = validate_vcp_progression(contractions)
         self.assertFalse(is_valid)
-        self.assertIn("80%", msg)
+        self.assertIn("88%", msg)
 
     def test_insufficient_contractions(self):
         """Should fail with less than 2 contractions."""

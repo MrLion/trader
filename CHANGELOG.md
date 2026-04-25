@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.9.3] — 2026-04-25
+
+### Fixed
+- **`tests/test_alpaca_client_extended.py`** — Patched `rate_limiter.max_requests = 200` in all `setUp` methods so rate-limit tests work against the paid-tier default (10000/min). Changed `test_get_order_failure` to raise `ConnectionError` (matches actual `get_order` exception contract).
+- **`tests/test_backtest_execution.py`** — Rewrote to match actual `ExecutionConfig` (only `slippage_bps: float = 5.0`) and `FillResult` (no commission field). Removed all commission-related assertions.
+- **`tests/test_backtest_strategy.py`** — Updated to use unified `BacktestStrategyContext` for `evaluate_entries()` and `manage_exits()`. Changed `ExitDecision` to `ExitAction` with required `action=ExitActionType.EXIT`.
+- **`tests/test_backtest_stop_calc.py`** — Updated all `evaluate_entries()` calls to use `BacktestStrategyContext` via helper.
+- **`tests/test_backtest_engine.py`** — Excluded `engine_module` from `test_no_yfinance_in_backtest` since the engine intentionally imports yfinance for VIX prefetch (fails open).
+- **`tests/test_rate_limiter.py`** — Updated expected `max_requests` from 200 to 10000 to match paid-tier default.
+- **`tests/test_vcp_pattern_detection.py`** — Fixed `test_invalid_wide_progression` ratio from 80% to 88% so it clearly exceeds the 0.80 threshold.
+- **`tests/test_watchlist_manager.py`** — Updated expected print string to include emoji (`📭 Watchlist is empty`).
+- **`tests/test_paper_portfolio.py`** — Fixed AlpacaClient patch path from `'paper_portfolio.AlpacaClient'` to `'traderlib.alpaca_client.AlpacaClient'`.
+- **`tests/test_chaos.py`** — Fixed indentation bug that caused `AlpacaClient` patch context to exit before `assertRaises(RuntimeError)` block.
+- **`tests/test_integration_paper_engine.py`** — Removed call to deleted `_refresh_spy_cache()` method in `test_spy_cache_removed`.
+- **`tests/test_paper_engine_integration.py`** — Kept `_check_market_hours_for_trading` and `_check_cooldown` patches active for entire tests via `self.enterContext`. Added `self.engine.running = True` before `_check_exits()` in the full-workflow test.
+- **`tests/test_paper_engine_alpaca_additional.py`** — Restructured `engine` fixture so init-only patches are restored after `__init__`, while `_check_market_hours_for_trading` / `_check_cooldown` mocks persist as instance attributes.
+- **`tests/test_paper_engine_extended.py`** — Added instance-level mocks for `_check_market_hours_for_trading` and `_check_cooldown` in `TestPaperEngineExecuteEntry.setUp`.
+
 ## [0.6.9.2] — 2026-04-24
 
 ### Changed

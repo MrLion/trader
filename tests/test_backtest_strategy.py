@@ -8,7 +8,8 @@ import pandas as pd
 
 from traderlib.backtest.data_provider import DictDataProvider
 from traderlib.backtest.strategy import (
-    EntrySignal, ExitDecision, Strategy, Stage2MomentumStrategy,
+    EntrySignal, ExitAction, ExitActionType, Strategy, Stage2MomentumStrategy,
+    BacktestStrategyContext,
 )
 from traderlib.paper_exits import ExitEngine
 from traderlib.paper_state import Position
@@ -66,13 +67,14 @@ class TestEntrySignal(unittest.TestCase):
         self.assertEqual(signal.stage2_score, 6)
 
 
-class TestExitDecision(unittest.TestCase):
-    """Tests for ExitDecision dataclass."""
+class TestExitAction(unittest.TestCase):
+    """Tests for ExitAction dataclass."""
 
     def test_fields(self):
-        decision = ExitDecision(ticker='AAPL', reason='STOP_HIT')
-        self.assertEqual(decision.ticker, 'AAPL')
-        self.assertEqual(decision.reason, 'STOP_HIT')
+        action = ExitAction(ticker='AAPL', action=ExitActionType.EXIT, reason='STOP_HIT')
+        self.assertEqual(action.ticker, 'AAPL')
+        self.assertEqual(action.reason, 'STOP_HIT')
+        self.assertEqual(action.action, ExitActionType.EXIT)
 
 
 class TestStage2MomentumStrategy(unittest.TestCase):
@@ -86,6 +88,17 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             'SPY': make_ohlcv(300, 450.0, start_date='2023-01-01'),
         }
         self.provider = DictDataProvider(self.data, min_lookback=50)
+
+    def _make_context(self, sim_date, positions=None, equity=100_000):
+        """Build a BacktestStrategyContext for testing."""
+        return BacktestStrategyContext(
+            data_provider=self.provider,
+            sim_date=sim_date,
+            positions=positions or {},
+            equity=equity,
+            cash=equity,
+            risk_config=self.risk_config,
+        )
 
     def test_strategy_side_is_long(self):
         strategy = Stage2MomentumStrategy(
@@ -103,10 +116,8 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             risk_config=self.risk_config,
         )
         positions = {'AAPL': make_position()}
-        signals = strategy.evaluate_entries(
-            date(2023, 12, 1), positions, self.provider,
-            equity=100_000, risk_config=self.risk_config,
-        )
+        context = self._make_context(date(2023, 12, 1), positions=positions)
+        signals = strategy.evaluate_entries(context)
         self.assertEqual(len(signals), 0)
 
     def test_evaluate_entries_generates_signal(self):
@@ -116,10 +127,8 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             watchlist_tickers=['AAPL'],
             risk_config=self.risk_config,
         )
-        signals = strategy.evaluate_entries(
-            date(2023, 12, 1), {}, self.provider,
-            equity=100_000, risk_config=self.risk_config,
-        )
+        context = self._make_context(date(2023, 12, 1), positions={})
+        signals = strategy.evaluate_entries(context)
         # May or may not generate a signal depending on Stage 2 score
         # but should not crash
         for signal in signals:
@@ -127,7 +136,7 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             self.assertEqual(signal.side, 'LONG')
             self.assertGreater(signal.shares, 0)
 
-    def test_evaluate_exits_with_stop_hit(self):
+    def test_manage_exits_with_stop_hit(self):
         """Strategy should generate exit when stop is hit."""
         strategy = Stage2MomentumStrategy(
             exit_engine=self.exit_engine,
@@ -136,12 +145,8 @@ class TestStage2MomentumStrategy(unittest.TestCase):
         )
         # Position at $150, current price at $130 (below $140 stop)
         positions = {'AAPL': make_position()}
-        # Override price in provider to be below stop
-        # This requires the exit engine to see the price
-        decisions = strategy.evaluate_exits(
-            date(2023, 12, 1), positions, self.provider,
-            risk_config=self.risk_config,
-        )
+        context = self._make_context(date(2023, 12, 1), positions=positions)
+        decisions = strategy.manage_exits(context)
         # Decisions may or may not exist depending on current price
         # vs stop level in the synthetic data
         self.assertIsInstance(decisions, list)
@@ -153,10 +158,8 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             watchlist_tickers=[],
             risk_config=self.risk_config,
         )
-        signals = strategy.evaluate_entries(
-            date(2023, 12, 1), {}, self.provider,
-            equity=100_000, risk_config=self.risk_config,
-        )
+        context = self._make_context(date(2023, 12, 1), positions={})
+        signals = strategy.evaluate_entries(context)
         self.assertEqual(len(signals), 0)
 
     def test_initial_stop_price_set_on_entry_signal(self):
@@ -166,14 +169,10 @@ class TestStage2MomentumStrategy(unittest.TestCase):
             watchlist_tickers=['AAPL'],
             risk_config=self.risk_config,
         )
-        signals = strategy.evaluate_entries(
-            date(2023, 12, 1), {}, self.provider,
-            equity=100_000, risk_config=self.risk_config,
-        )
+        context = self._make_context(date(2023, 12, 1), positions={})
+        signals = strategy.evaluate_entries(context)
         for signal in signals:
             self.assertIsNotNone(signal.stop_price)
-            # initial_stop_price matches stop_price
-            self.assertEqual(signal.stop_price, signal.stop_price)
 
 
 class TestExitSignalStopUpdate(unittest.TestCase):

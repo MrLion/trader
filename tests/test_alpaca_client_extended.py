@@ -89,7 +89,10 @@ class TestAlpacaClientConfig(unittest.TestCase):
             self.assertEqual(client.api_key, 'live-key')
             self.assertEqual(client.secret_key, 'live-secret')
 
-    @patch.dict('os.environ', {'ALPACA_API_KEY': 'generic-key', 'ALPACA_SECRET_KEY': 'generic-secret'})
+    @patch.dict('os.environ', {
+        'ALPACA_API_KEY': 'generic-key',
+        'ALPACA_SECRET_KEY': 'generic-secret',
+    }, clear=True)
     def test_load_generic_env_vars_fallback(self):
         """Plain ALPACA_API_KEY / ALPACA_SECRET_KEY work as fallback."""
         from traderlib.alpaca_client import AlpacaClient
@@ -160,6 +163,8 @@ class TestAlpacaClientRateLimiter(unittest.TestCase):
              patch('alpaca_client.StockHistoricalDataClient'):
             self.mock_trading = mock_trading
             self.client = AlpacaClient(mode='paper')
+            # Tests expect a 200/min limit, not the paid-tier 10000
+            self.client.rate_limiter.max_requests = 200
 
     def test_rate_limiter_blocks_request(self):
         """Test that rate limiter blocks requests when at limit."""
@@ -221,6 +226,8 @@ class TestAlpacaClientOrderMethods(unittest.TestCase):
             self.mock_trading = mock_trading
             self.client = AlpacaClient(mode='paper')
             self.client.trading_client = mock_trading.return_value
+            # Tests expect a 200/min limit, not the paid-tier 10000
+            self.client.rate_limiter.max_requests = 200
 
     def test_submit_market_order_rate_limited(self):
         """Test order submission when rate limited."""
@@ -278,7 +285,7 @@ class TestAlpacaClientOrderMethods(unittest.TestCase):
 
     def test_get_order_failure(self):
         """Test getting order when it doesn't exist."""
-        with patch.object(self.client.trading_client, 'get_order_by_id', side_effect=Exception('Not found')):
+        with patch.object(self.client.trading_client, 'get_order_by_id', side_effect=ConnectionError('Not found')):
             order = self.client.get_order('nonexistent')
             self.assertIsNone(order)
 
@@ -432,6 +439,8 @@ class TestAlpacaClientBatchPrices(unittest.TestCase):
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
             self.client = AlpacaClient(mode='paper')
+            # Tests expect a 200/min limit, not the paid-tier 10000
+            self.client.rate_limiter.max_requests = 200
 
     def test_batch_all_cached(self):
         """All tickers in cache should return immediately without API calls."""
@@ -536,6 +545,8 @@ class TestAlpacaClientHistoricalData(unittest.TestCase):
         with patch('alpaca_client.TradingClient'), \
              patch('alpaca_client.StockHistoricalDataClient'):
             self.client = AlpacaClient(mode='paper')
+            # Tests expect a 200/min limit, not the paid-tier 10000
+            self.client.rate_limiter.max_requests = 200
 
     def test_get_historical_bars_rate_limited(self):
         """Test historical bars when rate limited - returns None."""
