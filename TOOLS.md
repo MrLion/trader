@@ -194,7 +194,7 @@ Target_2, R_Ratio, Avg_Volume_50d, Market_Cap
 ### Modes
 
 1. **Scan mode** (default) — Scans full watchlist or specified tickers, ranks by entry score
-2. **Single-ticker mode** (`--ticker`) — Deep dive analysis for one ticker (replaces `analyze_ticker.py`)
+2. **Single-ticker mode** (`--tickers TICKER`) — Deep dive analysis for one ticker (replaces `analyze_ticker.py`)
 
 ### Usage
 
@@ -203,7 +203,7 @@ Target_2, R_Ratio, Avg_Volume_50d, Market_Cap
 python3 scripts/entry_signals.py
 
 # Deep dive single ticker
-python3 scripts/entry_signals.py --ticker AAPL
+python3 scripts/entry_signals.py --tickers AAPL
 
 # Scan specific tickers
 python3 scripts/entry_signals.py --tickers AAPL MSFT GOOGL
@@ -230,14 +230,17 @@ python3 scripts/entry_signals.py --mode live       # Use live data (default: pap
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--tickers`, `-t` | Specific tickers to scan | watchlist |
-| `--ticker` | Analyze single ticker in detail | None |
+| `--tickers`, `-t` | Specific tickers to scan (1 = deep dive, 2+ = summary table) | watchlist |
+| `--watchlist`, `-w` | Path to custom watchlist CSV or TXT | None |
+| `--universe`, `-u` | Universe profile (e.g. `large_cap`, `high_octane`) | None |
+| `--use-universe` | Shorthand for `--universe large_cap` | False |
 | `--min-tier`, `-m` | Minimum tier (1/2/3) | 3 (all) |
 | `--export`, `-e` | Export format (csv/json/none) | none |
 | `--export-csv` | Export results to CSV | False |
 | `--export-html` | Export results to HTML | False |
 | `--mode` | Alpaca mode (paper/live) | paper |
 | `--risk-profile` | Risk profile override | None |
+| `--pivot-mode` | Pivot detection (`auto`/`range_20d`/`vcp`/`pocket_pivot`) | auto |
 
 ### Output Categories
 
@@ -365,7 +368,13 @@ python3 scripts/sector_scan_comprehensive.py
 # Output: scans/YYYY-MM-DD_sector_scan.csv (overwrites basic scan output)
 ```
 
-No CLI options — just run it.
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--top` | Number of top-ranked ETFs to display | 15 |
+
+The CSV output always contains the full universe regardless of `--top`.
 
 ### Stage 2 RS Screen
 
@@ -1111,7 +1120,7 @@ from traderlib.validation import validate_ticker, validate_tickers
 | `stop_loss` | Method (`atr_or_support`), ATR period 14 / multiplier 2.0, min stop 3%, max stop 10%, fallback 7% |
 | `profit_target` | Min R-multiple (2.0), trailing stops: breakeven at +1R, EMA10 at +1.5R, EMA21 at +3R |
 | `entry` | `min_entry_score` (60), `max_dist_to_pivot_pct` (2.0), `min_volume_ratio` (1.5) |
-| `market` | `max_spy_decline_pct` (-0.5%) |
+| `market` | `max_spy_decline_pct` (-0.5%), `max_vix` (60, opt-in) |
 | `cooldown` | `reentry_cooldown_minutes` (60), `consecutive_loss_multiplier` (2.0), `max_cooldown_minutes` (240) |
 | `cache` | `ttl_seconds` (300 / 5 minutes) |
 
