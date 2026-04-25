@@ -502,13 +502,20 @@ class BacktestReporter:
 def _trade_initial_risk(t: TradeRecord) -> float:
     """Return the dollar initial risk for a trade.
 
-    Prefers the actual initial_stop_price stored on the trade record.
-    Falls back to the 7% approximation for legacy records that predate
-    Phase 4 (initial_stop_price == 0.0).
+    Phase 4: Uses pivot_price when available for breakout entries.
+    Falls back to entry_price for legacy records.
+    Falls back to 7% approximation for ultra-legacy records.
     """
+    # Phase 4: pivot-aware risk calculation for breakout entries
+    if getattr(t, 'pivot_price', None) and t.pivot_price > 0:
+        if t.initial_stop_price < t.pivot_price:
+            return abs(t.pivot_price - t.initial_stop_price) * t.shares
+
+    # Legacy: entry_price -> stop
     if getattr(t, 'initial_stop_price', 0.0) and t.initial_stop_price < t.entry_price and t.shares > 0:
         return abs(t.entry_price - t.initial_stop_price) * t.shares
-    # Legacy fallback: approximate 7% stop distance
+
+    # Ultra-legacy: approximate 7% stop distance
     return abs(t.entry_price * 0.07 * t.shares) if t.shares > 0 else 1.0
 
 
