@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.3] — 2026-04-25
+
+### Fixed
+- **`traderlib/backtest/report.py`** — Phase 4: Use `pivot_price` for R-multiple calculation in backtest reports. Previously calculated R-multiples from `entry_price (T+1 open) → stop`, which produced tighter R-values than live trading when stocks gapped up. Now calculates from `pivot → stop` when `pivot_price` is available, aligning backtest with live breakout entry logic. Measured impact: avg R-multiple changed from 0.35R to 0.36R (+2.9%) on 2025-05-01 to 2025-12-31 backtest with tight_stops profile — within acceptable threshold.
+
 ## [0.6.10.2] — 2026-04-25
 
 ### Documentation
