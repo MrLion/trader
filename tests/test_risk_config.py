@@ -16,7 +16,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from traderlib.risk_config import (
     AccountRiskConfig,

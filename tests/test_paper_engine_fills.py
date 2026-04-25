@@ -17,7 +17,6 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from traderlib.paper_state import PaperState, Position
 from traderlib.order_manager import Order, OrderStatus

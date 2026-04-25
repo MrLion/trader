@@ -17,8 +17,6 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.order_manager import OrderManager, Order, OrderStatus, QueuedOrder
 

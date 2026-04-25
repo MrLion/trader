@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'traderlib'))
 
 from trading_exceptions import (
     TradingExceptionHandler,

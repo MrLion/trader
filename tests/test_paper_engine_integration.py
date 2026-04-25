@@ -18,8 +18,6 @@ import pandas as pd
 import pytest
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from paper_state import PaperState, Position
 from traderlib.paper_exits import ExitSignal

@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 
 # Add scripts to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 import watchlist_manager as wm
 

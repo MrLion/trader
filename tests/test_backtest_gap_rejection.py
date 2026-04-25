@@ -14,7 +14,6 @@ from unittest.mock import Mock, MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from traderlib.backtest.engine import BacktestEngine, BacktestConfig
 from traderlib.backtest.state import BacktestState

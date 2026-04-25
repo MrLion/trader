@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from traderlib.rate_limiter import RateLimiter, APIHealthMonitor
 from traderlib.order_manager import OrderManager, Order, OrderStatus

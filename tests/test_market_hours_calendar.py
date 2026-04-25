@@ -16,8 +16,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pytz
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'lib'))
 
 from traderlib.market_hours import MarketHours, MARKET_TZ
 

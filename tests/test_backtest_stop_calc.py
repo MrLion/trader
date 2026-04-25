@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from traderlib.backtest.strategy import Stage2MomentumStrategy
 from traderlib.paper_exits import ExitEngine

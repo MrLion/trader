@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from paper_portfolio import (
     load_json_file,

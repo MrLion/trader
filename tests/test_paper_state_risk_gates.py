@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from traderlib.paper_state import PaperState, Position, VALIDATION
 from traderlib.risk_config import RiskConfig

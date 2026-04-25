@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.9.2] — 2026-04-24
+
+### Changed
+- Removed 21 redundant `sys.path.insert(0, ...)` lines from 20 test files. `tests/conftest.py` already adds project root, `scripts/`, and `traderlib/` to `sys.path` centrally.
+- Verified `tests/generate_fixtures.py` produces offline fixtures (AAPL, SPY, synthetic stocks) in `tests/fixtures/`.
+
 ## [0.6.9.1] — 2026-04-24
 
 ### Added
