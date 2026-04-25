@@ -90,11 +90,11 @@ def _fmt_earnings(days: Optional[int]) -> str:
 
 _HDR = (
     f"  {'TICKER':<8} {'SCORE':<6} {'S2':<6} {'DIST':<10} "
-    f"{'RISK%':<7} {'PRICE':<10} {'PIVOT':<10} EARNINGS"
+    f"{'RISK%':<7} {'PRICE':<9} {'PIVOT':<9} {'STOP':<9} {'TYPE':<6} EARNINGS"
 )
 _DIV = (
     f"  {'─'*8} {'─'*5} {'─'*5} {'─'*9} "
-    f"{'─'*6} {'─'*9} {'─'*9} {'─'*8}"
+    f"{'─'*6} {'─'*8} {'─'*8} {'─'*8} {'─'*5} {'─'*8}"
 )
 
 
@@ -105,10 +105,13 @@ def _row(a: Dict) -> str:
     price_str = f"${a['current']:.2f}"
     pv        = a.get('pivot')
     pivot_str = f"${pv:.2f}" if pv is not None else '—'
+    st        = a.get('stop')
+    stop_str  = f"${st:.2f}" if st is not None else '—'
+    stop_type = a.get('stop_type', '—')
     earn_str  = _fmt_earnings(days)
     return (
         f"  {a['ticker']:<8} {a['entry_score']:<6.0f} {s2_str:<6} "
-        f"{dist_str:<10} {a['risk_pct']:<7.1f} {price_str:<10} {pivot_str:<10} {earn_str}"
+        f"{dist_str:<10} {a['risk_pct']:<7.1f} {price_str:<9} {pivot_str:<9} {stop_str:<9} {stop_type:<6} {earn_str}"
     )
 
 

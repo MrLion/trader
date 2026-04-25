@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.5] — 2026-04-25
+
+### Changed
+- **`scripts/entry_signals.py`** — Added STOP and TYPE columns to the main entry signals table output. Users can now see the calculated stop price and stop type (ATR, MA, VCP, etc.) directly in the scan results, making it easier to understand which stop is being used when technique-specific stops are overridden by tighter ATR/MA stops.
+
 ## [0.6.10.4] — 2026-04-25
 
 ### Fixed
