@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.2] — 2026-04-25
+
+### Documentation
+- **`TOOLS.md`** — Removed stale `--ticker` CLI flag documentation from Entry Signals section. Added `--watchlist`, `--universe`, `--use-universe`, and `--pivot-mode` flags to the CLI options table. Documented `--top N` flag for Sector Scan (was incorrectly listed as "No CLI options"). Added `max_vix` to the Risk Config market section.
+- **Deleted `TODOS.md`** — File no longer maintained; task tracking moved to issue tracker and project memory.
+
 ## [0.6.10.1] — 2026-04-25
 
 ### Fixed
