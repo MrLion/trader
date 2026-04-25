@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.0] — 2026-04-25
+
+### Changed
+- **`scripts/sector_scan_comprehensive.py`** — Added `--top N` CLI flag to control how many top-ranked ETFs are printed to the console (default: 15). The CSV output still contains the full universe.
+- Consolidated redundant `sector_scan.py` functionality into `sector_scan_comprehensive.py`; the simple scan is now superseded by the comprehensive scan with filtering.
+
 ## [0.6.9.3] — 2026-04-25
 
 ### Fixed

@@ -6,6 +6,7 @@ Updated with full ETF universe from master CSV
 Shows TOP 15 results
 """
 
+import argparse
 import csv
 from datetime import datetime
 from pathlib import Path
@@ -153,9 +154,9 @@ def calculate_stage2_score_from_hist(hist):
     """Calculate Stage 2 score using shared 10-point system."""
     return calculate_stage2_score(hist)
 
-def run_comprehensive_scan():
+def run_comprehensive_scan(top_n: int = 15):
     """Run comprehensive sector scan"""
-    
+
     scan_date = datetime.now().strftime('%Y-%m-%d')
     print(f"🔍 Running comprehensive sector scan for {scan_date}...")
     print(f"   Scanning {len(ETFS)} ETFs...")
@@ -268,9 +269,17 @@ def run_comprehensive_scan():
     print(f"\n✅ Scan complete!")
     print(f"   Saved: {output_file}")
     print(f"   ETFs scanned: {len(results)}")
-    print(f"\n🏆 TOP 15 BY OVERALL RANK:")
-    for row in sorted_by_score[:15]:
+    print(f"\n🏆 TOP {top_n} BY OVERALL RANK:")
+    for row in sorted_by_score[:top_n]:
         print(f"   #{row['overall_rank']} {row['ticker']} ({row['name']}): {row['ret_6m']:+.1f}% (6M)")
 
 if __name__ == "__main__":
-    run_comprehensive_scan()
+    parser = argparse.ArgumentParser(description="Comprehensive sector scan")
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=15,
+        help="Number of top-ranked ETFs to display (default: 15)",
+    )
+    args = parser.parse_args()
+    run_comprehensive_scan(top_n=args.top)
