@@ -267,6 +267,10 @@ class TickerAnalyzer:
                     pivot = float(hist['High'].tail(20).max())
                     pivot_type = 'range_20d'
                     entry_mode = 'immediate'
+                    # When explicit technique requested but failed, mark it clearly
+                    if technique != 'auto':
+                        print(f"   ⚠️  {ticker}: {technique} pivot not found, using 20d range fallback")
+                        pivot_type = technique + '_fallback'
 
             # 6-month return
             ret_6m = 0.0

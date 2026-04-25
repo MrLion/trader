@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.4] — 2026-04-25
+
+### Fixed
+- **`traderlib/ticker_analyzer.py`** — When explicit `--pivot-mode` is requested (e.g., `vcp`) but pattern detection fails, the system now warns the user (`⚠️ TICKER: vcp pivot not found, using 20d range fallback`) and displays the requested technique's badge (`[v]`) instead of silently falling back to `[r]` (range20d). This clarifies that VCP was requested but not found, while still using a safe fallback price from the 20-day range.
+- **`scripts/entry_signals.py`** — Added `_fallback` variants (`vcp_fallback`, `pocket_pivot_fallback`, `range_20d_fallback`) to `_SOURCE_LABEL` mapping so they display with their original technique's badge (`[v]`, `[p]`, `[r]`).
+
 ## [0.6.10.3] — 2026-04-25
 
 ### Fixed

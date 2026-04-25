@@ -38,6 +38,9 @@ _SOURCE_LABEL: dict = {
     'vcp':             'v',   # volatility contraction pattern
     'range_20d':       'r',   # 20-day high proxy (backtest default)
     'pocket_pivot':    'p',   # pocket pivot volume spike
+    'vcp_fallback':    'v',   # vcp requested but not found, using fallback
+    'pocket_pivot_fallback': 'p',  # pocket pivot requested but not found
+    'range_20d_fallback': 'r',  # range_20d requested but not found (edge case)
 }
 
 
