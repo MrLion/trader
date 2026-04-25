@@ -2,11 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.10.1] — 2026-04-25
+
+### Fixed
+- **`scripts/entry_signals.py`** — Fixed single-ticker deep dive returning no analysis when history had fewer than 200 bars. Root cause: `analyze_single()` explicitly requested `days=252` (calendar days ≈ ~180 trading days), but `rolling(200)` needs 200 trading days. Fixed by removing the explicit `days=252` parameter so it uses the default 365 calendar days (~250 trading days), matching `TickerAnalyzer.analyze()`.
+- **`scripts/entry_signals.py`** — Removed redundant `--ticker` CLI flag. `--tickers` now handles both single-ticker deep dive (1 ticker → `analyze_single`) and multi-ticker scan (2+ tickers → summary table).
+- **`traderlib/ticker_analyzer.py`** — Fixed ATR stop calculation anchoring to `current` price instead of `pivot` on breakout setups, which caused stop-loss to appear above the entry price. Added `stop_anchor = pivot if pivot < current else current` for stop/bounds computation, with hard guard forcing stop below pivot when needed. Risk and target calculations remain anchored to `current` for correct position sizing.
+
+### Changed
+- **`scripts/entry_signals.py`** — Removed `--ticker` argument. Updated epilog examples to show `--tickers` usage.
+
 ## [0.6.10.0] — 2026-04-25
 
 ### Changed
 - **`scripts/sector_scan_comprehensive.py`** — Added `--top N` CLI flag to control how many top-ranked ETFs are printed to the console (default: 15). The CSV output still contains the full universe.
 - Consolidated redundant `sector_scan.py` functionality into `sector_scan_comprehensive.py`; the simple scan is now superseded by the comprehensive scan with filtering.
+
+### Documentation
+- **`README.md`** — Updated scripts table: removed deleted `sector_scan.py`, added `sector_scan_comprehensive.py`, `show_positions.py`, `clean_test_trades.py`, `sync_state.py`. Re-labeled AGENTS.MD as "AI assistant instructions."
+- **`docs/README.md`** — Added new script documentation links, new core docs (TESTING.md, DEPLOYMENT.md, CONTRIBUTING.md), fixed AGENTS.MD description.
+- **`AGENTS.MD`** — Added header clarifying purpose as AI assistant instructions.
+- **`TOOLS.md`** — Added header clarifying internal developer notes.
+- **New `docs/scripts/` directory** — 7 script guides:
+  - `sector_scan.md` — Comprehensive ETF scan with `--top` flag
+  - `show_positions.md` — Position viewer
+  - `utility_scripts.md` — Doctor, setup, validate, sync, cleanup
+  - `watchlist_manager.md` — Watchlist operations
+  - `stage2_rs_screen.md` — RS screen usage
+  - `mcstock_scraper.md` — MC Stock scrapers
+  - `paper_portfolio.md` — Paper portfolio CLI
+- **New core docs:**
+  - `docs/TESTING.md` — Test suite guide (running, writing, mocks, coverage)
+  - `CONTRIBUTING.md` — PR process, commit format, code style, versioning
+  - `docs/DEPLOYMENT.md` — Production deployment, cron jobs, systemd, monitoring
 
 ## [0.6.9.3] — 2026-04-25
 

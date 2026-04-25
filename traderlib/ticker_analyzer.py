@@ -288,7 +288,10 @@ class TickerAnalyzer:
                 print(f"   ⚠️  {ticker}: ATR calculation failed ({e}), using 2% fallback")
                 atr = current * 0.02
 
-            atr_stop = current - (2 * atr)
+            # Anchor stop calculation to pivot when present and below current
+            # (prevents ATR stop from landing above the entry price on breakout setups)
+            stop_anchor = pivot if (pivot and pivot < current) else current
+            atr_stop = stop_anchor - (2 * atr)
             recent_low = hist['Low'].tail(10).min()
             stop = max(atr_stop, recent_low)
             atr_risk_pct = abs((current - atr_stop) / current) * 100 if atr_stop < current else None
@@ -321,14 +324,17 @@ class TickerAnalyzer:
             else:
                 risk_pct = base_risk_pct
 
-            # Sanity-check bounds (computed once, used by technique override + final clip)
-            min_stop = current * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
-            max_stop = current * (1 - self.risk_config.stop_loss.min_stop_distance_pct)
+            # Sanity-check bounds anchored to stop_anchor (pivot when present)
+            min_stop = stop_anchor * (1 - self.risk_config.stop_loss.max_stop_distance_pct)
+            max_stop = stop_anchor * (1 - self.risk_config.stop_loss.min_stop_distance_pct)
 
             # Technique-specific stop override (e.g. VCP stop_low, pocket pivot prior low)
             if detected_signal and detected_signal.stop_price:
                 tech_stop = detected_signal.stop_price
-                if tech_stop <= stop:
+                # Do not reject a technique stop simply for being "looser" when the
+                # current ATR stop is above the pivot (which would be an invalid stop).
+                atr_stop_above_pivot = pivot and stop >= pivot
+                if tech_stop <= stop and not atr_stop_above_pivot:
                     print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} looser than ATR/MA stop {stop:.2f}, keeping ATR/MA")
                 elif not (min_stop <= tech_stop <= max_stop):
                     print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} outside bounds [{min_stop:.2f}, {max_stop:.2f}], clamped to ATR/MA")
@@ -348,6 +354,13 @@ class TickerAnalyzer:
             if clamped and stop_type not in ('ATR', 'MA'):
                 print(f"   ℹ️  {ticker}: {stop_type} stop clamped to bounds, reverting stop_type to ATR")
                 stop_type = 'ATR'
+
+            # Hard guard: for breakout entries, stop must be below pivot
+            if pivot and stop >= pivot:
+                stop = pivot * 0.99
+                risk_pct = abs((current - stop) / current) * 100
+                stop_type = 'PIVOT_FALLBACK'
+                print(f"   ℹ️  {ticker}: stop was above pivot, forced to {stop:.2f} (1% below pivot)")
 
             # Recompute risk_pct after clamping so scoring reflects the actual stop
             risk_pct = abs((current - stop) / current) * 100 if stop < current else 999.0

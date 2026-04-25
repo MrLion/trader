@@ -524,8 +524,8 @@ class EntrySignalScanner:
         analysis['earnings_days'] = earnings_days
 
         try:
-            hist = self.alpaca.get_historical_bars(ticker, days=252)
-            if hasattr(hist, 'empty') and not hist.empty and len(hist) >= 150:
+            hist = self.alpaca.get_historical_bars(ticker)
+            if hasattr(hist, 'empty') and not hist.empty and len(hist) >= 200:
                 current = analysis['current']
 
                 ret_1m = (current / hist['Close'].iloc[-20]  - 1) * 100
@@ -617,7 +617,8 @@ def main():
         epilog="""
 Examples:
   python3 entry_signals.py                    # Scan default watchlist
-  python3 entry_signals.py --ticker AAPL      # Deep dive single ticker
+  python3 entry_signals.py --tickers AAPL     # Deep dive single ticker
+  python3 entry_signals.py --tickers AAPL TSLA NVDA
   python3 entry_signals.py --watchlist scans/custom.csv
   python3 entry_signals.py --universe high_octane --export-csv
   python3 entry_signals.py --use-universe --min-tier 1
@@ -626,8 +627,6 @@ Examples:
     )
     parser.add_argument('--tickers', '-t', nargs='+',
                         help='Specific tickers to scan (default: watchlist)')
-    parser.add_argument('--ticker',
-                        help='Analyze single ticker in detail')
     parser.add_argument('--watchlist', '-w', type=str,
                         help='Path to custom watchlist CSV or TXT file')
     parser.add_argument('--universe', '-u', type=str,
@@ -651,23 +650,17 @@ Examples:
 
     args = parser.parse_args()
 
-    if args.ticker:
-        try:
-            ticker = validate_ticker(args.ticker)
-        except ValueError as e:
-            print(f"❌ {e}")
-            return 1
-        scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile,
-                                     pivot_mode=args.pivot_mode)
-        result = scanner.analyze_single(ticker)
-        return 0 if result else 1
-
     if args.tickers:
         try:
             validated_tickers = validate_tickers(args.tickers)
         except ValueError as e:
             print(f"❌ {e}")
             return 1
+        if len(validated_tickers) == 1:
+            scanner = EntrySignalScanner(mode=args.mode, risk_profile=args.risk_profile,
+                                         pivot_mode=args.pivot_mode)
+            result = scanner.analyze_single(validated_tickers[0])
+            return 0 if result else 1
     else:
         validated_tickers = None
 
