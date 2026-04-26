@@ -85,10 +85,13 @@ class VCPBreakoutBase(Strategy):
         return '\n'.join(lines)
 
     def _load_profile_params(self):
-        """Load VCP parameters — three-tier priority:
+        """Load VCP parameters — two-tier priority:
         1. config/strategies/vcp_{profile}.yaml  (authoritative)
-        2. risk_config.vcp[profile]              (legacy, deprecated)
-        3. Hardcoded defaults                    (fallback)
+        2. Hardcoded defaults                    (fallback)
+
+        Note: Previously used risk_config.vcp as Tier 2, but this has been
+        removed. All VCP parameters now come from per-strategy YAML files
+        with hardcoded defaults as fallback.
         """
         # ── Tier 3: hardcoded defaults ────────────────────────────────────
         if self.profile == 'large_cap':
@@ -116,12 +119,6 @@ class VCPBreakoutBase(Strategy):
                 'min_convergence_score':  50,
             }
         profile_params = dict(defaults)
-
-        # ── Tier 2: risk_config.vcp (deprecated — YAML takes priority) ───
-        if self.risk_config and hasattr(self.risk_config, 'vcp'):
-            legacy = self.risk_config.vcp.get(self.profile, {})
-            if legacy:
-                profile_params.update(legacy)
 
         # ── Tier 1: strategy YAML ─────────────────────────────────────────
         try:
