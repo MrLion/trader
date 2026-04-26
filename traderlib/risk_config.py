@@ -10,7 +10,7 @@ Loads risk parameters from YAML config with support for:
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Literal
 
 
 @dataclass
@@ -61,16 +61,23 @@ class TrailingStageConfig:
 
     Attributes:
         trigger_r: R-multiple threshold to activate this stage
-        action: "breakeven", "trail_ema"
+        action: "breakeven" or "trail_ema"
         period: Required for "trail_ema" - EMA period (10, 21)
         fraction: For "scale_out" - fraction to sell (0.0-1.0)
         executed: Runtime flag - has this stage been executed?
     """
     trigger_r: float
-    action: str  # "breakeven" or "trail_ema"
+    action: Literal["breakeven", "trail_ema"]
     period: Optional[int] = None  # Required when action="trail_ema"
     fraction: Optional[float] = None
     executed: bool = False  # Runtime state, not from YAML
+
+    def __post_init__(self):
+        """Validate cross-field dependencies."""
+        if self.action == "trail_ema" and self.period is None:
+            raise ValueError(f"period is required when action='trail_ema'")
+        if self.action == "trail_ema" and self.period not in (10, 21):
+            raise ValueError(f"period must be 10 or 21 for trail_ema, got {self.period}")
 
 
 @dataclass
@@ -101,10 +108,10 @@ class ProfitTargetConfig:
     ema_long_period: int = 21   # EMA for late trailing
 
     # NEW: Mode selection
-    mode: str = "target"  # "target" (original), "trailing", "hybrid"
+    mode: Literal["target", "trailing", "hybrid"] = "target"
 
     # NEW: Trailing mode configuration (when mode="trailing")
-    trailing_mode: str = "stage_based"  # "stage_based", "continuous"
+    trailing_mode: Literal["stage_based", "continuous"] = "stage_based"
     trailing_stages: List[TrailingStageConfig] = field(default_factory=list)
     continuous_bands: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -139,6 +146,7 @@ class ProfitTargetConfig:
 
         elif self.trailing_mode == "continuous":
             # Bands must not overlap (adjacent is OK)
+            valid_methods = ("ema10", "ema21")
             sorted_bands = sorted(self.continuous_bands, key=lambda b: b['from_r'])
             prev_end = 0.0
             for band in sorted_bands:
@@ -146,6 +154,13 @@ class ProfitTargetConfig:
                     raise ValueError(
                         f"Continuous bands must not overlap: "
                         f"band at {band['from_r']} overlaps with previous ending at {prev_end}"
+                    )
+                # Validate method
+                method = band.get('method')
+                if method not in valid_methods:
+                    raise ValueError(
+                        f"Continuous band method must be one of {valid_methods}, "
+                        f"got '{method}' at {band['from_r']}R"
                     )
                 prev_end = band.get('to_r', float('inf'))
 

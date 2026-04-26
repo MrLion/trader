@@ -7,9 +7,13 @@ Supports:
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 
 from traderlib.risk_config import ProfitTargetConfig, TrailingStageConfig
+
+
+# Type alias for action types
+TrailingAction = Literal["exit", "update_stop", "scale_out", "hold"]
 
 
 @dataclass
@@ -26,7 +30,7 @@ class TrailingResult:
         4. Continue holding remaining shares
     - "hold": No action needed
     """
-    action: str  # "exit", "update_stop", "scale_out", "hold"
+    action: TrailingAction
     reason: str
     new_stop: Optional[float] = None
     new_stop_type: Optional[str] = None
@@ -34,6 +38,53 @@ class TrailingResult:
     shares_to_sell: Optional[int] = None
     r_multiple: float = 0.0
     trigger_r: Optional[float] = None  # R-level that triggered this action
+
+    # Factory methods for constructing valid results
+    @classmethod
+    def exit(cls, reason: str, r_multiple: float = 0.0) -> "TrailingResult":
+        """Create an exit result."""
+        return cls(action="exit", reason=reason, r_multiple=r_multiple)
+
+    @classmethod
+    def update_stop(
+        cls,
+        reason: str,
+        new_stop: float,
+        new_stop_type: str,
+        r_multiple: float = 0.0
+    ) -> "TrailingResult":
+        """Create a stop update result."""
+        return cls(
+            action="update_stop",
+            reason=reason,
+            new_stop=new_stop,
+            new_stop_type=new_stop_type,
+            r_multiple=r_multiple
+        )
+
+    @classmethod
+    def scale_out(
+        cls,
+        reason: str,
+        scale_fraction: float,
+        shares_to_sell: int,
+        r_multiple: float = 0.0,
+        trigger_r: Optional[float] = None
+    ) -> "TrailingResult":
+        """Create a scale-out result."""
+        return cls(
+            action="scale_out",
+            reason=reason,
+            scale_fraction=scale_fraction,
+            shares_to_sell=shares_to_sell,
+            r_multiple=r_multiple,
+            trigger_r=trigger_r
+        )
+
+    @classmethod
+    def hold(cls, reason: str, r_multiple: float = 0.0) -> "TrailingResult":
+        """Create a hold result."""
+        return cls(action="hold", reason=reason, r_multiple=r_multiple)
 
 
 class TrailingExitEngine:
@@ -234,6 +285,8 @@ class TrailingExitEngine:
             new_stop = ema21
             stop_type = 'EMA21_TRAIL'
         else:
+            print(f"⚠️  Unknown continuous band method '{method}' at {active_band['from_r']}R, "
+                  f"expected 'ema10' or 'ema21'")
             new_stop = None
             stop_type = 'UNKNOWN'
 

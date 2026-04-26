@@ -27,13 +27,15 @@ try:
     from traderlib.stage2_utils import calculate_ma_support_stop
     from traderlib.trailing_exits import TrailingExitEngine
     TRAILING_AVAILABLE = True
-except ImportError:
+except ImportError as _import_error:
     # Fallback if modules not available
-    RiskConfig = None
-    RiskConfigManager = None
-    calculate_position_size_with_constraints = None
-    calculate_ma_support_stop = None
-    TrailingExitEngine = None
+    print(f"⚠️  Trailing exit module import failed: {_import_error}")
+    print(f"    Trailing exit features will be disabled.")
+    RiskConfig = None  # type: ignore
+    RiskConfigManager = None  # type: ignore
+    calculate_position_size_with_constraints = None  # type: ignore
+    calculate_ma_support_stop = None  # type: ignore
+    TrailingExitEngine = None  # type: ignore
     TRAILING_AVAILABLE = False
 
 
