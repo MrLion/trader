@@ -14,7 +14,18 @@ from traderlib.risk_config import ProfitTargetConfig, TrailingStageConfig
 
 @dataclass
 class TrailingResult:
-    """Result of trailing exit evaluation."""
+    """Result of trailing exit evaluation.
+
+    Actions:
+    - "exit": Close the entire position (stop hit or target reached)
+    - "update_stop": Move stop loss to new level (breakeven or EMA trail)
+    - "scale_out": Sell partial position (hybrid mode). Caller should:
+        1. Execute market order for shares_to_sell
+        2. Reduce position.shares by shares_to_sell
+        3. Call position.record_scale_out(trigger_r) to prevent repeats
+        4. Continue holding remaining shares
+    - "hold": No action needed
+    """
     action: str  # "exit", "update_stop", "scale_out", "hold"
     reason: str
     new_stop: Optional[float] = None
@@ -28,10 +39,13 @@ class TrailingResult:
 class TrailingExitEngine:
     """Engine for evaluating trailing stop rules.
 
-    Supports three modes:
-    - stage_based: Discrete stages at specific R-levels
-    - continuous: Smooth transitions
+    Supports ProfitTargetConfig.mode values:
+    - target: Fixed R multiple exit (backward compatible)
+    - trailing: Stage-based or continuous trailing (via trailing_mode)
     - hybrid: Stage-based with scale-out
+
+    Note: trailing_mode selects between 'stage_based' and 'continuous'
+    when mode is 'trailing'. Hybrid mode uses trailing_mode='stage_based'.
     """
 
     def __init__(self, config: ProfitTargetConfig):
@@ -59,6 +73,10 @@ class TrailingExitEngine:
 
         Returns:
             TrailingResult with action and updates
+
+        Raises:
+            NotImplementedError: If position is a short (entry_price < initial_stop)
+            ValueError: If config.mode is invalid
         """
         # Check for short positions (use initial_stop if available)
         initial_stop = getattr(position, 'initial_stop_price', position.stop_price)
@@ -156,7 +174,12 @@ class TrailingExitEngine:
                 )
 
         elif active_stage.action == 'trail_ema':
+            if active_stage.period is None:
+                print(f"⚠️  Trailing stage at {active_stage.trigger_r}R missing required 'period' for trail_ema")
+                return TrailingResult(action='hold', reason='NO_STOP_UPDATE_MISSING_PERIOD', r_multiple=r_multiple)
             new_stop = self._get_ema_for_period(active_stage.period, ema10, ema21)
+            if new_stop is None:
+                print(f"⚠️  EMA{active_stage.period} not available for {position.ticker}, skipping trail update")
             if new_stop and new_stop > position.stop_price:
                 stop_type = f'EMA{active_stage.period}_TRAIL'
                 return TrailingResult(
@@ -263,7 +286,10 @@ class TrailingExitEngine:
             ema21: 21-period EMA value
 
         Returns:
-            EMA value or None if not available
+            EMA value or None if ema10/ema21 is None
+
+        Raises:
+            ValueError: If period is not 10 or 21
         """
         if period == 10:
             return ema10

@@ -141,7 +141,8 @@ class ExitEngine:
                     self.cache_timestamp = now
                 else:
                     return None
-            except Exception:
+            except Exception as e:
+                print(f"⚠️  Failed to fetch data for {ticker}: {e}")
                 return None
 
         return self.price_cache.get(ticker)
@@ -231,6 +232,7 @@ class ExitEngine:
             r_multiple = ((current_price - entry_price) * shares) / position.initial_risk
         else:
             # Last resort: may have drift if stop has ratcheted
+            print(f"⚠️  {ticker}: Using current_stop for R-calculation (no initial_stop_price or initial_risk)")
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
                                                      current_stop, shares)
 
@@ -281,10 +283,11 @@ class ExitEngine:
         # Compute stop update (no mutation — caller applies)
         stop_update = new_stop > current_stop
 
-        # 4. Check profit target (target hit OR 2R minimum)
+        # 4. Check profit target (target hit OR min R multiple)
         target_price = position.target_price
-        if current_price >= target_price or r_multiple >= 2.0:
-            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= 2.0 else "TARGET_HIT"
+        min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+        if current_price >= target_price or r_multiple >= min_r:
+            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= min_r else "TARGET_HIT"
             return ExitSignal(
                 should_exit=True,
                 reason=reason,
@@ -384,6 +387,7 @@ class ExitEngine:
         elif getattr(position, 'initial_risk', 0) > 0:
             r_multiple = ((current_price - entry_price) * shares) / position.initial_risk
         else:
+            print(f"⚠️  {ticker}: Using current_stop for R-calculation (no initial_stop_price or initial_risk)")
             r_multiple = self._calculate_r_multiple(current_price, entry_price,
                                                      current_stop, shares)
 
@@ -433,10 +437,11 @@ class ExitEngine:
         # Compute stop update
         stop_update = new_stop > current_stop
 
-        # 4. Check profit target (target hit OR 2R minimum) → EXIT
+        # 4. Check profit target (target hit OR min R multiple) → EXIT
         target_price = position.target_price
-        if current_price >= target_price or r_multiple >= 2.0:
-            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= 2.0 else "TARGET_HIT"
+        min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+        if current_price >= target_price or r_multiple >= min_r:
+            reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= min_r else "TARGET_HIT"
             return ExitAction(
                 ticker=ticker,
                 action=ExitActionType.EXIT,
@@ -629,9 +634,11 @@ class ExitEngine:
                 severity=TradingExceptionHandler.WARNING,
                 ticker=ticker if 'ticker' in locals() else 'unknown'
             )
-            # Fallback
+            # Fallback to fixed percentage stop
             fallback = self.risk_config.stop_loss.fallback_pct if self.risk_config else 0.07
-            return round(entry_price * (1 - fallback), 2)
+            stop = round(entry_price * (1 - fallback), 2)
+            print(f"⚠️  ATR stop calculation failed for {ticker}, using fallback {fallback*100:.1f}%: ${stop:.2f}")
+            return stop
 
     def calculate_target_price(self, entry_price: float, stop_price: float,
                                 min_r: float = None) -> float:

@@ -61,23 +61,29 @@ class TrailingStageConfig:
 
     Attributes:
         trigger_r: R-multiple threshold to activate this stage
-        action: "breakeven", "trail_ema", "trail_swing_low"
-        period: For "trail_ema" - EMA period (10, 21, etc.)
+        action: "breakeven", "trail_ema"
+        period: Required for "trail_ema" - EMA period (10, 21)
         fraction: For "scale_out" - fraction to sell (0.0-1.0)
         executed: Runtime flag - has this stage been executed?
     """
     trigger_r: float
-    action: str
-    period: Optional[int] = None
+    action: str  # "breakeven" or "trail_ema"
+    period: Optional[int] = None  # Required when action="trail_ema"
     fraction: Optional[float] = None
     executed: bool = False  # Runtime state, not from YAML
 
 
 @dataclass
 class ScaleOutStepConfig:
-    """Configuration for a scale-out step in hybrid mode."""
+    """Configuration for a scale-out step in hybrid mode.
+
+    Attributes:
+        trigger_r: R-multiple threshold to trigger this scale-out
+        fraction: Portion of position to sell (0.0-1.0, e.g., 0.33 = sell 1/3)
+        executed: Runtime flag - has this step been executed?
+    """
     trigger_r: float
-    fraction: float
+    fraction: float  # 0.0 < fraction <= 1.0
     executed: bool = False
 
 
@@ -320,6 +326,22 @@ class RiskConfigManager:
                     config.profit_target.ema_short_period = ema['short']
                 if 'long' in ema:
                     config.profit_target.ema_long_period = ema['long']
+
+            # NEW: Trailing mode configuration
+            if 'mode' in pt_data:
+                config.profit_target.mode = pt_data['mode']
+            if 'trailing_mode' in pt_data:
+                config.profit_target.trailing_mode = pt_data['trailing_mode']
+            if 'trailing_stages' in pt_data:
+                config.profit_target.trailing_stages = [
+                    TrailingStageConfig(**stage) for stage in pt_data['trailing_stages']
+                ]
+            if 'continuous_bands' in pt_data:
+                config.profit_target.continuous_bands = pt_data['continuous_bands']
+            if 'scale_out_steps' in pt_data:
+                config.profit_target.scale_out_steps = [
+                    ScaleOutStepConfig(**step) for step in pt_data['scale_out_steps']
+                ]
 
         if 'cache' in data:
             for key, val in data['cache'].items():

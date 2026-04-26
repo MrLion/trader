@@ -77,10 +77,18 @@ class Position:
     # Used for accurate R-multiple calculation regardless of stop ratcheting
     initial_stop_price: Optional[float] = None
     # NEW: Scale-out tracking for hybrid trailing mode
+    # Records R-levels at which scale-outs were executed to prevent duplicate triggers
     scale_out_history: list = field(default_factory=list)
 
     def record_scale_out(self, r_level: float):
-        """Record that a scale-out occurred at the given R-level."""
+        """Record that a scale-out occurred at the given R-level.
+
+        Used by hybrid trailing mode to track which scale-out steps have
+        been executed, preventing duplicate sales at the same R-level.
+
+        Args:
+            r_level: The R-multiple that triggered the scale-out (e.g., 3.0)
+        """
         if r_level not in self.scale_out_history:
             self.scale_out_history.append(r_level)
 
