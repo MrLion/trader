@@ -18,9 +18,15 @@ import os
 import time
 import logging
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 
 import requests
+
+# Load .env from project root if available
+from dotenv import load_dotenv
+_PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(_PROJECT_ROOT / '.env')
 
 logger = logging.getLogger(__name__)
 
