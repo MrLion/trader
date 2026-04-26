@@ -16,6 +16,10 @@ description: "Stage-based trailing stops - breakeven at 2R, trail EMA at 3R+"
 profit_target:
   mode: "trailing"
   trailing_mode: "stage_based"
+  # NOTE: breakeven_at_r only applies in continuous mode.
+  # In stage_based mode, add an explicit stage with action: "breakeven".
+  # If using continuous mode, set breakeven_at_r explicitly to avoid
+  # the 1.0R default triggering breakeven earlier than intended.
   breakeven_at_r: 2.0  # Optional, first stage does same thing
 
   trailing_stages:

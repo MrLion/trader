@@ -87,10 +87,12 @@ class Position:
         been executed, preventing duplicate sales at the same R-level.
 
         Args:
-            r_level: The R-multiple that triggered the scale-out (e.g., 3.0)
+            r_level: The R-multiple that triggered the scale-out (e.g., 3.0).
+                     Rounded to 6 decimal places for safe float comparison.
         """
-        if r_level not in self.scale_out_history:
-            self.scale_out_history.append(r_level)
+        rounded = round(r_level, 6)
+        if rounded not in self.scale_out_history:
+            self.scale_out_history.append(rounded)
 
     @property
     def position_value(self) -> float:

@@ -169,11 +169,31 @@ See plan document for migration path from global to per-strategy configurations.
 ## Known Limitations
 
 1. **Short positions not supported** — Raises `NotImplementedError`
-2. **EMA periods limited** — Currently supports 10 and 21 (others use nearest)
+2. **EMA periods limited** — Currently supports 10 and 21 (others raise `ValueError`)
 3. **Scale-out doesn't reduce risk** — Initial R-calculation unchanged after scale-out
+
+---
+
+## Post-Review Fixes Applied
+
+### Critical Fixes
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 8 | Scale-out with 0 shares recorded in history, blocking future triggers | Skip scale-out if `shares_to_sell <= 0` or `>= position.shares` |
+| 9 | Invalid YAML config silently fell back to defaults | `ValueError` raises `SystemExit`; only YAML/I/O errors fall back |
+
+### Important Fixes
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 10 | `executed` fields on config dataclasses were unused | Removed; runtime uses `position.scale_out_history` |
+| 11 | Empty stages/bands caused hold-forever behavior | Added validation requiring at least one stage/band |
+| 12 | `breakeven_at_r` mode-specificity undocumented | Added docstrings: continuous-mode only |
+| 13 | Float equality for scale-out deduplication fragile | Round R-levels to 6 decimal places |
 
 ---
 
 ## Implementation Complete ✅
 
-All tasks finished. System ready for use.
+All 17 tasks finished. System ready for use.

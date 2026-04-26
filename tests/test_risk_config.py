@@ -24,6 +24,7 @@ from traderlib.risk_config import (
     MASupportConfig,
     ProfitTargetConfig,
     TrailingStageConfig,
+    ScaleOutStepConfig,
     CacheConfig,
     EntryConfig,
     MarketFilterConfig,
@@ -535,6 +536,55 @@ class TestProfitTargetConfigTrailing(unittest.TestCase):
                     TrailingStageConfig(trigger_r=-1.0, action="breakeven"),
                 ]
             )
+
+    def test_invalid_config_fails_loudly(self):
+        """Invalid YAML config raises SystemExit, not silent fallback."""
+        import tempfile
+        import os
+        import yaml
+        from pathlib import Path
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump({
+                'profit_target': {
+                    'mode': 'trailing',
+                    'trailing_stages': [
+                        {'trigger_r': 3.0, 'action': 'breakeven'},
+                        {'trigger_r': 2.0, 'action': 'breakeven'},  # Not increasing!
+                    ]
+                }
+            }, f)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            with self.assertRaises(SystemExit):
+                from traderlib.risk_config import RiskConfigManager
+                RiskConfigManager(config_path=path)
+        finally:
+            os.unlink(path)
+
+    def test_trailing_mode_requires_stages(self):
+        """Trailing mode with empty stages raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            ProfitTargetConfig(mode="trailing", trailing_mode="stage_based", trailing_stages=[])
+        self.assertIn("at least one stage", str(cm.exception))
+
+    def test_continuous_mode_requires_bands(self):
+        """Continuous mode with empty bands raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            ProfitTargetConfig(mode="trailing", trailing_mode="continuous", continuous_bands=[])
+        self.assertIn("at least one band", str(cm.exception))
+
+    def test_hybrid_mode_requires_stages(self):
+        """Hybrid mode with empty stages raises ValueError."""
+        with self.assertRaises(ValueError) as cm:
+            ProfitTargetConfig(
+                mode="hybrid",
+                trailing_stages=[],
+                scale_out_steps=[ScaleOutStepConfig(trigger_r=3.0, fraction=0.5)]
+            )
+        self.assertIn("at least one stage", str(cm.exception))
 
 
 if __name__ == '__main__':

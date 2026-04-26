@@ -1627,9 +1627,1041 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ---
 
-## Plan Self-Review (Revised)
+## Task 8: Fix Critical — Scale-Out with 0 Shares Silent No-Op
 
-### Spec Coverage
+**Priority:** CRITICAL
+**Files:**
+- Modify: `traderlib/trailing_exits.py`
+
+**Issue:** When `position.shares` is small (e.g., 3 shares × 0.33 fraction), `int(3 * 0.33) = int(0.99) = 0`. The scale-out "fires" with `shares_to_sell=0`, which means no shares are sold, but the R-level gets recorded in `scale_out_history`, permanently blocking future triggers. For 1-share positions, every fraction yields 0.
+
+- [ ] **Step 1: Add minimum-shares guard in `_evaluate_hybrid()`**
+
+In `trailing_exits.py`, after computing `shares_to_sell`:
+```python
+shares_to_sell = int(position.shares * step.fraction)
+if shares_to_sell <= 0:
+    # Position too small to scale out at this fraction; skip this step
+    continue
+if shares_to_sell >= position.shares:
+    # Scale-out would close entire position; treat as hold and let trailing handle exit
+    continue
+```
+
+- [ ] **Step 2: Add test for small-position scale-out edge case**
+
+```python
+def test_scale_out_too_small_position(self):
+    """Scale-out with too few shares should hold, not fire with 0 shares."""
+    config = ProfitTargetConfig(
+        mode="hybrid",
+        trailing_stages=[TrailingStageConfig(trigger_r=2.0, action="breakeven")],
+        scale_out_steps=[ScaleOutStepConfig(trigger_r=3.0, fraction=0.33)]
+    )
+    engine = TrailingExitEngine(config)
+    pos = MockPosition(entry_price=150.0, stop_price=150.0, shares=2, scale_out_history=[])
+    result = engine.evaluate(pos, current_price=180.0, ema10=175.0)
+    # 2 shares × 0.33 = 0.66 → int(0.66) = 0, should skip scale-out
+    self.assertNotEqual(result.action, 'scale_out')
+    self.assertNotIn(3.0, pos.scale_out_history)
+```
+
+- [ ] **Step 3: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_trailing_exits.py -v`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/trailing_exits.py tests/test_trailing_exits.py
+git commit -m "fix: prevent scale-out with 0 shares from blocking future triggers
+
+When position.shares is too small for a scale-out fraction, int()
+rounds to 0 shares. Now skips scale-out steps that would sell 0 or
+all remaining shares, preventing scale_out_history from recording
+R-levels that were never actually executed."
+```
+
+---
+
+## Task 9: Fix Critical — Invalid YAML Config Silently Falls Back to Defaults
+
+**Priority:** CRITICAL
+**Files:**
+- Modify: `traderlib/risk_config.py`
+
+**Issue:** `_load_config()` catches all exceptions (including `ValueError` from config validation) and silently returns defaults. An operator who configured trailing exits would silently revert to fixed 2R targets.
+
+- [ ] **Step 1: Separate validation errors from I/O errors in `_load_config()`**
+
+```python
+def _load_config(self):
+    """Load and validate risk configuration from YAML."""
+    config = self._get_defaults()
+    config_path = self._find_config_path()
+    if not config_path:
+        return config
+
+    try:
+        with open(config_path, 'r') as f:
+            yaml_data = yaml.safe_load(f) or {}
+        config = self._parse_config(yaml_data)
+        return config
+    except yaml.YAMLError as e:
+        print(f"⚠️  YAML parse error in {config_path}: {e}, using defaults")
+        return config
+    except ValueError as e:
+        raise SystemExit(f"Invalid risk configuration in {config_path}: {e}") from e
+    except Exception as e:
+        print(f"⚠️  Error loading risk config: {e}, using defaults")
+        return config
+```
+
+- [ ] **Step 2: Add test for invalid config rejection**
+
+```python
+def test_invalid_yaml_config_fails_loudly(self):
+    """Invalid config should raise SystemExit, not silently fall back."""
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        yaml.dump({
+            'profit_target': {
+                'mode': 'trailing',
+                'trailing_stages': [
+                    {'trigger_r': 3.0, 'action': 'breakeven'},
+                    {'trigger_r': 2.0, 'action': 'breakeven'},  # Not increasing!
+                ]
+            }
+        }, f)
+        f.flush()
+        path = f.name
+
+    with self.assertRaises(SystemExit):
+        RiskConfigManager(config_path=path)
+
+    os.unlink(path)
+```
+
+- [ ] **Step 3: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_risk_config.py -v`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/risk_config.py tests/test_risk_config.py
+git commit -m "fix: fail loudly on invalid YAML config instead of silent fallback
+
+ValueError from config validation (e.g., decreasing stages, invalid
+fractions) now raises SystemExit. Only I/O and YAML parse errors
+fall back to defaults. Prevents silent reversion from trailing to
+fixed 2R targets."
+```
+
+---
+
+## Task 10: Fix Important — Remove Dead `executed` Fields from Config Dataclasses
+
+**Priority:** IMPORTANT
+**Files:**
+- Modify: `traderlib/risk_config.py`
+
+**Issue:** `TrailingStageConfig` and `ScaleOutStepConfig` have `executed: bool = False` fields annotated as "Runtime state, not from YAML." These are never read or written — runtime tracking uses `position.scale_out_history` instead. They pollute `asdict()` output with `False` values.
+
+- [ ] **Step 1: Remove `executed` field from `TrailingStageConfig` and `ScaleOutStepConfig`**
+
+- [ ] **Step 2: Update any tests that reference `.executed`**
+
+- [ ] **Step 3: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_risk_config.py tests/test_trailing_exits.py -v`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/risk_config.py tests/
+git commit -m "fix: remove unused executed fields from config dataclasses
+
+Runtime state tracking uses position.scale_out_history, not config
+fields. Removes dead state that confused asdict() output."
+```
+
+---
+
+## Task 11: Fix Important — Validate Non-Empty Stages/Bands in Trailing Mode
+
+**Priority:** IMPORTANT
+**Files:**
+- Modify: `traderlib/risk_config.py`
+
+**Issue:** `mode="trailing"` with `trailing_stages=[]` causes the engine to hold forever (only hard stop remains). No validation prevents this misconfiguration.
+
+- [ ] **Step 1: Add validation requiring at least one stage/band**
+
+In `_validate_trailing()`:
+```python
+def _validate_trailing(self):
+    """Validate trailing configuration."""
+    if self.trailing_mode == "stage_based":
+        if not self.trailing_stages:
+            raise ValueError("trailing_stages must have at least one stage when mode='trailing'")
+        # ... existing stage validation ...
+    elif self.trailing_mode == "continuous":
+        if not self.continuous_bands:
+            raise ValueError("continuous_bands must have at least one band when trailing_mode='continuous'")
+        # ... existing band validation ...
+```
+
+Similarly in `_validate_hybrid()`:
+```python
+def _validate_hybrid(self):
+    """Validate hybrid mode configuration."""
+    if not self.trailing_stages:
+        raise ValueError("trailing_stages must have at least one stage when mode='hybrid'")
+    # ... existing scale-out validation ...
+```
+
+- [ ] **Step 2: Add tests for empty stages/bands**
+
+```python
+def test_trailing_mode_requires_stages(self):
+    """Trailing mode with empty stages raises ValueError."""
+    with self.assertRaises(ValueError) as cm:
+        ProfitTargetConfig(mode="trailing", trailing_mode="stage_based", trailing_stages=[])
+    self.assertIn("at least one stage", str(cm.exception))
+
+def test_continuous_mode_requires_bands(self):
+    """Continuous mode with empty bands raises ValueError."""
+    with self.assertRaises(ValueError) as cm:
+        ProfitTargetConfig(mode="trailing", trailing_mode="continuous", continuous_bands=[])
+    self.assertIn("at least one band", str(cm.exception))
+
+def test_hybrid_mode_requires_stages(self):
+    """Hybrid mode with empty stages raises ValueError."""
+    with self.assertRaises(ValueError) as cm:
+        ProfitTargetConfig(mode="hybrid", trailing_stages=[], scale_out_steps=[ScaleOutStepConfig(trigger_r=3.0, fraction=0.5)])
+    self.assertIn("at least one stage", str(cm.exception))
+```
+
+- [ ] **Step 3: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_risk_config.py -v`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/risk_config.py tests/test_risk_config.py
+git commit -m "fix: require non-empty stages/bands in trailing and hybrid modes
+
+Empty trailing_stages or continuous_bands caused hold-forever behavior
+since only the hard stop would remain active. Now raises ValueError
+at config load time."
+```
+
+---
+
+## Task 12: Fix Important — Document `breakeven_at_r` Mode-Specific Behavior
+
+**Priority:** IMPORTANT
+**Files:**
+- Modify: `traderlib/risk_config.py` (docstring)
+- Modify: `config/strategies/example_trailing.yaml` (comment)
+
+**Issue:** `breakeven_at_r` only applies in continuous mode but this is undocumented. Stage-based mode requires an explicit `action: "breakeven"` stage. Also, `breakeven_at_r` defaults to 1.0 in continuous mode — this implicit behavior should be called out.
+
+- [ ] **Step 1: Add docstring to `breakeven_at_r` field in `ProfitTargetConfig`**
+
+```python
+breakeven_at_r: float = 1.0  # Continuous mode only: R-level to move stop to breakeven.
+                              # Stage-based mode uses explicit breakeven stages instead.
+                              # Defaults to 1.0 — set explicitly to avoid implicit behavior.
+```
+
+- [ ] **Step 2: Add note to example_trailing.yaml**
+
+Add a comment block explaining `breakeven_at_r` scope:
+```yaml
+# NOTE: breakeven_at_r only applies in continuous mode.
+# In stage_based mode, add an explicit stage with action: "breakeven".
+# If using continuous mode, set breakeven_at_r explicitly to avoid
+# the 1.0R default triggering breakeven earlier than intended.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/risk_config.py config/strategies/example_trailing.yaml
+git commit -m "docs: clarify breakeven_at_r is continuous-mode only
+
+breakeven_at_r defaults to 1.0 in continuous mode. Stage-based mode
+uses explicit breakeven stages. Added docstrings and YAML comments."
+```
+
+---
+
+## Task 13: Fix Important — Add Float Precision Safety for Scale-Out Deduplication
+
+**Priority:** IMPORTANT
+**Files:**
+- Modify: `traderlib/trailing_exits.py`
+- Modify: `traderlib/paper_state.py`
+
+**Issue:** `scale_out_history` deduplication uses `not in` on floats. Currently safe because config values are clean, but fragile. Add a note in `Position.record_scale_out()` and round to fixed precision for safety.
+
+- [ ] **Step 1: Round `r_level` in `record_scale_out()` to 6 decimal places**
+
+```python
+def record_scale_out(self, r_level: float):
+    """Record that a scale-out occurred at the given R-level.
+
+    Args:
+        r_level: R-level of the scale-out, must match a trigger_r from
+                 ScaleOutStepConfig. Rounded to 6 decimal places for
+                 safe float comparison.
+    """
+    rounded = round(r_level, 6)
+    if rounded not in self.scale_out_history:
+        self.scale_out_history.append(rounded)
+```
+
+- [ ] **Step 2: Round `trigger_r` comparison in `_evaluate_hybrid()`**
+
+```python
+executed = set(round(r, 6) for r in (position.scale_out_history or []))
+...
+if round(step.trigger_r, 6) not in executed and r_multiple >= step.trigger_r:
+```
+
+- [ ] **Step 3: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_trailing_exits.py tests/test_trailing_integration.py -v`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/trailing_exits.py traderlib/paper_state.py tests/
+git commit -m "fix: round R-levels to 6 decimal places for scale-out deduplication
+
+Float equality comparison for scale_out_history is fragile. Round
+both recorded and compared R-levels to 6 decimal places for safety."
+```
+
+---
+
+## Task 14: Suggestion — Add Runtime Validation to TrailingResult
+
+**Priority:** SUGGESTION
+**Files:**
+- Modify: `traderlib/trailing_exits.py`
+
+**Issue:** `TrailingAction = Literal["exit", "update_stop", "scale_out", "hold"]` is only a static type hint. Direct `TrailingResult(action='invalid')` construction is allowed. Invalid actions silently fall through to hold in ExitEngine.
+
+- [ ] **Step 1: Add `__post_init__` validation to `TrailingResult`**
+
+```python
+VALID_ACTIONS = ("exit", "update_stop", "scale_out", "hold")
+
+@dataclass
+class TrailingResult:
+    """Result of trailing exit evaluation."""
+    action: str  # "exit", "update_stop", "scale_out", "hold"
+    reason: str
+    new_stop: Optional[float] = None
+    new_stop_type: Optional[str] = None
+    scale_fraction: Optional[float] = None
+    shares_to_sell: Optional[int] = None
+    r_multiple: float = 0.0
+
+    def __post_init__(self):
+        if self.action not in self.VALID_ACTIONS:
+            raise ValueError(f"Invalid TrailingResult action: {self.action!r}. Must be one of {self.VALID_ACTIONS}")
+```
+
+- [ ] **Step 2: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_trailing_exits.py -v`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/trailing_exits.py
+git commit -m "feat: add runtime validation to TrailingResult action field
+
+Invalid actions now raise ValueError instead of silently falling
+through to hold behavior in ExitEngine."
+```
+
+---
+
+## Task 15: Suggestion — Add `__post_init__` Validation to ScaleOutStepConfig
+
+**Priority:** SUGGESTION
+**Files:**
+- Modify: `traderlib/risk_config.py`
+
+**Issue:** `ScaleOutStepConfig` has no `__post_init__` validation, while `TrailingStageConfig` does. A `ScaleOutStepConfig(trigger_r=3.0, fraction=0.0)` can be created without error.
+
+- [ ] **Step 1: Add `__post_init__` to `ScaleOutStepConfig`**
+
+```python
+@dataclass
+class ScaleOutStepConfig:
+    """Configuration for a scale-out step in hybrid mode."""
+    trigger_r: float
+    fraction: float
+
+    def __post_init__(self):
+        if self.fraction <= 0 or self.fraction > 1.0:
+            raise ValueError(f"Scale-out fraction must be 0 < fraction <= 1.0, got {self.fraction}")
+        if self.trigger_r <= 0:
+            raise ValueError(f"Scale-out trigger_r must be positive, got {self.trigger_r}")
+```
+
+- [ ] **Step 2: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_risk_config.py tests/test_trailing_exits.py -v`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/risk_config.py tests/
+git commit -m "feat: add post_init validation to ScaleOutStepConfig
+
+Validates fraction (0 < f <= 1.0) and trigger_r > 0 at construction
+time, consistent with TrailingStageConfig validation."
+```
+
+---
+
+## Task 16: Suggestion — Replace `print()` with `logging` in trailing_exits.py
+
+**Priority:** SUGGESTION
+**Files:**
+- Modify: `traderlib/trailing_exits.py`
+
+**Issue:** Several error/warning paths use `print()` instead of `logging`. Print statements go to stdout and can be lost or mixed with normal output.
+
+- [ ] **Step 1: Replace `print()` calls with `logging.warning()`**
+
+Add at top of file:
+```python
+import logging
+logger = logging.getLogger(__name__)
+```
+
+Replace all `print(f"⚠️ ...")` with `logger.warning(...)`
+
+- [ ] **Step 2: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_trailing_exits.py -v`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/trailing_exits.py
+git commit -m "refactor: replace print() with logging in trailing_exits.py
+
+Uses logging.warning() for consistency with the rest of the codebase."
+```
+
+---
+
+## Task 17: Cleanup — Remove Unrelated rate_limiter.py Change from PR
+
+**Priority:** SUGGESTION
+**Files:**
+- Modify: `traderlib/rate_limiter.py` (revert change)
+
+**Issue:** The diff includes a change to `rate_limiter.py` switching `threading.Lock` to `threading.RLock`. This is unrelated to trailing exits and should be in a separate commit/PR.
+
+- [ ] **Step 1: Assess whether to revert or separate**
+
+Check if the rate_limiter.py change is needed by the trailing exit system:
+```bash
+cd /Users/mintmrlion/.openclaw/workspaces/trader && git diff main -- traderlib/rate_limiter.py
+```
+
+If unrelated, revert:
+```bash
+git checkout main -- traderlib/rate_limiter.py
+git commit -m "revert: remove unrelated rate_limiter.py change from trailing exits PR"
+```
+
+Or create a separate branch for it.
+
+---
+
+## Task 18: Fix Critical — Add Trailing Exit Documentation to risk_config.yaml
+
+**Priority:** CRITICAL (documentation)
+**Files:**
+- Modify: `config/risk_config.yaml`
+
+**Issue:** The primary config file only documents the old `trailing_stops` format (breakeven_at_r, ema10_at_r, ema21_at_r). There is no documentation for `mode`, `trailing_mode`, `trailing_stages` (list), `continuous_bands`, or `scale_out_steps`. Users cannot discover or use the new feature from this config file.
+
+- [ ] **Step 1: Add trailing exit documentation to `profit_target` section**
+
+Under the existing `profit_target` block, add commented documentation:
+
+```yaml
+profit_target:
+  # === Exit Mode Selection ===
+  # mode: "target" (default) - fixed R target exit
+  # mode: "trailing" - stage-based or continuous trailing stops
+  # mode: "hybrid" - scale-out + trailing
+  mode: "target"
+
+  # === Target Mode (default) ===
+  min_r_multiple: 2.0
+  fallback_target_pct: 0.10
+
+  # === Trailing Mode (when mode: "trailing") ===
+  # trailing_mode: "stage_based" or "continuous"
+  # trailing_stages: list of {trigger_r, action, period}
+  #   - trigger_r: R-multiple threshold (must be increasing)
+  #   - action: "breakeven" or "trail_ema"
+  #   - period: EMA period for "trail_ema" (10 or 21)
+  # breakeven_at_r: R-level to move stop to breakeven (continuous mode only)
+  #   NOTE: In stage_based mode, add an explicit stage with action: "breakeven".
+  #   Defaults to 1.0 in continuous mode — set explicitly to avoid implicit behavior.
+  # continuous_bands: list of {from_r, to_r (optional), method: "ema10"|"ema21"}
+  #   - Bands must not overlap and from_r must be increasing
+  #   - to_r: Optional upper bound. If omitted, band extends to infinity.
+  #
+  # Example (stage_based):
+  #   mode: "trailing"
+  #   trailing_mode: "stage_based"
+  #   trailing_stages:
+  #     - trigger_r: 2.0
+  #       action: "breakeven"
+  #     - trigger_r: 3.0
+  #       action: "trail_ema"
+  #       period: 10
+  #     - trigger_r: 5.0
+  #       action: "trail_ema"
+  #       period: 21
+  #
+  # See config/strategies/example_trailing.yaml for full examples.
+
+  # === Hybrid Mode (when mode: "hybrid") ===
+  # scale_out_steps: list of {trigger_r, fraction}
+  #   - trigger_r: R-multiple threshold for scale-out
+  #   - fraction: fraction of REMAINING position to sell (0 < f <= 1.0)
+  #   - Total fractions should not exceed 1.0 across all steps
+  #   - Requires trailing_stages for stop management after scale-outs
+```
+
+- [ ] **Step 2: Validate YAML still loads correctly**
+
+```bash
+cd /Users/mintmrlion/.openclaw/workspaces/trader && python -c "from traderlib.risk_config import RiskConfigManager; cfg = RiskConfigManager(); print(f'Mode: {cfg.profit_target.mode}')"
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add config/risk_config.yaml
+git commit -m "docs: add trailing exit configuration to risk_config.yaml
+
+Documents mode, trailing_mode, trailing_stages, continuous_bands,
+and scale_out_steps with examples. References example_trailing.yaml
+for complete configurations."
+```
+
+---
+
+## Task 19: Fix Critical — Remove Misleading `fraction` Field from TrailingStageConfig
+
+**Priority:** CRITICAL (documentation / correctness)
+**Files:**
+- Modify: `traderlib/risk_config.py`
+- Modify: `config/strategies/example_trailing.yaml`
+
+**Issue:** `TrailingStageConfig.fraction` is documented as "For scale_out - fraction to sell (0.0-1.0)" but `TrailingStageConfig.action` only allows `"breakeven"` or `"trail_ema"`. There is no `"scale_out"` action on `TrailingStageConfig`. Scale-outs use the separate `ScaleOutStepConfig`. The `fraction` field is dead state that is never read by any code path and pollutes `asdict()` output.
+
+- [ ] **Step 1: Remove `fraction` field from `TrailingStageConfig`**
+
+```python
+@dataclass
+class TrailingStageConfig:
+    """Configuration for a single trailing stage.
+
+    Attributes:
+        trigger_r: R-multiple threshold to activate this stage
+        action: "breakeven" or "trail_ema"
+        period: For "trail_ema" - EMA period (10, 21)
+    """
+    trigger_r: float
+    action: Literal["breakeven", "trail_ema"]
+    period: Optional[int] = None
+```
+
+- [ ] **Step 2: Update `_apply_config_dict()` if it references `fraction` on TrailingStageConfig**
+
+Search for any parsing of `fraction` from YAML that assigns it to `TrailingStageConfig` and remove it.
+
+- [ ] **Step 3: Update tests that pass `fraction` to `TrailingStageConfig`**
+
+Search `tests/test_trailing_exits.py` and `tests/test_risk_config.py` for any `TrailingStageConfig(..., fraction=...)` and remove the `fraction` argument.
+
+- [ ] **Step 4: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_trailing_exits.py tests/test_risk_config.py tests/test_trailing_integration.py -v`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add traderlib/risk_config.py config/ tests/
+git commit -m "fix: remove misleading fraction field from TrailingStageConfig
+
+TrailingStageConfig only supports breakeven and trail_ema actions.
+Scale-out fractions belong on ScaleOutStepConfig. The fraction field
+was never read and confused asdict() output."
+```
+
+---
+
+## Task 20: Fix Critical — Remove Unimplemented Methods from Design Doc
+
+**Priority:** CRITICAL (documentation accuracy)
+**Files:**
+- Modify: `docs/superpowers/specs/2026-04-25-configurable-trailing-exits-design.md`
+
+**Issue:** The design doc's "Method Options" table lists `swing_low`, `atr_multiple`, and `fixed_pct` as available trailing methods. None of these are implemented — only `breakeven` and `trail_ema` exist. Users reading the design doc will try these and get `ValueError`.
+
+- [ ] **Step 1: Update Method Options table in design doc**
+
+Find the "Method Options" or "Trailing Methods" table and either:
+- Remove rows for unimplemented methods, OR
+- Add a "Status" column marking them as "Not yet implemented"
+
+Example:
+```markdown
+| Method | Description | Status |
+|--------|-------------|--------|
+| breakeven | Move stop to entry price | ✅ Implemented |
+| trail_ema | Trail with EMA (period 10 or 21) | ✅ Implemented |
+| trail_swing_low | Trail with swing low | ❌ Not implemented |
+| atr_multiple | Trail with ATR multiplier | ❌ Not implemented |
+| fixed_pct | Trail with fixed percentage | ❌ Not implemented |
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add docs/superpowers/specs/2026-04-25-configurable-trailing-exits-design.md
+git commit -m "docs: mark unimplemented trailing methods in design spec
+
+swing_low, atr_multiple, and fixed_pct are not yet implemented.
+Marked them clearly so users don't attempt to use them."
+```
+
+---
+
+## Task 21: Update TOOLS.md with Trailing Exit System
+
+**Priority:** IMPORTANT (documentation)
+**Files:**
+- Modify: `TOOLS.md`
+
+**Issue:** TOOLS.md describes `paper_exits.py` as only "hard stops, breakeven (+1R), trailing EMA10 (+1.5R), EMA21 (+3R)" and doesn't mention the new `TrailingExitEngine` or the three configurable modes. The traderlib Library Reference table and Key Imports section are also missing `trailing_exits.py`.
+
+- [ ] **Step 1: Update `paper_exits.py` description in Library Reference**
+
+Change from:
+```
+paper_exits.py - Exit engine (ExitEngine); hard stops, breakeven (+1R), trailing EMA10 (+1.5R), EMA21 (+3R); profit targets; initial stop calculation
+```
+
+To:
+```
+paper_exits.py - Exit engine (ExitEngine); hard stops, configurable trailing exits (stage-based, continuous, hybrid modes via TrailingExitEngine); profit targets; initial stop calculation
+```
+
+- [ ] **Step 2: Add `trailing_exits.py` to Library Reference table**
+
+```
+trailing_exits.py - Trailing exit engine (TrailingExitEngine); stage-based breakeven/EMA trailing, continuous band trailing, hybrid scale-out+trail; converts TrailingResult to ExitAction
+```
+
+- [ ] **Step 3: Add `TrailingExitEngine` to Key Imports section**
+
+```python
+from traderlib.trailing_exits import TrailingExitEngine, TrailingResult
+```
+
+- [ ] **Step 4: Add "Trailing Exit Configuration" to Risk Configuration section**
+
+Add a subsection after the existing risk configuration table:
+
+```markdown
+### Trailing Exit Configuration
+
+| Key | Values | Default | Description |
+|-----|--------|---------|-------------|
+| `mode` | `target`, `trailing`, `hybrid` | `target` | Exit mode selection |
+| `trailing_mode` | `stage_based`, `continuous` | `stage_based` | Trailing mode (when mode=trailing) |
+| `trailing_stages` | list of `{trigger_r, action, period}` | `[]` | Stage definitions for stage_based and hybrid |
+| `continuous_bands` | list of `{from_r, to_r?, method}` | `[]` | Band definitions for continuous mode |
+| `scale_out_steps` | list of `{trigger_r, fraction}` | `[]` | Scale-out steps for hybrid mode |
+| `breakeven_at_r` | float | `1.0` | R-level for breakeven (continuous mode only) |
+
+See `config/strategies/example_trailing.yaml` for complete examples.
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add TOOLS.md
+git commit -m "docs: update TOOLS.md with trailing exit system
+
+Adds TrailingExitEngine to library reference, updates paper_exits
+description, adds trailing exit configuration table, and adds
+TrailingExitEngine to key imports."
+```
+
+---
+
+## Task 22: Update README.md with Configurable Trailing Exits
+
+**Priority:** IMPORTANT (documentation)
+**Files:**
+- Modify: `README.md`
+
+**Issue:** README.md describes "trailing stops (+1R breakeven, +1.5R EMA10, +3R EMA21)" as a fixed system. The new configurable trailing exit system is not mentioned.
+
+- [ ] **Step 1: Update the risk rules description**
+
+Change from:
+```
+Risk Rules: 0.5% account risk per trade, max 3 positions/sector, trailing stops (+1R breakeven, +1.5R EMA10, +3R EMA21)
+```
+
+To:
+```
+Risk Rules: 0.5% account risk per trade, max 3 positions/sector, configurable trailing exits (stage-based, continuous, or hybrid mode via YAML config)
+```
+
+- [ ] **Step 2: Add a "Trailing Exits" section if there's an appropriate place**
+
+```markdown
+### Trailing Exits
+
+Three trailing exit modes configurable via `risk_config.yaml` or per-strategy YAML:
+
+- **Stage-based**: Discrete stages at R-levels (breakeven at 2R, trail EMA10 at 3R, etc.)
+- **Continuous**: Smooth EMA transitions between R-multiple bands
+- **Hybrid**: Scale-out partial positions + stage-based trailing
+
+Default mode is `target` (fixed 2R profit target) for backward compatibility.
+
+See `config/strategies/example_trailing.yaml` for configuration examples.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add README.md
+git commit -m "docs: update README with configurable trailing exits
+
+Replaces fixed trailing stop description with configurable exit modes.
+Adds trailing exits section with mode descriptions and config reference."
+```
+
+---
+
+## Task 23: Fix Important — Update `print_summary()` for Trailing Config
+
+**Priority:** IMPORTANT (documentation / user experience)
+**Files:**
+- Modify: `traderlib/risk_config.py`
+
+**Issue:** `print_summary()` shows `min_r_multiple` and EMA periods even when mode is "trailing" or "hybrid", which is misleading. When trailing mode is active, it should display the stages/bands/scale-out steps instead.
+
+- [ ] **Step 1: Add trailing config display to `print_summary()`**
+
+After the existing profit target summary lines, add:
+
+```python
+def print_summary(self):
+    """Print a summary of the risk configuration."""
+    # ... existing summary ...
+    pt = self.profit_target
+    if pt.mode in ('trailing', 'hybrid'):
+        print(f"  Exit Mode: {pt.mode}")
+        if pt.mode == 'trailing':
+            print(f"  Trailing Mode: {pt.trailing_mode}")
+        if pt.trailing_stages:
+            print(f"  Trailing Stages:")
+            for s in pt.trailing_stages:
+                stage_desc = f"    {s.trigger_r}R -> {s.action}"
+                if s.action == 'trail_ema' and s.period:
+                    stage_desc += f" (EMA{s.period})"
+                print(stage_desc)
+        if pt.continuous_bands:
+            print(f"  Continuous Bands:")
+            for b in pt.continuous_bands:
+                band_desc = f"    {b['from_r']}R"
+                band_desc += f" - {b.get('to_r', '∞')}R: {b['method']}"
+                print(band_desc)
+        if pt.scale_out_steps:
+            print(f"  Scale-Out Steps:")
+            for s in pt.scale_out_steps:
+                print(f"    {s.trigger_r}R: sell {int(s.fraction*100)}% of position")
+    else:
+        # Existing target mode display
+        print(f"  Min R-multiple: {pt.min_r_multiple}")
+        print(f"  Breakeven at: {pt.breakeven_at_r}R")
+        print(f"  EMA10 trail at: {pt.ema10_at_r}R")
+        print(f"  EMA21 trail at: {pt.ema21_at_r}R")
+```
+
+- [ ] **Step 2: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/test_risk_config.py -v`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/risk_config.py
+git commit -m "feat: display trailing exit config in print_summary()
+
+When mode is trailing or hybrid, shows stages/bands/scale-out steps
+instead of irrelevant EMA thresholds."
+```
+
+---
+
+## Task 24: Fix Important — Document `continuous_bands` Schema and `ScaleOutStepConfig.fraction` Semantics
+
+**Priority:** IMPORTANT (documentation / clarity)
+**Files:**
+- Modify: `traderlib/risk_config.py` (docstrings)
+- Modify: `config/strategies/example_trailing.yaml` (comments)
+
+**Issue:** Two documentation gaps:
+1. `continuous_bands: List[Dict[str, Any]]` has no docstring explaining expected keys (`from_r`, `to_r`, `method`).
+2. `ScaleOutStepConfig.fraction` docstring says "fraction to sell" but doesn't clarify it's a fraction of the **remaining** position, not the original.
+
+- [ ] **Step 1: Add docstring to `continuous_bands` field**
+
+```python
+continuous_bands: List[Dict[str, Any]] = field(default_factory=list)
+# Expected keys per band:
+#   from_r: float (required) - R-multiple where this band starts
+#   to_r: float (optional) - R-multiple where this band ends (None = infinity)
+#   method: str - trailing method: "ema10" or "ema21"
+```
+
+- [ ] **Step 2: Clarify `ScaleOutStepConfig.fraction` docstring**
+
+```python
+@dataclass
+class ScaleOutStepConfig:
+    """Configuration for a scale-out step in hybrid mode.
+
+    Attributes:
+        trigger_r: R-multiple threshold to execute this scale-out
+        fraction: Fraction of the CURRENT (remaining) position to sell.
+                  Each scale-out reduces the position, so subsequent
+                  steps sell fewer absolute shares. Must be 0 < f <= 1.0.
+    """
+    trigger_r: float
+    fraction: float
+```
+
+- [ ] **Step 3: Update example_trailing.yaml comment for fraction clarity**
+
+Change:
+```yaml
+fraction: 0.33  # Sell 1/3 at 3R
+```
+To:
+```yaml
+fraction: 0.33  # Sell 1/3 of remaining position at 3R
+```
+
+And:
+```yaml
+fraction: 0.50  # Sell 1/2 of remaining at 4R
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add traderlib/risk_config.py config/strategies/example_trailing.yaml
+git commit -m "docs: clarify continuous_bands schema and ScaleOutStepConfig fraction
+
+continuous_bands now documents expected keys. fraction clarifies
+it's a fraction of remaining position, not original."
+```
+
+---
+
+## Task 25: Fix Important — Document `_evaluate_continuous` Breakeven Priority and `_apply_config_dict` Trailing Logic
+
+**Priority:** IMPORTANT (documentation accuracy)
+**Files:**
+- Modify: `traderlib/trailing_exits.py` (docstring)
+- Modify: `traderlib/risk_config.py` (docstring)
+
+**Issue:** Two undocumented behavioral subtleties:
+1. `_evaluate_continuous()` checks `breakeven_at_r` BEFORE bands, silently overriding band logic. This priority is not documented.
+2. `_apply_config_dict()` has two code paths for trailing/hybrid vs target mode. Trailing/hybrid requires full `ProfitTargetConfig` reconstruction (to trigger `__post_init__` validation), while target mode uses direct attribute setting. This distinction is undocumented.
+
+- [ ] **Step 1: Update `_evaluate_continuous` docstring**
+
+```python
+def _evaluate_continuous(self, position, current_price, ema10, ema21):
+    """Evaluate continuous trailing rules.
+
+    Uses bands defined by R-multiple ranges. Breakeven is checked
+    FIRST -- if position.stop_price < entry_price and r_multiple >=
+    breakeven_at_r, stop moves to breakeven before band logic is
+    evaluated.
+    """
+```
+
+- [ ] **Step 2: Add inline comments to `_apply_config_dict` trailing logic**
+
+At the start of the trailing/hybrid code path, add:
+
+```python
+# Trailing and hybrid modes require full ProfitTargetConfig reconstruction
+# to trigger __post_init__ validation (increasing stages, non-overlapping
+# bands, etc.). Target mode can use direct attribute setting since its
+# validation is simpler.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/trailing_exits.py traderlib/risk_config.py
+git commit -m "docs: document continuous breakeven priority and config loading paths
+
+Clarifies that breakeven is checked before bands in continuous mode,
+and that trailing/hybrid modes need full config reconstruction for
+validation."
+```
+
+---
+
+## Task 26: Fix Important — Document `ExitActionType` Scale-Out Convention and Legacy Method Gap
+
+**Priority:** IMPORTANT (documentation / API clarity)
+**Files:**
+- Modify: `traderlib/paper_exits.py` (docstrings)
+
+**Issue:** Two API documentation gaps:
+1. Scale-out results from `TrailingExitEngine` are converted to `ExitActionType.UPDATE_STOP` with `new_stop_type='SCALE_OUT'`. This convention is undocumented, and there's no `SCALE_OUT` in the `ExitActionType` enum.
+2. The legacy `evaluate_exit` method does NOT use `TrailingExitEngine` — it has hardcoded breakeven/EMA logic. Its docstring mentions "trailing stops" but doesn't clarify this gap.
+
+- [ ] **Step 1: Add docstring to `evaluate_exit_action` explaining scale-out convention**
+
+```python
+def evaluate_exit_action(self, position, current_price, historical_data=None):
+    """Evaluate all exit conditions and return atomic ExitAction.
+
+    Routes to TrailingExitEngine when mode is 'trailing' or 'hybrid'.
+
+    Note: Scale-out actions from TrailingExitEngine are converted to
+    UPDATE_STOP with new_stop_type='SCALE_OUT'. The caller should check
+    action.new_stop_type == 'SCALE_OUT' to distinguish scale-outs from
+    regular stop updates.
+    """
+```
+
+- [ ] **Step 2: Add deprecation/gap note to legacy `evaluate_exit` method**
+
+```python
+def evaluate_exit(self, position, ...):
+    """Evaluate exit conditions and return ExitSignal.
+
+    WARNING: This legacy method does NOT use TrailingExitEngine. It
+    always uses the fixed breakeven/EMA thresholds from risk_config.
+    For trailing mode support, use evaluate_exit_action() instead.
+    """
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/paper_exits.py
+git commit -m "docs: document scale-out ExitAction convention and legacy method gap
+
+Scale-outs use UPDATE_STOP with new_stop_type='SCALE_OUT'. Legacy
+evaluate_exit() does not use TrailingExitEngine — callers should
+use evaluate_exit_action() for trailing support."
+```
+
+---
+
+## Task 27: Fix Important — Fix Implementation Notes: EMA Period Error vs Fallback
+
+**Priority:** IMPORTANT (documentation accuracy)
+**Files:**
+- Modify: `docs/superpowers/plans/2026-04-25-trailing-exit-system-implementation-notes.md`
+
+**Issue:** The "Known Limitations" section says "EMA periods limited — Currently supports 10 and 21 (others use nearest)". But `_get_ema_for_period` raises `ValueError` for other periods — it does NOT fall back to the nearest.
+
+- [ ] **Step 1: Update the known limitation**
+
+Change:
+```
+3. **EMA periods limited** — Currently supports 10 and 21 (others use nearest)
+```
+
+To:
+```
+3. **EMA periods limited to 10 and 21** — Other periods raise ValueError. Use trail_ema with period=10 or period=21 only.
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-04-25-trailing-exit-system-implementation-notes.md
+git commit -m "docs: fix EMA period limitation description
+
+_get_ema_for_period raises ValueError for unsupported periods,
+it does not fall back to the nearest. Corrected the known limitation."
+```
+
+---
+
+## Task 28: Cleanup — Remove Misleading `Position.exit_phase` Documentation
+
+**Priority:** SUGGESTION (documentation clarity)
+**Files:**
+- Modify: `traderlib/paper_state.py`
+
+**Issue:** `Position.exit_phase` has a comment saying `'phase1' = ratchet mode | 'phase2' = EMA trail mode` which describes the OLD two-phase system. With configurable trailing exits (potentially many stages), this field is semantically incorrect. It should either be removed or its documentation updated.
+
+- [ ] **Step 1: Update `exit_phase` comment**
+
+Change the comment to reflect that `exit_phase` is only relevant for target (non-trailing) mode:
+
+```python
+exit_phase: str = ''  # Only used in target mode: '' | 'phase1' (ratchet) | 'phase2' (EMA trail)
+                       # Trailing and hybrid modes use TrailingExitEngine instead
+```
+
+- [ ] **Step 2: Run tests**
+
+`cd /Users/mintmrlion/.openclaw/workspaces/trader && python -m pytest tests/ -v -k "paper" --no-header`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add traderlib/paper_state.py
+git commit -m "docs: clarify exit_phase is only used in target mode
+
+Trailing and hybrid modes use TrailingExitEngine instead of the
+two-phase exit_phase system."
+```
+
+---
+
+## Plan Self-Review (Revised)
 
 | Requirement | Task | Status |
 |-------------|------|--------|
@@ -1653,6 +2685,37 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 | Scale-out repeats | Added `executed` flag + scale_out_history | Task 2, 3 |
 | Missing EMA handling | Returns hold when EMAs unavailable | Task 2 |
 | Breakeven logic bug | Fixed continuous mode state machine | Task 2 |
+
+### Post-Implementation Review Fixes (Tasks 8–17)
+
+| # | Priority | Issue | Fix | File |
+|---|----------|-------|-----|------|
+| 8 | CRITICAL | Scale-out with 0 shares silent no-op | Add min-shares guard, skip invalid scale-outs | trailing_exits.py |
+| 9 | CRITICAL | Invalid YAML silently falls back to defaults | Separate ValueError from I/O errors, SystemExit on misconfig | risk_config.py |
+| 10 | IMPORTANT | `executed` fields are dead state on config dataclasses | Remove unused `executed` fields | risk_config.py |
+| 11 | IMPORTANT | Empty stages/bands → hold-forever | Require at least 1 stage/band in validation | risk_config.py |
+| 12 | IMPORTANT | `breakeven_at_r` undocumented mode-specific behavior | Add docstrings and YAML comments | risk_config.py, example_trailing.yaml |
+| 13 | IMPORTANT | Float equality for scale-out deduplication | Round R-levels to 6 decimal places | trailing_exits.py, paper_state.py |
+| 14 | SUGGESTION | `TrailingAction` Literal not runtime-enforced | Add `__post_init__` validation to TrailingResult | trailing_exits.py |
+| 15 | SUGGESTION | `ScaleOutStepConfig.fraction` allows 0.0 | Add `__post_init__` validation | risk_config.py |
+| 16 | SUGGESTION | `print()` instead of `logging` | Replace with `logging.warning()` | trailing_exits.py |
+| 17 | SUGGESTION | Unrelated rate_limiter.py change in PR | Revert or separate into different PR | rate_limiter.py |
+
+### Documentation Fixes (Tasks 18–28)
+
+| # | Priority | Issue | Fix | File |
+|---|----------|-------|-----|------|
+| 18 | CRITICAL | risk_config.yaml missing trailing exit docs | Add mode/stages/bands docs with examples | config/risk_config.yaml |
+| 19 | CRITICAL | TrailingStageConfig.fraction is misleading dead state | Remove `fraction` field from TrailingStageConfig | risk_config.py |
+| 20 | CRITICAL | Design doc lists unimplemented methods | Mark swing_low/atr_multiple/fixed_pct as not implemented | design doc |
+| 21 | IMPORTANT | TOOLS.md missing TrailingExitEngine | Add to library reference, key imports, risk config table | TOOLS.md |
+| 22 | IMPORTANT | README.md describes old fixed system | Update trailing stops description, add exits section | README.md |
+| 23 | IMPORTANT | `print_summary()` doesn't show trailing config | Add conditional display for trailing/hybrid modes | risk_config.py |
+| 24 | IMPORTANT | `continuous_bands` schema and `fraction` semantics undocumented | Add docstrings, clarify fraction = remaining position | risk_config.py, example_trailing.yaml |
+| 25 | IMPORTANT | Undocumented breakeven priority and config loading paths | Add docstrings to `_evaluate_continuous` and `_apply_config_dict` | trailing_exits.py, risk_config.py |
+| 26 | IMPORTANT | Undocumented scale-out ExitAction convention and legacy method gap | Add docstrings to `evaluate_exit_action` and `evaluate_exit` | paper_exits.py |
+| 27 | IMPORTANT | Implementation notes say EMA "uses nearest" but it raises ValueError | Fix known limitation description | implementation-notes.md |
+| 28 | SUGGESTION | `Position.exit_phase` comment describes old two-phase system | Update comment to clarify target-mode only | paper_state.py |
 
 ### No Placeholders
 

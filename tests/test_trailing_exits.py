@@ -29,7 +29,7 @@ class TestRMultipleCalculation(unittest.TestCase):
 
     def test_basic_r(self):
         """R = gain / initial risk."""
-        config = ProfitTargetConfig(mode="trailing", trailing_mode="stage_based")
+        config = ProfitTargetConfig(mode="target")  # Simple mode for R calc tests
         engine = TrailingExitEngine(config)
 
         pos = MockPosition(entry_price=150.0, stop_price=140.0, shares=100)
@@ -40,7 +40,7 @@ class TestRMultipleCalculation(unittest.TestCase):
 
     def test_fractional_r(self):
         """Calculate 1.5R."""
-        config = ProfitTargetConfig(mode="trailing", trailing_mode="stage_based")
+        config = ProfitTargetConfig(mode="target")
         engine = TrailingExitEngine(config)
 
         pos = MockPosition(entry_price=150.0, stop_price=140.0, shares=100)
@@ -50,7 +50,7 @@ class TestRMultipleCalculation(unittest.TestCase):
 
     def test_negative_r(self):
         """Negative R for losses."""
-        config = ProfitTargetConfig(mode="trailing", trailing_mode="stage_based")
+        config = ProfitTargetConfig(mode="target")
         engine = TrailingExitEngine(config)
 
         pos = MockPosition(entry_price=150.0, stop_price=140.0, shares=100)
@@ -61,7 +61,7 @@ class TestRMultipleCalculation(unittest.TestCase):
 
     def test_zero_risk(self):
         """Handle zero risk (entry == stop)."""
-        config = ProfitTargetConfig(mode="trailing", trailing_mode="stage_based")
+        config = ProfitTargetConfig(mode="target")
         engine = TrailingExitEngine(config)
 
         pos = MockPosition(entry_price=150.0, stop_price=150.0, initial_stop_price=150.0, shares=100)
@@ -276,7 +276,11 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_short_position_not_supported(self):
         """Short positions raise clear error."""
-        config = ProfitTargetConfig(mode="trailing", trailing_mode="stage_based")
+        config = ProfitTargetConfig(
+            mode="trailing",
+            trailing_mode="stage_based",
+            trailing_stages=[TrailingStageConfig(trigger_r=2.0, action="breakeven")]
+        )
         engine = TrailingExitEngine(config)
 
         # Short position: initial stop above entry
@@ -292,6 +296,25 @@ class TestEdgeCases(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             TrailingExitEngine(ProfitTargetConfig(mode="invalid"))
         self.assertIn("mode", str(cm.exception).lower())
+
+    def test_scale_out_too_small_position(self):
+        """Scale-out with too few shares should skip, not fire with 0 shares."""
+        config = ProfitTargetConfig(
+            mode="hybrid",
+            trailing_stages=[TrailingStageConfig(trigger_r=2.0, action="breakeven")],
+            scale_out_steps=[ScaleOutStepConfig(trigger_r=3.0, fraction=0.33)]
+        )
+        engine = TrailingExitEngine(config)
+        # 2 shares * 0.33 = 0.66 -> int(0.66) = 0, should skip scale-out
+        pos = MockPosition(
+            entry_price=150.0,
+            stop_price=150.0,  # At breakeven
+            shares=2,
+            scale_out_history=[]
+        )
+        result = engine.evaluate(pos, current_price=180.0, ema10=175.0)
+        # Should NOT be scale_out action
+        self.assertNotEqual(result.action, 'scale_out')
 
 
 if __name__ == '__main__':

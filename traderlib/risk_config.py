@@ -63,14 +63,10 @@ class TrailingStageConfig:
         trigger_r: R-multiple threshold to activate this stage
         action: "breakeven" or "trail_ema"
         period: Required for "trail_ema" - EMA period (10, 21)
-        fraction: For "scale_out" - fraction to sell (0.0-1.0)
-        executed: Runtime flag - has this stage been executed?
     """
     trigger_r: float
     action: Literal["breakeven", "trail_ema"]
     period: Optional[int] = None  # Required when action="trail_ema"
-    fraction: Optional[float] = None
-    executed: bool = False  # Runtime state, not from YAML
 
     def __post_init__(self):
         """Validate cross-field dependencies."""
@@ -87,11 +83,9 @@ class ScaleOutStepConfig:
     Attributes:
         trigger_r: R-multiple threshold to trigger this scale-out
         fraction: Portion of position to sell (0.0-1.0, e.g., 0.33 = sell 1/3)
-        executed: Runtime flag - has this step been executed?
     """
     trigger_r: float
     fraction: float  # 0.0 < fraction <= 1.0
-    executed: bool = False
 
 
 @dataclass
@@ -101,7 +95,9 @@ class ProfitTargetConfig:
     # Original settings (backward compatible)
     min_r_multiple: float = 2.0
     fallback_target_pct: float = 0.10  # 10% above entry
-    breakeven_at_r: float = 1.0  # Kept for backward compat
+    breakeven_at_r: float = 1.0  # Continuous mode only: R-level to move stop to breakeven.
+                                  # Stage-based mode uses explicit breakeven stages instead.
+                                  # Defaults to 1.0 — set explicitly to avoid implicit behavior.
     ema10_at_r: float = 1.5
     ema21_at_r: float = 3.0
     ema_short_period: int = 10  # EMA for early trailing
@@ -132,6 +128,8 @@ class ProfitTargetConfig:
     def _validate_trailing(self):
         """Validate trailing configuration."""
         if self.trailing_mode == "stage_based":
+            if not self.trailing_stages:
+                raise ValueError("trailing_stages must have at least one stage when mode='trailing'")
             # Stages must have increasing trigger_r
             prev_r = 0.0
             for stage in self.trailing_stages:
@@ -145,6 +143,8 @@ class ProfitTargetConfig:
                 prev_r = stage.trigger_r
 
         elif self.trailing_mode == "continuous":
+            if not self.continuous_bands:
+                raise ValueError("continuous_bands must have at least one band when trailing_mode='continuous'")
             # Bands must not overlap (adjacent is OK)
             valid_methods = ("ema10", "ema21")
             sorted_bands = sorted(self.continuous_bands, key=lambda b: b['from_r'])
@@ -166,6 +166,8 @@ class ProfitTargetConfig:
 
     def _validate_hybrid(self):
         """Validate hybrid mode configuration."""
+        if not self.trailing_stages:
+            raise ValueError("trailing_stages must have at least one stage when mode='hybrid'")
         total_fraction = 0.0
         for step in self.scale_out_steps:
             if step.fraction <= 0 or step.fraction > 1.0:
@@ -288,6 +290,11 @@ class RiskConfigManager:
 
             return config
 
+        except yaml.YAMLError as e:
+            print(f"⚠️  YAML parse error in {self.config_path}: {e}, using defaults")
+            return config
+        except ValueError as e:
+            raise SystemExit(f"❌ Invalid risk configuration in {self.config_path}: {e}") from e
         except Exception as e:
             print(f"⚠️  Error loading risk config: {e}, using defaults")
             return config
@@ -343,20 +350,45 @@ class RiskConfigManager:
                     config.profit_target.ema_long_period = ema['long']
 
             # NEW: Trailing mode configuration
-            if 'mode' in pt_data:
-                config.profit_target.mode = pt_data['mode']
-            if 'trailing_mode' in pt_data:
-                config.profit_target.trailing_mode = pt_data['trailing_mode']
-            if 'trailing_stages' in pt_data:
-                config.profit_target.trailing_stages = [
-                    TrailingStageConfig(**stage) for stage in pt_data['trailing_stages']
-                ]
-            if 'continuous_bands' in pt_data:
-                config.profit_target.continuous_bands = pt_data['continuous_bands']
-            if 'scale_out_steps' in pt_data:
-                config.profit_target.scale_out_steps = [
-                    ScaleOutStepConfig(**step) for step in pt_data['scale_out_steps']
-                ]
+            # When mode is set, create new ProfitTargetConfig to trigger validation
+            if 'mode' in pt_data and pt_data['mode'] in ('trailing', 'hybrid'):
+                # Build kwargs for ProfitTargetConfig
+                pt_kwargs = {'mode': pt_data['mode']}
+                if 'trailing_mode' in pt_data:
+                    pt_kwargs['trailing_mode'] = pt_data['trailing_mode']
+                if 'trailing_stages' in pt_data:
+                    pt_kwargs['trailing_stages'] = [
+                        TrailingStageConfig(**stage) for stage in pt_data['trailing_stages']
+                    ]
+                if 'continuous_bands' in pt_data:
+                    pt_kwargs['continuous_bands'] = pt_data['continuous_bands']
+                if 'scale_out_steps' in pt_data:
+                    pt_kwargs['scale_out_steps'] = [
+                        ScaleOutStepConfig(**step) for step in pt_data['scale_out_steps']
+                    ]
+                # Copy over standard fields if present
+                for field in ['min_r_multiple', 'fallback_target_pct', 'breakeven_at_r',
+                             'ema10_at_r', 'ema21_at_r', 'ema_short_period', 'ema_long_period']:
+                    if field in pt_data:
+                        pt_kwargs[field] = pt_data[field]
+                # Create new config with validation
+                config.profit_target = ProfitTargetConfig(**pt_kwargs)
+            else:
+                # Standard mode - set attributes directly
+                if 'mode' in pt_data:
+                    config.profit_target.mode = pt_data['mode']
+                if 'trailing_mode' in pt_data:
+                    config.profit_target.trailing_mode = pt_data['trailing_mode']
+                if 'trailing_stages' in pt_data:
+                    config.profit_target.trailing_stages = [
+                        TrailingStageConfig(**stage) for stage in pt_data['trailing_stages']
+                    ]
+                if 'continuous_bands' in pt_data:
+                    config.profit_target.continuous_bands = pt_data['continuous_bands']
+                if 'scale_out_steps' in pt_data:
+                    config.profit_target.scale_out_steps = [
+                        ScaleOutStepConfig(**step) for step in pt_data['scale_out_steps']
+                    ]
 
         if 'cache' in data:
             for key, val in data['cache'].items():
