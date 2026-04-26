@@ -7,7 +7,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 
 def _atomic_write_json(filepath: Path, data: dict) -> None:
@@ -76,6 +76,13 @@ class Position:
     # FINDING-013: Immutable initial stop - never changes after entry
     # Used for accurate R-multiple calculation regardless of stop ratcheting
     initial_stop_price: Optional[float] = None
+    # NEW: Scale-out tracking for hybrid trailing mode
+    scale_out_history: list = field(default_factory=list)
+
+    def record_scale_out(self, r_level: float):
+        """Record that a scale-out occurred at the given R-level."""
+        if r_level not in self.scale_out_history:
+            self.scale_out_history.append(r_level)
 
     @property
     def position_value(self) -> float:
