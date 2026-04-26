@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.12.1] — 2026-04-26 — FMP API Key Security Fix
+
+### Fixed
+- **`traderlib/earnings_calendar.py`** — Added `load_dotenv()` to load FMP_API_KEY from `.env` file
+  - Previously relied on shell environment variable set in `.zshrc`
+  - Now self-contained: loads `.env` automatically when module is imported
+  - Fixes `premarket_report.py` and other scripts that import `EarningsCalendar` without loading `.env` first
+
+### Security
+- Moved FMP_API_KEY from `.zshrc` to `.env` file (gitignored)
+  - Prevents API key from being exposed in shell history
+  - Follows same pattern as Alpaca credentials
+
 ## [0.6.12.0] — 2026-04-25 — Configurable Trailing Exit System
 
 ### Added
