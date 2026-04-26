@@ -1329,6 +1329,93 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ---
 
+## Migration Path: Global to Per-Strategy Config
+
+**Current Implementation (Option A - Global):** All strategies use `risk_config.yaml`
+
+**Future Migration (Option B - Per-Strategy):** Each strategy can override exits
+
+### Why Migration is Possible
+
+The architecture already supports per-strategy configs. The `TrailingExitEngine` accepts any `ProfitTargetConfig`, regardless of source:
+
+```python
+# Global config (current)
+risk_config = RiskConfigManager().get_config()
+engine = TrailingExitEngine(risk_config.profit_target)
+
+# Strategy config (future)
+strategy_config = load_strategy_config('stage2_momentum')
+engine = TrailingExitEngine(strategy_config.profit_target)
+```
+
+### Migration Steps (Future Task)
+
+To migrate from global to per-strategy later:
+
+**Step 1:** Modify `backtest.py` to check for strategy-specific exit config:
+
+```python
+# In backtest.py, around line 142
+risk_config = RiskConfigManager(profile=args.risk_profile).get_config()
+
+# NEW: Check if strategy has its own exit config
+strategy_config_path = Path(f"config/strategies/{args.strategy}.yaml")
+if strategy_config_path.exists():
+    strategy_yaml = yaml.safe_load(open(strategy_config_path))
+    if 'profit_target' in strategy_yaml:
+        # Override with strategy-specific config
+        strategy_profit_config = parse_profit_target_config(strategy_yaml['profit_target'])
+        risk_config.profit_target = strategy_profit_config
+
+exit_engine = ExitEngine(risk_config=risk_config)
+```
+
+**Step 2:** Create per-strategy config files:
+
+```yaml
+# config/strategies/stage2_momentum.yaml
+name: stage2_momentum
+
+profit_target:
+  mode: "trailing"
+  trailing_mode: "stage_based"
+  trailing_stages:
+    - trigger_r: 2.0
+      action: "breakeven"
+    - trigger_r: 3.0
+      action: "trail_ema"
+      period: 10
+    - trigger_r: 5.0
+      action: "trail_ema"
+      period: 21
+```
+
+**Step 3:** Fallback to global config if no strategy-specific config:
+
+```python
+# If strategy YAML doesn't have profit_target, use risk_config.yaml (current behavior)
+```
+
+### Benefits of Deferred Migration
+
+1. **Start simple:** Get trailing exits working with one config file
+2. **Validate approach:** See if you actually want different exits per strategy
+3. **No rework:** The architecture supports both modes without refactoring
+4. **Gradual transition:** Add per-strategy configs one at a time
+
+### When to Migrate
+
+| Trigger | Action |
+|---------|--------|
+| Want to A/B test exit strategies | Add per-strategy config for one strategy |
+| Different strategies need different exits | Migrate fully to per-strategy |
+| Happy with one exit strategy for all | Stay with global config |
+
+**No migration needed until you want per-strategy customization.**
+
+---
+
 ## Task 6: Integrate with Backtest Engine
 
 **Files:**
