@@ -25,12 +25,16 @@ try:
         calculate_position_size_with_constraints
     )
     from traderlib.stage2_utils import calculate_ma_support_stop
+    from traderlib.trailing_exits import TrailingExitEngine
+    TRAILING_AVAILABLE = True
 except ImportError:
-    # Fallback if risk_config not available
+    # Fallback if modules not available
     RiskConfig = None
     RiskConfigManager = None
     calculate_position_size_with_constraints = None
     calculate_ma_support_stop = None
+    TrailingExitEngine = None
+    TRAILING_AVAILABLE = False
 
 
 @dataclass
@@ -101,6 +105,12 @@ class ExitEngine:
         else:
             # Use defaults if risk_config module unavailable
             self.risk_config = None
+
+        # Initialize trailing exit engine if mode is trailing or hybrid
+        self.trailing_engine = None
+        if (self.risk_config and TRAILING_AVAILABLE and
+            self.risk_config.profit_target.mode in ('trailing', 'hybrid')):
+            self.trailing_engine = TrailingExitEngine(self.risk_config.profit_target)
 
     def _get_cached_data(self, ticker: str) -> Optional[pd.DataFrame]:
         """Fetch and cache price data with configurable TTL."""
@@ -319,6 +329,54 @@ class ExitEngine:
         entry_price = position.entry_price
         shares = position.shares
         current_stop = position.stop_price
+
+        # If trailing mode is active, delegate to trailing engine
+        if self.trailing_engine:
+            ema10, ema21 = self._get_ema_values(ticker, historical_data)
+            result = self.trailing_engine.evaluate(position, current_price, ema10, ema21)
+
+            # Convert TrailingResult to ExitAction
+            if result.action == 'exit':
+                return ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.EXIT,
+                    reason=result.reason,
+                    exit_price=current_price,
+                    r_multiple=result.r_multiple
+                )
+            elif result.action == 'update_stop':
+                return ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.UPDATE_STOP,
+                    reason=result.reason,
+                    r_multiple=result.r_multiple,
+                    new_stop_price=result.new_stop,
+                    new_stop_type=result.new_stop_type
+                )
+            elif result.action == 'scale_out':
+                # Scale-out is handled by caller, record it on position
+                if hasattr(position, 'record_scale_out'):
+                    # Extract R-level from reason (e.g., "SCALE_OUT_3.0R_33%")
+                    try:
+                        r_level = float(result.reason.split('_')[2].rstrip('R'))
+                        position.record_scale_out(r_level)
+                    except (IndexError, ValueError):
+                        pass
+                return ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.UPDATE_STOP,
+                    reason=result.reason,
+                    r_multiple=result.r_multiple,
+                    new_stop_price=current_stop,  # No stop change
+                    new_stop_type='SCALE_OUT'
+                )
+            else:  # hold
+                return ExitAction(
+                    ticker=ticker,
+                    action=ExitActionType.HOLD,
+                    reason=result.reason,
+                    r_multiple=result.r_multiple
+                )
 
         # FINDING-013: Use immutable initial_stop_price for accurate R-multiple
         initial_stop = getattr(position, 'initial_stop_price', None)
