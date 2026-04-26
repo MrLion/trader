@@ -10,7 +10,7 @@ Loads risk parameters from YAML config with support for:
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Any
 
 
 @dataclass
@@ -56,15 +56,98 @@ class MASupportConfig:
 
 
 @dataclass
+class TrailingStageConfig:
+    """Configuration for a single trailing stage.
+
+    Attributes:
+        trigger_r: R-multiple threshold to activate this stage
+        action: "breakeven", "trail_ema", "trail_swing_low"
+        period: For "trail_ema" - EMA period (10, 21, etc.)
+        fraction: For "scale_out" - fraction to sell (0.0-1.0)
+        executed: Runtime flag - has this stage been executed?
+    """
+    trigger_r: float
+    action: str
+    period: Optional[int] = None
+    fraction: Optional[float] = None
+    executed: bool = False  # Runtime state, not from YAML
+
+
+@dataclass
+class ScaleOutStepConfig:
+    """Configuration for a scale-out step in hybrid mode."""
+    trigger_r: float
+    fraction: float
+    executed: bool = False
+
+
+@dataclass
 class ProfitTargetConfig:
-    """Profit target and trailing stop settings."""
+    """Profit target and trailing stop settings - EXTENDED with trailing modes."""
+
+    # Original settings (backward compatible)
     min_r_multiple: float = 2.0
     fallback_target_pct: float = 0.10  # 10% above entry
-    breakeven_at_r: float = 1.0
+    breakeven_at_r: float = 1.0  # Kept for backward compat
     ema10_at_r: float = 1.5
     ema21_at_r: float = 3.0
     ema_short_period: int = 10  # EMA for early trailing
     ema_long_period: int = 21   # EMA for late trailing
+
+    # NEW: Mode selection
+    mode: str = "target"  # "target" (original), "trailing", "hybrid"
+
+    # NEW: Trailing mode configuration (when mode="trailing")
+    trailing_mode: str = "stage_based"  # "stage_based", "continuous"
+    trailing_stages: List[TrailingStageConfig] = field(default_factory=list)
+    continuous_bands: List[Dict[str, Any]] = field(default_factory=list)
+
+    # NEW: Hybrid mode configuration (when mode="hybrid")
+    scale_out_steps: List[ScaleOutStepConfig] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate configuration."""
+        self._validate()
+
+    def _validate(self):
+        """Validate configuration."""
+        if self.mode == "trailing":
+            self._validate_trailing()
+        elif self.mode == "hybrid":
+            self._validate_hybrid()
+
+    def _validate_trailing(self):
+        """Validate trailing configuration."""
+        if self.trailing_mode == "stage_based":
+            # Stages must have increasing trigger_r
+            prev_r = 0.0
+            for stage in self.trailing_stages:
+                if stage.trigger_r <= 0:
+                    raise ValueError(f"Stage trigger_r must be positive, got {stage.trigger_r}")
+                if stage.trigger_r <= prev_r:
+                    raise ValueError(
+                        f"Trailing stages must have increasing trigger_r: "
+                        f"{prev_r} followed by {stage.trigger_r}"
+                    )
+                prev_r = stage.trigger_r
+
+        elif self.trailing_mode == "continuous":
+            # Bands must not overlap (adjacent is OK)
+            sorted_bands = sorted(self.continuous_bands, key=lambda b: b['from_r'])
+            prev_end = 0.0
+            for band in sorted_bands:
+                if band['from_r'] < prev_end:
+                    raise ValueError(
+                        f"Continuous bands must not overlap: "
+                        f"band at {band['from_r']} overlaps with previous ending at {prev_end}"
+                    )
+                prev_end = band.get('to_r', float('inf'))
+
+    def _validate_hybrid(self):
+        """Validate hybrid mode configuration."""
+        for step in self.scale_out_steps:
+            if step.fraction <= 0 or step.fraction > 1.0:
+                raise ValueError(f"Scale-out fraction must be 0-1, got {step.fraction}")
 
 
 @dataclass

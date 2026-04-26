@@ -23,6 +23,7 @@ from traderlib.risk_config import (
     StopLossConfig,
     MASupportConfig,
     ProfitTargetConfig,
+    TrailingStageConfig,
     CacheConfig,
     EntryConfig,
     MarketFilterConfig,
@@ -472,6 +473,68 @@ account:
             self.assertEqual(config.account.risk_per_trade_pct, 0.01)
         finally:
             config_path.unlink(missing_ok=True)
+
+
+class TestProfitTargetConfigTrailing(unittest.TestCase):
+    """Test trailing exit configuration."""
+
+    def test_stage_based_mode(self):
+        """Can configure stage-based trailing."""
+        config = ProfitTargetConfig(
+            mode="trailing",
+            trailing_mode="stage_based",
+            trailing_stages=[
+                TrailingStageConfig(trigger_r=2.0, action="breakeven"),
+                TrailingStageConfig(trigger_r=3.0, action="trail_ema", period=10),
+            ]
+        )
+        self.assertEqual(config.mode, "trailing")
+        self.assertEqual(config.trailing_mode, "stage_based")
+        self.assertEqual(len(config.trailing_stages), 2)
+
+    def test_continuous_mode(self):
+        """Can configure continuous trailing."""
+        config = ProfitTargetConfig(
+            mode="trailing",
+            trailing_mode="continuous",
+            continuous_bands=[
+                {"from_r": 2.5, "to_r": 4.0, "method": "ema10"},
+                {"from_r": 4.0, "to_r": 6.0, "method": "ema21"},  # Non-overlapping
+            ]
+        )
+        self.assertEqual(config.trailing_mode, "continuous")
+
+    def test_target_mode_backward_compatible(self):
+        """Original target mode still works."""
+        config = ProfitTargetConfig(
+            mode="target",
+            min_r_multiple=2.0
+        )
+        self.assertEqual(config.mode, "target")
+
+    def test_validation_increasing_stages(self):
+        """Stages must have increasing R values."""
+        with self.assertRaises(ValueError) as cm:
+            ProfitTargetConfig(
+                mode="trailing",
+                trailing_mode="stage_based",
+                trailing_stages=[
+                    TrailingStageConfig(trigger_r=3.0, action="breakeven"),
+                    TrailingStageConfig(trigger_r=2.0, action="trail_ema", period=10),
+                ]
+            )
+        self.assertIn("increasing", str(cm.exception).lower())
+
+    def test_validation_positive_r(self):
+        """Stage R must be positive."""
+        with self.assertRaises(ValueError):
+            ProfitTargetConfig(
+                mode="trailing",
+                trailing_mode="stage_based",
+                trailing_stages=[
+                    TrailingStageConfig(trigger_r=-1.0, action="breakeven"),
+                ]
+            )
 
 
 if __name__ == '__main__':
