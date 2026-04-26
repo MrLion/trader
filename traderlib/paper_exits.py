@@ -355,13 +355,8 @@ class ExitEngine:
                 )
             elif result.action == 'scale_out':
                 # Scale-out is handled by caller, record it on position
-                if hasattr(position, 'record_scale_out'):
-                    # Extract R-level from reason (e.g., "SCALE_OUT_3.0R_33%")
-                    try:
-                        r_level = float(result.reason.split('_')[2].rstrip('R'))
-                        position.record_scale_out(r_level)
-                    except (IndexError, ValueError):
-                        pass
+                if hasattr(position, 'record_scale_out') and result.trigger_r is not None:
+                    position.record_scale_out(result.trigger_r)
                 return ExitAction(
                     ticker=ticker,
                     action=ExitActionType.UPDATE_STOP,

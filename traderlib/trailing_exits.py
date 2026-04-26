@@ -22,6 +22,7 @@ class TrailingResult:
     scale_fraction: Optional[float] = None
     shares_to_sell: Optional[int] = None
     r_multiple: float = 0.0
+    trigger_r: Optional[float] = None  # R-level that triggered this action
 
 
 class TrailingExitEngine:
@@ -61,7 +62,7 @@ class TrailingExitEngine:
         """
         # Check for short positions (use initial_stop if available)
         initial_stop = getattr(position, 'initial_stop_price', position.stop_price)
-        if initial_stop > position.entry_price:
+        if position.entry_price < initial_stop:
             raise NotImplementedError("Short positions not yet supported")
 
         # Check hard stop first
@@ -245,7 +246,8 @@ class TrailingExitEngine:
                         reason=f'SCALE_OUT_{step.trigger_r}R_{int(step.fraction*100)}%',
                         scale_fraction=step.fraction,
                         shares_to_sell=shares_to_sell,
-                        r_multiple=r_multiple
+                        r_multiple=r_multiple,
+                        trigger_r=step.trigger_r
                     )
 
         # Delegate to stage-based logic for trailing
@@ -267,5 +269,5 @@ class TrailingExitEngine:
             return ema10
         elif period == 21:
             return ema21
-        # For other periods, would need additional data
-        return ema10 or ema21  # Fallback to available EMA
+        else:
+            raise ValueError(f"Unsupported EMA period: {period}. Only 10 and 21 are supported.")

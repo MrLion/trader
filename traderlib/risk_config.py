@@ -145,9 +145,13 @@ class ProfitTargetConfig:
 
     def _validate_hybrid(self):
         """Validate hybrid mode configuration."""
+        total_fraction = 0.0
         for step in self.scale_out_steps:
             if step.fraction <= 0 or step.fraction > 1.0:
                 raise ValueError(f"Scale-out fraction must be 0-1, got {step.fraction}")
+            total_fraction += step.fraction
+        if total_fraction > 1.0:
+            raise ValueError(f"Total scale-out fraction {total_fraction:.2f} exceeds 1.0 (100%)")
 
 
 @dataclass
