@@ -4,9 +4,10 @@
 
 **Status:** ✅ **IMPLEMENTED**  
 **Date:** 2026-04-25  
-**All Tasks Complete:** 7/7  
+**All Tasks Complete:** 17/17  
 
 ### Summary
+**Core Implementation (Tasks 1-7):**
 - ✅ Task 1: Extended Risk Config with trailing modes
 - ✅ Task 2: Created Trailing Exit Engine (all 3 modes)
 - ✅ Task 3: Added scale-out state persistence
@@ -15,11 +16,21 @@
 - ✅ Task 6: Backtest integration verified
 - ✅ Task 7: Documentation complete
 
+**Post-Review Fixes (Tasks 8-13):**
+- ✅ Task 8: Fixed scale-out with 0 shares (CRITICAL)
+- ✅ Task 9: Invalid YAML config now fails loudly (CRITICAL)
+- ✅ Task 10: Removed dead `executed` fields from config
+- ✅ Task 11: Added validation for non-empty stages/bands
+- ✅ Task 12: Documented `breakeven_at_r` mode-specific behavior
+- ✅ Task 13: Added float precision safety for scale-out deduplication
+
 ### Test Results
-- 5 tests in `test_risk_config.py` (trailing config) ✅
-- 21 tests in `test_trailing_exits.py` (engine) ✅
+- 9 tests in `test_risk_config.py` (trailing config) ✅
+- 23 tests in `test_trailing_exits.py` (engine) ✅
 - 3 tests in `test_trailing_integration.py` (ExitEngine) ✅
 - 2 tests in `test_backtest_trailing.py` (backtest) ✅
+
+**Total: 37 tests passing**
 
 ---
 
@@ -51,89 +62,71 @@ The current system takes profit at fixed 2R minimum targets (e.g., AMD Apr 20 tr
 Explicit stages trigger stop adjustments at R-multiple thresholds.
 
 ```yaml
-exit:
-  mode: "trailing"  # vs "target" for current system
-  
-  stages:
+profit_target:
+  mode: "trailing"
+  trailing_mode: "stage_based"
+  trailing_stages:
     - trigger_r: 2.0
-      action: "move_stop_to"
-      stop_price: "breakeven"
-      
+      action: "breakeven"
     - trigger_r: 3.0
-      action: "trail_with"
-      method: "ema"
+      action: "trail_ema"
       period: 10
-      
     - trigger_r: 5.0
-      action: "trail_with"
-      method: "ema"
-      period: 20
-      
-    - trigger_r: 8.0
-      action: "trail_with"
-      method: "swing_low"
+      action: "trail_ema"
+      period: 21
 ```
 
 **Pros:** Clear, explicit, easy to backtest permutations  
 **Cons:** Discrete steps vs smooth transitions
+
+**Validation:** Requires at least one stage; stages must have increasing `trigger_r` values.
 
 ### Approach B: Continuous Trailing
 
 Smooth band transitions with configurable width.
 
 ```yaml
-exit:
+profit_target:
   mode: "trailing"
-  breakeven_at_r: 2.0
-  trail_activation_r: 2.5
-  
-  trail_bands:
+  trailing_mode: "continuous"
+  breakeven_at_r: 2.0  # Note: only applies in continuous mode
+  continuous_bands:
     - from_r: 2.5
       to_r: 4.0
-      method: "atr_multiple"
-      atr_mult: 1.5
-      
-    - from_r: 4.0
-      to_r: 6.0
       method: "ema10"
-      
-    - from_r: 6.0
-      method: "ema21"
+    - from_r: 4.0
+      method: "ema21"  # No to_r = unlimited
 ```
 
 **Pros:** Handles gradual transitions  
 **Cons:** More complex configuration
+
+**Validation:** Requires at least one band; bands must not overlap.
 
 ### Approach C: Hybrid Scale-Out + Trail
 
 Combines partial profit-taking with trailing remaining position.
 
 ```yaml
-exit:
+profit_target:
   mode: "hybrid"
-  
-  stages:
+  trailing_stages:
     - trigger_r: 2.0
-      action: "move_stop"
-      stop_price: "breakeven"
-      
-  scale_out:
-    enabled: true
-    steps:
-      - trigger_r: 3.0
-        fraction: 0.33  # Sell 1/3
-      - trigger_r: 4.0
-        fraction: 0.50  # Sell 1/2 of remaining
-        
-  trailing_stop:
+      action: "breakeven"
     - trigger_r: 3.0
-      method: "ema"
+      action: "trail_ema"
       period: 10
-      apply_to: "remaining"
+  scale_out_steps:
+    - trigger_r: 3.0
+      fraction: 0.33  # Sell 1/3
+    - trigger_r: 4.0
+      fraction: 0.50  # Sell 1/2 of remaining
 ```
 
 **Pros:** Most flexible  
 **Cons:** More code paths
+
+**Validation:** Scale-out fractions must sum to ≤ 1.0; position tracks executed scale-outs via `scale_out_history` to prevent duplicate triggers.
 
 ---
 
@@ -149,13 +142,15 @@ Trailing stops only ratchet up, never down. Protects against volatility giving b
 
 ### 3. Method Options
 
-| Method | Description | Best For |
-|--------|-------------|----------|
-| `breakeven` | Move stop to entry price | Protecting capital |
-| `ema` | Trail below N-period EMA | Trend following |
-| `swing_low` | Trail below recent swing low | Volatile stocks |
-| `atr_multiple` | Trail at Nx ATR below price | Custom width |
-| `fixed_pct` | Trail at fixed % below price | Simple rules |
+| Method | Description | Best For | Status |
+|--------|-------------|----------|--------|
+| `breakeven` | Move stop to entry price | Protecting capital | ✅ Implemented |
+| `trail_ema` | Trail below N-period EMA (10 or 21) | Trend following | ✅ Implemented |
+| `swing_low` | Trail below recent swing low | Volatile stocks | ❌ Not implemented |
+| `atr_multiple` | Trail at Nx ATR below price | Custom width | ❌ Not implemented |
+| `fixed_pct` | Trail at fixed % below price | Simple rules | ❌ Not implemented |
+
+**Note:** EMA periods are limited to 10 and 21. Other periods will raise `ValueError`.
 
 ### 4. Configuration Location
 
@@ -180,30 +175,59 @@ With user-preferred strategy:
 
 ---
 
+## Post-Review Fixes
+
+The following fixes were applied after initial code review:
+
+### Critical Fixes
+
+| Task | Issue | Fix |
+|------|-------|-----|
+| 8 | Scale-out with 0 shares blocks future triggers | Added minimum-shares guard; skip if `shares_to_sell <= 0` or `>= position.shares` |
+| 9 | Invalid YAML config silently falls back to defaults | `ValueError` from validation now raises `SystemExit`; only YAML/I/O errors fall back |
+
+### Important Fixes
+
+| Task | Issue | Fix |
+|------|-------|-----|
+| 10 | Dead `executed` fields on config dataclasses | Removed; runtime uses `position.scale_out_history` instead |
+| 11 | Empty stages/bands cause hold-forever | Added validation requiring at least one stage/band |
+| 12 | `breakeven_at_r` behavior undocumented | Added docstrings explaining continuous-mode only |
+| 13 | Float equality for scale-out deduplication | Round R-levels to 6 decimal places for safe comparison |
+
 ## Implementation Notes
 
 1. **Backward compatibility:** Existing `target` mode remains default
-2. **Validation:** YAML must validate against schema (stage R-values must increase)
-3. **Performance:** Cache EMA calculations per ticker
-4. **Logging:** Record each stop adjustment in trade log
+2. **Validation:** YAML validates at load time (stage R-values must increase, bands must not overlap)
+3. **Error handling:** Invalid config raises `SystemExit` to prevent silent reversion to defaults
+4. **Performance:** Cache EMA calculations per ticker
+5. **Logging:** Record each stop adjustment in trade log
+6. **Scale-out safety:** Positions too small for fraction result in skipped scale-out, not recorded execution
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should scale-out fractions be based on original position or remaining?
-2. How to handle gap-down openings below trailing stop?
-3. Should trailing stop ever be "paused" (e.g., during earnings)?
-4. How to visualize trailing stop history in reports?
+1. ✅ **Scale-out fractions:** Based on current position (not original)
+2. ✅ **Gap-down handling:** Hard stop check happens first; gap below stop exits immediately
+3. ⚠️ **Trailing stop pause:** Not implemented (could be future enhancement for earnings)
+4. ✅ **Visualization:** Stop adjustments logged in trade log; can be tracked per position
 
 ---
 
 ## Related Files
 
-- `traderlib/paper_exits.py` — Exit engine (modify)
-- `traderlib/risk_config.py` — Config loading (extend)
-- `config/strategies/*.yaml` — Strategy configs (add exit sections)
-- `traderlib/backtest/` — Backtest compatibility (ensure)
+| File | Status | Description |
+|------|--------|-------------|
+| `traderlib/risk_config.py` | ✅ Extended | Added `ProfitTargetConfig` with trailing modes |
+| `traderlib/trailing_exits.py` | ✅ Created | Core trailing engine with all 3 modes |
+| `traderlib/paper_state.py` | ✅ Modified | Added `scale_out_history` to Position |
+| `traderlib/paper_exits.py` | ✅ Modified | Integrated trailing into ExitEngine |
+| `config/strategies/example_trailing.yaml` | ✅ Created | Example configuration |
+| `tests/test_trailing_exits.py` | ✅ Created | Engine tests (23 tests) |
+| `tests/test_trailing_integration.py` | ✅ Created | Integration tests (3 tests) |
+| `tests/test_backtest_trailing.py` | ✅ Created | Backtest tests (2 tests) |
+| `tests/test_risk_config.py` | ✅ Extended | Config tests (9 trailing tests) |
 
 ---
 

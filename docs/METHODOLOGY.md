@@ -248,12 +248,19 @@ Note: Partial position due to cash limitation
 
 ### Trailing Stop Progression
 
-| R Multiple | Action | Stop Location |
-|------------|--------|---------------|
-| +1R | Move to breakeven | Entry price |
-| +1.5R | Begin trailing | 10 EMA |
-| +3R | Widen trail | 21 EMA |
-| +5R / +30% | Take 1/3 profit | Continue trailing |
+| R Multiple | Action | Stop Location | Mode |
+|------------|--------|---------------|------|
+| +2R | Move to breakeven | Entry price | Trailing/Hybrid |
+| +3R | Begin trailing | 10 EMA | Trailing/Hybrid |
+| +5R | Widen trail | 21 EMA | Trailing/Hybrid |
+| +3R/+4R | Take partial profit | Trail remainder | Hybrid only |
+
+**Exit Modes:**
+- **Target Mode (Default):** Fixed 2R profit target - simple and consistent
+- **Trailing Mode:** Dynamic stops that ratchet up - for trending markets
+- **Hybrid Mode:** Scale-out partials + trail remainder - balanced approach
+
+Configure via `profit_target.mode` in your risk config. See RISK_GUIDE.md for details.
 
 ### Exit Signals
 

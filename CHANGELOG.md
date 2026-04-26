@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.12.0] — 2026-04-25 — Configurable Trailing Exit System
+
+### Added
+- **`traderlib/trailing_exits.py`** — New configurable trailing exit engine supporting three modes:
+  - `target` mode: Fixed R-multiple exit (backward compatible, default)
+  - `trailing` mode: Dynamic trailing stops with stage-based or continuous bands
+  - `hybrid` mode: Scale-out partial positions + trail remainder
+  - Configure via `profit_target.mode` and `profit_target.trailing_stages` in `risk_config.yaml`
+- **`traderlib/paper_state.py`** — Added `scale_out_history` to Position for tracking executed scale-outs
+- **`traderlib/risk_config.py`** — Extended `ProfitTargetConfig` with trailing configuration:
+  - `mode`: "target" | "trailing" | "hybrid"
+  - `trailing_mode`: "stage_based" | "continuous"
+  - `trailing_stages`: List of R-level triggered stages (breakeven, trail_ema)
+  - `scale_out_steps`: Hybrid mode partial profit-taking configuration
+  - Validation: Increasing stage R-values, non-overlapping bands, total fraction ≤ 1.0
+- **`traderlib/paper_exits.py`** — Integrated trailing engine into ExitEngine
+- **`config/strategies/example_trailing.yaml`** — Example trailing exit strategy configuration
+- **`tests/test_trailing_exits.py`** — 23 engine tests covering all three modes
+- **`tests/test_trailing_integration.py`** — 3 integration tests with ExitEngine
+- **`tests/test_backtest_trailing.py`** — 2 backtest integration tests
+
+### Fixed
+- Scale-out with 0 shares no longer blocks future triggers (minimum shares guard)
+- Invalid YAML config now raises SystemExit instead of silently falling back to defaults
+- Float precision safety for scale-out deduplication (6 decimal places)
+
+### Documentation
+- **`docs/RISK_GUIDE.md`** — Updated trailing stops section with new configurable modes
+- **`docs/METHODOLOGY.md`** — Updated exit strategy documentation
+- **`TOOLS.md`** — Updated exit engine and profit target descriptions
+- **`config/risk_config.yaml`** — Added comprehensive trailing mode documentation with examples
+- **`docs/superpowers/specs/2026-04-25-configurable-trailing-exits-design.md`** — Marked unimplemented methods as "Not implemented"
+
+### Code Quality
+- **`traderlib/risk_config.py`** — Removed dead `fraction` field from `TrailingStageConfig` (was unused, scale-out uses `ScaleOutStepConfig`)
+
 ## [0.6.11.0] — 2026-04-25
 
 ### Changed

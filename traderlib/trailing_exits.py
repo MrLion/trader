@@ -6,14 +6,20 @@ Supports:
 - hybrid: Stage-based with scale-out
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, Literal
 
 from traderlib.risk_config import ProfitTargetConfig, TrailingStageConfig
 
+logger = logging.getLogger(__name__)
+
 
 # Type alias for action types
 TrailingAction = Literal["exit", "update_stop", "scale_out", "hold"]
+
+
+VALID_TRAILING_ACTIONS = ("exit", "update_stop", "scale_out", "hold")
 
 
 @dataclass
@@ -38,6 +44,14 @@ class TrailingResult:
     shares_to_sell: Optional[int] = None
     r_multiple: float = 0.0
     trigger_r: Optional[float] = None  # R-level that triggered this action
+
+    def __post_init__(self):
+        """Validate action is one of the allowed values."""
+        if self.action not in VALID_TRAILING_ACTIONS:
+            raise ValueError(
+                f"Invalid TrailingResult action: {self.action!r}. "
+                f"Must be one of {VALID_TRAILING_ACTIONS}"
+            )
 
     # Factory methods for constructing valid results
     @classmethod
@@ -226,11 +240,11 @@ class TrailingExitEngine:
 
         elif active_stage.action == 'trail_ema':
             if active_stage.period is None:
-                print(f"⚠️  Trailing stage at {active_stage.trigger_r}R missing required 'period' for trail_ema")
+                logger.warning(f"Trailing stage at {active_stage.trigger_r}R missing required 'period' for trail_ema")
                 return TrailingResult(action='hold', reason='NO_STOP_UPDATE_MISSING_PERIOD', r_multiple=r_multiple)
             new_stop = self._get_ema_for_period(active_stage.period, ema10, ema21)
             if new_stop is None:
-                print(f"⚠️  EMA{active_stage.period} not available for {position.ticker}, skipping trail update")
+                logger.warning(f"EMA{active_stage.period} not available for {position.ticker}, skipping trail update")
             if new_stop and new_stop > position.stop_price:
                 stop_type = f'EMA{active_stage.period}_TRAIL'
                 return TrailingResult(
@@ -285,8 +299,8 @@ class TrailingExitEngine:
             new_stop = ema21
             stop_type = 'EMA21_TRAIL'
         else:
-            print(f"⚠️  Unknown continuous band method '{method}' at {active_band['from_r']}R, "
-                  f"expected 'ema10' or 'ema21'")
+            logger.warning(f"Unknown continuous band method '{method}' at {active_band['from_r']}R, "
+                        f"expected 'ema10' or 'ema21'")
             new_stop = None
             stop_type = 'UNKNOWN'
 
@@ -312,11 +326,18 @@ class TrailingExitEngine:
 
         # Check scale-out triggers first (but only if not already executed)
         if self.config.scale_out_steps:
-            executed = set(position.scale_out_history) if position.scale_out_history else set()
+            # Round R-levels to 6 decimal places for safe float comparison
+            executed = set(round(r, 6) for r in position.scale_out_history) if position.scale_out_history else set()
 
             for step in self.config.scale_out_steps:
-                if step.trigger_r not in executed and r_multiple >= step.trigger_r:
+                if round(step.trigger_r, 6) not in executed and r_multiple >= step.trigger_r:
                     shares_to_sell = int(position.shares * step.fraction)
+                    if shares_to_sell <= 0:
+                        # Position too small to scale out at this fraction; skip this step
+                        continue
+                    if shares_to_sell >= position.shares:
+                        # Scale-out would close entire position; let trailing handle exit
+                        continue
                     return TrailingResult(
                         action='scale_out',
                         reason=f'SCALE_OUT_{step.trigger_r}R_{int(step.fraction*100)}%',

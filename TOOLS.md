@@ -1083,7 +1083,7 @@ The core trading library (`traderlib/`) provides reusable components used by all
 | `alpaca_client.py` | Alpaca API wrapper (REST + WebSocket); paper/live mode switching; rate-limited data fetching; position management; health monitoring |
 | `order_manager.py` | Order lifecycle management (submit, track, fill); pending/filled tracking in `alpaca_orders.json`; TPS-limited submission queue |
 | `paper_state.py` | Paper trading state persistence — `PaperState`, `Position`; reads/writes `paper_positions.json` and `paper_trades.jsonl` |
-| `paper_exits.py` | Exit engine (`ExitEngine`); hard stops, breakeven (+1R), trailing EMA10 (+1.5R), trailing EMA21 (+3R); profit targets; initial stop calculation (ATR/support/pct/pivot) |
+| `paper_exits.py` | Exit engine (`ExitEngine`); hard stops, configurable trailing stops (stage-based, continuous, hybrid modes), profit targets; initial stop calculation (ATR/support/pct/pivot) |
 | `market_hours.py` | Market hours helpers: `market_hours()`, `is_market_open()`, `is_trading_day()`, `format_market_status()`; uses `pandas_market_calendars` for holiday calendar |
 | `rate_limiter.py` | `RateLimiter` (200 req/min with exponential backoff + circuit breaker); `APIHealthMonitor` for Alpaca/yfinance failover; thread-safe |
 | `trading_exceptions.py` | `TradingExceptionHandler` centralized logging with severity (CRITICAL/WARNING/INFO); `@critical`/`@error`/`@warning` decorators; `APIKeyError` with actionable messages; daily-rotating file handler |
@@ -1118,7 +1118,7 @@ from traderlib.validation import validate_ticker, validate_tickers
 | `account` | `risk_per_trade_pct` (0.5%), `daily_loss_limit_pct` (2%), `max_sector_positions` (10), `max_entries_per_day` (10) |
 | `position` | `max_position_pct` (10%), `min_position_pct` (5%) |
 | `stop_loss` | Method (`atr_or_support`), ATR period 14 / multiplier 2.0, min stop 3%, max stop 10%, fallback 7% |
-| `profit_target` | Min R-multiple (2.0), trailing stops: breakeven at +1R, EMA10 at +1.5R, EMA21 at +3R |
+| `profit_target` | Min R-multiple (2.0), exit mode (`target`/`trailing`/`hybrid`), trailing stages/bands configuration |
 | `entry` | `min_entry_score` (60), `max_dist_to_pivot_pct` (2.0), `min_volume_ratio` (1.5) |
 | `market` | `max_spy_decline_pct` (-0.5%), `max_vix` (60, opt-in) |
 | `cooldown` | `reentry_cooldown_minutes` (60), `consecutive_loss_multiplier` (2.0), `max_cooldown_minutes` (240) |

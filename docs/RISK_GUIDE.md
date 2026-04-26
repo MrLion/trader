@@ -430,49 +430,109 @@ RISK_STOP_MAX_PCT=0.05 python3 scripts/paper_engine_alpaca.py
 
 ---
 
-## Trailing Stops: Locking In Profits
+## Exit Strategies: Target vs Trailing
 
-Once you're in profit, the stop automatically moves up:
+The system supports three exit modes configured via `profit_target.mode`:
 
-| R Multiple | New Stop | What Happens |
-|------------|----------|----------------|
-| +1R | Breakeven | Stop moves to your entry price |
-| +1.5R | 10 EMA | Stop trails the 10-day EMA |
-| +3R | 21 EMA | Stop trails the 21-day EMA |
-
-**Example:**
-- Entry: $100
-- Stop: $93 (7% risk)
-- At +1R ($107): Stop moves to $100 (breakeven)
-- At +1.5R ($110.50): Stop trails 10 EMA
-- At +3R ($121): Stop trails 21 EMA
-
-**Why:** Let winners run, cut losers short. Never give back all your profits.
-
-**Script:** `scripts/paper_exits.py` - `evaluate_exit()` lines 109-130
+| Mode | Behavior | Best For |
+|------|----------|----------|
+| `target` (default) | Exit at fixed R multiple (e.g., 2R) | Consistent profits, simpler rules |
+| `trailing` | Dynamic trailing stops that ratchet up | Letting winners run, trending markets |
+| `hybrid` | Scale-out partial positions + trail remainder | Balancing profit-taking and trend capture |
 
 ---
 
-## Configurable Parameters (New)
+## Trailing Stops: Locking In Profits
 
-### EMA Periods for Trailing Stops
+Once you're in profit with trailing mode, the stop automatically moves up based on configured stages:
+
+### Stage-Based Trailing (Recommended)
+
+Define explicit stages at R-multiples:
+
+```yaml
+profit_target:
+  mode: "trailing"
+  trailing_mode: "stage_based"
+  trailing_stages:
+    - trigger_r: 2.0
+      action: "breakeven"      # Move stop to entry
+    - trigger_r: 3.0
+      action: "trail_ema"
+      period: 10               # Trail 10 EMA
+    - trigger_r: 5.0
+      action: "trail_ema"
+      period: 21               # Trail 21 EMA (wider)
+```
+
+**Example trade flow:**
+- Entry: $100, Stop: $93 (7% risk)
+- At +2R ($114): Stop moves to $100 (breakeven) - capital protected
+- At +3R ($121): Stop trails 10 EMA (~$118) - tighter follow
+- At +5R ($135): Stop trails 21 EMA (~$128) - wider for volatility
+- Price hits EMA21: Exit with profit
+
+**Why:** Let winners run, cut losers short. Never give back all your profits.
+
+### Hybrid Mode: Scale-Out + Trail
+
+Sell partial positions at R-levels, trail the remainder:
+
+```yaml
+profit_target:
+  mode: "hybrid"
+  trailing_stages:
+    - trigger_r: 2.0
+      action: "breakeven"
+    - trigger_r: 3.0
+      action: "trail_ema"
+      period: 10
+  scale_out_steps:
+    - trigger_r: 3.0
+      fraction: 0.33          # Sell 1/3 at 3R
+    - trigger_r: 4.0
+      fraction: 0.50          # Sell 1/2 of remaining at 4R
+```
+
+**Why hybrid:** Lock in partial profits while keeping exposure to extended trends.
+
+---
+
+## Configurable Parameters
+
+### Profit Target Mode
+
+**Configuration:** `profit_target.mode`
+
+| Mode | Description |
+|------|-------------|
+| `target` | Fixed R multiple exit (backward compatible) |
+| `trailing` | Dynamic trailing stops with stages or continuous bands |
+| `hybrid` | Stage-based with scale-out capability |
+
+**Example - Enable trailing mode:**
+```yaml
+profit_target:
+  mode: "trailing"
+  trailing_mode: "stage_based"
+  trailing_stages:
+    - trigger_r: 2.0
+      action: "breakeven"
+    - trigger_r: 3.0
+      action: "trail_ema"
+      period: 10
+```
+
+### EMA Periods
 
 **Configuration:** `profit_target.ema_periods`
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `short` | 10 | EMA period for early trailing (+1.5R) |
-| `long` | 21 | EMA period for late trailing (+3R) |
+| `short` | 10 | EMA period for early trailing |
+| `long` | 21 | EMA period for late trailing |
 
-**Example - Using 8/20 EMAs instead of 10/21:**
-```yaml
-profit_target:
-  ema_periods:
-    short: 8     # Trail 8 EMA at +1.5R
-    long: 20     # Trail 20 EMA at +3R
-```
-
-**Why customize:** Faster EMAs (8/20) react quicker to price changes, slower EMAs (12/26) smooth out volatility.
+**Note:** Currently only 10 and 21 are supported for `trail_ema` action.
 
 ---
 
