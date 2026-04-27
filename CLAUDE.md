@@ -2,10 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Operations
+## User-First Principle
 
-## Workflow Preferences
-- ** When asked for a plan, provide ONLY a plan — do not start implementing. Wait for explicit go-ahead before making changes.
+Whatever you do — brainstorming, planning, coding, or executing — always ask:
+
+**"Why am I doing this, and what value does this bring to users?"**
+
+This is a tool for traders, not developers. Every plan, every line of code, every error message must answer to the person using it.
+
+## Git Operations
+- **Never perform autonomous git operations (commits, pushes, version bumps, changelog updates) without explicit user request. Always ask: 'Should I commit these changes?'
+- **Exception:** When using a skill-driven workflow (e.g., `executing-plans`, `subagent-driven-development`), commits are part of the defined process. Authorization at workflow start covers commits within that workflow.
+
+## Planning vs Implementation' 
+- **When user asks for a 'plan', 'analysis', or 'review', provide text analysis ONLY. Do not write code, edit files, or create branches unless explicitly instructed to 'implement', 'fix', or 'do it'
 
 ### Common Commands
 - **Entry Signals (Watchlist Scan):** `python3 scripts/entry_signals.py`
@@ -16,8 +26,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - Remove: `python3 scripts/watchlist_manager.py remove TICKER`
     - Populate: `python3 scripts/watchlist_manager.py populate /path/to/scan.csv`
 - **Market Scans:**
-    - Sector Scan: `python3 scripts/sector_scan.py`
-    - Comprehensive Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
+    - Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
+    - Trend Screener: `python3 scripts/trend_screener.py`
     - Stage 2 RS Screen: `python3 scripts/stage2_rs_screen.py`
 - **MC Stock Charts:**
     - Daily Report: `python3 scripts/mcstock_scraper.py`
@@ -29,6 +39,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Reports:**
     - Pre-market: `python3 scripts/premarket_report.py` (add `--html` for HTML output)
     - Post-market: `python3 scripts/postmarket_report.py` (add `--html` for HTML output)
+
+## Python Async Patterns
+- **For Python trading/engineering code involving async/await: always verify sync-to-async boundaries, check for blocking calls in async functions, and confirm event loop handling before claiming fixes are complete.
 
 ### External Communications
 - **Telegram Posting:** Use `openclaw message send --channel telegram --account trader --target [ID] --message "[TEXT]"`
@@ -43,16 +56,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture & Structure
 
 ### Repository Layout
-- `scripts/`: Python tools for market scanning, stock analysis, and report generation.
-- `traderlib/`: Core library modules (alpaca_client, order_manager, paper_exits, etc.).
-- `traderlib/backtest/`: Backtesting engine (data_provider, execution, state, strategy, report).
-- `data/`: Persistence for the watchlist (`watchlist.csv`), portfolio, and regime tracking.
-- `scans/`: Output CSVs from various scanning scripts.
-- `reports/`: Generated HTML market reports.
-- `config/`: YAML configuration files (risk_config.yaml, screener_config.yaml).
-- `memory/`: Daily logs (`YYYY-MM-DD.md`) and long-term curated memories (`MEMORY.md`).
-- `AGENTS.MD`: Core operating rhythm, trading protocols, and sector reference.
-- `TOOLS.md`: Technical documentation for `yfinance` and script usage.
+
+**Scripts & Tools (`scripts/`):**
+- Entry analysis: `entry_signals.py`, `trend_screener.py`, `stage2_rs_screen.py`
+- Market scans: `sector_scan_comprehensive.py`
+- Reports: `premarket_report.py`, `postmarket_report.py`, `deliver_report.py`
+- Trading engine: `paper_engine_alpaca.py`, `paper_portfolio.py`, `show_positions.py`
+- Data scraping: `mcstock_scraper.py`, `mcstock_historical_scraper.py`
+- Utilities: `watchlist_manager.py`, `backtest.py`, `doctor.py`, `sync_state.py`
+- Setup: `setup_alpaca.py`, `validate_alpaca.py`
+
+**Core Library (`traderlib/`):**
+- API & data: `alpaca_client.py`, `earnings_calendar.py`, `market_hours.py`
+- Order & position management: `order_manager.py`, `paper_state.py`, `paper_exits.py`
+- Risk & config: `risk_config.py`, `rate_limiter.py`, `trading_exceptions.py`
+- Analysis: `ticker_analyzer.py`, `pivot_detection.py`, `vcp_utils.py`, `stage2_utils.py`
+- Exits: `trailing_exits.py`
+- Universe & validation: `universe_builder.py`, `validation.py`
+- Strategy plugins: `strategies/` (strategy implementations)
+- Backtesting: `backtest/` (data_provider, engine, execution, state, strategy, report)
+
+**Configuration (`config/`):**
+- `risk_config.yaml` — Account and position risk settings
+- `screener_config.yaml` — Scan thresholds and filters
+- `backtest_config.yaml` — Backtest parameters
+- `strategies/` — Strategy-specific YAML configs
+
+**Data & Output:**
+- `data/` — Watchlist, positions, trades, logs, cache
+- `scans/` — Generated CSV scan results
+- `reports/` — Generated HTML market reports
+
+**Documentation (`docs/`):**
+- `ARCHITECTURE.md`, `METHODOLOGY.md`, `BACKTESTING_GUIDE.md`
+- `getting-started.md`, `CONTRIBUTING.md`
+- Subdirectories: `entry_signals/`, `trend_screener/`, `patterns/`
+
+**Project Context (`memory/`):**
+- Daily logs: `YYYY-MM-DD.md`
+- Plans & specs: `roadmap-*.md`, `plan-*.md`
+- Curated: `MEMORY.md` (index), `feedback_*.md`, `project_*.md`
+
+**Tests (`tests/`):**
+- 70+ test files covering: backtest, paper engine, order lifecycle, exits, risk config
+- Integration tests, unit tests, fixtures
+
+**Key Reference Files:**
+- `AGENTS.MD` — Trading playbook, daily rhythm, sector reference
+- `TOOLS.md` — Script usage, yfinance patterns
+- `SOUL.md`, `USER.md`, `IDENTITY.md` — AI assistant context
+- `CLAUDE.md` — This file (coding guidelines, architecture)
 
 ### Core Logic & Workflow
 The system follows a strict trading operating rhythm:
@@ -61,40 +114,53 @@ The system follows a strict trading operating rhythm:
 3. **Post-Market:** Trade logging $\rightarrow$ New scans $\rightarrow$ Breadth logging.
 
 ### Technical Dependencies
-- **Primary Data:** Alpaca API (real-time WebSocket + REST)
-- **Trading Data:** Alpaca API exclusively (real-time, no fallback)
-- **Reports/Tools:** `yfinance` allowed for analysis (15-min delay)
-- **Analysis Framework:** Based on Stage 2 (7-point system), Relative Strength (RS), and VCP patterns.
-- **Watchlist Tiering:** A (Actionable), B (Developing), C (Radar).
-- **Position Sizing:** Triple-constraint system (account risk 0.5%, position cap 5%, available cash). Partial positions allowed when cash-limited.
-- **Scraper Config:** Validation thresholds in `config/screener_config.yaml`. Override with `--config` flag.
+
+**Critical Runtime Dependencies:**
+- **alpaca-py** (≥0.15.0) — Trading API client for orders, positions, market data
+- **pandas** (≥2.0.0) — Data structures for price data, analysis results, trade tracking
+- **numpy** (≥1.24.0) — Numerical calculations, required by pandas
+- **yfinance** (≥0.2.28) — Fallback data for reports and analysis (15-min delay, not for live trading)
+- **websockets** (≥12.0) — Real-time price streaming from Alpaca
+- **python-dotenv** (≥1.0.0) — API key management from .env file
+- **pytz** (≥2023.3) — Timezone handling for market hours
+- **beautifulsoup4** (≥4.12.0) — HTML parsing for MC Stock scraper
+
+**Data Sources:**
+- **Primary (Trading):** Alpaca API exclusively — real-time WebSocket + REST for live/paper trading
+- **Secondary (Analysis):** yfinance — allowed for reports and backfill (delayed, no fallback for trading)
+
+**Infrastructure:**
+- Python ≥3.11 required
+- All API credentials via environment/.env (ALPACA_API_KEY, ALPACA_SECRET_KEY, FMP_API_KEY)
 
 
 ## Code Style
 - **Before creating any new script, utility, or module, search the entire codebase for existing implementations of the same or similar functionality. Prefer extending existing code over creating new files.
 - **When modifying files, prefer writing complete new files (using Write) or large coherent sections over making many small incremental edits. Minimize round-trip Edit calls with narrow string matches.
+- **Always use the Read tool to verify file content before using Edit. For complex multi-line changes or when indentation errors appear, prefer Write tool over Edit to avoid string-matching issues.
 
 ## Versioning
-
-The project uses a 4-digit version format: `0.XX.YY.ZZ`
+The project uses a 5-digit version format: `WW.XX.YY.ZZ`
 
 | Position | Meaning | When to Bump |
 |----------|---------|--------------|
-| `XX` | Major milestone | Significant architectural changes, breaking API changes, or major releases |
-| `YY` | Features | New functionality, enhancements, or substantial improvements |
-| `ZZ` | Fixes | Bug fixes, corrections, and small patches |
+| `WW` | Super release | Major architectural shifts, huge milestones, generational changes |
+| `XX` | Major release | Significant features, breaking API changes, major subsystem launches |
+| `YY` | Minor release | New functionality, enhancements, substantial improvements |
+| `ZZ` | Patch | Bug fixes, chores, tests, docs, sporadic improvements |
 
 **Examples:**
-- `0.6.0.0` → `0.6.0.1` — Bug fix (corrected test expectation)
-- `0.5.6.0` → `0.6.0.0` — New test suite (155 tests) and MA Support Stop feature
-- `0.5.5.0` → `0.5.6.0` — MA Support Stop feature added
+- `0.6.12.1` → `0.6.12.2` — Bug fix, test addition, or chore
+- `0.6.12.0` → `0.6.13.0` — New feature or enhancement
+- `0.6.0.0` → `0.7.0.0` — Major release (e.g., live trading, web dashboard)
+- `0.9.0.0` → `1.0.0.0` — Super release (production-ready, stable API)
 
 **Process:**
 1. Update `VERSION` file with the new version number
 2. Update `CHANGELOG.md` with release notes under the new version
-3. Commit: `chore: bump version to 0.XX.YY.ZZ`
-4. Create git tag: `git tag v0.XX.YY.ZZ`
-5. Push tag: `git push origin v0.XX.YY.ZZ`
+3. Commit: `chore: bump version to WW.XX.YY.ZZ`
+4. Create git tag: `git tag vWW.XX.YY.ZZ`
+5. Push tag: `git push origin vWW.XX.YY.ZZ`
 
 ## Documentation
 - **After adding or modifying any feature, always update the corresponding documentation file (e.g., TOOLS.md, README.md) in the same session.
