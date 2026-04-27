@@ -29,6 +29,234 @@ from traderlib.paper_exits import ExitEngine
 from traderlib.risk_config import RiskConfigManager
 
 
+def _get_backtest_save_path(
+    risk_profile: str,
+    profit_mode: str,
+    strategy: str,
+    backtests_dir: Path,
+) -> Path:
+    """Generate timestamped folder path for backtest results.
+
+    Format: YYYY-MM-DD_HHMMSS_MMM_risk_profile_profit_mode_strategy/
+    """
+    from datetime import datetime
+
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H%M%S")
+    milliseconds = f"{now.microsecond // 1000:03d}"
+
+    # Sanitize strategy name (remove underscores for cleaner folder names)
+    strategy_clean = strategy.replace("_", "")
+
+    folder_name = f"{timestamp}_{milliseconds}_{risk_profile}_{profit_mode}_{strategy_clean}"
+    return backtests_dir / folder_name
+
+
+def _save_backtest_results(
+    result,
+    report,
+    risk_profile: str,
+    profit_mode: str,
+    strategy: str,
+    version: str,
+    backtests_dir: Path = None,
+) -> Path:
+    """Save backtest results to timestamped folder.
+
+    Creates:
+    - trades.csv: Clean trade data
+    - config.txt: Human-readable configuration + results
+
+    Returns the path to the created folder.
+    """
+    if backtests_dir is None:
+        backtests_dir = PROJECT_ROOT / 'data' / 'backtests'
+
+    # Ensure directory exists
+    backtests_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate folder path
+    folder_path = _get_backtest_save_path(risk_profile, profit_mode, strategy, backtests_dir)
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamp prefix for files (matching folder)
+    timestamp_prefix = folder_path.name.rsplit('_', 3)[0]  # Keep timestamp + milliseconds
+
+    # Write trades.csv
+    trades_path = folder_path / f"{timestamp_prefix}_trades.csv"
+    _write_trades_csv(result, trades_path)
+
+    # Write config.txt
+    config_path = folder_path / f"{timestamp_prefix}_config.txt"
+    _write_config_txt(result, report, risk_profile, profit_mode, strategy, version, config_path)
+
+    return folder_path
+
+
+def _write_trades_csv(result, filepath: Path) -> None:
+    """Write clean trade data to CSV."""
+    import csv
+
+    fieldnames = [
+        'ticker', 'entry_date', 'exit_date', 'entry_price', 'exit_price',
+        'shares', 'pnl', 'r_multiple', 'exit_reason', 'pivot_price'
+    ]
+
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for t in result.trades:
+            # Calculate R-multiple
+            risk = _trade_initial_risk(t)
+            r_multiple = t.pnl / risk if risk > 0 else 0.0
+
+            # Get pivot price if available
+            pivot_price = getattr(t, 'pivot_price', None)
+
+            writer.writerow({
+                'ticker': t.ticker,
+                'entry_date': str(t.entry_date),
+                'exit_date': str(t.exit_date) if t.exit_date else '',
+                'entry_price': t.entry_price,
+                'exit_price': t.exit_price,
+                'shares': t.shares,
+                'pnl': t.pnl,
+                'r_multiple': round(r_multiple, 2),
+                'exit_reason': t.exit_reason,
+                'pivot_price': pivot_price if pivot_price else '',
+            })
+
+
+def _trade_initial_risk(t) -> float:
+    """Return the dollar initial risk for a trade."""
+    # Phase 4: pivot-aware risk calculation for breakout entries
+    if getattr(t, 'pivot_price', None) and t.pivot_price > 0:
+        if getattr(t, 'initial_stop_price', 0.0) and t.initial_stop_price < t.pivot_price:
+            return abs(t.pivot_price - t.initial_stop_price) * t.shares
+
+    # Legacy: entry_price -> stop
+    if getattr(t, 'initial_stop_price', 0.0) and t.initial_stop_price < t.entry_price and t.shares > 0:
+        return abs(t.entry_price - t.initial_stop_price) * t.shares
+
+    # Ultra-legacy: approximate 7% stop distance
+    return abs(t.entry_price * 0.07 * t.shares) if t.shares > 0 else 1.0
+
+
+def _write_config_txt(
+    result,
+    report,
+    risk_profile: str,
+    profit_mode: str,
+    strategy: str,
+    version: str,
+    filepath: Path,
+) -> None:
+    """Write human-readable configuration and results summary."""
+    from datetime import datetime
+
+    config = result.config
+    risk_config = getattr(result, '_risk_config', None)
+
+    # Get current timestamp
+    now = datetime.now()
+    run_timestamp = now.strftime("%Y-%m-%d at %H:%M:%S")
+
+    # Load full risk config for detailed settings
+    risk_details = {}
+    try:
+        manager = RiskConfigManager(profile=risk_profile, quiet=True)
+        full_config = manager.get_config()
+        if full_config:
+            risk_details = {
+                'risk_per_trade_pct': getattr(full_config.account, 'risk_per_trade_pct', 0.005),
+                'daily_loss_limit_pct': getattr(full_config.account, 'daily_loss_limit_pct', 0.02),
+                'max_position_pct': getattr(full_config.position, 'max_position_pct', 0.10),
+                'min_position_pct': getattr(full_config.position, 'min_position_pct', 0.05),
+                'stop_method': getattr(full_config.stop_loss, 'method', 'atr_or_support'),
+                'atr_multiplier': getattr(full_config.stop_loss, 'atr_multiplier', 2.0),
+            }
+    except Exception:
+        # Use defaults if config loading fails
+        risk_details = {
+            'risk_per_trade_pct': 0.005,
+            'daily_loss_limit_pct': 0.02,
+            'max_position_pct': 0.10,
+            'min_position_pct': 0.05,
+            'stop_method': 'atr_or_support',
+            'atr_multiplier': 2.0,
+        }
+
+    # Get profit target details based on mode
+    profit_details = _get_profit_target_details(profit_mode, risk_details)
+
+    # Format slippage
+    slippage_bps = getattr(config, 'execution_config', None)
+    slippage_bps = getattr(slippage_bps, 'slippage_bps', 5.0) if slippage_bps else 5.0
+
+    lines = [
+        f"Backtest Run: {run_timestamp}",
+        f"Version: {version}",
+        "",
+        f"Risk Profile: {risk_profile}",
+        f"  Risk per trade: {risk_details.get('risk_per_trade_pct', 0.005) * 100:.1f}%",
+        f"  Max position: {risk_details.get('max_position_pct', 0.10) * 100:.0f}%",
+        f"  Daily loss limit: {risk_details.get('daily_loss_limit_pct', 0.02) * 100:.0f}%",
+        "",
+        f"Strategy: {strategy}",
+        f"Profit Target: {profit_mode}",
+    ]
+
+    # Add profit target details
+    lines.extend(profit_details)
+    lines.append("")
+
+    # Stop loss details
+    lines.extend([
+        f"Stop Loss: {risk_details.get('stop_method', 'atr_or_support')}",
+        f"  ATR multiplier: {risk_details.get('atr_multiplier', 2.0):.0f}x",
+        "",
+        "Execution:",
+        f"  Slippage: {slippage_bps:.0f} bps",
+        f"  Earnings filter: {'enabled' if getattr(config, 'enable_earnings_filter', False) else 'disabled'}",
+        "",
+        "Backtest:",
+        f"  Date range: {config.start_date} to {config.end_date}",
+        f"  Initial capital: ${config.initial_capital:,.0f}",
+        f"  Max positions: {config.max_open_positions}",
+        "",
+        "Results:",
+        f"  Total Return: {report.total_return * 100:.1f}%",
+        f"  Win Rate: {report.win_rate * 100:.1f}%",
+        f"  Avg R-Multiple: {report.avg_r_multiple:.2f}",
+        f"  Sharpe: {report.sharpe_ratio:.2f}",
+        f"  Trades: {len(report.trades)}",
+    ])
+
+    with open(filepath, 'w') as f:
+        f.write('\n'.join(lines))
+
+
+def _get_profit_target_details(profit_mode: str, risk_details: dict) -> list:
+    """Get human-readable profit target configuration lines."""
+    lines = []
+
+    if profit_mode == 'target':
+        lines.append("  Sell at 2R: 100%")
+    elif profit_mode == 'trailing':
+        lines.append("  Breakeven at 2R: protect capital")
+        lines.append("  Trail 10 EMA at 3R: tight stop")
+        lines.append("  Trail 21 EMA at 5R: room for trend")
+    elif profit_mode == 'hybrid':
+        lines.append("  Scale out at 3R: 33%")
+        lines.append("  Scale out at 4R: 50% of remaining")
+        lines.append("  Trail remainder until EMA stop")
+    else:
+        lines.append("  (custom configuration)")
+
+    return lines
+
+
 _AVAILABLE_STRATEGIES = list_strategies()
 _STRATEGY_HELP = (
     'Strategy to use (default: stage2_momentum). Available: '
@@ -44,9 +272,10 @@ parser.add_argument('--watchlist', type=Path, help='Path to watchlist CSV')
 parser.add_argument('--risk-profile', default='conservative', help='Risk profile (default: conservative)')
 parser.add_argument('--slippage', type=float, default=5.0, help='Slippage in bps (default: 5)')
 parser.add_argument('--max-positions', type=int, default=10, help='Max open positions (default: 10)')
-parser.add_argument('--csv', help='Export trades to CSV file')
+parser.add_argument('--csv', help='Export trades to CSV file (deprecated: auto-save is now default)')
 parser.add_argument('--trades', action='store_true', help='Show all trades in report')
 parser.add_argument('--dry-run', action='store_true', help='Validate config without running')
+parser.add_argument('--no-save', action='store_true', help='Skip saving backtest results to disk (for quick testing)')
 parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
                     help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
 parser.add_argument('--strategy', default='stage2_momentum', help=_STRATEGY_HELP)
@@ -257,7 +486,41 @@ def main():
     report = BacktestReporter.generate(result)
     BacktestReporter.print_report_rich(report, show_all_trades=args.trades)
 
-    # Export if requested
+    # Auto-save backtest results (unless --no-save is specified)
+    if not args.no_save:
+        # Load version
+        version = "0.6.12.1"  # Default fallback
+        try:
+            version_path = PROJECT_ROOT / 'VERSION'
+            if version_path.exists():
+                version = version_path.read_text().strip()
+        except Exception:
+            pass
+
+        # Get profit mode from risk config
+        profit_mode = 'target'  # Default
+        try:
+            risk_config_manager = RiskConfigManager(profile=args.risk_profile, quiet=True)
+            risk_config = risk_config_manager.get_config()
+            if risk_config and hasattr(risk_config, 'profit_target') and risk_config.profit_target:
+                profit_mode = getattr(risk_config.profit_target, 'mode', 'target')
+        except Exception:
+            pass  # Keep default
+
+        # Save results
+        save_path = _save_backtest_results(
+            result=result,
+            report=report,
+            risk_profile=args.risk_profile,
+            profit_mode=profit_mode,
+            strategy=strategy.name,
+            version=version,
+        )
+        print(f"Backtest results saved to: {save_path}")
+    else:
+        print("Backtest results not saved (--no-save specified)")
+
+    # Export if requested (legacy CSV support - deprecated)
     if args.csv:
         BacktestReporter.to_csv(result, args.csv)
         print(f"Trades exported to {args.csv}")

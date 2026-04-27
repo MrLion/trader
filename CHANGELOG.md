@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.13.0] — 2026-04-27 — Backtest Configuration Tracking
+
+### Added
+- **`scripts/backtest.py`** — Auto-save backtest results with self-identifying configuration:
+  - Folder format: `YYYY-MM-DD_HHMMSS_MMM_risk_profile_profit_mode_strategy/`
+  - Millisecond precision prevents collision on rapid successive runs
+  - Folder name includes: risk_profile (conservative/aggressive), profit_mode (target/trailing/hybrid), strategy (stage2/vcp)
+  - `trades.csv`: Clean trade data with columns: ticker, entry_date, exit_date, entry_price, exit_price, shares, pnl, r_multiple, exit_reason, pivot_price
+  - `config.txt`: Human-readable configuration + results summary including:
+    - Risk profile details (risk per trade %, max position %, daily loss limit %)
+    - Strategy and profit target mode with scale-out rules
+    - Stop loss configuration (ATR multiplier, method)
+    - Execution settings (slippage bps, earnings filter status)
+    - Backtest parameters (date range, initial capital, max positions)
+    - Results (total return %, win rate %, avg R-multiple, Sharpe ratio, trade count)
+- **`--no-save` flag** — Skip saving backtest results to disk for quick testing/debugging
+
+### Changed
+- Default behavior: backtests now auto-save instead of requiring explicit `--csv` export
+- Results directory: `data/backtests/` (auto-created if missing)
+
 ## [0.6.12.1] — 2026-04-26 — FMP API Key Security Fix
 
 ### Fixed
