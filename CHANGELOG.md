@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.14.1] — 2026-04-27 — Remove Redundant Scripts
+
+### Removed
+- **`scripts/stage2_rs_screen.py`** — Removed redundant Stage 2 RS screener
+  - Functionality overlaps with `entry_signals.py` and `trend_screener.py`
+  - Both existing scripts also evaluate Stage 2 criteria
+  - CLI: `python3 scripts/trend_screener.py` or `python3 scripts/entry_signals.py`
+- **`tests/test_stage2_rs_screen.py`** — Removed associated tests
+- **`docs/scripts/stage2_rs_screen.md`** — Removed documentation
+
+### Changed
+- **`CLAUDE.md`** — Removed `stage2_rs_screen.py` references
+- **`README.md`** — Removed from scans table
+- **`TOOLS.md`** — Removed Stage 2 RS Screen section
+- **`docs/README.md`** — Removed from documentation index
+- **`docs/getting-started.md`** — Replaced command references with alternatives
+
+---
+
 ## [0.6.14.0] — 2026-04-27 — FMP Economic Calendar Integration
 
 ### Added
