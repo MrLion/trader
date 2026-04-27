@@ -111,3 +111,46 @@ class TestEconomicEvent:
         repr_str = repr(event)
         assert "EconomicEvent" in repr_str
         assert "CPI MoM" in repr_str
+
+
+# =============================================================================
+# Sub-task 2: EconomicCalendar initialization
+# =============================================================================
+
+class TestEconomicCalendarInit:
+    """Test EconomicCalendar initialization."""
+
+    def test_accepts_api_key_argument(self):
+        ec = EconomicCalendar(api_key="test_key")
+        assert ec._api_key == "test_key"
+
+    def test_reads_api_key_from_env(self):
+        with patch.dict("os.environ", {"FMP_API_KEY": "env_key"}, clear=True):
+            ec = EconomicCalendar()
+            assert ec._api_key == "env_key"
+
+    def test_prefers_argument_over_env(self):
+        with patch.dict("os.environ", {"FMP_API_KEY": "env_key"}, clear=True):
+            ec = EconomicCalendar(api_key="arg_key")
+            assert ec._api_key == "arg_key"
+
+    def test_logs_warning_when_no_key(self, caplog):
+        with patch.dict("os.environ", {}, clear=True):
+            with caplog.at_level(logging.WARNING):
+                ec = EconomicCalendar()
+        assert ec._api_key is None
+        assert "FMP_API_KEY not set" in caplog.text
+        assert "economic event gates disabled" in caplog.text
+
+    def test_cache_is_empty_on_init(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._cache == {}
+
+    def test_call_times_is_empty_on_init(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._call_times == []
+
+    def test_high_impact_keywords_defined(self):
+        ec = EconomicCalendar(api_key="key")
+        expected_keywords = ["cpi", "ppi", "fed", "fomc", "nonfarm", "payrolls", "employment"]
+        assert ec._HIGH_IMPACT_KEYWORDS == expected_keywords
