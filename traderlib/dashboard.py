@@ -56,7 +56,7 @@ class Dashboard:
     def _render(self, state: Optional[Dict[str, Any]] = None) -> Any:
         """Build the full dashboard renderable."""
         if not _HAS_RICH:
-            return Text("")
+            return ""
 
         state = state or {}
         return Group(
