@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.14.0] — 2026-04-27 — FMP Economic Calendar Integration
+
+### Added
+- **`traderlib/economic_calendar.py`** — New Financial Modeling Prep (FMP) Economic Calendar integration:
+  - `EconomicEvent` dataclass with impact classification (HIGH, MEDIUM, LOW)
+  - `EconomicCalendar` class with rate-limited API calls
+  - High-impact event detection for market awareness
+  - `get_events()` convenience method with date filtering
+  - Integration with rate limiter to prevent API throttling
+- **`scripts/premarket_report.py`** — Economic calendar section in pre-market report:
+  - Shows today's high-impact economic events (Fed decisions, CPI, employment, etc.)
+  - Displays event time, country, and volatility impact
+  - Warns when major market-moving events are scheduled
+- **Impact classification** — Events categorized by market impact:
+  - HIGH: Fed decisions, CPI, Non-Farm Payrolls, GDP, FOMC statements
+  - MEDIUM: Industrial production, retail sales, housing data
+  - LOW: Minor reports with limited market impact
+
+### Technical
+- Rate limiting: 300 requests/minute to FMP API
+- Circuit breaker: Automatic failover on API errors
+- Caching: Event data cached per session
+- Exports: `EconomicCalendar` and `EconomicEvent` available from `traderlib`
+
+### Tests
+- Initialization and configuration tests
+- Rate limiting integration tests
+- High-impact event detection tests
+- Impact classification validation
+- Convenience method tests
+- Pre-market report integration verification
+
 ## [0.6.13.2] — 2026-04-27 — Paper Engine Test Order Fix
 
 ### Fixed
