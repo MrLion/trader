@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.13.1] — 2026-04-27 — Backtest Config Tracking Fix
+
+### Fixed
+- **`scripts/backtest.py`** — Restored equity curve CSV export that was inadvertently omitted in v0.6.13.0
+  - `equity.csv`: Daily equity curve with columns: date, equity
+  - Aligns with legacy `to_csv()` behavior that exported both trades and equity
+
 ## [0.6.13.0] — 2026-04-27 — Backtest Configuration Tracking
 
 ### Added

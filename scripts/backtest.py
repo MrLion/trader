@@ -65,6 +65,7 @@ def _save_backtest_results(
 
     Creates:
     - trades.csv: Clean trade data
+    - equity.csv: Daily equity curve
     - config.txt: Human-readable configuration + results
 
     Returns the path to the created folder.
@@ -86,11 +87,32 @@ def _save_backtest_results(
     trades_path = folder_path / f"{timestamp_prefix}_trades.csv"
     _write_trades_csv(result, trades_path)
 
+    # Write equity.csv
+    equity_path = folder_path / f"{timestamp_prefix}_equity.csv"
+    _write_equity_csv(result, equity_path)
+
     # Write config.txt
     config_path = folder_path / f"{timestamp_prefix}_config.txt"
     _write_config_txt(result, report, risk_profile, profit_mode, strategy, version, config_path)
 
     return folder_path
+
+
+def _write_equity_csv(result, filepath: Path) -> None:
+    """Write equity curve to CSV."""
+    import csv
+
+    fieldnames = ['date', 'equity']
+
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for d, v in result.equity_curve:
+            writer.writerow({
+                'date': str(d),
+                'equity': v,
+            })
 
 
 def _write_trades_csv(result, filepath: Path) -> None:
