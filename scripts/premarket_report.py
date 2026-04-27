@@ -115,27 +115,77 @@ def generate_html_report(report_data, output_path):
     events_html = ""
     if econ.get('events'):
         risk_class = "high" if econ.get('risk_level') == '🔴' else "medium" if econ.get('risk_level') == '🟡' else "low"
+
+        # Build events table
+        table_rows = ""
         for event in econ.get('events', []):
-            impact_class = "high" if event.get('impact') == '🔴' else "medium" if event.get('impact') == '🟡' else "low"
-            events_html += f'''
-            <div class="event-item">
-                <span class="event-time">{esc(event.get('time', ''))}</span>
-                <span class="event-impact impact-{impact_class}">{esc(event.get('impact', ''))}</span>
-                <span class="event-name">{esc(event.get('event', ''))}</span>
-            </div>
+            impact_class = "high" if event.impact == 'high' else "medium" if event.impact == 'medium' else "low"
+            impact_emoji = '🔴' if event.impact == 'high' else '🟡' if event.impact == 'medium' else '🟢'
+            estimate_str = esc(event.estimate) if event.estimate else "—"
+            previous_str = esc(event.previous) if event.previous else "—"
+
+            table_rows += f'''
+            <tr>
+                <td class="event-time">{esc(event.time)}</td>
+                <td class="event-impact impact-{impact_class}">{impact_emoji}</td>
+                <td class="event-name">{esc(event.event)}</td>
+                <td class="event-estimate">{estimate_str}</td>
+                <td class="event-previous">{previous_str}</td>
+            </tr>
             '''
-        econ_html = f'''
+
+        # Tomorrow preview
+        tomorrow_html = ""
+        if econ.get('tomorrow'):
+            high_tomorrow = [e for e in econ.get('tomorrow', []) if e.impact == 'high']
+            if high_tomorrow:
+                tomorrow_items = ""
+                for e in high_tomorrow[:3]:  # Limit to 3
+                    tomorrow_items += f'<div class="tomorrow-item">{esc(e.time)} — {esc(e.event)}</div>'
+                tomorrow_html = f'''
+                <div class="tomorrow-preview">
+                    <div class="tomorrow-header">⚠️ Major Events Tomorrow</div>
+                    {tomorrow_items}
+                </div>
+                '''
+
+        # Guidance box
+        guidance_html = f'''
+        <div class="guidance-box">
+            <div class="guidance-label">Trading Guidance</div>
+            <div class="guidance-text">{esc(econ.get('advice', ''))}</div>
+        </div>
+        '''
+
+        events_html = f'''
         <div class="section">
             <h2>Economic Calendar</h2>
-            <div class="risk-badge risk-{risk_class}">{econ.get('risk_level', '🟢')} {esc(econ.get('advice', ''))}</div>
-            <div class="events-list">{events_html}</div>
+            <div class="risk-badge risk-{risk_class}">{econ.get('risk_level', '🟢')} Risk Level</div>
+            <table class="events-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Impact</th>
+                        <th>Event</th>
+                        <th>Estimate</th>
+                        <th>Previous</th>
+                    </tr>
+                </thead>
+                <tbody>{table_rows}</tbody>
+            </table>
+            {tomorrow_html}
+            {guidance_html}
         </div>
         '''
     else:
-        econ_html = '''
+        events_html = '''
         <div class="section">
             <h2>Economic Calendar</h2>
-            <div class="risk-badge risk-low">🟢 Clear day, trade normally</div>
+            <div class="risk-badge risk-low">🟢 Risk Level</div>
+            <div class="guidance-box">
+                <div class="guidance-label">Trading Guidance</div>
+                <div class="guidance-text">Clear day, trade normally</div>
+            </div>
         </div>
         '''
 
@@ -539,6 +589,95 @@ def generate_html_report(report_data, output_path):
             margin-top: 20px;
         }}
 
+        /* Economic Calendar Styles */
+        .events-table {{ width: 100%; margin-top: 15px; border-collapse: collapse; }}
+        .events-table th {{
+            background: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        .events-table td {{
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }}
+        .events-table tr:hover {{ background: rgba(255,255,255,0.03); }}
+        .event-time {{
+            font-family: monospace;
+            color: var(--text-secondary);
+            min-width: 60px;
+        }}
+        .event-impact {{ font-size: 1.1rem; }}
+        .event-impact.impact-high {{ color: var(--accent-red); }}
+        .event-impact.impact-medium {{ color: var(--accent-yellow); }}
+        .event-impact.impact-low {{ color: var(--accent-green); }}
+        .event-name {{ font-weight: 500; }}
+        .event-estimate, .event-previous {{
+            color: var(--text-secondary);
+            font-family: monospace;
+            font-size: 0.85rem;
+        }}
+
+        .tomorrow-preview {{
+            margin-top: 20px;
+            padding: 15px 20px;
+            background: rgba(250, 204, 21, 0.08);
+            border: 1px solid rgba(250, 204, 21, 0.3);
+            border-left: 4px solid var(--accent-yellow);
+            border-radius: 6px;
+        }}
+        .tomorrow-header {{
+            font-weight: 600;
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }}
+        .tomorrow-item {{
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 4px 0;
+            border-bottom: 1px dashed rgba(250, 204, 21, 0.2);
+        }}
+        .tomorrow-item:last-child {{ border-bottom: none; }}
+
+        .guidance-box {{
+            margin-top: 20px;
+            padding: 18px 22px;
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-left: 4px solid var(--accent-green);
+            border-radius: 6px;
+        }}
+        .guidance-box.risk-high {{
+            background: rgba(248, 113, 113, 0.08);
+            border-color: rgba(248, 113, 113, 0.3);
+            border-left-color: var(--accent-red);
+        }}
+        .guidance-box.risk-medium {{
+            background: rgba(250, 204, 21, 0.08);
+            border-color: rgba(250, 204, 21, 0.3);
+            border-left-color: var(--accent-yellow);
+        }}
+        .guidance-label {{
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }}
+        .guidance-text {{
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }}
+
         /* Print styles */
         @media print {{
             body {{
@@ -845,51 +984,39 @@ def load_comprehensive_scan():
     return results
 
 def fetch_economic_calendar():
-    """Fetch US economic events for today and tomorrow"""
-    try:
-        from urllib.request import urlopen
-        
-        today = datetime.now()
-        
-        # Fetch from tradingcharts.com
-        url = f"https://forex.tradingcharts.com/economic_calendar/{today.strftime('%Y-%m-%d')}.html?code=USD"
-        
-        try:
-            response = urlopen(url, timeout=5)
-            html = response.read().decode('utf-8')
-        except:
-            return {'today': [], 'tomorrow': []}
-        
-        events = []
-        
-        # Parse events (simplified)
-        lines = html.split('\n')
-        for i, line in enumerate(lines):
-            if 'USD' in line and ('08:30 AM' in line or '02:00 PM' in line or '10:00 AM' in line):
-                # Extract event name
-                for j in range(i, min(i+3, len(lines))):
-                    if any(x in lines[j] for x in ['FOMC', 'CPI', 'PCE', 'Core', 'Jobless', 'CREDIT']):
-                        time_match = re.search(r'(\d{2}:\d{2} [AP]M)', line)
-                        time_str = time_match.group(1) if time_match else 'TBD'
-                        
-                        # Determine impact
-                        impact = '🟡'
-                        if any(x in lines[j] for x in ['FOMC', 'CPI', 'PCE', 'Core']):
-                            impact = '🔴'
-                        elif 'Jobless' in lines[j]:
-                            impact = '🟡'
-                        
-                        events.append({
-                            'time': time_str,
-                            'event': lines[j].strip(),
-                            'impact': impact
-                        })
-                        break
-        
-        return {'today': events[:5], 'tomorrow': []}  # Limit to 5 events
-        
-    except Exception as e:
-        return {'today': [], 'tomorrow': []}
+    """Fetch US economic events from FMP."""
+    from traderlib.economic_calendar import EconomicCalendar
+
+    cal = EconomicCalendar()
+    today = datetime.now().date()
+
+    # Get today + tomorrow events
+    events = cal.get_events(today, today + timedelta(days=1))
+
+    # Separate today vs tomorrow
+    today_events = [e for e in events if e.date == today]
+    tomorrow_events = [e for e in events if e.date == today + timedelta(days=1)]
+
+    return {
+        'today': today_events,
+        'tomorrow': tomorrow_events,
+    }
+
+
+def _classify_economic_risk(events):
+    """Classify risk level based on today's events."""
+    if not events:
+        return '🟢', 'Clear day, trade normally'
+
+    has_high = any(e.impact == 'high' for e in events)
+    has_medium = any(e.impact == 'medium' for e in events)
+
+    if has_high:
+        return '🔴', 'Reduce size 50% or wait for post-event clarity'
+    elif has_medium:
+        return '🟡', 'Normal size, watch for volatility at event time'
+    else:
+        return '🟢', 'Clear day, trade normally'
 
 def generate_comprehensive_report(output_format='console', output_path=None):
     """Generate comprehensive pre-market report"""
@@ -990,15 +1117,11 @@ def generate_comprehensive_report(output_format='console', output_path=None):
 
     # ECONOMIC CALENDAR
     econ = fetch_economic_calendar()
-    if econ['today']:
-        has_high_impact = any(e['impact'] == '🔴' for e in econ['today'])
-        if has_high_impact:
-            report_data['economic']['risk_level'] = '🔴'
-            report_data['economic']['advice'] = "Reduce size 50% or wait for post-event clarity"
-        else:
-            report_data['economic']['risk_level'] = '🟡'
-            report_data['economic']['advice'] = "Normal size, watch for volatility at event time"
-        report_data['economic']['events'] = econ['today']
+    risk_level, advice = _classify_economic_risk(econ['today'])
+    report_data['economic']['risk_level'] = risk_level
+    report_data['economic']['advice'] = advice
+    report_data['economic']['events'] = econ['today']
+    report_data['economic']['tomorrow'] = econ['tomorrow']
 
     # MAJOR INDICES
     indices = {}
@@ -1179,8 +1302,16 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         if report_data['economic']['events']:
             print(f"{report_data['economic']['risk_level']} Today's Events:")
             for e in report_data['economic']['events']:
-                print(f"   {e['time']} {e['impact']} {e['event']}")
-            print(f"   → {report_data['economic']['advice']}")
+                impact_emoji = '🔴' if e.impact == 'high' else '🟡' if e.impact == 'medium' else '🟢'
+                estimate_str = f" (est: {e.estimate}, prev: {e.previous})" if e.estimate else ""
+                print(f"   {e.time}  {impact_emoji} {e.event}{estimate_str}")
+            print(f"\n   → {report_data['economic']['advice']}")
+
+            # Show tomorrow preview if high impact
+            if report_data['economic']['tomorrow']:
+                high_tomorrow = [e for e in report_data['economic']['tomorrow'] if e.impact == 'high']
+                if high_tomorrow:
+                    print(f"\n⚠️  Major event tomorrow — size accordingly today")
         else:
             print("🟢 No major US economic events today")
             print("   → Clear day, trade normally")
