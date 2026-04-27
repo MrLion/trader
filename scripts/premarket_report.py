@@ -755,7 +755,7 @@ def generate_html_report(report_data, output_path):
             </div>
         </div>
 
-        {econ_html}
+        {events_html}
 
         {earnings_html}
 
@@ -1240,7 +1240,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     # Economic calendar check
     econ = report_data.get('economic', {})
     if econ.get('events'):
-        high_impact = sum(1 for e in econ['events'] if e.get('impact') == '🔴')
+        high_impact = sum(1 for e in econ['events'] if e.impact == 'high')
         if high_impact > 0:
             action_items.append({'text': f'🔴 {high_impact} HIGH impact event(s) today - trade around them', 'checked': False})
         else:
