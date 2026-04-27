@@ -258,19 +258,31 @@ class EconomicCalendar:
 
         events = []
         for record in records:
-            try:
-                event = EconomicEvent(
-                    date=record.get("date", ""),
-                    time=record.get("time", ""),
-                    event=record.get("event", ""),
-                    impact=record.get("impact", "medium"),
-                    estimate=record.get("estimate"),
-                    previous=record.get("previous")
-                )
-                events.append(event)
-            except (KeyError, TypeError):
-                # Skip malformed records
+            # Skip non-dict records
+            if not isinstance(record, dict):
                 continue
+
+            # Extract fields with defaults
+            date_str = record.get("date")
+            time_str = record.get("time", "")
+            event_name = record.get("event")
+            impact = record.get("impact", "medium")
+            estimate = record.get("estimate")
+            previous = record.get("previous")
+
+            # Skip records missing required fields
+            if not date_str or not event_name:
+                continue
+
+            event = EconomicEvent(
+                date=date_str,
+                time=time_str,
+                event=event_name,
+                impact=impact,
+                estimate=estimate,
+                previous=previous
+            )
+            events.append(event)
 
         # Sort by date and time
         events.sort(key=lambda e: (e.date, e.time))
