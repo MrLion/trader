@@ -1,0 +1,32 @@
+Backtest Run: 2026-04-27 at 09:23:24
+Version: 0.6.13.1
+
+Risk Profile: conservative
+  Risk per trade: 0.5%
+  Max position: 10%
+  Daily loss limit: 2%
+
+Strategy: stage2_momentum
+Profit Target: hybrid
+  Scale out at 3R: 33%
+  Scale out at 4R: 50% of remaining
+  Trail remainder until EMA stop
+
+Stop Loss: atr_or_support
+  ATR multiplier: 2x
+
+Execution:
+  Slippage: 5 bps
+  Earnings filter: enabled
+
+Backtest:
+  Date range: 2025-01-06 to 2025-01-10
+  Initial capital: $100,000
+  Max positions: 1
+
+Results:
+  Total Return: -0.1%
+  Win Rate: 0.0%
+  Avg R-Multiple: -0.35
+  Sharpe: -11.66
+  Trades: 1

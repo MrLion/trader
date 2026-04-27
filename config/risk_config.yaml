@@ -80,112 +80,118 @@ cache:
   ttl_seconds: 300  # 5 minutes
 
 # =============================================================================
-# PROFIT TARGET & EXIT STRATEGY - CHOOSE ONE
+# EXIT STRATEGY - PICK ONE (Comment out all other options)
 # =============================================================================
 #
-# ⚠️  CRITICAL: Only ONE exit strategy can be active. You have THREE mutually
-#     exclusive options. Pick ONE and comment out the others.
-#
-# The "profit_target" key can only appear ONCE in this file.
+# ⚠️  CRITICAL: Only ONE exit strategy can be active. "profit_target:" can only
+#     appear ONCE in this file. Pick the mode that matches your trading style.
 #
 # ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║  QUICK GUIDE: Which exit strategy should I use?                          ║
-# ╠═══════════════════════════════════════════════════════════════════════════╣
-# ║  OPTION 1 (Target): Simple fixed profit at 2R. Good for beginners.        ║
-# ║  OPTION 2 (Trailing): Dynamic stops that follow price. For trend traders.  ║
-# ║  OPTION 3 (Hybrid): Sell partial + trail remainder. For balanced approach. ║
+# ║  WHAT IS "R"? (Risk Multiple)                                             ║
+# ║  ─────────────────────────────────────────                                ║
+# ║  R = The amount you risk losing on each trade (set above: 0.5% default)  ║
+# ║  Example: Entry $100, stop at $95 (-5%), then +2R = $110 (+10% gain)      ║
+# ║  The system calculates R automatically based on your entry vs stop price ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 #
-# TO SWITCH BETWEEN OPTIONS:
-#   1. Comment out ALL lines of your CURRENT option (add # at start of each line)
-#   2. Uncomment ALL lines of your NEW option (remove # from start of each line)
-#   3. Save and restart
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  OPTION 1: TARGET MODE ── Fixed profit at 2R                              ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Sells 100% of position when +2R profit is reached         ║
+# ║  BEST FOR: Beginners, swing traders, consistent profits                 ║
+# ║  EXAMPLE: Buy $100 → Sell $110 (+10%) ─ Done. No emotions needed.        ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 2: TRAILING STAGE ── Breakeven, then trail with EMAs            ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Protects gains, then follows price with moving averages  ║
+# ║  BEST FOR: Trend traders, momentum stocks, letting winners run          ║
+# ║  EXAMPLE: Buy $100, stop at $95                                            ║
+# ║    • Stock hits $110 (+2R) → Stop moves to $100 (breakeven, no loss)     ║
+# ║    • Stock hits $115 (+3R) → Stop now trails 10 EMA (tight)              ║
+# ║    • Stock hits $125 (+5R) → Stop switches to 21 EMA (looser, more room)   ║
+# ║    • If stock pulls back to EMA → Position sells, you keep gains          ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 3: TRAILING CONTINUOUS ── Smooth EMA transitions                ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Like Stage mode but EMAs blend smoothly between levels     ║
+# ║  BEST FOR: Advanced traders wanting fine-grained control                 ║
+# ║  EXAMPLE: 10 EMA gradually hands off to 21 EMA between +2.5R and +4R     ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 4: HYBRID MODE ── Take partial profits + trail rest               ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Sells some shares at targets, lets remainder run          ║
+# ║  BEST FOR: Balanced approach - lock in gains + capture big trends        ║
+# ║  EXAMPLE: Buy $100, 100 shares                                             ║
+# ║    • +3R hit → Sell 33 shares (33%), start trailing rest with 10 EMA      ║
+# ║    • +4R hit → Sell 33 shares (50% of remaining 67)                      ║
+# ║    • Remaining 34 shares trail until EMA stop hit                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# HOW TO SWITCH MODES:
+#   1. Find your ACTIVE option (lines WITHOUT # at the start)
+#   2. Add # to the START of EVERY line in that option (comment it out)
+#   3. Remove # from the START of EVERY line in your NEW option
+#   4. Only ONE option should have uncommented lines
+#   5. Save the file and restart your trading session
+#
+#   TIP: Use block select in your editor (Cmd+Option+drag on Mac, Alt+drag Win)
 #
 # =============================================================================
 
-# =============================================================================
-# OPTION 1: TARGET MODE (DEFAULT - Recommended for simplicity)
-# =============================================================================
-# Exits at fixed R-multiple. Simple, consistent, backward compatible.
-# Example: min_r_multiple: 2.0 means exit when trade reaches 2:1 reward/risk.
-#
-# IF USING THIS OPTION: You don't need to change anything below. This is the
-# default and works out of the box.
-#
-# IF SWITCHING TO OPTION 2 OR 3: Comment out these 3 lines below before
-# uncommenting your new option.
+# -----------------------------------------------------------------------------
+# OPTION 1: TARGET MODE - Sell at fixed profit (Simple, consistent)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "target"
+#  min_r_multiple: 2.0         # Sell entire position at +2R profit
+#  fallback_target_pct: 0.10   # Fallback: 10% gain if R calculation fails
 
+# -----------------------------------------------------------------------------
+# OPTION 2: TRAILING STAGE-BASED - Breakeven, then trail with EMAs (Active)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "trailing"              # Enable trailing stop system
+#  trailing_mode: "stage_based"  # Use discrete trigger levels
+#  trailing_stages:
+#    - trigger_r: 2.0              # At +2R profit...
+#      action: "breakeven"         # ...move stop to entry price (no loss possible)
+#    - trigger_r: 3.0              # At +3R profit...
+#      action: "trail_ema"         # ...start trailing 10 EMA (tight stop)
+#      period: 10                  # 10-period EMA = stays close to price
+#    - trigger_r: 5.0              # At +5R profit...
+#      action: "trail_ema"         # ...switch to 21 EMA (looser stop)
+#      period: 21                  # 21-period EMA = gives more room for volatility
+
+# -----------------------------------------------------------------------------
+# OPTION 3: TRAILING CONTINUOUS - Smooth EMA transitions (Advanced)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "trailing"
+#  trailing_mode: "continuous"     # Smooth handoff between EMAs (vs discrete jumps)
+#  breakeven_at_r: 2.0             # Move stop to entry at +2R
+#  continuous_bands:
+#    - from_r: 2.5                 # Between +2.5R and +4R...
+#      to_r: 4.0
+#      method: "ema10"             # ...use 10 EMA
+#    - from_r: 4.0                 # Above +4R...
+#      method: "ema21"             # ...use 21 EMA
+
+# -----------------------------------------------------------------------------
+# OPTION 4: HYBRID MODE - Scale out + trail remainder (Balanced)
+# -----------------------------------------------------------------------------
 profit_target:
-  min_r_multiple: 2.0       # Exit at 2R minimum (2:1 reward/risk)
-  fallback_target_pct: 0.10  # Fallback: 10% above entry if R calc fails
-
-
-# =============================================================================
-# OPTION 2: TRAILING MODE (Disabled - Uncomment to use)
-# =============================================================================
-# Dynamic trailing stops that ratchet up. Lets winners run in trending markets.
-# No fixed profit target - exits when price hits the trailing stop.
-#
-# IF USING THIS OPTION: You MUST comment out OPTION 1 (lines 86-88 above) AND
-# the LEGACY section (lines 166-181 below). This option replaces both.
-#
-# Uncomment below to enable (remove # from start of each line):
-#
-# profit_target:
-#   mode: "trailing"              # REQUIRED: Enables trailing mode
-#   trailing_mode: "stage_based"  # REQUIRED: Choose "stage_based" or "continuous"
-#
-#   # --- Stage-Based Configuration (Recommended) ---
-#   # Define explicit stages at R-levels. Clear, predictable, easy to backtest.
-#   trailing_stages:
-#     - trigger_r: 2.0
-#       action: "breakeven"      # +2R: Move stop to entry (protect capital)
-#     - trigger_r: 3.0
-#       action: "trail_ema"
-#       period: 10               # +3R: Trail 10 EMA (tight follow)
-#     - trigger_r: 5.0
-#       action: "trail_ema"
-#       period: 21               # +5R: Trail 21 EMA (wider for volatility)
-#
-#   # --- Continuous Configuration (Alternative) ---
-#   # Uncomment below and comment out "trailing_stages" above to use continuous.
-#   # breakeven_at_r: 2.0         # Move to breakeven at 2R (continuous mode only)
-#   # continuous_bands:
-#   #   - from_r: 2.5
-#   #     to_r: 4.0
-#   #     method: "ema10"          # Trail 10 EMA from 2.5R to 4R
-#   #   - from_r: 4.0
-#   #     method: "ema21"          # Trail 21 EMA from 4R onwards (no to_r = unlimited)
-
-
-# =============================================================================
-# OPTION 3: HYBRID MODE (Disabled - Uncomment to use)
-# =============================================================================
-# Scale-out partial positions at R-levels, trail the remainder.
-# Best of both worlds: lock in profit + keep exposure to trends.
-#
-# IF USING THIS OPTION: You MUST comment out OPTION 1 (lines 86-88 above) AND
-# the LEGACY section (lines 166-181 below). This option replaces both.
-#
-# Uncomment below to enable (remove # from start of each line):
-#
-# profit_target:
-#   mode: "hybrid"                # REQUIRED: Enables hybrid mode
-#
-#   # REQUIRED: Stages for trailing the remaining position after scale-outs
-#   trailing_stages:
-#     - trigger_r: 2.0
-#       action: "breakeven"      # +2R: Move stop to entry
-#     - trigger_r: 3.0
-#       action: "trail_ema"
-#       period: 10               # +3R: Trail 10 EMA
-#
-#   # REQUIRED: Scale-out steps (sell partial position at these R-levels)
-#   scale_out_steps:
-#     - trigger_r: 3.0
-#       fraction: 0.33            # +3R: Sell 1/3 of remaining position
-#     - trigger_r: 4.0
-#       fraction: 0.50            # +4R: Sell 1/2 of remaining position
+  mode: "hybrid"                  # Sell partial positions at targets
+  trailing_stages:
+    - trigger_r: 2.0               # At +2R: protect with breakeven stop
+      action: "breakeven"
+    - trigger_r: 3.0               # At +3R: start trailing with 10 EMA
+      action: "trail_ema"
+      period: 10
+  scale_out_steps:
+    - trigger_r: 3.0               # At +3R: sell 33% of position (take profit)
+      fraction: 0.33
+    - trigger_r: 4.0               # At +4R: sell 50% of what remains
+      fraction: 0.50
 
 
 # =============================================================================
@@ -204,17 +210,15 @@ profit_target:
 # IF USING OPTION 2 OR 3 (Trailing/Hybrid): You MUST delete or comment out
 # this entire section (lines 166-181) or the system will use legacy behavior!
 #
-trailing_stops:
-  breakeven_at_r: 1.0      # Move to breakeven at +1R
-  ema10_at_r: 1.5        # Trail 10 EMA starting at +1.5R
-  ema21_at_r: 3.0        # Trail 21 EMA starting at +3R
+#  trailing_stops:
+#    breakeven_at_r: 1.0    # OLD: Move to breakeven at +1R
+#    ema10_at_r: 1.5       # OLD: Trail 10 EMA starting at +1.5R
+#    ema21_at_r: 3.0       # OLD: Trail 21 EMA starting at +3R
+#
+#  ema_periods:
+#    short: 10              # EMA period for early trailing
+#    long: 21               # EMA period for late trailing
 
-ema_periods:
-  short: 10    # EMA period for early trailing
-  long: 21     # EMA period for late trailing
-
-# =============================================================================
-# ENTRY SCORE THRESHOLDS
 # =============================================================================
 entry:
   # Minimum entry score to trigger trade

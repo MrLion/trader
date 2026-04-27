@@ -42,7 +42,8 @@ class RateLimiter:
         self.current_delay = 0.0
 
         # Thread safety lock for all mutable state
-        self._lock = threading.Lock()
+        # Using RLock to allow reentrant calls (e.g., get_status() calling _clean_old_requests())
+        self._lock = threading.RLock()
 
     def _clean_old_requests(self):
         """Remove requests outside the time window."""

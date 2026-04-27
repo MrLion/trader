@@ -28,7 +28,6 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 - **Market Scans:**
     - Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
     - Trend Screener: `python3 scripts/trend_screener.py`
-    - Stage 2 RS Screen: `python3 scripts/stage2_rs_screen.py`
 - **MC Stock Charts:**
     - Daily Report: `python3 scripts/mcstock_scraper.py`
     - Historical Archives: `python3 scripts/mcstock_historical_scraper.py --weeks 10`
@@ -58,11 +57,11 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 ### Repository Layout
 
 **Scripts & Tools (`scripts/`):**
-- Entry analysis: `entry_signals.py`, `trend_screener.py`, `stage2_rs_screen.py`
+- Entry analysis: `entry_signals.py`, `trend_screener.py`
 - Market scans: `sector_scan_comprehensive.py`
 - Reports: `premarket_report.py`, `postmarket_report.py`, `deliver_report.py`
 - Trading engine: `paper_engine_alpaca.py`, `paper_portfolio.py`, `show_positions.py`
-- Data scraping: `mcstock_scraper.py`, `mcstock_historical_scraper.py`
+- Data scraping: `mcstock_scraper.py`
 - Utilities: `watchlist_manager.py`, `backtest.py`, `doctor.py`, `sync_state.py`
 - Setup: `setup_alpaca.py`, `validate_alpaca.py`
 

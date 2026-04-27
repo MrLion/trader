@@ -41,7 +41,7 @@ python3 scripts/entry_signals.py
 | Category | Scripts | Documentation |
 |----------|---------|---------------|
 | **Analysis** | `entry_signals.py` | [Entry Signals](docs/entry_signals/TIER_SCORING.md) |
-| **Scans** | `sector_scan_comprehensive.py`, `trend_screener.py`, `stage2_rs_screen.py` | [Trend Screener](docs/trend_screener/USER_GUIDE.md) |
+| **Scans** | `sector_scan_comprehensive.py`, `trend_screener.py` | [Trend Screener](docs/trend_screener/USER_GUIDE.md) |
 | **Reports** | `premarket_report.py`, `postmarket_report.py`, `deliver_report.py` | [Reports](docs/reports/) |
 | **Backtesting** | `backtest.py` | [Backtesting Guide](docs/BACKTESTING_GUIDE.md) |
 | **Trading** | `paper_engine_alpaca.py`, `paper_portfolio.py`, `show_positions.py` | [AGENTS.MD](AGENTS.MD) |

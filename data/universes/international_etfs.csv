@@ -1,0 +1,793 @@
+Ticker,Exchange,Description
+AAVM,NASDAQ,EA Series Trust Alpha Architect Global Factor Equity ETF
+AAXJ,NASDAQ,iShares MSCI All Country Asia ex Japan ETF
+ABLG,BATS,Abacus FCF International Leaders ETF
+ACWI,NASDAQ,iShares MSCI ACWI ETF
+ACWV,BATS,iShares MSCI Global Min Vol Factor ETF
+ACWX,NASDAQ,iShares MSCI ACWI ex US ETF
+ADIV,ARCA,Guinness Atkinson Asia Pacific Dividend Builder ETF
+AGEM,NASDAQ,abrdn Funds abrdn Emerging Markets Dividend Active ETF
+AGNG,NASDAQ,Global X Funds Global X Aging Population ETF
+AGQI,ARCA,First Trust Active Global Quality Income ETF
+AIQ,NASDAQ,Global X Funds Global X Artificial Intelligence & Technology ETF
+ALTY,NASDAQ,Global X Funds Global X Alternative Income ETF
+APIE,ARCA,ActivePassive International Equity ETF
+AQLT,BATS,iShares MSCI Global Quality Factor ETF
+AQWA,NASDAQ,Global X Funds Global X Clean Water ETF
+ARGT,ARCA,Global X MSCI Argentina ETF
+ARLI,BATS,AllianzIM International Equity Buffer15 Uncapped Apr ETF
+ARMY,NASDAQ,Tema ETF Trust Tema International Defense ETF
+ASCI,NASDAQ,abrdn Funds abrdn  International Small Cap Active ETF
+ASEA,ARCA,Global X FTSE Southeast Asia ETF
+ASGM,ARCA,Virtus AlphaSimplex Global Macro ETF
+ASHR,ARCA,Xtrackers Harvest CSI 300 China A-Shares ETF
+ASHS,ARCA,Xtrackers Harvest CSI 500 China A-Shares Small Cap ETF
+AUAU,ARCA,Global X Gold Miners ETF
+AUSF,ARCA,Global X Adaptive U.S. Factor ETF
+AVDE,ARCA,Avantis International Equity ETF
+AVDS,ARCA,Avantis International Small Cap Equity ETF
+AVDV,ARCA,Avantis International Small Cap Value ETF
+AVEE,ARCA,Avantis Emerging Markets Small Cap Equity ETF
+AVEM,ARCA,Avantis Emerging Markets Equity ETF
+AVES,ARCA,Avantis Emerging Markets Value ETF
+AVIV,ARCA,Avantis International Large Cap Value ETF
+AVNM,ARCA,Avantis All International Markets Equity ETF
+AVNV,ARCA,Avantis All International Markets Value ETF
+AVOS,NASDAQ,EA Series Trust Avos Global Equities ETF
+AVSD,ARCA,Avantis Responsible International Equity ETF
+AVSE,ARCA,Avantis Responsible Emerging Markets Equity ETF
+AVXC,NASDAQ,American Century ETF Trust Avantis Emerging Markets ex-China Equity ETF
+AZTD,ARCA,Aztlan Global Stock Selection DM SMID ETF
+BAIV,NASDAQ,The Advisors' Inner Circle Fund III Brown Advisory International Value Select ETF
+BBAX,BATS,JPMorgan BetaBuilders Developed Asia Pacific-ex Japan ETF
+BBCA,BATS,JPMorgan BetaBuilders Canada ETF
+BBEM,BATS,JPMorgan BetaBuilders Emerging Markets Equity ETF
+BBEU,BATS,JPMorgan BetaBuilders Europe ETF
+BBIN,BATS,JPMorgan BetaBuilders International Equity ETF
+BBJP,BATS,JPMorgan BetaBuilders Japan ETF
+BCCC,BATS,Global X Bitcoin Covered Call ETF
+BCEM,NYSE,Baron Emerging Markets Select ETF
+BCGD,NYSE,Baron Global Durable Advantage ETF
+BCGS,ARCA,Bancreek Global Select ETF
+BCHI,ARCA,GMO Beyond China ETF
+BCIL,ARCA,Bancreek International Large Cap ETF
+BEMB,BATS,iShares J.P. Morgan Broad USD Emerging Markets Bond ETF
+BIDD,ARCA,iShares International Dividend Active ETF
+BILD,ARCA,Nomura Global Listed Infrastructure ETF
+BINT,ARCA,Bluemonte Global Equity ETF
+BINV,BATS,Brandes International ETF
+BITS,NASDAQ,Global X Funds Global X Blockchain & Bitcoin Strategy ETF
+BKCH,NASDAQ,Global X Funds Global X Blockchain ETF
+BKCI,ARCA,BNY Mellon Concentrated International ETF
+BKEM,ARCA,BNY Mellon Emerging Markets Equity ETF
+BKGI,BATS,BNY Mellon Global Infrastructure Income ETF
+BKIE,ARCA,BNY Mellon International Equity ETF
+BLDG,BATS,Cambria Global Real Estate ETF
+BLDX,ARCA,Impax Global Infrastructure ETF
+BLES,ARCA,Inspire Global Hope ETF
+BNDW,NASDAQ,Vanguard Scottsdale Funds Vanguard Total World Bond ETF
+BNDX,NASDAQ,Vanguard Charlotte Funds Vanguard Total International Bond ETF
+BOAT,ARCA,SonicShares Global Shipping ETF
+BOTZ,NASDAQ,Global X Funds Global X Robotics & Artificial Intelligence ETF
+BRAZ,ARCA,Global X Brazil Active ETF
+BREE,NYSE,MFS Blended Research Emerging Markets Equity ETF
+BREM,NASDAQ,BlackRock ETF Trust II iShares Emerging Markets Bond Active ETF
+BRF,ARCA,VanEck Brazil Small-Cap ETF
+BRIE,NYSE,MFS Blended Research International Equity ETF
+BRZU,ARCA,Direxion Daily MSCI Brazil Bull 2X ETF
+BTRN,ARCA,Global X Bitcoin Trend Strategy ETF
+BUFE,BATS,FT Vest Laddered Emerging Markets Buffer ETF
+BUFI,NASDAQ,"AB Active ETFs, Inc. AB International Buffer ETF"
+BUFY,BATS,FT Vest Laddered International Moderate Buffer ETF
+BUG,NASDAQ,Global X Funds Global X Cybersecurity ETF
+BWX,ARCA,SPDR Bloomberg International Treasury Bond ETF
+BWZ,ARCA,SPDR Bloomberg Short Term International Treasury Bond ETF
+CAS,ARCA,Simplify China A Shares PLUS Income ETF
+CATH,NASDAQ,Global X Funds Global X S&P 500 Catholic Values ETF
+CBON,ARCA,VanEck China Bond ETF
+CDIG,NASDAQ,EA Series Trust City Different Investments Global Equity ETF
+CEFA,NASDAQ,Global X Funds Global X S&P Catholic Values Developed ex-U.S. ETF
+CGGE,ARCA,Capital Group Global Equity ETF
+CGGO,ARCA,Capital Group Global Growth Equity ETF
+CGIB,ARCA,Capital Group International Bond ETF (USD-Hedged)
+CGIC,ARCA,Capital Group International Core Equity ETF
+CGIE,ARCA,Capital Group International Equity ETF
+CGRO,ARCA,CoreValues Alpha Greater China Growth ETF
+CGV,NYSE,Conductor Global Equity Value ETF
+CGW,ARCA,Invesco S&P Global Water Index ETF
+CGXU,ARCA,Capital Group International Focus Equity ETF
+CHAU,ARCA,Direxion Daily CSI 300 China A Share Bull 2X ETF
+CHIQ,ARCA,Global X MSCI China Consumer Discretionary ETF
+CHPX,NASDAQ,Global X Funds Global X AI Semiconductor & Quantum ETF
+CHRI,NASDAQ,Global X Funds Global X S&P 500 Christian Values ETF
+CLIM,ARCA,Climate Global - Climate Resilient REIT Index ETF
+CLIP,ARCA,Global X 1-3 Month T-Bill ETF
+CLOU,NASDAQ,Global X Funds Global X Cloud Computing ETF
+CNQQ,NASDAQ,Rayliant Funds Trust Rayliant-ChinaAMC Transformative China Tech ETF
+CNYA,BATS,iShares MSCI China A ETF
+COAL,ARCA,Range Global Coal Index ETF
+COLO,ARCA,Global X MSCI Colombia ETF
+COMD,BATS,Global X Commodity Strategy ETF
+COPX,ARCA,Global X Copper Miners ETF (NEW)
+CORO,NASDAQ,BlackRock ETF Trust iShares International Country Rotation Active ETF
+CQQQ,ARCA,Invesco China Technology ETF
+CRBN,ARCA,iShares Low Carbon Optimized MSCI ACWI ETF
+CTEC,NASDAQ,Global X Funds Global X ClimateTech ETF
+CUT,ARCA,Invesco MSCI Global Timber ETF
+CVIE,ARCA,Calvert International Responsible Index ETF
+CWEB,ARCA,Direxion Daily CSI China Internet Index Bull 2X ETF
+CWI,ARCA,State Street SPDR MSCI ACWI ex-US ETF
+DAX,NASDAQ,Global X Funds Global X DAX Germany ETF
+DBAW,ARCA,Xtrackers MSCI All World ex US Hedged Equity ETF
+DBEF,ARCA,Xtrackers MSCI EAFE Hedged Equity ETF
+DBEM,ARCA,Xtrackers MSCI Emerging Markets Hedged Equity ETF
+DBEU,ARCA,Xtrackers MSCI Europe Hedged Equity ETF
+DBEZ,ARCA,Xtrackers MSCI Eurozone Hedged Equity ETF
+DBJP,ARCA,Xtrackers MSCI Japan Hedged Equity ETF
+DEEF,ARCA,Xtrackers FTSE Developed ex US Multifactor ETF
+DEHP,ARCA,Dimensional Emerging Markets High Profitability ETF
+DEXC,ARCA,Dimensional Emerging Markets ex China Core Equity ETF
+DFAI,ARCA,Dimensional International Core Equity Market ETF
+DFAW,ARCA,Dimensional World Equity ETF
+DFAX,ARCA,Dimensional World ex U.S. Core Equity 2 ETF
+DFEM,ARCA,Dimensional Emerging Markets Core Equity 2 ETF
+DFEV,ARCA,Dimensional Emerging Markets Value ETF
+DFGP,NASDAQ,Dimensional ETF Trust Dimensional Global Core Plus Fixed Income ETF
+DFGR,ARCA,Dimensional Global Real Estate ETF
+DFGX,NASDAQ,Dimensional ETF Trust Dimensional International Core Fixed Income ETF
+DFIC,BATS,Dimensional International Core Equity 2 ETF
+DFIS,BATS,Dimensional International Small Cap ETF
+DFIV,ARCA,Dimensional International Value ETF
+DFSB,ARCA,Dimensional Global Sustainability Fixed Income ETF
+DFSE,ARCA,Dimensional Emerging Markets Sustainability Core 1 ETF
+DFSI,ARCA,Dimensional International Sustainability Core 1 ETF
+DGCB,NASDAQ,Dimensional ETF Trust Dimensional Global Credit ETF
+DGIN,ARCA,VanEck Digital India ETF
+DGLO,NASDAQ,First Trust Exchange-Traded Fund VI First Trust RBA Deglobalization ETF
+DGT,ARCA,State Street SPDR Global Dow ETF
+DIEM,ARCA,Franklin Emerging Market Core Dividend Tilt Index ETF
+DIHP,BATS,Dimensional International High Profitability ETF
+DINT,BATS,Davis Select International ETF
+DISV,BATS,Dimensional International Small Cap Value ETF
+DIV,ARCA,Global X SuperDividend U.S. ETF
+DIVD,NASDAQ,EA Series Trust Altrius Global Dividend ETF
+DIVI,ARCA,Franklin International Core Dividend Tilt Index ETF
+DJIA,ARCA,Global X Dow 30 Covered Call ETF
+DMXF,NASDAQ,iShares Trust iShares ESG Advanced MSCI EAFE ETF
+DRGN,BATS,Themes China Generative Artificial Intelligence ETF
+DRIV,NASDAQ,Global X Funds Global X Autonomous & Electric Vehicles ETF
+DSTX,NYSE,Distillate International Fundamental Stability & Value ETF
+DTAN,ARCA,Sparkline International Intangible Value ETF
+DTCR,NASDAQ,Global X Funds Global X Data Center & Digital Infrastructure ETF
+DUKX,NASDAQ,Northern Lights Fund Trust Ocean Park International ETF
+DVAL,NASDAQ,Franklin Templeton ETF Trust BrandywineGLOBAL - Dynamic US Large Cap Value ETF
+DVYE,ARCA,iShares Emerging Markets Dividend ETF
+DWAW,NASDAQ,AdvisorShares Trust AdvisorShares Dorsey Wright FSM All Cap World ETF
+DWLD,BATS,Davis Select Worldwide ETF
+DWX,ARCA,State Street SPDR S&P International Dividend ETF
+DXIV,ARCA,Dimensional International Vector Equity ETF
+DYLG,ARCA,Global X Dow 30 Covered Call & Growth ETF
+EAFG,ARCA,Pacer Developed Markets Cash Cows Growth Leaders ETF
+EAPR,ARCA,Innovator Emerging Markets Power Buffer ETF - April
+EART,NASDAQ,Global X Funds Global X Rare Earth & Critical Materials ETF
+EASG,ARCA,Xtrackers MSCI EAFE Selection Equity ETF
+EBIZ,NASDAQ,Global X Funds Global X E-commerce ETF
+EBND,ARCA,SPDR Bloomberg Emerging Markets Local Bond ETF
+EBUF,ARCA,Innovator Emerging Markets 10 Buffer ETF - Quarterly
+ECH,BATS,iShares MSCI Chile ETF
+ECNS,ARCA,iShares MSCI China Small-Cap ETF
+ECOW,NASDAQ,Pacer Funds Pacer Emerging Markets Cash Cows 100 ETF
+EDC,ARCA,Direxion Daily MSCI Emerging Markets Bull 3X ETF
+EDEN,BATS,iShares MSCI Denmark ETF
+EDGI,ARCA,3EDGE Dynamic International Equity ETF
+EDGQ,ARCA,Global X Nasdaq-100 Income Edge ETF
+EDGX,ARCA,Global X U.S. 500 Income Edge ETF
+EDIV,ARCA,State Street SPDR S&P Emerging Markets Dividend ETF
+EDV,ARCA,Vanguard World Funds Extended Duration ETF
+EDZ,ARCA,Direxion Daily MSCI Emerging Markets Bear 3X ETF
+EELV,ARCA,Invesco S&P Emerging Markets Low Volatility ETF
+EEM,ARCA,iShares MSCI Emerging Markets ETF
+EEMA,NASDAQ,iShares MSCI Emerging Markets Asia ETF
+EEMO,ARCA,Invesco S&P Emerging Markets Momentum ETF
+EEMS,ARCA,iShares MSCI Emerging Markets Small-Cap ETF
+EEMV,BATS,iShares MSCI Emerging Markets Min Vol Factor ETF
+EEMX,ARCA,State Street SPDR MSCI Emerging Markets Fossil Fuel Reserves Free ETF
+EFA,ARCA,iShares MSCI EAFE ETF
+EFAA,ARCA,Invesco MSCI EAFE Income Advantage ETF
+EFAD,BATS,ProShares MSCI EAFE Dividend Growers ETF
+EFAS,NASDAQ,Global X Funds Global X MSCI SuperDividend EAFE ETF
+EFAV,BATS,iShares MSCI EAFE Min Vol Factor ETF
+EFAX,ARCA,State Street SPDR MSCI EAFE Fossil Fuel Reserves Free ETF
+EFFE,ARCA,Harbor Osmosis Emerging Markets Resource Efficient ETF
+EFFI,ARCA,Harbor Osmosis International Resource Efficient ETF
+EFG,BATS,iShares MSCI EAFE Growth ETF
+EFNL,BATS,iShares MSCI Finland ETF
+EFV,BATS,iShares MSCI EAFE Value ETF
+EGLE,ARCA,Global X S&P 500 U.S. Revenue Leaders ETF
+EHCC,BATS,Global X Ethereum Covered Call ETF
+EIDO,ARCA,iShares MSCI Indonesia ETF
+EIRL,ARCA,iShares MSCI Ireland ETF
+EIS,ARCA,iShares MSCI Israel ETF
+EJAN,ARCA,Innovator Emerging Markets Power Buffer ETF January
+EJUL,ARCA,Innovator Emerging Markets Power Buffer ETF - July
+EMB,NASDAQ,"iShares J,P. Morgan USD Emerging Markets Bond ETF"
+EMBD,ARCA,Global X Emerging Markets Bond ETF
+EMBX,ARCA,VanEck Emerging Markets Bond ETF
+EMC,ARCA,Global X Emerging Markets Great Consumer ETF
+EMCR,ARCA,Xtrackers Emerging Markets Carbon Reduction and Climate Improvers ETF
+EMCS,ARCA,Xtrackers MSCI Emerging Markets Climate Selection ETF
+EMDM,ARCA,First Trust Bloomberg Emerging Market Democracies ETF
+EMDV,BATS,ProShares MSCI Emerging Markets Dividend Growers ETF
+EMEQ,NASDAQ,Nomura ETF Trust Nomura Focused Emerging Markets Equity ETF
+EMES,ARCA,Harbor Emerging Markets Select ETF
+EMFI,ARCA,Pictet Emerging Markets Debt ETF
+EMGF,BATS,iShares Emerging Markets Equity Factor ETF
+EMHC,ARCA,State Street SPDR Bloomberg Emerging Markets USD Bond ETF
+EMIF,NASDAQ,iShares Emerging Markets Infrastructure ETF
+EMKT,ARCA,Lazard Emerging Markets Opportunities ETF
+EMM,ARCA,Global X Emerging Markets ex-China ETF
+EMOP,ARCA,AB Emerging Markets Opportunities ETF
+EMQQ,ARCA,EMQQ The Emerging Markets Internet ETF
+EMSF,ARCA,Matthews Emerging Markets Sustainable Future Active ETF
+EMTL,BATS,State Street DoubleLine Emerging Markets Fixed Income ETF
+EMXC,NASDAQ,"iShares, Inc. iShares MSCI Emerging Markets ex China ETF"
+EMXF,NASDAQ,iShares Trust iShares ESG Advanced MSCI EM ETF
+ENHI,NASDAQ,BlackRock ETF Trust iShares Enhanced International Active ETF
+ENOR,BATS,iShares MSCI Norway ETF
+ENZL,NASDAQ,iShares Trust iShares MSCI New Zealand ETF
+EOCT,ARCA,Innovator Emerging Markets Power Buffer ETF-October
+EPEM,ARCA,Harbor Emerging Markets Equity ETF
+EPHE,ARCA,iShares MSCI Philippines ETF
+EPI,ARCA,WisdomTree India Earnings Fund ETF
+EPIN,ARCA,Harbor International Equity ETF
+EPOL,ARCA,iShares MSCI Poland ETF
+EPP,ARCA,iShares MSCI Pacific ex Japan ETF
+EPU,ARCA,iShares MSCI Peru and Global Exposure ETF
+EQLT,BATS,iShares MSCI Emerging Markets Quality Factor ETF
+ESGD,NASDAQ,iShares Trust iShares ESG Aware MSCI EAFE ETF
+ESGE,NASDAQ,"iShares, Inc. iShares ESG Aware MSCI EM ETF"
+ESIM,ARCA,Eventide International ETF
+EUAD,BATS,Select STOXX Europe Aerospace & Defense ETF
+EUDV,BATS,ProShares MSCI Europe Dividend Growers ETF
+EUFN,NASDAQ,iShares MSCI Europe Financials ETF
+EURL,ARCA,Direxion Daily FTSE Europe Bull 3x ETF
+EVLU,BATS,iShares MSCI Emerging Markets Value Factor ETF
+EWA,ARCA,iShares MSCI Australia ETF
+EWC,ARCA,iShares MSCI Canada ETF
+EWD,ARCA,iShares MSCI Sweden ETF
+EWG,ARCA,iShares MSCI Germany ETF
+EWH,ARCA,iShares MSCI Hong Kong ETF
+EWI,ARCA,iShares MSCI Italy ETF
+EWJ,ARCA,iShares MSCI Japan ETF
+EWJV,NASDAQ,iShares Trust iShares MSCI Japan Value ETF
+EWK,ARCA,iShares MSCI Belgium ETF
+EWL,ARCA,iShares MSCI Switzerland ETF
+EWM,ARCA,iShares MSCI Malaysia ETF
+EWN,ARCA,iShares MSCI Netherlands ETF
+EWO,ARCA,iShares MSCI Austria ETF
+EWP,ARCA,iShares MSCI Spain ETF
+EWQ,ARCA,iShares MSCI France ETF
+EWS,ARCA,iShares MSCI Singapore ETF
+EWT,ARCA,iShares MSCI Taiwan ETF
+EWW,ARCA,iShares MSCI Mexico ETF
+EWX,ARCA,State Street SPDR S&P Emerging Markets Small Cap ETF
+EWY,ARCA,iShares MSCI South Korea ETF
+EWZ,ARCA,iShares MSCI Brazil ETF
+EWZS,NASDAQ,iShares MSCI Brazil Small-Cap ETF
+EXI,ARCA,iShares Global Industrials ETF
+EXUS,NASDAQ,Nomura ETF Trust Nomura Focused International Core ETF
+EZA,ARCA,iShares MSCI South Africa ETF
+EZU,BATS,iShare MSCI Eurozone ETF of ISHARES INC.
+FAN,ARCA,First Trust Global Wind Energy ETF
+FDEM,BATS,Fidelity Emerging Markets Multifactor ETF
+FDEV,BATS,Fidelity International Multifactor ETF
+FDNI,NASDAQ,First Trust Exchange-Traded Fund II First Trust Dow Jones International Internet ETF
+FEGE,NYSE,First Eagle Global Equity ETF
+FEMB,NASDAQ,First Trust Exchange-Traded Fund III First Trust Emerging Markets Local Currency Bond ETF
+FEMR,ARCA,Fidelity Enhanced Emerging Markets ETF
+FENI,ARCA,Fidelity Enhanced International ETF
+FEOE,NYSE,First Eagle Overseas Equity ETF
+FEUZ,NASDAQ,First Trust Exchange-Traded AlphDEX Fund II First Trust Eurozone AlphaDEX ETF
+FFDI,BATS,Fidelity Fundamental Developed International ETF
+FFEM,BATS,Fidelity Fundamental Emerging Markets ETF
+FFGX,BATS,Fidelity Fundamental Global ex-U.S. ETF
+FFND,ARCA,One Global ETF
+FGSM,ARCA,Frontier Asset Global Small Cap Equity ETF
+FICS,NASDAQ,First Trust Exchange-Traded Fund VI First Trust International Developed Capital Strength ETF
+FID,NASDAQ,First Trust Exchange-Traded Fund VI First Trust S&P International Dividend Aristocrats ETF
+FIDI,ARCA,Fidelity International High Dividend ETF
+FINT,ARCA,Frontier Asset Total International Equity ETF
+FINX,NASDAQ,Global X Funds Global X FinTech ETF
+FIVA,ARCA,Fidelity International Value Factor ETF
+FLAG,ARCA,Global X S&P 500 U.S. Market Leaders Top 50 ETF
+FLAU,ARCA,Franklin FTSE Australia ETF
+FLAX,ARCA,Franklin FTSE Asia ex Japan ETF
+FLBR,ARCA,Franklin FTSE Brazil ETF
+FLCA,ARCA,Franklin FTSE Canada ETF
+FLCH,ARCA,Franklin FTSE China ETF
+FLEE,ARCA,Franklin FTSE Europe ETF
+FLEU,ARCA,Franklin FTSE Eurozone ETF
+FLGR,ARCA,Franklin FTSE Germany ETF
+FLIA,BATS,Franklin International Aggregate Bond ETF
+FLIN,ARCA,Franklin FTSE India ETF
+FLJH,ARCA,Franklin FTSE Japan Hedged ETF
+FLJP,ARCA,Franklin FTSE Japan ETF
+FLKR,ARCA,Franklin FTSE South Korea ETF
+FLMX,ARCA,Franklin FTSE Mexico ETF
+FLOW,ARCA,Global X U.S. Cash Flow Kings 100 ETF
+FLSA,ARCA,Franklin FTSE Saudi Arabia ETF
+FLSW,ARCA,Franklin FTSE Switzerland ETF
+FLTW,ARCA,Franklin FTSE Taiwan ETF
+FNDC,ARCA,Schwab Fundamental International Small Equity ETF
+FNDE,ARCA,Schwab Fundamental Emerging Markets Equity ETF
+FNDF,ARCA,Schwab Fundamental International Equity ETF
+FPAG,BATS,FPA Global Equity ETF
+FPXE,NASDAQ,First Trust Exchange-Traded Fund II First Trust IPOX Europe Equity Opportunities ETF
+FPXI,NASDAQ,First Trust Exchange-Traded Fund II First Trust International Equity Opportunities ETF
+FRDM,BATS,Freedom 100 Emerging Markets ETF
+FRGN,ARCA,Horizon International Equity ETF
+FTAG,NASDAQ,First Trust Exchange-Traded Fund II First Trust Indxx Global Agriculture ETF
+FTGC,NASDAQ,First Trust Exchange-Traded Fund VII First Trust Global Tactical Commodity Strategy Fund
+FTHF,ARCA,First Trust Emerging Markets Human Flourishing ETF
+FTRI,NASDAQ,First Trust Exchange-Traded Fund II First Trust Indxx Global Natural Resources Income ETF
+FXI,ARCA,iShares China Large-Cap ETF
+FYLD,BATS,Cambria Foreign Shareholder Yield ETF
+GAA,BATS,Cambria Global Asset Allocation ETF
+GAEM,ARCA,Simplify Gamma Emerging Market Bond ETF
+GAID,ARCA,Guinness Atkinson International Dividend Builder ETF
+GAL,ARCA,State Street Global Allocation ETF
+GCOW,BATS,Pacer Global Cash Cows Dividend ETF
+GEM,ARCA,Goldman Sachs ActiveBeta Emerging Markets Equity ETF
+GEMD,BATS,Goldman Sachs Access Emerging Markets USD Bond ETF
+GENW,ARCA,Genter Capital International Dividend ETF
+GEW,NASDAQ,EA Series Trust Cambria Global EW ETF
+GGOV,ARCA,iShares Global Government Bond USD Hedged Active ETF
+GGTL,ARCA,Gabelli Global Technology Leaders ETF
+GIAX,ARCA,Nicholas Global Equity and Income ETF
+GII,ARCA,State Street SPDR S&P Global Infrastructure ETF
+GIND,NASDAQ,Goldman Sachs ETF Trust Goldman Sachs India Equity ETF
+GINX,NASDAQ,"The RBB Fund, Inc. SGI Enhanced Global Income ETF"
+GKAT,NASDAQ,Advisors Series Trust Scharf Global Opportunity ETF
+GLBL,BATS,Pacer MSCI World Industry Advantage ETF
+GLIN,ARCA,VanEck India Growth Leaders ETF
+GLOF,ARCA,iShares Global Equity Factor ETF
+GLOW,NASDAQ,Victory Portfolios II VictoryShares WestEnd Global Equity ETF
+GMF,ARCA,State Street SPDR S&P Emerging Asia Pacific ETF
+GMOI,ARCA,GMO International Value ETF
+GMOM,BATS,Cambria Global Momentum ETF
+GNOM,NASDAQ,Global X Funds Global X Genomics & Biotechnology ETF
+GNR,ARCA,State Street SPDR S&P Global Natural Resources ETF
+GOAU,ARCA,US Global GO Gold and Precious Metal Miners ETF
+GOEX,ARCA,Global X Gold Explorers ETF (NEW)
+GREK,ARCA,Global X MSCI Greece ETF
+GRIN,NASDAQ,Victory Portfolios II VictoryShares International Free Cash Flow Growth ETF
+GSEE,BATS,Goldman Sachs MarketBeta Emerging Markets Equity ETF
+GSEU,ARCA,Goldman Sachs ActiveBeta Europe Equity ETF
+GSIB,NASDAQ,Themes ETF Trust Themes Global Systemically Important Banks ETF
+GSID,BATS,Goldman Sachs MarketBeta International Equity ETF
+GSIE,ARCA,Goldman Sachs ActiveBeta International Equity ETF
+GSJY,ARCA,Goldman Sachs ActiveBeta Japan Equity ETF
+GSWO,BATS,Goldman Sachs ActiveBeta World Equity ETF
+GTPE,NASDAQ,Goldman Sachs ETF Trust Goldman Sachs MSCI World Private Equity Return Tracker ETF
+GURU,ARCA,Global X Guru Index ETF
+GVAL,BATS,Cambria Global Value ETF
+GWX,ARCA,State Street SPDR S&P International Small Cap ETF
+GXC,ARCA,State Street SPDR S&P China ETF
+GXDW,NASDAQ,Global X Funds Global X Dorsey Wright Thematic ETF
+GXIG,ARCA,Global X Investment Grade Corporate Bond ETF
+GXLC,ARCA,Global X U.S. 500 ETF
+GXPC,ARCA,Global X PureCap MSCI Communication Services ETF
+GXPD,ARCA,Global X PureCap MSCI Consumer Discretionary ETF
+GXPE,ARCA,Global X PureCap MSCI Energy ETF
+GXPS,ARCA,Global X PureCap MSCI Consumer Staples ETF
+GXPT,ARCA,Global X PureCap MSCI Information Technology ETF
+GXUS,ARCA,Goldman Sachs MarketBeta Total International Equity ETF
+GYLD,NYSE,Arrow Dow Jones Global Yield ETF
+HAUZ,ARCA,Xtrackers International Real Estate ETF
+HAWX,ARCA,iShares Currency Hedged MSCI ACWI ex U.S. ETF
+HDEF,ARCA,Xtrackers MSCI EAFE High Dividend Yield Equity ETF
+HDMV,ARCA,First Trust Horizon Managed Volatility Developed International ETF
+HEAL,NASDAQ,Global X Funds Global X HealthTech ETF
+HEFA,BATS,iShares Currency Hedged MSCI EAFE ETF
+HERO,NASDAQ,Global X Funds Global X Video Games & Esports ETF
+HEWJ,ARCA,iShares Currency Hedged MSCI Japan ETF
+HEZU,ARCA,iShares Currency Hedged MSCI Eurozone ETF of ISHARES TRUST
+HFGM,NYSE,Unlimited HFGM Global Macro ETF
+HFXI,ARCA,NYLI FTSE International Equity Currency Neutral ETF
+HOLA,ARCA,JPMorgan International Hedged Equity Laddered Overlay ETF
+HSCZ,ARCA,iShares Currency Hedged MSCI EAFE Small-Cap ETF
+HTEC,ARCA,ROBO Global Healthcare Technology and Innovation ETF
+HYDR,NASDAQ,Global X Funds Global X Hydrogen ETF
+HYEM,ARCA,VanEck Emerging Markets High Yield Bond ETF
+IAPR,ARCA,Innovator International Developed Power Buffer ETF April
+IAUG,ARCA,Innovator International Developed Power Buffer ETF - August
+IBFR,ARCA,Innovator International Developed Managed 10 Buffer ETF
+IBND,ARCA,SPDR Bloomberg International Corporate Bond ETF
+IBUF,ARCA,Innovator International Developed 10 Buffer ETF - Quarterly
+ICLN,NASDAQ,iShares Global Clean Energy ETF
+ICOW,BATS,Pacer Developed Markets International Cash Cows 100 ETF
+ICPY,ARCA,"Tweedy, Browne International Insider + Value ETF"
+IDEC,ARCA,Innovator International Developed Power Buffer ETF - December
+IDEQ,ARCA,Lazard International Dynamic Equity ETF
+IDEV,ARCA,iShares Core MSCI International Developed Markets ETF
+IDHQ,ARCA,Invesco S&P International Developed Quality ETF
+IDLV,ARCA,Invesco S&P International Developed Low Volatility ETF
+IDMO,ARCA,Invesco S&P International Developed Momentum ETF
+IDOG,ARCA,ALPS International Sector Dividend Dogs ETF
+IDUB,BATS,Aptus International Enhanced Yield ETF
+IDV,BATS,iShares International Select Dividend ETF
+IDVO,ARCA,Amplify CWP International Enhanced Dividend Income ETF
+IDVY,NASDAQ,First Trust Exchange-Traded Fund VI First Trust International Rising Dividend Achievers ETF
+IDX,ARCA,VanEck Indonesia Index ETF
+IDYN,ARCA,iShares International Equity Factor Rotation Active ETF
+IEFA,BATS,iShares Core MSCI EAFE ETF
+IEMG,ARCA,iShares Core MSCI Emerging Markets ETF
+IEUR,ARCA,iShares Core MSCI Europe ETF
+IEUS,NASDAQ,iShares MSCI Europe Small-Cap ETF
+IEV,ARCA,iShares Europe ETF
+IFEB,ARCA,Innovator International Developed Power Buffer ETF - February
+IFGL,NASDAQ,iShares International Developed Real Estate ETF
+IFLO,NASDAQ,Victory Portfolios II VictoryShares International Free Cash Flow ETF
+IFLR,ARCA,Innovator International Developed Managed Floor ETF
+IFV,NASDAQ,First Trust Exchange-Traded Fund VI First Trust Dorsey Wright International Focus 5 ETF
+IGF,NASDAQ,iShares Global Infrastructure ETF
+IGGY,ARCA,AB International Growth ETF
+IGOV,NASDAQ,iShares Trust iShares International Treasury Bond ETF
+IGRO,BATS,iShares International Dividend Growth ETF
+IHY,ARCA,VanEck International High Yield Bond ETF
+IJAN,ARCA,Innovator International Developed Power Buffer ETF - January
+IJUL,ARCA,Innovator International Developed Power Buffer ETF - July
+IJUN,ARCA,Innovator International Developed Power Buffer ETF - June
+ILOW,ARCA,AB International Low Volatility Equity ETF
+IMAR,ARCA,Innovator International Developed Power Buffer ETF - March
+IMAY,ARCA,Innovator International Developed Power Buffer ETF - May
+IMFL,BATS,Invesco International Developed Dynamic Multifactor ETF
+IMOM,NASDAQ,EA Series Trust Alpha Architect International Quantitative Momentum ETF
+IMVP,ARCA,Invesco India ETF
+INCO,ARCA,Columbia India Consumer ETF
+IND,NASDAQ,DBX ETF Trust Xtrackers Nifty 500 India ETF
+INDA,BATS,iShares MSCI India ETF
+INDE,ARCA,Matthews India Active ETF
+INDL,ARCA,Direxion Daily MSCI India Bull 2X ETF
+INDQ,NASDAQ,Pacer Funds Trust Pacer ActiveAlpha India Quality ETF
+INDY,NASDAQ,iShares India 50 ETF
+INDZ,ARCA,VanEck India Select ETF
+INEQ,ARCA,Columbia International Equity Income ETF
+INOV,ARCA,Innovator International Developed Power Buffer ETF - November
+INQQ,ARCA,INQQ The India Internet ETF
+INTF,ARCA,iShares International Equity Factor ETF
+INTL,BATS,Main International ETF
+IOCT,ARCA,Innovator International Developed Power Buffer ETF-October
+ION,ARCA,ProShares S&P Global Core Battery Metals ETF
+IOO,ARCA,iShares Global 100 ETF
+IOPP,ARCA,Simplify Tara India Opportunities ETF
+IPAV,BATS,Global X Infrastructure Development ex-U.S. ETF
+IPKW,NASDAQ,Invesco Exchange-Traded Fund Trust II Invesco International BuyBack Achievers ETF
+IPOS,ARCA,Renaissance International IPO ETF
+IQSI,ARCA,NYLI Candriam International Equity ETF
+IQSZ,ARCA,Invesco Global Equity Net Zero ETF
+IRVH,ARCA,Global X Interest Rate Volatility & Inflation Hedge ETF
+ISCF,ARCA,iShares International Small Cap Equity Factor ETF
+ISEP,ARCA,Innovator International Developed Power Buffer ETF - September
+ISHG,NASDAQ,iShares Trust iShares 1-3 Year International Treasury Bond ETF
+ISRA,ARCA,VanEck Israel ETF
+ISVL,BATS,iShares International Developed Small Cap Value Factor ETF
+ITEQ,ARCA,Amplify BlueStar Israel Technology ETF
+ITOL,BATS,Tema International Durable Quality ETF
+IVAL,NASDAQ,EA Series Trust Alpha Architect International Quantitative Value ETF
+IVSI,NASDAQ,ETF Opportunities Trust Applied Finance IVS International Large ETF
+IVSX,NASDAQ,ETF Opportunities Trust Applied Finance IVS International SMID ETF
+IXC,ARCA,iShares Global Energy ETF
+IXG,ARCA,iShares Global Financials ETF
+IXJ,ARCA,iShares Global Healthcare ETF
+IXN,ARCA,iShares Global Tech ETF
+IXP,ARCA,iShares Global Comm Services ETF
+IXUS,NASDAQ,iShares Core MSCI Total International Stock ETF
+IZRL,BATS,ARK Israel Innovative Technology ETF
+JANI,BATS,AllianzIM International Equity Buffer15 Uncapped Jan ETF
+JAPN,NASDAQ,Listed Funds Trust Horizon Kinetics Japan Owner Operator ETF
+JCHI,ARCA,JPMorgan Active China ETF
+JDVI,ARCA,John Hancock Disciplined Value International Select ETF
+JEMA,NASDAQ,JPMorgan ActiveBuilders Emerging Markets Equity ETF
+JEMB,ARCA,Janus Henderson Emerging Markets Debt Hard Currency ETF
+JETS,ARCA,U.S. Global Jets ETF
+JGLO,NASDAQ,J.P. Morgan Exchange-Traded Fund Trust JPMorgan Global Select Equity ETF
+JHAI,NASDAQ,Janus Detroit Street Trust Janus Henderson Global Artificial Intelligence ETF
+JHEM,ARCA,John Hancock Multifactor Emerging Markets ETF
+JHID,ARCA,John Hancock International High Dividend ETF
+JHLN,ARCA,John Hancock Global Senior Loan ETF
+JHMD,ARCA,John Hancock Multifactor Developed International ETF
+JIDE,ARCA,JPMorgan International Dynamic ETF
+JIG,ARCA,JPMorgan International Growth ETF
+JIRE,ARCA,JPMorgan International Research Enhanced Equity ETF
+JIVE,NASDAQ,J.P. Morgan Exchange-Traded Fund Trust JPMorgan International Value ETF
+JPAN,ARCA,Matthews Japan Active ETF
+JPEM,ARCA,JPMorgan Diversified Return Emerging Markets Equity ETF
+JPIB,ARCA,JPMorgan International Bond Opportunities ETF
+JPIN,ARCA,JPMorgan Diversified Return International Equity ETF
+JPMB,ARCA,JPMorgan USD Emerging Markets Sovereign Bond ETF
+JPY,NASDAQ,Lazard Active ETF Trust Lazard Japanese Equity ETF
+JSTC,ARCA,Adasina Social Justice All Cap Global ETF
+JXI,ARCA,iShares Global Utilities ETF
+KBA,ARCA,KraneShares Bosera MSCI China A 50 Connect Index ETF
+KCAI,ARCA,KraneShares China Alpha Index ETF
+KEMQ,ARCA,KraneShares Emerging Markets Consumer Technology Index ETF
+KEMX,ARCA,KraneShares MSCI Emerging Markets Ex China Index ETF
+KGRN,ARCA,KraneShares MSCI China Clean Technology Index ETF
+KHYB,ARCA,KraneShares Asia Pacific High Income USD Bond ETF
+KLMT,ARCA,Invesco MSCI Global Climate 500 ETF
+KOID,NASDAQ,KraneShares Trust KraneShares Global Humanoid and Embodied Intelligence Index ETF
+KORU,ARCA,Direxion Daily MSCI South Korea Bull 3X ETF
+KPHO,ARCA,KraneShares Dragon Capital Vietnam Growth Index ETF
+KRBN,ARCA,KraneShares Global Carbon Strategy ETF
+KRMA,NASDAQ,Global X Funds Global X Conscious Companies ETF
+KROP,NASDAQ,Global X Funds Global X AgTech & Food Innovation ETF
+KSA,ARCA,iShares MSCI Saudi Arabia ETF
+KURE,ARCA,KraneShares MSCI All China Health Care Index ETF
+KWEB,ARCA,KraneShares CSI China Internet ETF
+KWT,BATS,iShares MSCI Kuwait ETF
+KXI,ARCA,iShares Global Consumer Staples ETF
+LCTD,ARCA,iShares World ex U.S. Carbon Transition Readiness Aware Active ETF
+LDEM,NASDAQ,iShares Trust iShares ESG MSCI EM Leaders ETF
+LGHT,ARCA,Langar Global HealthTech ETF
+LIT,ARCA,Global X Lithium & Battery Tech ETF
+LLDR,ARCA,Global X Long-Term Treasury Ladder ETF
+LNGX,ARCA,Global X U.S. Natural Gas ETF
+LVHI,BATS,Franklin International Low Volatility High Dividend Index ETF
+MAGC,BATS,Roundhill China Magnificent Seven ETF
+MCH,ARCA,Matthews China Active ETF
+MCHI,NASDAQ,iShares MSCI China ETF
+MCHS,NASDAQ,Matthews International Funds Matthews China Discovery Active ETF
+MEM,ARCA,Matthews Emerging Markets Equity Active ETF
+MEMA,NASDAQ,Man ETF Series Trust Man Active Emerging Markets Alternative ETF
+MEMS,NASDAQ,Matthews International Funds Matthews Emerging Markets Discovery Active ETF
+MEMX,ARCA,Matthews Emerging Markets ex China Active ETF
+MEXX,ARCA,Direxion Daily MSCI Mexico Bull 3X ETF
+MFDX,ARCA,PIMCO RAFI Multi-Factor International Equity ETF
+MFEM,ARCA,PIMCO RAFI Dynamic Multi-Factor Emerging Markets Equity ETF
+MFSI,NYSE,MFS Active International ETF
+MILN,NASDAQ,Global X Funds Global X Millennial Consumer ETF
+MJSC,ARCA,MUFG Japan Small Cap Active ETF
+MLDR,ARCA,Global X Intermediate-Term Treasury Ladder ETF
+MLPA,ARCA,Global X MLP ETF
+MLPD,ARCA,Global X MLP & Energy Infrastructure Covered Call ETF
+MLPX,ARCA,Global X MLP & Energy Infrastructure ETF
+MOTG,BATS,VanEck Morningstar Global Wide Moat ETF
+MOTI,BATS,VanEck Morningstar International Moat ETF
+MTRA,BATS,Invesco International Growth Focus ETF
+MUSQ,ARCA,MUSQ Global Music Industry Index ETF
+MVFG,BATS,Monarch Volume Factor Global Unconstrained Index ETF
+MXI,ARCA,iShares Global Materials ETF
+NBCE,ARCA,Neuberger China Equity ETF
+NBIE,ARCA,Neuberger International Core Equity ETF
+NBJP,ARCA,Neuberger Japan Equity ETF
+NDIA,ARCA,Global X India Active ETF
+NEMD,ARCA,Neuberger Emerging Markets Debt Hard Currency ETF
+NFTY,NASDAQ,First Trust India Nifty 50 Equal Weight ETF
+NIHI,BATS,NEOS MSCI EAFE High Income ETF
+NORW,ARCA,Global X MSCI Norway ETF
+NRES,NASDAQ,DBX ETF Trust Xtrackers RREEF Global Natural Resources ETF
+NSI,NASDAQ,Northern Lights Fund Trust IV National Security Emerging Markets Index ETF
+NUDM,BATS,Nuveen ESG International Developed Markets Equity ETF
+NUEM,BATS,Nuveen ESG Emerging Markets Equity ETF
+NXUS,ARCA,Nuveen International Aggregate Bond ETF
+NYSX,ARCA,Global X NYSE 100 ETF
+NZAC,NASDAQ,SPDR Index Shares Fund State Street SPDR MSCI ACWI Climate Paris Aligned ETF
+OAEM,ARCA,OneAscent Emerging Markets ETF
+OAIM,ARCA,OneAscent International Equity ETF
+OAKG,ARCA,Oakmark Global Large Cap ETF
+OAKI,ARCA,Oakmark International Large Cap ETF
+OEFA,ARCA,ALPS O'Shares International Developed Quality Dividend ETF
+OGIG,ARCA,ALPS O'Shares Global Internet Giants ETF
+ONOF,ARCA,Global X Adaptive U.S. Risk Management ETF
+ORBX,NASDAQ,Global X Funds Global X Space Tech ETF
+OSEA,ARCA,Harbor International Compounders ETF
+OVF,BATS,Overlay Shares Foreign Equity ETF
+PABD,NASDAQ,iShares Trust iShares Paris-Aligned Climate Optimized MSCI World ex USA ETF
+PATN,NASDAQ,Pacer Funds Trust Pacer Nasdaq International Patent Leaders ETF
+PAVE,BATS,Global X U.S. Infrastructure Development ETF
+PBD,ARCA,Invesco Global Clean Energy ETF
+PBEU,NASDAQ,Tidal Trust IV Portfolio Building Block European Banks Index ETF
+PBPH,NASDAQ,Tidal Trust IV Portfolio Building Block World Pharma and Biotech Index ETF
+PCCE,ARCA,Polen Capital China Growth ETF
+PCGG,ARCA,Polen Capital Global Growth ETF
+PCIG,ARCA,Polen Capital International Growth ETF
+PCY,ARCA,Invesco Emerging Markets Sovereign Debt ETF
+PDN,ARCA,Invesco RAFI Developed Markets ex-U.S. Small-Mid ETF
+PEMX,ARCA,Putnam Emerging Markets ex-China ETF
+PEX,BATS,ProShares Global Listed Private Equity ETF
+PFFD,ARCA,Global X U.S. Preferred ETF
+PFFV,ARCA,Global X Variable Rate Preferred ETF
+PGHY,ARCA,Invesco Global ex-US High Yield Corporate Bond ETF
+PGJ,NASDAQ,Invesco Exchange-Traded Fund Trust Invesco Golden Dragon China ETF
+PGRI,ARCA,Putnam International Stock ETF
+PICB,ARCA,Invesco International Corporate Bond ETF
+PICK,BATS,iShares MSCI Global Metals & Mining Producers ETF
+PID,NASDAQ,Invesco Exchange-Traded Fund Trust Invesco International Dividend Achievers ETF
+PIE,NASDAQ,Invesco Exchange-Traded Fund Trust II Invesco Dorsey Wright Emerging Markets Momentum ETF
+PIEL,BATS,Pacer International Export Leaders ETF
+PIEQ,BATS,Principal International Equity ETF
+PIO,NASDAQ,Invesco Exchange-Traded Fund Trust II Invesco Global Water ETF
+PIZ,NASDAQ,Invesco Exchange-Traded Fund Trust II Invesco Dorsey Wright Developed Markets Momentum ETF
+PJIO,ARCA,PGIM Jennison International Opportunities ETF
+PPEM,ARCA,Putnam PanAgora ESG Emerging Markets Equity ETF
+PPIE,ARCA,Putnam PanAgora ESG International Equity ETF
+PQNT,ARCA,Pictet AI Enhanced International Equity ETF
+PSP,ARCA,Invesco Global Listed Private Equity ETF
+PTEU,BATS,Pacer TrendpilotTM European Index ETF
+PTIN,ARCA,Pacer Trendpilot International ETF
+PXF,ARCA,Invesco RAFI Developed Markets ex-U.S. ETF
+PXH,ARCA,Invesco RAFI Emerging Markets ETF
+PZIV,ARCA,Pzena International Value ETF
+QAT,NASDAQ,iShares Trust iShares MSCI Qatar ETF
+QBIF,BATS,AllianzIM International Equity Buffer15 ETF
+QBIV,BATS,AllianzIM International Equity Buffer5 ETF
+QCLR,NASDAQ,Global X Funds Global X NASDAQ 100 Collar 95-110 ETF
+QDIV,ARCA,Global X S&P 500 Quality Dividend ETF
+QEFA,ARCA,State Street SPDR MSCI EAFE StrategicFactors ETF
+QEMM,ARCA,State Street SPDR MSCI Emerging Markets StrategicFactors ETF
+QINT,ARCA,American Century Quality Diversified International ETF
+QLTI,ARCA,GMO International Quality ETF
+QRMI,NASDAQ,Global X Funds Global X NASDAQ 100 Risk Managed Income ETF
+QTR,NASDAQ,Global X Funds Global X NASDAQ 100 Tail Risk ETF
+QUIZ,ARCA,Zacks Quality International ETF
+QWLD,ARCA,State Street SPDR MSCI World StrategicFactors ETF
+QYLD,NASDAQ,Global X Funds Global X NASDAQ-100 Covered Call ETF
+QYLG,NASDAQ,Global X Funds Global X Nasdaq 100 Covered Call & Growth ETF
+RAYJ,ARCA,Rayliant SMDAM Japan Equity ETF
+RCGE,NASDAQ,EA Series Trust RockCreek Global Equality ETF
+REET,ARCA,iShares Global REIT ETF
+REFA,ARCA,Columbia Research Enhanced International Equity ETF
+REMG,NASDAQ,Russell Investments Exchange Traded Funds Russell Investments Emerging Markets Equity ETF
+REXC,NASDAQ,Sprott Funds Trust Sprott Rare Earths Ex-China ETF
+RFDI,NASDAQ,First Trust Exchange-Traded Fund III First Trust RiverFront Dynamic Developed International ETF
+RFEM,NASDAQ,First Trust Exchange-Traded Fund III First Trust RiverFront Dynamic Emerging Markets ETF
+RGEF,ARCA,Rockefeller Global Equity ETF
+RGLO,NASDAQ,Russell Investments Exchange Traded Funds Russell Investments Global Equity ETF
+RIFR,NASDAQ,Russell Investments Exchange Traded Funds Russell Investments Global Infrastructure ETF
+RINT,NASDAQ,Russell Investments Exchange Traded Funds Russell Investments International Developed Equity ETF
+RISE,ARCA,Pictet Emerging Markets Rising Economies ETF
+RNEM,NASDAQ,First Trust Exchange-Traded Fund VI Emerging Markets Equity Select ETF
+RNRG,NASDAQ,Global X Funds Global X Renewable Energy Producers ETF
+RNWZ,ARCA,TrueShares Eagle Global Renewable Energy Income ETF
+ROAM,ARCA,Hartford Multifactor Emerging Markets ETF
+ROBO,ARCA,ROBO Global Robotics & Automation Index ETF
+RODM,ARCA,Hartford Multifactor Developed Markets (ex-US) ETF
+RSSB,BATS,Return Stacked Global Stocks & Bonds ETF
+RSSL,ARCA,Global X Russell 2000 ETF
+RWEM,ARCA,Rayliant NxtGen Multifactor Emerging Markets Equity ETF
+RWIN,NASDAQ,Rayliant Funds Trust Rayliant NxtGen Multifactor International Equity ETF
+RWO,ARCA,State Street SPDR Dow Jones Global Real Estate ETF
+RWX,ARCA,State Street SPDR Dow Jones International Real Estate ETF
+RXI,ARCA,iShares Global Consumer Discretionary ETF
+RYLD,ARCA,Global X Russell 2000 Covered Call ETF
+RYLG,ARCA,Global X Russell 2000 Covered Call & Growth ETF
+SAGP,ARCA,Strategas Global Policy Opportunities ETF
+SCHC,ARCA,Schwab International Small-Cap Equity ETF
+SCHE,ARCA,Schwab Emerging Markets Equity ETF
+SCHF,ARCA,Schwab International Equity ETF
+SCHY,ARCA,Schwab International Dividend Equity ETF
+SCJ,ARCA,iShares MSCI Japan Small-Cap ETF
+SCZ,NASDAQ,iShares MSCI EAFE Small-Cap ETF
+SDEM,ARCA,Global X MSCI SuperDividend Emerging Markets ETF
+SDG,NASDAQ,iShares Trust iShares MSCI Global Sustainable Development Goals ETF
+SDIV,ARCA,Global X SuperDividend ETF
+SEA,ARCA,U.S. Global Sea to Sky Cargo ETF
+SEEM,NASDAQ,SEI Exchange Traded Funds SEI Select Emerging Markets Equity ETF
+SEIE,NASDAQ,SEI Exchange Traded Funds SEI Select International Equity ETF
+SFGV,ARCA,Sequoia Global Value ETF
+SFTX,ARCA,Horizon International Managed Risk ETF
+SHLD,ARCA,Global X Defense Tech ETF
+SIL,ARCA,Global X Silver Miners ETF (NEW)
+SLDR,ARCA,Global X Short-Term Treasury Ladder ETF
+SLVP,BATS,iShares MSCI Global Silver and Metals Miners ETF
+SMIN,BATS,iShares MSCI India Small-Cap ETF
+SNSR,NASDAQ,Global X Funds Global X Internet of Things ETF
+SOCL,NASDAQ,Global X Funds Global X Social Media ETF
+SPDW,ARCA,State Street SPDR Portfolio Developed World ex-US ETF
+SPEM,ARCA,State Street SPDR Portfolio Emerging Markets ETF
+SPEU,ARCA,State Street SPDR Portfolio Europe ETF
+SPFF,ARCA,Global X SuperIncome Preferred ETF
+SPGM,ARCA,State Street SPDR Portfolio MSCI Global Stock Market ETF
+SPRE,ARCA,SP Funds S&P Global REIT Sharia ETF
+SPSK,ARCA,SP Funds Dow Jones Global Sukuk ETF
+SPTE,ARCA,SP Funds S&P Global Technology ETF
+SPWO,ARCA,SP Funds S&P World (ex-US) ETF
+SRET,NASDAQ,Global X Funds Global X SuperDividend REIT ETF
+SROI,ARCA,Calamos Antetokounmpo Global Sustainable Equities ETF
+SSXU,ARCA,Day Hagan Smart Sector International ETF
+STXE,NYSE,Strive Emerging Markets Ex-China ETF
+TACN,ARCA,T. Rowe Price Active Core International Equity ETF
+TBLU,NYSE,Tortoise Global Water ETF
+TCHI,NASDAQ,iShares Trust iShares MSCI China Multisector Tech ETF
+TDEC,BATS,FT Vest Emerging Markets Buffer ETF - December
+TDI,NASDAQ,Touchstone ETF Trust Touchstone Dynamic International ETF
+TEMD,ARCA,Templeton Emerging Markets Debt ETF
+TEMR,ARCA,T. Rowe Price Emerging Markets Equity Research ETF
+TEMX,BATS,Touchstone Sands Capital Emerging Markets ex-China Growth ETF
+TGLB,ARCA,T. Rowe Price Global Equity ETF
+THD,ARCA,iShares MSCI Thailand ETF
+THNQ,ARCA,ROBO Global Artificial Intelligence ETF
+TIER,ARCA,T. Rowe Price International Equity Research ETF
+TIIV,ARCA,AAM Todd International Intrinsic Value ETF
+TINS,ARCA,Templeton International Insights ETF
+TJUN,BATS,FT Vest Emerging Markets Buffer ETF - June
+TLCI,ARCA,Touchstone International Equity ETF
+TLTX,BATS,Global X Treasury Bond Enhanced Income ETF
+TMAR,BATS,FT Vest Emerging Markets Buffer ETF - March
+TMFG,BATS,Motley Fool Global Opportunities ETF
+TOGA,ARCA,Tremblant Global ETF
+TOLZ,ARCA,ProShares DJ Brookfield Global Infrastructure ETF
+TOUS,ARCA,T. Rowe Price International Equity ETF
+TPIF,ARCA,Timothy Plan International ETF
+TSEP,BATS,FT Vest Emerging Market Buffer ETF - September
+TXUE,NASDAQ,Thornburg ETF Trust Thornburg International Equity ETF
+TXUG,NASDAQ,Thornburg ETF Trust Thornburg International Growth Fund ETF
+TYLG,ARCA,Global X Information Technology Covered Call & Growth ETF
+UAE,NASDAQ,iShares Trust iShares MSCI UAE ETF
+UEVM,NASDAQ,Victory Portfolios II VictoryShares Emerging Markets Value Momentum ETF
+UIVM,NASDAQ,Victory Portfolios II VictoryShares International Value Momentum ETF
+UMMA,NASDAQ,Listed Funds Trust Wahed Dow Jones Islamic World ETF
+URA,ARCA,Global X Uranium ETF
+URTH,ARCA,iShares MSCI World ETF
+USFI,NASDAQ,Franklin Templeton ETF Trust BrandywineGLOBAL - U.S. Fixed Income ETF
+VDG,BATS,Vanguard Developed Markets ex-US Growth Index ETF
+VDI,ARCA,Virtus International Dividend ETF
+VDV,BATS,Vanguard Developed Markets ex-US Value Index ETF
+VEA,ARCA,Vanguard FTSE Developed Markets ETF
+VEFA,NASDAQ,VanEck ETF Trust VanEck MSCI EAFE Analyst Sentiment ETF
+VEGA,ARCA,AdvisorShares STAR Global Buy-Write ETF
+VEM,ARCA,Virtus Emerging Markets Dividend ETF
+VEMY,ARCA,Virtus Stone Harbor Emerging Markets High Yield Bond ETF
+VEU,ARCA,Vanguard FTSE All-World Ex-US ETF
+VEXC,ARCA,Vanguard Emerging Markets Ex-China ETF
+VGK,ARCA,Vanguard FTSE Europe ETF
+VGSR,NASDAQ,Manager Directed Portfolios Vert Global Sustainable Real Estate ETF
+VIGI,NASDAQ,Vanguard Whitehall Funds Vanguard International Dividend Appreciation ETF
+VNAM,ARCA,Global X MSCI Vietnam ETF
+VNIE,ARCA,Vontobel International Equity Active ETF
+VNM,BATS,VanEck Vietnam ETF
+VNQI,NASDAQ,Vanguard International Equity Index Funds Vanguard Global ex-U.S. Real Estate ETF
+VSGX,BATS,Vanguard ESG International Stock ETF
+VT,ARCA,Vanguard Total World Stock ETF
+VWO,ARCA,Vanguard FTSE Emerging Markets ETF
+VWOB,NASDAQ,Vanguard Whitehall Funds Vanguard Emerging Markets Government Bond ETF
+VXUS,NASDAQ,Vanguard STAR Funds Vanguard Total International Stock ETF
+VYMI,NASDAQ,Vanguard Whitehall Funds Vanguard International High Dividend Yield ETF
+WAR,ARCA,U.S. Global Technology and Aerospace & Defense ETF
+WCME,ARCA,First Trust WCM Developing World Equity ETF
+WCMG,ARCA,First Trust WCM Global Equity ETF
+WCMI,ARCA,First Trust WCM International Equity ETF
+WDIV,ARCA,State Street SPDR S&P Global Dividend ETF
+WIP,ARCA,SPDR FTSE International Government Inflation-Protected Bond ETF
+WLDR,BATS,Affinity World Leaders Equity ETF
+WLDU,BATS,Leverage Shares 2x Long World Stock Daily ETF
+WOOD,NASDAQ,iShares Global Timber & Forestry ETF
+WRND,NASDAQ,New York Life Investments ETF Trust NYLI Global Equity R&D Leaders ETF
+WSGE,NASDAQ,EA Series Trust Warren Street Global Equity ETF
+WSML,NASDAQ,iShares Trust iShares MSCI World Small-Cap ETF
+WWJD,ARCA,Inspire International ETF
+XCEM,ARCA,Columbia EM Core ex-China ETF
+XCLR,ARCA,Global X S&P 500 Collar 95-110 ETF
+XCNY,NASDAQ,SPDR Index Shares Fund State Street SPDR S&P Emerging Markets ex-China ETF
+XDEF,NASDAQ,DBX ETF Trust Xtrackers Europe Defense Technologies ETF
+XEMD,BATS,BondBloxx JP Morgan USD Emerging Markets 1-10 Year Bond ETF
+XEML,BATS,Xtrackers Europe Market Leaders ETF
+XIDV,ARCA,Franklin International Dividend Booster Index ETF
+XRMI,ARCA,Global X S&P 500 Risk Managed Income ETF
+XTR,ARCA,Global X S&P 500 Tail Risk ETF
+XYLD,ARCA,Global X S&P 500 Covered Call ETF
+XYLG,ARCA,Global X S&P 500 Covered Call & Growth ETF
+YANG,ARCA,Direxion Daily FTSE China Bear 3X ETF
+YDEC,BATS,FT Vest International Equity Moderate Buffer ETF - December
+YINN,ARCA,Direxion Daily FTSE China Bull 3X ETF
+YJUN,BATS,FT Vest International Equity Moderate Buffer ETF - June
+YMAR,BATS,FT Vest International Equity Moderate Buffer ETF - March
+YSEP,BATS,FT Vest International Equity Moderate Buffer ETF - September
+ZAP,NASDAQ,Global X Funds Global X U.S. Electrification ETF
+ZCBA,ARCA,Global X Zero Coupon Bond 2030 ETF
+ZCBB,ARCA,Global X Zero Coupon Bond 2031 ETF
+ZCBC,ARCA,Global X Zero Coupon Bond 2032 ETF
+ZCBE,ARCA,Global X Zero Coupon Bond 2033 ETF
+ZCBF,ARCA,Global X Zero Coupon Bond 2034 ETF
+ZCBG,ARCA,Global X Zero Coupon Bond 2035 ETF

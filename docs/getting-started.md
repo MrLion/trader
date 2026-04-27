@@ -164,8 +164,8 @@ python3 scripts/paper_portfolio.py today
 # Generate post-market analysis
 python3 scripts/postmarket_report.py --html
 
-# Scan for new ideas
-python3 scripts/stage2_rs_screen.py
+# Sector scan for new ideas
+python3 scripts/sector_scan_comprehensive.py
 ```
 
 ---
@@ -282,8 +282,8 @@ python3 scripts/entry_signals.py --ticker AAPL
 # Sector scan
 python3 scripts/sector_scan.py
 
-# Stage 2 + RS screen
-python3 scripts/stage2_rs_screen.py
+# Entry signals scan
+python3 scripts/entry_signals.py
 ```
 
 ### Reports

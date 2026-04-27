@@ -1,0 +1,2 @@
+ticker,entry_date,exit_date,entry_price,exit_price,shares,pnl,r_multiple,exit_reason,pivot_price
+AAPL,2025-01-07,2025-01-10,245.1225,242.5787,40,-101.75200000000018,-0.35,LIQUIDATION,243.36

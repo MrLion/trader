@@ -4,7 +4,7 @@ Quick links to project context and daily notes.
 
 ## Project Roadmap
 
-**Location:** `plans/roadmap-2026-v0.7-to-v0.9.md`
+**Location:** `plans/roadmap-2026.md`
 
 **Current:** 0.6.13.0 — Backtest config tracking shipped
 
@@ -29,6 +29,7 @@ Quick links to project context and daily notes.
 
 | Plan | Status | Version |
 |------|--------|---------|
+| [FMP Economic Calendar](plans/plan-fmp-economic-calendar.md) | Ready | 0.6.14.x |
 | [Pivot hybrid config](plans/plan-pivot-hybrid-config.md) | PENDING | — |
 
 ## Daily Notes
@@ -51,7 +52,7 @@ memory/
 └── feedback_*.md, project_*.md  # Context & decisions
 
 plans/
-├── roadmap-2026-v0.7-to-v0.9.md  # Version timeline
+├── roadmap-2026.md  # Version timeline
 ├── plan-*.md                      # Detailed specs (active)
 └── archive/
     └── plan-*.md                  # Completed plans

@@ -376,20 +376,6 @@ python3 scripts/sector_scan_comprehensive.py
 
 The CSV output always contains the full universe regardless of `--top`.
 
-### Stage 2 RS Screen
-
-**Script:** `scripts/stage2_rs_screen.py`
-
-**Purpose:** Screen a list of tickers for Stage 2 qualification + relative strength vs SPY. Ranks by 6-month return; top 20% flagged as Tier B. Filters: price >= $10, dollar volume >= $20M.
-
-```bash
-# Screen from ticker file (one ticker per line, # comments, blank lines ok)
-python3 scripts/stage2_rs_screen.py data/weekly_watchlist.txt
-# Output: scans/stage2_screen_YYYY-MM-DD.csv
-```
-
-Requires a ticker file argument. No other CLI options.
-
 ---
 
 ## Pre-Market Report

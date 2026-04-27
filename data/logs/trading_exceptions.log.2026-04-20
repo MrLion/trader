@@ -1,0 +1,15 @@
+2026-04-20 09:05:25 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'ALAB'}
+2026-04-20 09:05:25 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'AMAT'}
+2026-04-20 09:05:25 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'AMD'}
+2026-04-20 09:05:25 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'AMPX'}
+2026-04-20 09:05:25 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'ANET'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'ARM'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'ATI'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'DY'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'EAT'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'ENTG'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'HUBB'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'IMNM'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'MOD'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'MU'}
+2026-04-20 09:05:26 [WARNING] trading: [ticker_analysis] NameError: name 'calculate_ma_support_stop' is not defined | context: {'ticker': 'STRL'}

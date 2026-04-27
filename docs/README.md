@@ -36,7 +36,6 @@ Organized by task and user type.
 | [MA Convergence](trend_screener/MA_CONVERGENCE.md) | Scoring algorithm deep dive |
 | [Sector Scan](scripts/sector_scan.md) | Comprehensive ETF sector scan with ranking |
 | [Watchlist Manager](scripts/watchlist_manager.md) | Watchlist population, add, remove, list |
-| [Stage 2 RS Screen](scripts/stage2_rs_screen.md) | Relative strength screen vs SPY |
 | [MC Stock Scraper](scripts/mcstock_scraper.md) | Trade ideas and historical archives |
 | [Paper Portfolio](scripts/paper_portfolio.md) | Paper trading portfolio management |
 | [Show Positions](scripts/show_positions.md) | Quick open-positions viewer |

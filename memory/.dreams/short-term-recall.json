@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-13T20:40:00.504Z",
+  "entries": {
+    "memory:memory/2026-04-05.md:1:30": {
+      "key": "memory:memory/2026-04-05.md:1:30",
+      "path": "memory/2026-04-05.md",
+      "startLine": 1,
+      "endLine": 30,
+      "source": "memory",
+      "snippet": "# Trading Log — 2026-04-05 (Sunday) ## Session Type: Setup & Initialization ### Account Setup - Initial capital allocated: $50,000 (of $300,000 total) - Risk per trade: $250–$500 (0.5–1.0%) - Max portfolio heat: $3,000 (6%) - Max position size: $10,000 (20%) ### Files Created - ✅ trade_log.csv — For all trade entries and exits - ✅ watchlist.csv — Tier A/B/C tracking - ✅ regime_tracker.json — Market regime and breadth data - ✅ portfolio.json — Current positions and P&L - ✅ screening_criteria.json — Scan parameters ### Next Session Tasks (Pre-Market Monday) 1. Pull overnight futures (/ES, /NQ, /RTY) 2. Check VIX level 3. Update regime scorecard 4. Review economic calendar for the week 5. R",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.40834126770496365,
+      "maxScore": 0.40834126770496365,
+      "firstRecalledAt": "2026-04-12T23:03:12.355Z",
+      "lastRecalledAt": "2026-04-12T23:03:12.355Z",
+      "queryHashes": [
+        "c6a18945400d"
+      ],
+      "recallDays": [
+        "2026-04-12"
+      ],
+      "conceptTags": [
+        "0.5",
+        "1.0",
+        "trade-log.csv",
+        "watchlist.csv",
+        "a/b/c",
+        "regime-tracker.json",
+        "portfolio.json",
+        "screening-criteria.json"
+      ]
+    },
+    "memory:memory/2026-04-05.md:1:31": {
+      "key": "memory:memory/2026-04-05.md:1:31",
+      "path": "memory/2026-04-05.md",
+      "startLine": 1,
+      "endLine": 31,
+      "source": "memory",
+      "snippet": "# Trading Log — 2026-04-05 (Sunday) ## Session Type: Setup & Initialization ### Account Setup - Initial capital allocated: $50,000 (of $300,000 total) - Risk per trade: $250–$500 (0.5–1.0%) - Max portfolio heat: $3,000 (6%) - Max position size: $10,000 (20%) ### Files Created - ✅ trade_log.csv — For all trade entries and exits - ✅ watchlist.csv — Tier A/B/C tracking - ✅ paper_positions.json — Current open positions - ✅ paper_trades.jsonl — Trade history with metadata - ✅ daily_tracker.json — Daily reset tracking - ✅ alpaca_orders.json — Order lifecycle tracking ### Next Session Tasks (Pre-Market Monday) 1. Pull overnight futures (/ES, /NQ, /RTY) 2. Check VIX level 3. Update regime scorec",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.4188421964645386,
+      "maxScore": 0.4188421964645386,
+      "firstRecalledAt": "2026-04-13T20:40:00.504Z",
+      "lastRecalledAt": "2026-04-13T20:40:00.504Z",
+      "queryHashes": [
+        "2257ecc7eef2"
+      ],
+      "recallDays": [
+        "2026-04-13"
+      ],
+      "conceptTags": [
+        "0.5",
+        "1.0",
+        "trade-log.csv",
+        "watchlist.csv",
+        "a/b/c",
+        "paper-positions.json",
+        "paper-trades.jsonl",
+        "daily-tracker.json"
+      ]
+    },
+    "memory:memory/2026-04-06.md:40:89": {
+      "key": "memory:memory/2026-04-06.md:40:89",
+      "path": "memory/2026-04-06.md",
+      "startLine": 40,
+      "endLine": 89,
+      "source": "memory",
+      "snippet": "**Regime:** BEAR (0/4 bullish signals) - SPY/QQQ/IWM all below 50 SMA - VIX elevated at 24.17 - IWM holding above 200MA (+4.3%) — relative strength **Watchlist Quality:** Exceptional - 19/21 stocks are Tier 1 (Score ≥60) - 16 stocks within 3% of pivot — ready on breakout - Top setup: KEYS (100 pts — perfect score) **Sector Leadership:** 1. USO (Oil) +101.6% 6M 2. XTL (Telecom) +43.0% 6M 3. DBE (Energy) +75.8% 6M --- ## Scripts Updated | Script | Change | |--------|--------| | `premarket_report_comprehensive.py` | Added watchlist integration, entry scoring, tier rankings | | `TOOLS.md` | Updated Telegram destination to Trading Sandbox | --- ## Watchlist Status (21 Stocks) **Tier 1 (19",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.3859775424003601,
+      "maxScore": 0.3859775424003601,
+      "firstRecalledAt": "2026-04-13T20:40:00.504Z",
+      "lastRecalledAt": "2026-04-13T20:40:00.504Z",
+      "queryHashes": [
+        "2257ecc7eef2"
+      ],
+      "recallDays": [
+        "2026-04-13"
+      ],
+      "conceptTags": [
+        "0/4",
+        "spy/qqq/iwm",
+        "24.17",
+        "4.3",
+        "19/21",
+        "101.6",
+        "43.0",
+        "75.8"
+      ]
+    }
+  }
+}
