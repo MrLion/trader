@@ -154,3 +154,57 @@ class TestEconomicCalendarInit:
         ec = EconomicCalendar(api_key="key")
         expected_keywords = ["cpi", "ppi", "fed", "fomc", "nonfarm", "payrolls", "employment"]
         assert ec._HIGH_IMPACT_KEYWORDS == expected_keywords
+
+
+# =============================================================================
+# Sub-task 3: Rate limiting
+# =============================================================================
+
+class TestRateLimit:
+    """Test internal rate limiting."""
+
+    def test_no_sleep_when_under_limit(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._call_times = [100.0] * 299
+        with patch("time.monotonic", return_value=120.0):
+            with patch("time.sleep") as mock_sleep:
+                ec._rate_limit()
+        mock_sleep.assert_not_called()
+        assert len(ec._call_times) == 300
+
+    def test_sleeps_when_at_limit(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._call_times = [100.0] * 300
+        with patch("time.monotonic", return_value=120.0):
+            with patch("time.sleep") as mock_sleep:
+                ec._rate_limit()
+        mock_sleep.assert_called_once()
+        assert len(ec._call_times) == 301
+
+    def test_prunes_old_calls(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._call_times = [50.0] * 300 + [120.0] * 5
+        with patch("time.monotonic", return_value=130.0):
+            with patch("time.sleep") as mock_sleep:
+                ec._rate_limit()
+        mock_sleep.assert_not_called()
+        # Old calls (50.0) should be pruned, leaving only the 5 recent ones + new one
+        assert len(ec._call_times) == 6
+
+    def test_sleeps_correct_amount(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._call_times = [100.0] * 300
+        with patch("time.monotonic", return_value=159.0):  # 59 seconds after first call
+            with patch("time.sleep") as mock_sleep:
+                ec._rate_limit()
+        # Should sleep for ~1.05 seconds (60 - 59 + 0.05)
+        mock_sleep.assert_called_once()
+        call_args = mock_sleep.call_args[0][0]
+        assert 1.0 <= call_args <= 1.1
+
+    def test_appends_new_call_time(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._call_times = [100.0] * 299
+        with patch("time.monotonic", return_value=200.0):
+            ec._rate_limit()
+        assert 200.0 in ec._call_times
