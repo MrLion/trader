@@ -208,3 +208,58 @@ class TestRateLimit:
         with patch("time.monotonic", return_value=200.0):
             ec._rate_limit()
         assert 200.0 in ec._call_times
+
+
+# =============================================================================
+# Sub-task 4: High-impact event detection
+# =============================================================================
+
+class TestIsHighImpactEvent:
+    """Test _is_high_impact_event keyword detection."""
+
+    def test_cpi_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("CPI MoM") is True
+        assert ec._is_high_impact_event("Core CPI") is True
+
+    def test_ppi_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("PPI MoM") is True
+        assert ec._is_high_impact_event("Core PPI") is True
+
+    def test_fed_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("Fed Interest Rate Decision") is True
+
+    def test_fomc_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("FOMC Statement") is True
+
+    def test_nonfarm_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("Nonfarm Payrolls") is True
+
+    def test_payrolls_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("ADP Payrolls") is True
+
+    def test_employment_is_high_impact(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("Employment Report") is True
+
+    def test_case_insensitive_matching(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("cpi mom") is True
+        assert ec._is_high_impact_event("CPI MoM") is True
+        assert ec._is_high_impact_event("Cpi Mom") is True
+        assert ec._is_high_impact_event("FOMC STATEMENT") is True
+
+    def test_low_impact_events_return_false(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("Retail Sales") is False
+        assert ec._is_high_impact_event("Consumer Confidence") is False
+        assert ec._is_high_impact_event("Durable Goods Orders") is False
+
+    def test_empty_string_returns_false(self):
+        ec = EconomicCalendar(api_key="key")
+        assert ec._is_high_impact_event("") is False
