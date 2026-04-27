@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.13.2] — 2026-04-27 — Paper Engine Test Order Fix
+
+### Fixed
+- **`traderlib/order_manager.py`** — Moved test order cleanup BEFORE Alpaca API call to prevent UUID validation errors
+  - Stale `test-order` entries with non-UUID format now purged before API validation
+  - Prevents engine crash when `process_all_pending()` encounters old test orders
+- **`data/alpaca_orders.json`** — Removed stale `test-order` entry causing crashes
+
 ## [0.6.13.1] — 2026-04-27 — Backtest Config Tracking Fix
 
 ### Fixed
