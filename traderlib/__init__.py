@@ -5,6 +5,10 @@ This package provides shared utilities for Stage 2 analysis,
 entry scoring, and technical indicator calculations.
 """
 
+from .economic_calendar import (
+    EconomicCalendar,
+    EconomicEvent,
+)
 from .stage2_utils import (
     calculate_stage2_score,
     get_entry_score,
@@ -21,6 +25,8 @@ from .risk_config import (
 
 __version__ = "0.3.1"
 __all__ = [
+    "EconomicCalendar",
+    "EconomicEvent",
     "calculate_stage2_score",
     "get_entry_score",
     "get_stage2_tier",
