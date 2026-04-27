@@ -548,3 +548,111 @@ class TestGetEvents:
         assert len(result) == 1
         assert result[0].estimate is None
         assert result[0].previous is None
+
+
+# =============================================================================
+# Sub-task 7: Convenience methods
+# =============================================================================
+
+class TestConvenienceMethods:
+    """Test convenience methods: get_today_events, get_tomorrow_events, get_high_impact_events."""
+
+    def test_get_today_events_calls_get_events_with_today(self):
+        ec = EconomicCalendar(api_key="key")
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2026-04-27", "time": "08:30", "event": "CPI", "impact": "high", "estimate": None, "previous": None}
+        ]
+        mock_response.raise_for_status.return_value = None
+
+        with patch("traderlib.economic_calendar.date") as mock_date:
+            mock_date.today.return_value = date(2026, 4, 27)
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            with patch("traderlib.economic_calendar.requests.get", return_value=mock_response) as mock_get:
+                result = ec.get_today_events()
+
+        assert len(result) == 1
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["from"] == "2026-04-27"
+        assert call_args[1]["params"]["to"] == "2026-04-27"
+
+    def test_get_tomorrow_events_calls_get_events_with_tomorrow(self):
+        ec = EconomicCalendar(api_key="key")
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2026-04-28", "time": "08:30", "event": "GDP", "impact": "high", "estimate": None, "previous": None}
+        ]
+        mock_response.raise_for_status.return_value = None
+
+        with patch("traderlib.economic_calendar.date") as mock_date:
+            mock_date.today.return_value = date(2026, 4, 27)
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            with patch("traderlib.economic_calendar.requests.get", return_value=mock_response) as mock_get:
+                result = ec.get_tomorrow_events()
+
+        assert len(result) == 1
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["from"] == "2026-04-28"
+        assert call_args[1]["params"]["to"] == "2026-04-28"
+
+    def test_get_high_impact_events_filters_low_and_medium(self):
+        ec = EconomicCalendar(api_key="key")
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2026-04-27", "time": "08:30", "event": "CPI", "impact": "high", "estimate": None, "previous": None},
+            {"date": "2026-04-27", "time": "10:00", "event": "Retail Sales", "impact": "medium", "estimate": None, "previous": None},
+            {"date": "2026-04-27", "time": "12:00", "event": "Factory Orders", "impact": "low", "estimate": None, "previous": None}
+        ]
+        mock_response.raise_for_status.return_value = None
+
+        with patch("traderlib.economic_calendar.requests.get", return_value=mock_response):
+            result = ec.get_high_impact_events(date(2026, 4, 27))
+
+        assert len(result) == 1
+        assert result[0].event == "CPI"
+
+    def test_get_high_impact_events_detects_keywords(self):
+        ec = EconomicCalendar(api_key="key")
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2026-04-27", "time": "08:30", "event": "FOMC Statement", "impact": "medium", "estimate": None, "previous": None}
+        ]
+        mock_response.raise_for_status.return_value = None
+
+        with patch("traderlib.economic_calendar.requests.get", return_value=mock_response):
+            result = ec.get_high_impact_events(date(2026, 4, 27))
+
+        assert len(result) == 1
+        assert result[0].event == "FOMC Statement"
+
+    def test_get_high_impact_events_with_date_range(self):
+        ec = EconomicCalendar(api_key="key")
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"date": "2026-04-27", "time": "08:30", "event": "CPI", "impact": "high", "estimate": None, "previous": None},
+            {"date": "2026-04-28", "time": "08:30", "event": "GDP", "impact": "high", "estimate": None, "previous": None},
+            {"date": "2026-04-28", "time": "10:00", "event": "Retail", "impact": "low", "estimate": None, "previous": None}
+        ]
+        mock_response.raise_for_status.return_value = None
+
+        with patch("traderlib.economic_calendar.requests.get", return_value=mock_response):
+            result = ec.get_high_impact_events(date(2026, 4, 27), date(2026, 4, 28))
+
+        assert len(result) == 2
+        assert result[0].event == "CPI"
+        assert result[1].event == "GDP"
+
+    def test_clear_cache_removes_all_entries(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._cache["key1"] = []
+        ec._cache["key2"] = []
+        ec.clear_cache()
+        assert ec._cache == {}
+
+    def test_invalidate_removes_specific_range(self):
+        ec = EconomicCalendar(api_key="key")
+        ec._cache["2026-04-27:2026-04-27"] = []
+        ec._cache["2026-04-28:2026-04-28"] = []
+        ec.invalidate(date(2026, 4, 27))
+        assert "2026-04-27:2026-04-27" not in ec._cache
+        assert "2026-04-28:2026-04-28" in ec._cache
