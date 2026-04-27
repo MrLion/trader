@@ -263,3 +263,96 @@ class TestIsHighImpactEvent:
     def test_empty_string_returns_false(self):
         ec = EconomicCalendar(api_key="key")
         assert ec._is_high_impact_event("") is False
+
+
+# =============================================================================
+# Sub-task 5: Impact classification
+# =============================================================================
+
+class TestClassifyImpact:
+    """Test _classify_impact method."""
+
+    def test_fmp_high_impact_returns_high(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="Some Event",
+            impact="high",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "high"
+
+    def test_keyword_high_impact_returns_high(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="CPI Report",
+            impact="medium",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "high"
+
+    def test_fmp_medium_no_keyword_returns_medium(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="Retail Sales",
+            impact="medium",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "medium"
+
+    def test_fmp_low_no_keyword_returns_low(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="Factory Orders",
+            impact="low",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "low"
+
+    def test_high_impact_case_insensitive(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="FOMC Statement",
+            impact="HIGH",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "high"
+
+    def test_medium_impact_case_insensitive(self):
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="Some Event",
+            impact="MEDIUM",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "medium"
+
+    def test_combined_fmp_and_keyword_detection(self):
+        """If FMP says high AND keywords indicate high, still return high."""
+        ec = EconomicCalendar(api_key="key")
+        event = EconomicEvent(
+            date="2026-04-27",
+            time="08:30",
+            event="CPI MoM",
+            impact="high",
+            estimate=None,
+            previous=None
+        )
+        assert ec._classify_impact(event) == "high"
