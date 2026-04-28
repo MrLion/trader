@@ -24,6 +24,7 @@ class Dashboard:
         self.console: Optional[Any] = None
         self.live: Optional[Any] = None
         self.events: deque = deque(maxlen=20)
+        self._last_state: Dict[str, Any] = {}
 
         if self.enabled:
             self.console = Console()
@@ -45,6 +46,7 @@ class Dashboard:
         """Refresh dashboard with new state."""
         if not self.enabled:
             return
+        self._last_state = state
         self.live.update(self._render(state))
 
     def log_event(self, event: Dict[str, Any]) -> None:
@@ -58,7 +60,7 @@ class Dashboard:
         if not _HAS_RICH:
             return ""
 
-        state = state or {}
+        state = state or self._last_state or {}
         return Group(
             self._header(state),
             self._stats(state),
@@ -77,10 +79,10 @@ class Dashboard:
         return Text(line, style="bold white")
 
     def _stats(self, state: Dict[str, Any]) -> Text:
-        equity = state.get("equity", 0.0)
-        cash = state.get("cash", 0.0)
-        day_pnl = state.get("day_pnl", 0.0)
-        unreal = state.get("unrealized_pnl", 0.0)
+        equity = float(state.get("equity") or 0.0)
+        cash = float(state.get("cash") or 0.0)
+        day_pnl = float(state.get("day_pnl") or 0.0)
+        unreal = float(state.get("unrealized_pnl") or 0.0)
         open_pos = state.get("open_positions", 0)
         pending = state.get("pending_orders", 0)
 
@@ -114,10 +116,10 @@ class Dashboard:
         tbl.add_column("R", justify="right")
 
         for ticker, pos in positions.items():
-            entry = float(pos.get("entry_price", 0))
-            current = float(pos.get("current_price", entry))
-            stop = float(pos.get("stop_price", 0))
-            shares = int(pos.get("shares", 0))
+            entry = float(pos.get("entry_price") or 0)
+            current = float(pos.get("current_price") or entry)
+            stop = float(pos.get("stop_price") or 0)
+            shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
             phase = pos.get("exit_phase", "phase1")
             phase_label = "P1" if phase == "phase1" else "P2"
@@ -194,6 +196,6 @@ class Dashboard:
         req = state.get("api_requests", 0)
         max_req = state.get("api_max", 500)
 
-        close_str = f"{market_close//3600}h {(market_close%3600)//60}m" if market_close else "--"
+        close_str = f"{market_close//3600}h {(market_close%3600)//60}m" if market_close is not None else "--"
         line = f"  Next scan: {next_scan}s    Market closes in: {close_str}    WebSocket: {ws}    Rate limit: {req}/{max_req}"
         return Text(line, style="dim")
