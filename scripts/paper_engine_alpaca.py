@@ -1066,13 +1066,13 @@ class AlpacaPaperEngine:
     async def _print_status(self):
         """Print current status — dashboard mode or fallback."""
         stats = self.state.get_stats()
-        account_value = stats.get("equity", stats.get("cash", 0.0))
+        account_value = stats.get("cash", 0.0)
         unrealized_pnl = 0.0
         positions_data = {}
 
         for ticker, pos in self.state.positions.items():
             if pos.status == "OPEN":
-                current_price = self._get_current_price(ticker)
+                current_price = await asyncio.to_thread(self._get_current_price, ticker)
                 if current_price:
                     account_value += current_price * pos.shares
                     upnl = (current_price - pos.entry_price) * pos.shares
@@ -1123,9 +1123,63 @@ class AlpacaPaperEngine:
         print(f"\n{'='*60}")
         print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
         print(f"📈 Market: {format_market_status()}")
-        print(f"💰 Account Value: ${state['equity']:,.2f} | Cash: ${state['cash']:,.2f}")
-        print(f"📊 Open: {state['open_positions']} | Day P&L: ${state['day_pnl']:,.2f} | Unrealized: ${state['unrealized_pnl']:,.2f}")
-        print(f"{'='*60}")
+
+        # VIX Regime Status
+        try:
+            import yfinance as yf
+            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+            if not vix_hist.empty:
+                vix_current = float(vix_hist['Close'].iloc[-1])
+                if vix_current < 20:
+                    vix_regime = "🟢 LOW"
+                elif vix_current < 30:
+                    vix_regime = "🟡 ELEVATED"
+                elif vix_current < 40:
+                    vix_regime = "🟠 HIGH"
+                else:
+                    vix_regime = "🔴 EXTREME"
+                print(f"📊 VIX: {vix_current:.1f} {vix_regime}")
+            else:
+                print(f"📊 VIX: unavailable")
+        except Exception:
+            print(f"📊 VIX: unavailable")
+
+        # Earnings Gate Status
+        if self.earnings_calendar._api_key:
+            cached_tickers = len(self.earnings_calendar._cache)
+            print(f"🚦 Earnings Gate: ON ({cached_tickers} tickers cached)")
+        else:
+            print(f"🚦 Earnings Gate: OFF (FMP_API_KEY not set)")
+
+        # WebSocket status
+        if self.alpaca.is_ws_healthy():
+            print(f"📡 WebSocket: Connected ({len(self.price_cache)} tickers cached)")
+        else:
+            print(f"📡 WebSocket: Disconnected (using REST fallback)")
+
+        print(f"💰 Account Value: ${state['equity']:,.2f} | Cash: ${state['cash']:,.2f}", flush=True)
+        print(f"📊 Open: {state['open_positions']} | Day P&L: ${state['day_pnl']:,.2f} | Unrealized: ${state['unrealized_pnl']:,.2f}", flush=True)
+
+        # Individual position lines
+        for ticker, pos in state['positions'].items():
+            current_price = pos['current_price']
+            upnl = (current_price - pos['entry_price']) * pos['shares']
+            phase = pos.get('exit_phase', 'phase1')
+            phase_badge = '①' if phase == 'phase1' else '②'
+            print(
+                f"   {ticker:<6} {phase_badge} "
+                f"${current_price:.2f} | stop ${pos['stop_price']:.2f} "
+                f"({pos['current_stop_type']}) | upnl ${upnl:+,.0f}",
+                flush=True
+            )
+
+        # Rate limit status
+        rl = self.alpaca.rate_limiter.get_status()
+        rl_pct = rl['requests_in_window'] / rl['max_requests'] * 100 if rl['max_requests'] > 0 else 0
+        circuit = "🔴 OPEN" if rl['circuit_open'] else "🟢 closed"
+        print(f"📡 API: {rl['requests_in_window']}/{rl['max_requests']} requests/min ({rl_pct:.0f}%) | Circuit: {circuit}", flush=True)
+        print(f"📋 Pending Orders: {state['pending_orders']}", flush=True)
+        print(f"{'='*60}", flush=True)
 
     async def run(self):
         """Main event loop."""
