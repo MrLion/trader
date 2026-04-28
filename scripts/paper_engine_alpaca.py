@@ -70,7 +70,7 @@ class AlpacaDataProviderAdapter:
 class AlpacaPaperEngine:
     """Paper trading engine using Alpaca for real-time data and execution."""
 
-    def __init__(self, mode: str = 'paper', risk_profile: str = None, strategy: str = 'default'):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None, strategy: str = 'default', dashboard=None):
         print("🔌 Initializing Alpaca client...")
 
         # Load risk configuration first
@@ -124,11 +124,13 @@ class AlpacaPaperEngine:
         # Account sync
         self._sync_with_alpaca()
 
-        # Initialize TUI dashboard after all potentially-failing setup
-        try:
-            self.dashboard = Dashboard() if Dashboard else None
-        except Exception:
-            self.dashboard = None
+        # Use passed-in dashboard or create a new one
+        self.dashboard = dashboard
+        if self.dashboard is None:
+            try:
+                self.dashboard = Dashboard() if Dashboard else None
+            except Exception:
+                self.dashboard = None
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
         if self.strategy:
@@ -1287,10 +1289,20 @@ def main():
                         help='Strategy plugin to use (default: use legacy entry logic)')
     args = parser.parse_args()
 
+    # Create dashboard early so it shows during waits and --risk-summary
+    try:
+        dashboard = Dashboard() if Dashboard else None
+    except Exception:
+        dashboard = None
+
     # If just printing risk summary
     if args.risk_summary:
         manager = RiskConfigManager(profile=args.risk_profile)
         manager.print_summary()
+        if dashboard and dashboard.enabled:
+            import time
+            time.sleep(3)
+            dashboard.stop()
         return
 
     # Main loop: wait for market open → run → repeat
@@ -1315,6 +1327,25 @@ def main():
                     print(f"⏳ Market closed. Opens {next_open.strftime('%A at %H:%M')} ET.")
                     print(f"   Waiting {int(wait_seconds // 60)} minutes... (Ctrl+C to stop)")
 
+                    # Show dashboard while waiting
+                    if dashboard and dashboard.enabled:
+                        dashboard.update({
+                            "equity": 0.0,
+                            "cash": 0.0,
+                            "day_pnl": 0.0,
+                            "unrealized_pnl": 0.0,
+                            "open_positions": 0,
+                            "pending_orders": 0,
+                            "positions": {},
+                            "market_status": "CLOSED",
+                            "vix": None,
+                            "ws_connected": False,
+                            "api_requests": 0,
+                            "api_max": 500,
+                            "next_scan_seconds": int(wait_seconds),
+                            "market_close_seconds": None,
+                        })
+
                     # Sleep in 10-second chunks to allow interrupt
                     try:
                         while wait_seconds > 0:
@@ -1326,12 +1357,14 @@ def main():
                                 break
                     except KeyboardInterrupt:
                         print("\n🛑 Stopped by user.")
+                        if dashboard:
+                            dashboard.stop()
                         return
 
                     print("   Market is now open. Starting engine...\n")
 
             # Run the engine (blocks until market closes or user stops)
-            engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy)
+            engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy, dashboard=dashboard)
             result = asyncio.run(engine.run())
 
             # Check if user requested shutdown
@@ -1356,6 +1389,9 @@ def main():
             except KeyboardInterrupt:
                 print("\n🛑 Stopped by user.")
                 break
+
+    if dashboard:
+        dashboard.stop()
 
 
 if __name__ == "__main__":
