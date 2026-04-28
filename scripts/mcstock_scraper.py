@@ -551,6 +551,64 @@ def populate_watchlist(ideas: List[Dict]) -> None:
     temp_path.unlink(missing_ok=True)
 
 
+def run_single_mode(session: requests.Session, args: argparse.Namespace, logger: logging.Logger) -> None:
+    """Run single-date scraping mode."""
+    # Fetch report
+    try:
+        html = fetch_report(session, args.date)
+    except FileNotFoundError as e:
+        logger.error(f"❌ {e}")
+        sys.exit(EXIT_REPORT_NOT_FOUND)
+    except PermissionError as e:
+        logger.error(f"❌ {e}")
+        sys.exit(EXIT_AUTH_FAILED)
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Network error: {e}")
+        sys.exit(EXIT_NETWORK_ERROR)
+
+    # Load config
+    config = load_scraper_config(args.config)
+
+    # Extract tickers
+    ideas = extract_tickers(html, config=config)
+
+    if not ideas:
+        logger.warning("⚠️ No trade ideas found in report")
+        sys.exit(EXIT_SUCCESS)
+
+    logger.info(f"📝 Found {len(ideas)} potential ideas")
+
+    # Validate tickers (unless skipped)
+    if not args.skip_validation:
+        ideas = validate_tickers(ideas, config=config)
+
+    if not ideas:
+        logger.warning("⚠️ No ideas passed validation")
+        sys.exit(EXIT_SUCCESS)
+
+    # Preview in dry-run mode
+    if args.dry_run:
+        logger.info("\n📋 DRY RUN - Found ideas:")
+        for idea in ideas[:10]:  # Show first 10
+            logger.info(f"  {idea['Ticker']}: {idea.get('Name', 'N/A')} "
+                      f"(Stage {idea.get('Stage2', '?')}, Risk {idea.get('Risk_%', '?')}%)")
+        if len(ideas) > 10:
+            logger.info(f"  ... and {len(ideas) - 10} more")
+        sys.exit(EXIT_SUCCESS)
+
+    # Save to CSV
+    output_path = save_to_csv(ideas, args.output)
+    logger.info(f"✅ Saved {len(ideas)} ideas to: {output_path}")
+
+    # Populate watchlist if requested
+    if args.populate_watchlist:
+        logger.info("📝 Populating watchlist...")
+        populate_watchlist(ideas)
+
+    logger.info("🎉 Done!")
+    sys.exit(EXIT_SUCCESS)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Scrape trade ideas from MC Stock Charts'
@@ -558,6 +616,12 @@ def main():
     parser.add_argument(
         '--date',
         help='Specific date to scrape (YYYY-MM-DD format)'
+    )
+    parser.add_argument(
+        '--mode',
+        choices=['single', 'historical'],
+        default='single',
+        help='Scraping mode: single (today or specific date) or historical (date range)'
     )
     parser.add_argument(
         '--output',
@@ -611,60 +675,11 @@ def main():
             logger.error("❌ Authentication failed")
             sys.exit(EXIT_AUTH_FAILED)
 
-        # Fetch report
-        try:
-            html = fetch_report(session, args.date)
-        except FileNotFoundError as e:
-            logger.error(f"❌ {e}")
-            sys.exit(EXIT_REPORT_NOT_FOUND)
-        except PermissionError as e:
-            logger.error(f"❌ {e}")
-            sys.exit(EXIT_AUTH_FAILED)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"❌ Network error: {e}")
-            sys.exit(EXIT_NETWORK_ERROR)
-
-        # Load config
-        config = load_scraper_config(args.config)
-
-        # Extract tickers
-        ideas = extract_tickers(html, config=config)
-
-        if not ideas:
-            logger.warning("⚠️ No trade ideas found in report")
-            sys.exit(EXIT_SUCCESS)
-
-        logger.info(f"📝 Found {len(ideas)} potential ideas")
-
-        # Validate tickers (unless skipped)
-        if not args.skip_validation:
-            ideas = validate_tickers(ideas, config=config)
-
-        if not ideas:
-            logger.warning("⚠️ No ideas passed validation")
-            sys.exit(EXIT_SUCCESS)
-
-        # Preview in dry-run mode
-        if args.dry_run:
-            logger.info("\n📋 DRY RUN - Found ideas:")
-            for idea in ideas[:10]:  # Show first 10
-                logger.info(f"  {idea['Ticker']}: {idea.get('Name', 'N/A')} "
-                          f"(Stage {idea.get('Stage2', '?')}, Risk {idea.get('Risk_%', '?')}%)")
-            if len(ideas) > 10:
-                logger.info(f"  ... and {len(ideas) - 10} more")
-            sys.exit(EXIT_SUCCESS)
-
-        # Save to CSV
-        output_path = save_to_csv(ideas, args.output)
-        logger.info(f"✅ Saved {len(ideas)} ideas to: {output_path}")
-
-        # Populate watchlist if requested
-        if args.populate_watchlist:
-            logger.info("📝 Populating watchlist...")
-            populate_watchlist(ideas)
-
-        logger.info("🎉 Done!")
-        sys.exit(EXIT_SUCCESS)
+        # Dispatch by mode
+        if args.mode == 'single':
+            run_single_mode(session, args, logger)
+        elif args.mode == 'historical':
+            pass  # Task 2
 
     except KeyboardInterrupt:
         logger.info("\n⚠️ Interrupted by user")
