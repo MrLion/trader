@@ -117,7 +117,8 @@ class Dashboard:
 
         for ticker, pos in positions.items():
             entry = float(pos.get("entry_price") or 0)
-            current = float(pos.get("current_price") or entry)
+            current_price = pos.get("current_price")
+            current = float(current_price) if current_price is not None else entry
             stop = float(pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
