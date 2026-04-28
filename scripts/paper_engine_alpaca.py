@@ -1073,7 +1073,9 @@ class AlpacaPaperEngine:
 
         for ticker, pos in self.state.positions.items():
             if pos.status == "OPEN":
-                current_price = await asyncio.to_thread(self._get_current_price, ticker)
+                current_price = self.price_cache.get(ticker, {}).get("price")
+                if current_price is None:
+                    current_price = await asyncio.to_thread(self._get_current_price, ticker)
                 if current_price:
                     account_value += current_price * pos.shares
                     upnl = (current_price - pos.entry_price) * pos.shares

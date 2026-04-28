@@ -4,7 +4,7 @@
 import os
 from collections import deque
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, Optional
 
 try:
     from rich.console import Console, Group
@@ -176,7 +176,6 @@ class Dashboard:
 
         colors = {
             "ENTRY": "cyan",
-            "EXIT": "green",
             "STOP": "yellow",
             "SKIP": "dim",
             "ERROR": "red",
@@ -190,11 +189,17 @@ class Dashboard:
             left = event_list[i]
             right = event_list[i + 1] if i + 1 < len(event_list) else None
 
+            def _color(evt):
+                etype = evt.get("type", "UNKNOWN")
+                if etype == "EXIT":
+                    return "green" if evt.get("pnl", 0) >= 0 else "red"
+                return colors.get(etype, "white")
+
             ts = left.get("timestamp", "--:--:--")
             evt_type = left.get("type", "UNKNOWN")
             ticker = left.get("ticker", "")
             detail = left.get("detail", "")
-            color = colors.get(evt_type, "white")
+            color = _color(left)
             left_str = f"[{ts}] [{color}]{evt_type}  {ticker} {detail}[/]"
 
             if right:
@@ -202,7 +207,7 @@ class Dashboard:
                 evt2 = right.get("type", "UNKNOWN")
                 tkr2 = right.get("ticker", "")
                 det2 = right.get("detail", "")
-                col2 = colors.get(evt2, "white")
+                col2 = _color(right)
                 right_str = f"[{ts2}] [{col2}]{evt2}  {tkr2} {det2}[/]"
             else:
                 right_str = ""
