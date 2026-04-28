@@ -64,6 +64,17 @@ class Dashboard:
             self.live.stop()
             self.enabled = False
 
+    def stop_now(self):
+        """Immediate stop without waiting for timer thread.
+
+        Safe to call from signal handlers. Restores the normal terminal screen
+        immediately so subsequent print() output is visible.
+        """
+        if self.enabled and self.live:
+            self._timer_stop.set()
+            self.live.stop()
+            self.enabled = False
+
     def update(self, state: Dict[str, Any]) -> None:
         """Refresh dashboard with new state and compute countdown target."""
         if not self.enabled:

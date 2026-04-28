@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.4] — 2026-04-28 — Dashboard Shutdown UX
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Shutdown signal now provides immediate visual feedback:
+  - Restores normal terminal screen before printing shutdown message (no more invisible text trapped under `rich.live.Live` alternate screen buffer)
+  - Shows clear two-line confirmation: "🛑 Shutdown signal received. Stopping gracefully..." and "(Press Ctrl+C again to force exit)"
+- **`traderlib/dashboard.py`** — Added `stop_now()` method for immediate screen restoration from signal handlers
+
+---
+
 ## [0.6.15.3] — 2026-04-28 — Dashboard Column Fix
 
 ### Changed

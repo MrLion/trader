@@ -333,7 +333,11 @@ class AlpacaPaperEngine:
             print("\n⚡ Force exit")
             import os
             os._exit(1)
-        print("\n\n🛑 Shutdown signal received...")
+        # Restore normal terminal screen immediately so the shutdown message is visible
+        if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard.stop_now()
+        print("\n\n🛑 Shutdown signal received. Stopping gracefully...")
+        print("   (Press Ctrl+C again to force exit)")
         self.shutdown_requested = True  # Signal to main() not to restart
         self.running = False
         self.ws_running = False
