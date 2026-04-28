@@ -1116,7 +1116,7 @@ class AlpacaPaperEngine:
             "vix": None,
             "ws_connected": self.alpaca.is_ws_healthy(),
             "api_requests": rl.get("requests_in_window", 0),
-            "api_max": rl.get("max_requests", 500),
+            "api_max": rl.get("max_requests", 10000),
             "next_scan_seconds": 30,
             "market_close_seconds": market_close_seconds,
         }
@@ -1336,8 +1336,8 @@ def main():
                             "market_status": "CLOSED",
                             "vix": None,
                             "ws_connected": False,
-                            "api_requests": 0,
-                            "api_max": 500,
+                            "api_requests": None,
+                            "api_max": None,
                             "next_scan_seconds": int(wait_seconds),
                             "market_close_seconds": None,
                         })

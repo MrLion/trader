@@ -80,9 +80,15 @@ class Dashboard:
         market = state.get("market_status", "UNKNOWN")
         vix = state.get("vix", "--")
         ws = "connected" if state.get("ws_connected") else "disconnected"
-        req = state.get("api_requests", 0)
-        max_req = state.get("api_max", 500)
-        api = f"{req}/{max_req}"
+        req = state.get("api_requests")
+        max_req = state.get("api_max")
+        if req is None or max_req is None:
+            api = "--"
+            api_color = "dim"
+        else:
+            api = f"{req}/{max_req}"
+            api_pct = (req / max_req) if max_req else 0
+            api_color = "yellow" if api_pct > 0.8 else "white"
 
         market_color = "green" if market == "OPEN" else "red"
         vix_val = state.get("vix")
@@ -93,8 +99,6 @@ class Dashboard:
             elif vix_val > 20:
                 vix_color = "yellow"
         ws_color = "green" if state.get("ws_connected") else "red"
-        api_pct = (req / max_req) if max_req else 0
-        api_color = "yellow" if api_pct > 0.8 else "white"
 
         return Text.assemble(
             "  PAPER ENGINE    ",
@@ -226,8 +230,8 @@ class Dashboard:
         next_scan = state.get("next_scan_seconds", 30)
         market_close = state.get("market_close_seconds")
         ws = "connected" if state.get("ws_connected") else "disconnected"
-        req = state.get("api_requests", 0)
-        max_req = state.get("api_max", 500)
+        req = state.get("api_requests")
+        max_req = state.get("api_max")
 
         close_str = f"{market_close//3600}h {(market_close%3600)//60}m" if market_close is not None else "--"
         close_color = "white"
@@ -238,16 +242,22 @@ class Dashboard:
                 close_color = "yellow"
 
         ws_color = "green" if state.get("ws_connected") else "red"
-        api_pct = (req / max_req) if max_req else 0
-        rate_color = "white"
-        if api_pct >= 1.0:
-            rate_color = "red"
-        elif api_pct > 0.8:
-            rate_color = "yellow"
+
+        if req is None or max_req is None:
+            rate_str = "--"
+            rate_color = "dim"
+        else:
+            rate_str = f"{req}/{max_req}"
+            api_pct = (req / max_req) if max_req else 0
+            rate_color = "white"
+            if api_pct >= 1.0:
+                rate_color = "red"
+            elif api_pct > 0.8:
+                rate_color = "yellow"
 
         return Text.assemble(
             "  Next scan: ", (f"{next_scan}s", "white"), "    ",
             "Market closes in: ", (close_str, close_color), "    ",
             "WebSocket: ", (ws, ws_color), "    ",
-            "Rate limit: ", (f"{req}/{max_req}", rate_color),
+            "Rate limit: ", (rate_str, rate_color),
         )
