@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.7] — 2026-04-28 — VIX Data Source Correction
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Removed yfinance VIX fetch from the live trading path. yfinance has a 15-minute delay and is disallowed for live trading per `CLAUDE.md`. Dashboard now shows `VIX --` honestly; fallback path prints `VIX: unavailable (Alpaca does not provide VIX index)`.
+
+---
+
 ## [0.6.15.6] — 2026-04-28 — WebSocket Status Fix
 
 ### Fixed
@@ -12,8 +19,10 @@ All notable changes to this project will be documented in this file.
 ## [0.6.15.5] — 2026-04-28 — Paper Engine Bug Fixes
 
 ### Fixed
-- **`scripts/paper_engine_alpaca.py`** — VIX now fetched from yfinance for dashboard display (was hardcoded to `None`, so header always showed `VIX --`)
 - **`traderlib/paper_state.py`** — `day_pnl` is now recovered from today's trade log on engine restart. Previously, exiting and relaunching during the same session reset `day_pnl` to 0, hiding today's realized gains/losses.
+
+### Changed
+- **`scripts/paper_engine_alpaca.py`** — VIX display changed from hardcoded `None` to honest `--`. (Previous attempt to fetch via yfinance was reverted in v0.6.15.7; yfinance is disallowed in live trading paths per `CLAUDE.md`.)
 
 ---
 
