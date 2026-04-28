@@ -121,7 +121,7 @@ This shows:
 python3 scripts/premarket_report.py --html
 
 # Check sector performance
-python3 scripts/sector_scan.py
+python3 scripts/sector_scan_comprehensive.py
 ```
 
 **Review:**
@@ -287,7 +287,7 @@ python3 scripts/entry_signals.py --min-tier 2
 python3 scripts/entry_signals.py --ticker AAPL
 
 # Sector scan
-python3 scripts/sector_scan.py
+python3 scripts/sector_scan_comprehensive.py
 
 # Entry signals scan
 python3 scripts/entry_signals.py
@@ -347,7 +347,7 @@ python3 scripts/sync_state.py
 The system will show you how to populate it:
 1. From scan CSV: `watchlist_manager.py populate scans/FILE.csv`
 2. Add manually: `watchlist_manager.py add TICKER`
-3. Run scans: `midday_scan.py` or `sector_scan.py`
+3. Run scans: `sector_scan_comprehensive.py`
 
 ### "No entry signals found"
 
