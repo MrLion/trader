@@ -1289,21 +1289,17 @@ def main():
                         help='Strategy plugin to use (default: use legacy entry logic)')
     args = parser.parse_args()
 
-    # Create dashboard early so it shows during waits and --risk-summary
+    # If just printing risk summary, skip dashboard — Live screen captures print output
+    if args.risk_summary:
+        manager = RiskConfigManager(profile=args.risk_profile)
+        manager.print_summary()
+        return
+
+    # Create dashboard early so it shows during market-closed waits
     try:
         dashboard = Dashboard() if Dashboard else None
     except Exception:
         dashboard = None
-
-    # If just printing risk summary
-    if args.risk_summary:
-        manager = RiskConfigManager(profile=args.risk_profile)
-        manager.print_summary()
-        if dashboard and dashboard.enabled:
-            import time
-            time.sleep(3)
-            dashboard.stop()
-        return
 
     # Main loop: wait for market open → run → repeat
     print("🔄 Auto-restart mode enabled. Press Ctrl+C to stop permanently.\n")
