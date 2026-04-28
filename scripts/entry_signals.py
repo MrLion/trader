@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import pytz
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.earnings_calendar import EarningsCalendar

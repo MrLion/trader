@@ -12,7 +12,7 @@ import pandas as pd
 
 # Add scripts directory to path for local imports
 import sys
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker
 
@@ -325,7 +325,7 @@ def cmd_status(args):
 
 def cmd_live(args):
     """Show real-time position values."""
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.alpaca_client import AlpacaClient
     alpaca = AlpacaClient(mode='paper')
 
@@ -559,7 +559,7 @@ def cmd_close(args):
         print(f"❌ {e}")
         return
 
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.paper_state import PaperState
     from traderlib.alpaca_client import AlpacaClient
     alpaca = AlpacaClient(mode='paper')
@@ -615,7 +615,7 @@ def cmd_close(args):
 
 def cmd_reconcile(args):
     """Reconcile counters with trade log."""
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.paper_state import PaperState
 
     print("🔄 Reconciling counters with trade log...")

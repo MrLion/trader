@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Set
 import pandas as pd
 import pytz
 
-# Add scripts directory to path for local imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Add repo root to path for local imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # TUI Dashboard (optional — falls back to plain text)
 try:
