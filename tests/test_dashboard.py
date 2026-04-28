@@ -66,10 +66,11 @@ class TestDashboard:
             d.stop()
 
     def test_dashboard_render_returns_group(self, mock_state):
+        from rich.console import Group
         with patch("traderlib.dashboard.Live"):
             d = Dashboard(enabled=True)
             renderable = d._render(mock_state)
-            assert renderable is not None
+            assert isinstance(renderable, Group)
             d.stop()
 
     def test_stats_shows_equity_and_day_pnl(self, mock_state):
@@ -89,15 +90,12 @@ class TestDashboard:
             d.stop()
 
     def test_positions_color_green_for_profit(self, mock_state):
-        from rich.console import Console
         with patch("traderlib.dashboard.Live"):
             d = Dashboard(enabled=True)
             table = d._positions(mock_state)
-            console = Console(force_terminal=True, width=200)
-            with console.capture() as capture:
-                console.print(table)
-            aapl_row = capture.get()
-            assert "187.45" in aapl_row
+            # AAPL is row 0, CURRENT is column 3 (0-indexed: TICKER, PHASE, ENTRY, CURRENT)
+            cell = table.columns[3]._cells[0]
+            assert cell.style == "green"
             d.stop()
 
     def test_activity_log_with_events(self):
@@ -124,7 +122,8 @@ class TestDashboard:
         d.stop()
 
     def test_dashboard_noop_without_rich(self):
-        with patch("traderlib.dashboard._HAS_RICH", False):
+        with patch("traderlib.dashboard._HAS_RICH", False), \
+             patch("traderlib.dashboard.os.isatty", return_value=True):
             d = Dashboard(enabled=True)
             assert d.enabled is False
 
