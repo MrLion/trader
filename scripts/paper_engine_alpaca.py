@@ -125,7 +125,10 @@ class AlpacaPaperEngine:
         self._sync_with_alpaca()
 
         # Initialize TUI dashboard after all potentially-failing setup
-        self.dashboard = Dashboard() if Dashboard else None
+        try:
+            self.dashboard = Dashboard() if Dashboard else None
+        except Exception:
+            self.dashboard = None
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
         if self.strategy:

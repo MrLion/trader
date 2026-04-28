@@ -61,12 +61,18 @@ class Dashboard:
             return ""
 
         state = state or self._last_state or {}
+        width = getattr(self.console, "width", 80) if self.console else 80
+        rule = Text("─" * width, style="dim")
         return Group(
+            rule,
             self._header(state),
+            rule,
             self._stats(state),
             self._positions(state),
             self._activity(),
+            rule,
             self._footer(state),
+            rule,
         )
 
     def _header(self, state: Dict[str, Any]) -> Text:
