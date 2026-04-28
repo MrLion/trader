@@ -65,7 +65,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -609,6 +609,228 @@ def run_single_mode(session: requests.Session, args: argparse.Namespace, logger:
     sys.exit(EXIT_SUCCESS)
 
 
+def generate_trading_dates(start_date: Optional[str], end_date: Optional[str]) -> List[date]:
+    """
+    Generate Mon-Fri trading dates within the range.
+
+    Args:
+        start_date: Start date string (YYYY-MM-DD) or None for 2023-01-01
+        end_date: End date string (YYYY-MM-DD) or None for today
+
+    Returns:
+        List of date objects (Mon-Fri only)
+    """
+    if start_date:
+        start = datetime.strptime(start_date, '%Y-%m-%d').date()
+    else:
+        start = date(2023, 1, 1)
+
+    if end_date:
+        end = datetime.strptime(end_date, '%Y-%m-%d').date()
+    else:
+        end = date.today()
+
+    trading_dates = []
+    current = start
+
+    while current <= end:
+        if current.weekday() < 5:  # Mon-Fri only
+            trading_dates.append(current)
+        current += timedelta(days=1)
+
+    return trading_dates
+
+
+def build_historical_url(date_obj: date) -> str:
+    """
+    Build the pre-market report URL for historical scraping.
+
+    Pattern: /members/pre-market-report-{weekday}-{month}-{day}-{year}-900a-m-est/
+    """
+    weekday_name = date_obj.strftime('%A').lower()
+    month_name = date_obj.strftime('%B').lower()
+    day = date_obj.day
+    year = date_obj.year
+
+    return f"{BASE_URL}/members/pre-market-report-{weekday_name}-{month_name}-{day}-{year}-900a-m-est/"
+
+
+def extract_tickers_historical(html: str, false_positives: set) -> List[Tuple[str, str]]:
+    """
+    Extract tickers from report HTML for historical mode.
+
+    Returns list of (ticker, list_type) tuples.
+    """
+    logger = logging.getLogger(__name__)
+    tickers = []
+
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # Remove script and style elements
+    for script in soup(["script", "style"]):
+        script.decompose()
+
+    def is_valid_ticker(ticker: str) -> bool:
+        if not ticker or len(ticker) < 2 or len(ticker) > 5:
+            return False
+        if not ticker.isalpha():
+            return False
+        if ticker.upper() in false_positives:
+            return False
+        return True
+
+    def extract_from_section(section_header: str, end_headers: list, list_type: str = 'ready'):
+        collecting = False
+
+        for element in soup.find_all(['p', 'strong', 'b', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            text = element.get_text(strip=True).upper()
+
+            if section_header in text:
+                collecting = True
+                continue
+
+            if collecting and any(end in text for end in end_headers):
+                break
+
+            if collecting and element.name == 'p':
+                line = element.get_text(strip=True)
+                match = re.match(r'^([A-Z]{1,5})\s+\$([\d\.]+)', line)
+                if match:
+                    ticker = match.group(1)
+                    if is_valid_ticker(ticker):
+                        tickers.append((ticker, list_type))
+
+    extract_from_section("THIS WEEKS READY LIST", ["WATCH LIST"], "ready")
+    watch_endings = ["MORNING POST", "PARADE VIDEO", "TUESDAY", "WEDNESDAY",
+                     "THURSDAY", "FRIDAY", "CHARTS", "DATA COURTESY"]
+    extract_from_section("WATCH LIST", watch_endings, "watch")
+
+    return tickers
+
+
+def get_monday_date(date_obj: date) -> str:
+    """
+    Get the Monday of the week for a given date.
+    MC Stock Charts weeks are Monday-based.
+    """
+    days_since_monday = date_obj.weekday()
+    monday = date_obj - timedelta(days=days_since_monday)
+    return monday.strftime('%Y-%m-%d')
+
+
+def save_historical_csv(
+    weekly_tickers: Dict[str, Dict[str, Tuple[str, str]]],
+    output_path: str,
+    scraped_date: str
+) -> Path:
+    """Save weekly tickers to CSV for historical mode."""
+    path = PROJECT_ROOT / output_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['week_start', 'ticker', 'list_type', 'first_seen_date', 'scraped_date'])
+
+        for week_start in sorted(weekly_tickers.keys()):
+            for ticker in sorted(weekly_tickers[week_start].keys()):
+                list_type, first_seen_date = weekly_tickers[week_start][ticker]
+                writer.writerow([week_start, ticker, list_type, first_seen_date, scraped_date])
+
+    return path
+
+
+def run_historical_mode(session: requests.Session, args: argparse.Namespace, logger: logging.Logger) -> None:
+    """Execute historical mode scraping."""
+    # Generate trading dates
+    trading_dates = generate_trading_dates(args.start, args.end)
+    logger.info(f"📅 Generated {len(trading_dates)} trading dates (Mon-Fri)")
+
+    # Load false positives from config
+    config = load_scraper_config(args.config)
+    false_positives = config.get('extra_false_positives', set())
+    false_positives.update({
+        'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'USD', 'CEO', 'CFO',
+        'BOOK', 'POINT', 'TODAY', 'UNITS', 'LIST', 'WATCH', 'THIS',
+        'WEEKS', 'READY', 'WEEK', 'DAYS', 'DAY', 'STOCK', 'STOCKS',
+        'BUY', 'SELL', 'HOLD', 'ADD', 'NEW', 'OLD', 'LAST', 'FIRST',
+        'FROM', 'WITH', 'HAVE', 'HAS', 'HAD', 'WAS', 'WERE', 'BEEN',
+        'WILL', 'WOULD', 'COULD', 'SHOULD', 'MAY', 'MIGHT', 'MUST',
+        'CAN', 'CANT', 'DONT', 'WONT', 'SHOULDNT', 'ISNT', 'ARENT',
+        'VERY', 'JUST', 'NOW', 'THEN', 'THAN', 'ONLY', 'EVEN', 'ALSO',
+        'BACK', 'AFTER', 'BEFORE', 'OVER', 'UNDER', 'INTO', 'THROUGH',
+        'DURING', 'ABOUT', 'SINCE', 'UNTIL', 'WHILE', 'WHERE', 'WHEN',
+        'THAT', 'THIS', 'THESE', 'THOSE', 'THEY', 'THEM', 'THEIR',
+        'SHE', 'HER', 'HERS', 'HE', 'HIM', 'HIS', 'IT', 'ITS',
+        'WE', 'US', 'OUR', 'OURS', 'YOU', 'YOUR', 'YOURS',
+        'ALL', 'ANY', 'BOTH', 'EACH', 'FEW', 'MORE', 'MOST', 'OTHER',
+        'SOME', 'SUCH', 'NO', 'NOR', 'NOT', 'SO', 'TOO', 'VERY',
+        'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'
+    })
+
+    # Scrape historical data
+    weekly_tickers: Dict[str, Dict[str, Tuple[str, str]]] = {}
+    skipped_dates = 0
+
+    for date_obj in trading_dates:
+        date_str = date_obj.strftime('%Y-%m-%d')
+        week_start = get_monday_date(date_obj)
+
+        if week_start not in weekly_tickers:
+            weekly_tickers[week_start] = {}
+            logger.info(f"📅 Processing week of {week_start}")
+
+        url = build_historical_url(date_obj)
+        logger.info(f"  📄 Scraping {date_str}")
+
+        # Fetch report
+        try:
+            response = session.get(url, timeout=30)
+            if response.status_code == 404:
+                logger.info(f"    ⏭️  No pre-market report for {date_str}")
+                skipped_dates += 1
+                continue
+            response.raise_for_status()
+            html = response.text
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Failed to fetch report: {e}")
+            skipped_dates += 1
+            continue
+
+        # Extract tickers
+        day_tickers = extract_tickers_historical(html, false_positives)
+
+        for ticker, list_type in day_tickers:
+            if ticker not in weekly_tickers[week_start]:
+                weekly_tickers[week_start][ticker] = (list_type, date_str)
+
+        logger.info(f"    ✅ Found {len(day_tickers)} tickers for {date_str}")
+        time.sleep(args.delay if hasattr(args, 'delay') else 2.0)
+
+    if not weekly_tickers:
+        logger.warning("⚠️ No data scraped")
+        sys.exit(EXIT_SUCCESS)
+
+    # Generate output path
+    if args.output:
+        output_path = args.output
+    else:
+        output_path = f'data/mc_historical_{datetime.now().strftime("%Y-%m-%d")}.csv'
+
+    # Save to CSV
+    try:
+        scraped_date = datetime.now().strftime('%Y-%m-%d')
+        result_path = save_historical_csv(weekly_tickers, output_path, scraped_date)
+
+        total_tickers = sum(len(tickers) for tickers in weekly_tickers.values())
+        logger.info(f"\n🎉 Success! Scraped {total_tickers} tickers across {len(weekly_tickers)} weeks")
+        logger.info(f"💾 Saved to {result_path}")
+    except Exception as e:
+        logger.error(f"❌ Failed to save CSV: {e}")
+        sys.exit(EXIT_PARSE_ERROR)
+
+    sys.exit(EXIT_SUCCESS)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Scrape trade ideas from MC Stock Charts'
@@ -622,6 +844,20 @@ def main():
         choices=['single', 'historical'],
         default='single',
         help='Scraping mode: single (today or specific date) or historical (date range)'
+    )
+    parser.add_argument(
+        '--start',
+        help='Start date for historical mode (YYYY-MM-DD)'
+    )
+    parser.add_argument(
+        '--end',
+        help='End date for historical mode (YYYY-MM-DD)'
+    )
+    parser.add_argument(
+        '--delay',
+        type=float,
+        default=2.0,
+        help='Delay between requests in seconds'
     )
     parser.add_argument(
         '--output',
@@ -679,7 +915,7 @@ def main():
         if args.mode == 'single':
             run_single_mode(session, args, logger)
         elif args.mode == 'historical':
-            pass  # Task 2
+            run_historical_mode(session, args, logger)
 
     except KeyboardInterrupt:
         logger.info("\n⚠️ Interrupted by user")
