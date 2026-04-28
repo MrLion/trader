@@ -252,3 +252,41 @@ class TestMain:
                     with pytest.raises(SystemExit) as exc:
                         mcs.main()
         assert exc.value.code == mcs.EXIT_AUTH_FAILED
+
+
+class TestGenerateTradingDates:
+    """Test generate_trading_dates."""
+
+    def test_weekdays_only(self):
+        dates = mcs.generate_trading_dates('2026-04-06', '2026-04-10')
+        assert len(dates) == 5
+        for d in dates:
+            assert d.weekday() < 5
+
+    def test_skips_weekends(self):
+        dates = mcs.generate_trading_dates('2026-04-10', '2026-04-13')
+        assert len(dates) == 2
+        assert dates[0].weekday() == 4
+        assert dates[1].weekday() == 0
+
+
+class TestBuildHistoricalUrl:
+    """Test build_historical_url."""
+
+    def test_url_format(self):
+        from datetime import date as dt
+        test_date = dt(2026, 4, 9)
+        url = mcs.build_historical_url(test_date)
+        assert 'mcstockcharts.com' in url
+        assert 'pre-market-report' in url
+        assert 'thursday' in url.lower()
+
+
+class TestGetMondayDate:
+    """Test get_monday_date."""
+
+    def test_wednesday_returns_monday(self):
+        from datetime import date as dt
+        wed = dt(2026, 4, 9)
+        monday = mcs.get_monday_date(wed)
+        assert monday == '2026-04-06'
