@@ -784,6 +784,8 @@ class AlpacaPaperEngine:
         today = _date.today()
 
         for ticker in watchlist:
+            if not self.running:
+                break
             checked += 1
 
             # Engine-specific entry gates
@@ -1160,7 +1162,7 @@ class AlpacaPaperEngine:
                     vix_regime = "🟠 HIGH"
                 else:
                     vix_regime = "🔴 EXTREME"
-                print(f"📊 VIX: {vix_current:.1f} {vix_regime}")
+                print(f"📊 VIX: {vix_current:.2f} {vix_regime}")
             else:
                 print(f"📊 VIX: unavailable")
         except Exception:
@@ -1254,7 +1256,9 @@ class AlpacaPaperEngine:
                     # Keeping as fallback for edge cases
                     print("   ⏳ Outside market hours - waiting")
 
-                # Countdown on single line
+                # Countdown on single line (skip if shutting down)
+                if not self.running:
+                    break
                 print("\n⏱️  Next check in 30s...", end='', flush=True)
                 for i in range(29, 0, -1):
                     if not self.running:
@@ -1271,19 +1275,28 @@ class AlpacaPaperEngine:
 
         # Cleanup - Stop the stream first to signal the SDK's internal loop
         # to exit (sets _should_run = False), then cancel the task as a safety net.
+        # Python 3.14+ prints noisy tracebacks from asyncio.shield()'d futures
+        # inside the websockets library during cancellation. Suppress the event
+        # loop's exception handler during cleanup to avoid scaring the user.
         print("\n🛑 Stopping WebSocket...")
-        # 1. Signal the SDK to stop — this breaks _run_forever()'s internal loop
+        loop = asyncio.get_running_loop()
+        old_handler = loop.get_exception_handler()
+        loop.set_exception_handler(lambda ctx: None)
         try:
-            await asyncio.wait_for(self.alpaca.stop_price_stream(), timeout=2.0)
-        except Exception:
-            pass
-        # 2. Cancel the task as a safety net
-        if ws_task and not ws_task.done():
-            ws_task.cancel()
+            # 1. Signal the SDK to stop — this breaks _run_forever()'s internal loop
             try:
-                await asyncio.wait_for(ws_task, timeout=1.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+                await asyncio.wait_for(self.alpaca.stop_price_stream(), timeout=2.0)
+            except Exception:
                 pass
+            # 2. Cancel the task as a safety net
+            if ws_task and not ws_task.done():
+                ws_task.cancel()
+                try:
+                    await asyncio.wait_for(ws_task, timeout=1.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                    pass
+        finally:
+            loop.set_exception_handler(old_handler)
         # Stop dashboard
         if self.dashboard:
             self.dashboard.stop()
