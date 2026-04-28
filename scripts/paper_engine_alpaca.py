@@ -79,8 +79,6 @@ class AlpacaPaperEngine:
 
         self.alpaca = AlpacaClient(mode=mode)
         self.order_manager = OrderManager(self.alpaca)
-        # Initialize TUI dashboard
-        self.dashboard = Dashboard() if Dashboard else None
         self.state = PaperState(initial_capital=self._get_account_value())
         self.analyzer = TickerAnalyzer(self.alpaca, self.risk_config, WATCHLIST_PATH)
 
@@ -125,6 +123,9 @@ class AlpacaPaperEngine:
 
         # Account sync
         self._sync_with_alpaca()
+
+        # Initialize TUI dashboard after all potentially-failing setup
+        self.dashboard = Dashboard() if Dashboard else None
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
         if self.strategy:
