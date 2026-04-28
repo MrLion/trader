@@ -163,7 +163,6 @@ class Dashboard:
             expand=True,
         )
         tbl.add_column("TICKER", style="white")
-        tbl.add_column("PHASE", style="cyan")
         tbl.add_column("ENTRY", justify="right", style="white")
         tbl.add_column("CURRENT", justify="right")
         tbl.add_column("STOP", justify="right", style="white")
@@ -178,9 +177,6 @@ class Dashboard:
             stop = float(pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
-            phase = pos.get("exit_phase", "phase1")
-            phase_label = "P1" if phase == "phase1" else "P2"
-
             unreal = (current - entry) * shares if entry else 0.0
             risk = (entry - stop) * shares if entry != stop else 1
             r_mult = unreal / risk if risk else 0.0
@@ -191,7 +187,6 @@ class Dashboard:
 
             tbl.add_row(
                 ticker,
-                phase_label,
                 f"{entry:.2f}",
                 Text(f"{current:.2f}", style=cur_color),
                 f"{stop:.2f}",
@@ -201,7 +196,7 @@ class Dashboard:
             )
 
         if not positions:
-            tbl.add_row("--", "--", "--", "--", "--", "--", "--", "--")
+            tbl.add_row("--", "--", "--", "--", "--", "--", "--")
 
         return tbl
 

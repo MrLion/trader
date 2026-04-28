@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.2] — 2026-04-28 — Dashboard Cleanup
+
+### Changed
+- **`traderlib/dashboard.py`** — Removed redundant `PHASE` column from positions table. Stop type (`HARD`, `BREAKEVEN`, `TRAIL`) and price already convey the same information; `P1`/`P2` labels added no actionable signal.
+
+---
+
 ## [0.6.15.1] — 2026-04-28 — Dashboard Fixes
 
 ### Fixed
