@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.9] — 2026-04-28 — Clean Ctrl+C Shutdown
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Ctrl+C now stops the engine immediately instead of running through remaining entry checks and printing a misleading countdown:
+  - `_check_entries()` ticker loop checks `self.running` and breaks mid-scan on shutdown
+  - Countdown is skipped entirely when `self.running` is `False`
+  - Event loop exception handler is suppressed during WebSocket cleanup to prevent Python 3.14 shielded-future `ConnectionClosedError` traceback
+
+---
+
 ## [0.6.15.8] — 2026-04-28 — Rollback VIX Changes
 
 ### Changed
