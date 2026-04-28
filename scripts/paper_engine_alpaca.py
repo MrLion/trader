@@ -17,6 +17,12 @@ import pytz
 # Add scripts directory to path for local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
+# TUI Dashboard (optional — falls back to plain text)
+try:
+    from traderlib.dashboard import Dashboard
+except ImportError:
+    Dashboard = None
+
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.earnings_calendar import EarningsCalendar
 from traderlib.paper_state import PaperState, Position, TRADES_FILE
@@ -73,6 +79,8 @@ class AlpacaPaperEngine:
 
         self.alpaca = AlpacaClient(mode=mode)
         self.order_manager = OrderManager(self.alpaca)
+        # Initialize TUI dashboard
+        self.dashboard = Dashboard() if Dashboard else None
         self.state = PaperState(initial_capital=self._get_account_value())
         self.analyzer = TickerAnalyzer(self.alpaca, self.risk_config, WATCHLIST_PATH)
 
@@ -907,7 +915,15 @@ class AlpacaPaperEngine:
             # Position will be created when order fills in _process_pending_orders
             self.signaled_tickers.add(ticker)
 
-            print(f"\n🚀 AUTO-ENTRY: {ticker} at ${entry_price:.2f} x {shares} shares")
+            entry_msg = f"AUTO-ENTRY: {ticker} at ${entry_price:.2f} x {shares} shares"
+            print(f"\n🚀 {entry_msg}")
+            if self.dashboard:
+                self.dashboard.log_event({
+                    "type": "ENTRY",
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                    "ticker": ticker,
+                    "detail": f"${entry_price:.2f} x{shares}",
+                })
             print(f"   Order ID: {order.id}")
             print(f"   Stop: ${stop_price:.2f} | Target: ${target_price:.2f}")
             print(f"   ⏳ Waiting for fill confirmation...")
@@ -943,7 +959,16 @@ class AlpacaPaperEngine:
 
             if position:
                 pnl_emoji = "🎯" if position.realized_pnl and position.realized_pnl > 0 else "🛑"
-                print(f"\n{pnl_emoji} AUTO-EXIT: {ticker} at ${signal.exit_price:.2f}")
+                exit_msg = f"AUTO-EXIT: {ticker} at ${signal.exit_price:.2f}"
+                print(f"\n{pnl_emoji} {exit_msg}")
+                if self.dashboard:
+                    self.dashboard.log_event({
+                        "type": "EXIT",
+                        "timestamp": datetime.now().strftime("%H:%M:%S"),
+                        "ticker": ticker,
+                        "detail": f"${signal.exit_price:.2f}",
+                        "pnl": position.realized_pnl,
+                    })
                 print(f"   Reason: {signal.reason}")
                 print(f"   P&L: ${position.realized_pnl:,.2f}")
 
@@ -1039,89 +1064,68 @@ class AlpacaPaperEngine:
             print(f"\n📅 New day: Reset entry signals and cooldown tracking")
 
     async def _print_status(self):
-        """Print current status."""
-        print(f"\n{'='*60}")
-        # DESIGN FIX: Add ET timezone suffix to timestamp
-        print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
-        # FINDING-007: Use detailed market status including holidays
-        print(f"📈 Market: {format_market_status()}")
-
-        # VIX Regime Status
-        try:
-            import yfinance as yf
-            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
-            if not vix_hist.empty:
-                vix_current = float(vix_hist['Close'].iloc[-1])
-                if vix_current < 20:
-                    vix_regime = "🟢 LOW"
-                elif vix_current < 30:
-                    vix_regime = "🟡 ELEVATED"
-                elif vix_current < 40:
-                    vix_regime = "🟠 HIGH"
-                else:
-                    vix_regime = "🔴 EXTREME"
-                print(f"📊 VIX: {vix_current:.1f} {vix_regime}")
-            else:
-                print(f"📊 VIX: unavailable")
-        except Exception:
-            print(f"📊 VIX: unavailable")
-
-        # Earnings Gate Status
-        if self.earnings_calendar._api_key:
-            cached_tickers = len(self.earnings_calendar._cache)
-            print(f"🚦 Earnings Gate: ON ({cached_tickers} tickers cached)")
-        else:
-            print(f"🚦 Earnings Gate: OFF (FMP_API_KEY not set)")
-
-        # WebSocket status
-        if self.alpaca.is_ws_healthy():
-            print(f"📡 WebSocket: Connected ({len(self.price_cache)} tickers cached)")
-        else:
-            print(f"📡 WebSocket: Disconnected (using REST fallback)")
-
+        """Print current status — dashboard mode or fallback."""
         stats = self.state.get_stats()
-        orders = self.order_manager.get_orders_summary()
-
-        # Calculate Account Value and Unrealized PnL
-        # Fetch prices asynchronously if not in cache
-        account_value = stats['cash']
+        account_value = stats.get("equity", stats.get("cash", 0.0))
         unrealized_pnl = 0.0
-        position_lines = []
+        positions_data = {}
+
         for ticker, pos in self.state.positions.items():
-            if pos.status == 'OPEN':
-                # Try cache first
-                current_price = self.price_cache.get(ticker, {}).get('price')
-                if current_price is None:
-                    current_price = self.alpaca.get_cached_price(ticker)
-                # Fetch via REST if not cached (non-blocking)
-                if current_price is None:
-                    current_price = await asyncio.to_thread(self.alpaca.get_latest_price, ticker)
+            if pos.status == "OPEN":
+                current_price = self._get_current_price(ticker)
                 if current_price:
                     account_value += current_price * pos.shares
                     upnl = (current_price - pos.entry_price) * pos.shares
                     unrealized_pnl += upnl
-                    # Exit phase badge (P1 = ratchet, P2 = EMA trail)
-                    phase = getattr(pos, 'exit_phase', 'phase1')
-                    phase_badge = '①' if phase == 'phase1' else '②'
-                    position_lines.append(
-                        f"   {ticker:<6} {phase_badge} "
-                        f"${current_price:.2f} | stop ${pos.stop_price:.2f} "
-                        f"({pos.current_stop_type}) | upnl ${upnl:+,.0f}"
-                    )
+                phase = getattr(pos, "exit_phase", "phase1")
+                positions_data[ticker] = {
+                    "entry_price": pos.entry_price,
+                    "current_price": current_price or pos.entry_price,
+                    "stop_price": pos.stop_price,
+                    "shares": pos.shares,
+                    "current_stop_type": pos.current_stop_type,
+                    "exit_phase": phase,
+                }
 
-        print(f"💰 Account Value: ${account_value:,.2f} | Cash: ${stats['cash']:,.2f}", flush=True)
-        print(f"📊 Open: {stats['open_positions']} | Day P&L: ${stats['day_pnl']:,.2f} | Unrealized: ${unrealized_pnl:,.2f}", flush=True)
-        for line in position_lines:
-            print(line, flush=True)
+        et = pytz.timezone("US/Eastern")
+        now = datetime.now(et)
+        market_close_seconds = None
+        if now.weekday() < 5:
+            close_time = now.replace(hour=16, minute=0, second=0)
+            if now < close_time:
+                market_close_seconds = int((close_time - now).total_seconds())
 
-        # Rate limit status
         rl = self.alpaca.rate_limiter.get_status()
-        rl_pct = rl['requests_in_window'] / rl['max_requests'] * 100 if rl['max_requests'] > 0 else 0
-        circuit = "🔴 OPEN" if rl['circuit_open'] else "🟢 closed"
-        print(f"📡 API: {rl['requests_in_window']}/{rl['max_requests']} requests/min ({rl_pct:.0f}%) | Circuit: {circuit}", flush=True)
-        print(f"📋 Pending Orders: {orders['pending']}", flush=True)
-        # Skip health summary for now - potential deadlock in rate limiter
-        print(f"{'='*60}", flush=True)
+        state_data = {
+            "equity": account_value,
+            "cash": stats.get("cash", 0.0),
+            "day_pnl": stats.get("day_pnl", 0.0),
+            "unrealized_pnl": unrealized_pnl,
+            "open_positions": len(self.state.positions),
+            "pending_orders": self.order_manager.get_pending_count(),
+            "positions": positions_data,
+            "market_status": "OPEN" if is_market_open() else "CLOSED",
+            "vix": None,
+            "ws_connected": self.alpaca.is_ws_healthy(),
+            "api_requests": rl.get("requests_in_window", 0),
+            "api_max": rl.get("max_requests", 500),
+            "next_scan_seconds": 30,
+            "market_close_seconds": market_close_seconds,
+        }
+
+        if self.dashboard and self.dashboard.enabled:
+            self.dashboard.update(state_data)
+        else:
+            self._print_status_fallback(state_data)
+
+    def _print_status_fallback(self, state):
+        """Plain-text status when dashboard is unavailable."""
+        print(f"\n{'='*60}")
+        print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
+        print(f"📈 Market: {format_market_status()}")
+        print(f"💰 Account Value: ${state['equity']:,.2f} | Cash: ${state['cash']:,.2f}")
+        print(f"📊 Open: {state['open_positions']} | Day P&L: ${state['day_pnl']:,.2f} | Unrealized: ${state['unrealized_pnl']:,.2f}")
+        print(f"{'='*60}")
 
     async def run(self):
         """Main event loop."""
@@ -1204,6 +1208,9 @@ class AlpacaPaperEngine:
                 await asyncio.wait_for(ws_task, timeout=1.0)
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
+        # Stop dashboard
+        if self.dashboard:
+            self.dashboard.stop()
         print("✅ Engine stopped gracefully")
         return {'shutdown_requested': self.shutdown_requested}
 
