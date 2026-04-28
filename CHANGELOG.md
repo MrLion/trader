@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.0] — 2026-04-27 — TUI Dashboard for Paper Engine
+
+### Added
+- **`traderlib/dashboard.py`** — Live TUI dashboard using `rich`:
+  - Full-width, single-screen display with `rich.live.Live` screen mode
+  - Header band with timestamp, market status (color-coded), VIX, WebSocket status, API usage
+  - Stats block with equity, cash, day P&L, unrealized P&L, open positions, pending orders
+  - Positions table with color-coded current price, unrealized P&L, and R-multiple
+  - Activity log showing last 8 events in 2 columns (entries, exits, stops, skips)
+  - Footer band with next scan countdown, market close countdown, connection status, rate limit
+  - Color coding: green for profit/connected, red for loss/disconnected, yellow for warnings, cyan for entries
+- **`tests/test_dashboard.py`** — Dashboard unit tests:
+  - Initialization and render tests
+  - Stats and positions display verification
+  - Color coding validation (green/red for profit/loss)
+  - Activity log with events
+  - Disabled mode and fallback without `rich` tests
+- **`scripts/demo_dashboard.py`** — Standalone demo script for dashboard rendering validation
+
+### Changed
+- **`scripts/paper_engine_alpaca.py`** — Replaced scrolling `print()` output with live dashboard:
+  - `_print_status()` now builds state dict and updates dashboard
+  - Event logging calls `dashboard.log_event()` with structured event data
+  - Plain-text fallback preserved when `rich` is unavailable or terminal is non-TTY
+  - Dashboard init wrapped in `try/except` to prevent engine crash on startup
+- **`TOOLS.md`** — Added "Paper Engine Dashboard" section documenting sections, color coding, and fallback mode
+- **`pyproject.toml`** — Added `rich>=13.0.0` dependency
+
+### Technical
+- Defensive import pattern: dashboard degrades to no-op if `rich` is not installed
+- TTY detection: auto-disables screen mode when output is piped
+- Bounded event queue: `deque(maxlen=20)` prevents memory growth
+- `_last_state` caching ensures dashboard renders correctly on event-only updates
+
+---
+
 ## [0.6.14.1] — 2026-04-27 — Remove Redundant Scripts
 
 ### Removed
