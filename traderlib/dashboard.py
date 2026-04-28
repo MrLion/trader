@@ -168,7 +168,6 @@ class Dashboard:
         tbl.add_column("STOP", justify="right", style="white")
         tbl.add_column("TYPE", style="yellow")
         tbl.add_column("UNREAL", justify="right")
-        tbl.add_column("R", justify="right")
 
         for ticker, pos in positions.items():
             entry = float(pos.get("entry_price") or 0)
@@ -178,12 +177,9 @@ class Dashboard:
             shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
             unreal = (current - entry) * shares if entry else 0.0
-            risk = (entry - stop) * shares if entry != stop else 1
-            r_mult = unreal / risk if risk else 0.0
 
             cur_color = "green" if current >= entry else "red"
             unreal_color = "green" if unreal >= 0 else "red"
-            r_color = "green" if r_mult >= 0 else "red"
 
             tbl.add_row(
                 ticker,
@@ -192,11 +188,10 @@ class Dashboard:
                 f"{stop:.2f}",
                 ptype,
                 Text(f"{unreal:+.2f}", style=unreal_color),
-                Text(f"{r_mult:+.1f}", style=r_color),
             )
 
         if not positions:
-            tbl.add_row("--", "--", "--", "--", "--", "--", "--")
+            tbl.add_row("--", "--", "--", "--", "--", "--")
 
         return tbl
 

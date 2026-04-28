@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.3] — 2026-04-28 — Dashboard Column Fix
+
+### Changed
+- **`traderlib/dashboard.py`** — Removed `R` column from positions table. Values were meaningless for `BREAKEVEN` positions (denominator was zero, so it showed raw dollar PnL masquerading as an R-multiple) and provided no actionable signal.
+
+---
+
 ## [0.6.15.2] — 2026-04-28 — Dashboard Cleanup
 
 ### Changed
