@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.1] — 2026-04-28 — Dashboard Fixes
+
+### Fixed
+- **`traderlib/dashboard.py`** — Static clock and countdown:
+  - Added background `threading.Thread` timer that re-renders every second
+  - Clock (`09:04:19 ET`) ticks live instead of freezing between engine updates
+  - `next_scan_seconds` countdown computes from monotonic target time, counts down live
+- **`traderlib/dashboard.py`** — Rate limit display accuracy:
+  - Market-closed state shows `API: --` and `Rate limit: --` instead of fabricated `0/500`
+  - Running engine uses actual `10000` limit (paid tier config) instead of hardcoded `500`
+- **`scripts/watchlist_manager.py`** — Added `sys.path.insert()` so `traderlib` imports work when spawned as subprocess from `mcstock_scraper.py --populate-watchlist`
+- **`traderlib/dashboard.py`** — Restored missing `market_color`, `vix_color`, `ws_color` variables in `_header()` after rate limit fix
+
+### Chore
+- **`scripts/mcstock_scraper.py`** — Merged historical scraper into unified script with `--mode single` / `--mode historical`
+- **`scripts/mcstock_historical_scraper.py`** — Removed (functionality merged)
+- **`CLAUDE.md`** — Updated MC Stock Charts commands to unified `--mode` syntax
+
+---
+
 ## [0.6.15.0] — 2026-04-27 — TUI Dashboard for Paper Engine
 
 ### Added
