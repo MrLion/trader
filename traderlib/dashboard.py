@@ -74,9 +74,30 @@ class Dashboard:
         market = state.get("market_status", "UNKNOWN")
         vix = state.get("vix", "--")
         ws = "connected" if state.get("ws_connected") else "disconnected"
-        api = f"{state.get('api_requests', 0)}/{state.get('api_max', 0)}"
-        line = f"  PAPER ENGINE    {now} ET    MARKET {market}    VIX {vix}    WS: {ws}    API: {api}"
-        return Text(line, style="bold white")
+        req = state.get("api_requests", 0)
+        max_req = state.get("api_max", 500)
+        api = f"{req}/{max_req}"
+
+        market_color = "green" if market == "OPEN" else "red"
+        vix_val = state.get("vix")
+        vix_color = "white"
+        if vix_val is not None:
+            if vix_val > 30:
+                vix_color = "red"
+            elif vix_val > 20:
+                vix_color = "yellow"
+        ws_color = "green" if state.get("ws_connected") else "red"
+        api_pct = (req / max_req) if max_req else 0
+        api_color = "yellow" if api_pct > 0.8 else "white"
+
+        return Text.assemble(
+            "  PAPER ENGINE    ",
+            (now, "bold white"), " ET    ",
+            (f"MARKET {market}", f"bold {market_color}"), "    ",
+            "VIX ", (str(vix), f"bold {vix_color}"), "    ",
+            "WS: ", (ws, f"bold {ws_color}"), "    ",
+            "API: ", (api, f"bold {api_color}"),
+        )
 
     def _stats(self, state: Dict[str, Any]) -> Text:
         equity = float(state.get("equity") or 0.0)
@@ -198,5 +219,24 @@ class Dashboard:
         max_req = state.get("api_max", 500)
 
         close_str = f"{market_close//3600}h {(market_close%3600)//60}m" if market_close is not None else "--"
-        line = f"  Next scan: {next_scan}s    Market closes in: {close_str}    WebSocket: {ws}    Rate limit: {req}/{max_req}"
-        return Text(line, style="dim")
+        close_color = "white"
+        if market_close is not None:
+            if market_close < 300:
+                close_color = "red"
+            elif market_close < 1800:
+                close_color = "yellow"
+
+        ws_color = "green" if state.get("ws_connected") else "red"
+        api_pct = (req / max_req) if max_req else 0
+        rate_color = "white"
+        if api_pct >= 1.0:
+            rate_color = "red"
+        elif api_pct > 0.8:
+            rate_color = "yellow"
+
+        return Text.assemble(
+            "  Next scan: ", (f"{next_scan}s", "white"), "    ",
+            "Market closes in: ", (close_str, close_color), "    ",
+            "WebSocket: ", (ws, ws_color), "    ",
+            "Rate limit: ", (f"{req}/{max_req}", rate_color),
+        )

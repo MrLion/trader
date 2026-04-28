@@ -1260,6 +1260,8 @@ Position: Watching for confirmation
 - Always use `--account trader` flag (not default)
 - Channel posts are permanent and visible to all subscribers
 - Discussion group posts show comment count on channel
+- Images must be in workspace directory (`~/.openclaw/workspaces/trader/`)
+- Use `--force-document` for charts to prevent compression
 
 ## Paper Engine Dashboard
 
@@ -1271,7 +1273,7 @@ When the paper engine runs (`python3 scripts/paper_engine_alpaca.py`), it displa
 - **Stats** -- equity, cash, day P&L, unrealized P&L, open positions, pending orders
 - **Positions** -- open positions with color-coded current price, unrealized P&L, and R-multiple
 - **Activity Log** -- last 8 events (entries, exits, stops, skips)
-- **Footer** -- next scan countdown, market close time, connection status
+- **Footer** -- next scan countdown, market close countdown, connection status
 
 ### Color Coding
 
@@ -1284,5 +1286,3 @@ When the paper engine runs (`python3 scripts/paper_engine_alpaca.py`), it displa
 ### Fallback Mode
 
 If `rich` is not installed or the terminal is not a TTY, the engine falls back to plain text output.
-- Images must be in workspace directory (`~/.openclaw/workspaces/trader/`)
-- Use `--force-document` for charts to prevent compression
