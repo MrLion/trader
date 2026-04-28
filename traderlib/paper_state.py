@@ -271,6 +271,7 @@ class PaperState:
             'test_trades': 0,
             'entries_today': 0,
             'production_entries_today': 0,
+            'day_pnl': 0.0,
         }
 
         try:
@@ -292,11 +293,18 @@ class PaperState:
 
                     stats['production_trades'] += 1
 
+                    ts = trade.get('timestamp', '')
+                    is_today = ts.startswith(today)
+
                     # Count today's production entries
-                    if trade.get('event') == 'ENTRY':
-                        ts = trade.get('timestamp', '')
-                        if ts.startswith(today):
-                            stats['production_entries_today'] += 1
+                    if trade.get('event') == 'ENTRY' and is_today:
+                        stats['production_entries_today'] += 1
+
+                    # Sum today's realized P&L for day_pnl recovery
+                    if trade.get('event') == 'EXIT' and is_today:
+                        pnl = trade.get('realized_pnl')
+                        if pnl is not None:
+                            stats['day_pnl'] += pnl
 
         except Exception as e:
             return {'error': f'Failed to read trade log: {e}'}
@@ -304,6 +312,7 @@ class PaperState:
         # Update state counters to match log
         self.trade_count = stats['production_trades']
         self.entries_today = stats['production_entries_today']
+        self.day_pnl = stats['day_pnl']
 
         return stats
 

@@ -1107,6 +1107,16 @@ class AlpacaPaperEngine:
             if now < close_time:
                 market_close_seconds = int((close_time - now).total_seconds())
 
+        # Fetch VIX for dashboard header (same source as fallback path)
+        vix_current = None
+        try:
+            import yfinance as yf
+            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+            if not vix_hist.empty:
+                vix_current = float(vix_hist['Close'].iloc[-1])
+        except Exception:
+            pass
+
         rl = self.alpaca.rate_limiter.get_status()
         state_data = {
             "equity": account_value,
@@ -1117,7 +1127,7 @@ class AlpacaPaperEngine:
             "pending_orders": self.order_manager.get_pending_count(),
             "positions": positions_data,
             "market_status": "OPEN" if is_market_open() else "CLOSED",
-            "vix": None,
+            "vix": vix_current,
             "ws_connected": self.alpaca.is_ws_healthy(),
             "api_requests": rl.get("requests_in_window", 0),
             "api_max": rl.get("max_requests", 10000),

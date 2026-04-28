@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.5] — 2026-04-28 — Paper Engine Bug Fixes
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — VIX now fetched from yfinance for dashboard display (was hardcoded to `None`, so header always showed `VIX --`)
+- **`traderlib/paper_state.py`** — `day_pnl` is now recovered from today's trade log on engine restart. Previously, exiting and relaunching during the same session reset `day_pnl` to 0, hiding today's realized gains/losses.
+
+---
+
 ## [0.6.15.4] — 2026-04-28 — Dashboard Shutdown UX
 
 ### Fixed
