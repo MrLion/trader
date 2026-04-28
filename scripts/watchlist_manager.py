@@ -79,6 +79,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Allow imports from project root when script is run directly
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pandas as pd
 import yfinance as yf
 
