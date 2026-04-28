@@ -172,20 +172,17 @@ python3 scripts/sector_scan_comprehensive.py
 
 ## Setting Up Automated Trading
 
-### Option 1: Environment Variables (Recommended)
+### Option 1: .env File (Recommended)
 
 ```bash
-export ALPACA_API_KEY="your_api_key"
-export ALPACA_SECRET_KEY="your_secret_key"
-
-# Optional: FMP API key for earnings/economic calendar in pre-market reports
-# Get key at: https://financialmodelingprep.com/developer/docs
-export FMP_API_KEY="your_fmp_key"
-
-# Add to your shell profile (~/.zshrc or ~/.bashrc) for persistence
-echo 'export ALPACA_API_KEY="your_api_key"' >> ~/.zshrc
-echo 'export ALPACA_SECRET_KEY="your_secret_key"' >> ~/.zshrc
+cp .env.example .env
+# Edit .env with your keys
 ```
+
+The `.env` file uses mode-specific key names:
+- `ALPACA_PAPER_API_KEY` / `ALPACA_PAPER_SECRET_KEY` — Paper trading
+- `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_SECRET_KEY` — Live trading
+- `FMP_API_KEY` — Optional, for earnings/economic calendar
 
 ### Option 2: Interactive Setup
 
@@ -193,11 +190,17 @@ echo 'export ALPACA_SECRET_KEY="your_secret_key"' >> ~/.zshrc
 python3 scripts/setup_alpaca.py
 ```
 
-### Option 3: .env File
+This saves credentials to `config/secrets/alpaca_config.json`.
+
+### Option 3: Environment Variables
 
 ```bash
-cp .env.example .env
-# Edit .env with your keys
+export ALPACA_PAPER_API_KEY="your_paper_api_key"
+export ALPACA_PAPER_SECRET_KEY="your_paper_secret_key"
+
+# Optional: FMP API key for earnings/economic calendar in pre-market reports
+# Get key at: https://financialmodelingprep.com/developer/docs
+export FMP_API_KEY="your_fmp_key"
 ```
 
 ### Validate Your Setup

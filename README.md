@@ -83,16 +83,21 @@ The system follows Mark Minervini's Stage 2 methodology with MA convergence scor
 
 ## Configuration
 
-**Required for Trading:**
+**Recommended:** Create a `.env` file in the project root:
+
 ```bash
-export ALPACA_API_KEY="your_key"
-export ALPACA_SECRET_KEY="your_secret"
+cp .env.example .env
+# Edit .env with your keys
 ```
 
+**Required for Trading:**
+- `ALPACA_PAPER_API_KEY` / `ALPACA_PAPER_SECRET_KEY` — Paper trading (from https://app.alpaca.markets/paper)
+- `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_SECRET_KEY` — Live trading (from https://app.alpaca.markets)
+
 **Optional:**
-- `TELEGRAM_BOT_TOKEN` — Report delivery to Telegram
-- `MCSTOCK_USER/PASS` — MC Stock Charts scraper
-- `FMP_API_KEY` — [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs) earnings calendar and economic calendar in pre-market reports. Fail-open: if unset, calendar features are skipped.
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — Report delivery
+- `MCSTOCK_USER` / `MCSTOCK_PASS` — MC Stock Charts scraper
+- `FMP_API_KEY` — Earnings/economic calendar in pre-market reports (fail-open)
 
 → See [Configuration Reference](docs/config/configuration-reference.md) for all options and environment overrides.
 
