@@ -178,6 +178,10 @@ python3 scripts/sector_scan_comprehensive.py
 export ALPACA_API_KEY="your_api_key"
 export ALPACA_SECRET_KEY="your_secret_key"
 
+# Optional: FMP API key for earnings/economic calendar in pre-market reports
+# Get key at: https://financialmodelingprep.com/developer/docs
+export FMP_API_KEY="your_fmp_key"
+
 # Add to your shell profile (~/.zshrc or ~/.bashrc) for persistence
 echo 'export ALPACA_API_KEY="your_api_key"' >> ~/.zshrc
 echo 'export ALPACA_SECRET_KEY="your_secret_key"' >> ~/.zshrc

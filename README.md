@@ -89,7 +89,10 @@ export ALPACA_API_KEY="your_key"
 export ALPACA_SECRET_KEY="your_secret"
 ```
 
-**Optional:** `TELEGRAM_BOT_TOKEN` (report delivery), `MCSTOCK_USER/PASS` (MC Stock Charts scraper)
+**Optional:**
+- `TELEGRAM_BOT_TOKEN` — Report delivery to Telegram
+- `MCSTOCK_USER/PASS` — MC Stock Charts scraper
+- `FMP_API_KEY` — [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs) earnings calendar and economic calendar in pre-market reports. Fail-open: if unset, calendar features are skipped.
 
 → See [Configuration Reference](docs/config/configuration-reference.md) for all options and environment overrides.
 
