@@ -850,6 +850,7 @@ class AlpacaClient:
                 print(f"⚠️ Failed to subscribe to quotes: {e}")
 
         self.ws_connected = True
+        self.last_ws_message = datetime.now()  # Consider healthy immediately on connect
         # Reset reconnect delay on successful connection
         self.ws_reconnect_delay = 5
         print(f"📡 WebSocket stream starting for {len(tickers)} tickers...")

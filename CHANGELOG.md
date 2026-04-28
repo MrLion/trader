@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.15.6] — 2026-04-28 — WebSocket Status Fix
+
+### Fixed
+- **`traderlib/alpaca_client.py`** — WebSocket now shows "connected" immediately on engine startup. `last_ws_message` is initialized to `now()` when the connection is established, so `is_ws_healthy()` no longer returns `False` during the first 30-second cycle while waiting for the first trade message.
+
+---
+
 ## [0.6.15.5] — 2026-04-28 — Paper Engine Bug Fixes
 
 ### Fixed
