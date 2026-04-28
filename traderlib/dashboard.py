@@ -2,6 +2,8 @@
 """TUI Dashboard for paper engine using rich."""
 
 import os
+import threading
+import time
 from collections import deque
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -25,6 +27,9 @@ class Dashboard:
         self.live: Optional[Any] = None
         self.events: deque = deque(maxlen=20)
         self._last_state: Dict[str, Any] = {}
+        self._next_scan_target: Optional[float] = None
+        self._timer_thread: Optional[threading.Thread] = None
+        self._timer_stop = threading.Event()
 
         if self.enabled:
             self.console = Console()
@@ -35,18 +40,38 @@ class Dashboard:
                 screen=True,
             )
             self.live.start()
+            self._start_timer()
+
+    def _start_timer(self):
+        """Start background thread that re-renders every second."""
+        self._timer_stop.clear()
+        self._timer_thread = threading.Thread(target=self._timer_loop, daemon=True)
+        self._timer_thread.start()
+
+    def _timer_loop(self):
+        """Re-render dashboard every second for live clock/countdown."""
+        while not self._timer_stop.is_set():
+            time.sleep(1.0)
+            if self.enabled and self.live:
+                self.live.update(self._render())
 
     def stop(self):
-        """Stop the live display."""
+        """Stop the live display and timer thread."""
         if self.enabled and self.live:
+            self._timer_stop.set()
+            if self._timer_thread:
+                self._timer_thread.join(timeout=2.0)
             self.live.stop()
             self.enabled = False
 
     def update(self, state: Dict[str, Any]) -> None:
-        """Refresh dashboard with new state."""
+        """Refresh dashboard with new state and compute countdown target."""
         if not self.enabled:
             return
         self._last_state = state
+        # Compute countdown target from monotonic clock
+        next_scan = state.get("next_scan_seconds", 30)
+        self._next_scan_target = time.monotonic() + next_scan
         self.live.update(self._render(state))
 
     def log_event(self, event: Dict[str, Any]) -> None:
@@ -227,7 +252,13 @@ class Dashboard:
         return Text.from_markup("\n".join(lines))
 
     def _footer(self, state: Dict[str, Any]) -> Text:
-        next_scan = state.get("next_scan_seconds", 30)
+        # Live countdown from target time
+        if self._next_scan_target is not None:
+            remaining = int(self._next_scan_target - time.monotonic())
+            next_scan = max(0, remaining)
+        else:
+            next_scan = state.get("next_scan_seconds", 30)
+
         market_close = state.get("market_close_seconds")
         ws = "connected" if state.get("ws_connected") else "disconnected"
         req = state.get("api_requests")
