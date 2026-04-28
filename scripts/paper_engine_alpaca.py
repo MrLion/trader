@@ -1107,10 +1107,15 @@ class AlpacaPaperEngine:
             if now < close_time:
                 market_close_seconds = int((close_time - now).total_seconds())
 
-        # NOTE: VIX is intentionally not fetched here. Alpaca does not provide
-        # the VIX index, and yfinance has a 15-minute delay (disallowed in
-        # the live trading path per CLAUDE.md). The dashboard shows "--".
+        # Fetch VIX for dashboard header (same source as fallback path)
         vix_current = None
+        try:
+            import yfinance as yf
+            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+            if not vix_hist.empty:
+                vix_current = float(vix_hist['Close'].iloc[-1])
+        except Exception:
+            pass
 
         rl = self.alpaca.rate_limiter.get_status()
         state_data = {
@@ -1141,9 +1146,25 @@ class AlpacaPaperEngine:
         print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET")
         print(f"📈 Market: {format_market_status()}")
 
-        # VIX Regime Status — Alpaca does not provide the VIX index; yfinance
-        # has a 15-minute delay and is disallowed in the live trading path.
-        print(f"📊 VIX: unavailable (Alpaca does not provide VIX index)")
+        # VIX Regime Status
+        try:
+            import yfinance as yf
+            vix_hist = yf.Ticker("^VIX").history(period="2d", auto_adjust=False)
+            if not vix_hist.empty:
+                vix_current = float(vix_hist['Close'].iloc[-1])
+                if vix_current < 20:
+                    vix_regime = "🟢 LOW"
+                elif vix_current < 30:
+                    vix_regime = "🟡 ELEVATED"
+                elif vix_current < 40:
+                    vix_regime = "🟠 HIGH"
+                else:
+                    vix_regime = "🔴 EXTREME"
+                print(f"📊 VIX: {vix_current:.1f} {vix_regime}")
+            else:
+                print(f"📊 VIX: unavailable")
+        except Exception:
+            print(f"📊 VIX: unavailable")
 
         # Earnings Gate Status
         if self.earnings_calendar._api_key:

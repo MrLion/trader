@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.15.7] — 2026-04-28 — VIX Data Source Correction
+## [0.6.15.8] — 2026-04-28 — Rollback VIX Changes
+
+### Changed
+- **`scripts/paper_engine_alpaca.py`** — Rolled back VIX changes from v0.6.15.5–v0.6.15.7. VIX display restored to pre-change behavior: dashboard shows `None` (rendered as `--`), fallback path fetches via yfinance. No yfinance calls added to the live dashboard path.
+
+---
+
+## [0.6.15.7] — 2026-04-28 — VIX Data Source Correction (REVERTED in v0.6.15.8)
 
 ### Fixed
 - **`scripts/paper_engine_alpaca.py`** — Removed yfinance VIX fetch from the live trading path. yfinance has a 15-minute delay and is disallowed for live trading per `CLAUDE.md`. Dashboard now shows `VIX --` honestly; fallback path prints `VIX: unavailable (Alpaca does not provide VIX index)`.
