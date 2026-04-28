@@ -29,8 +29,9 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
     - Sector Scan: `python3 scripts/sector_scan_comprehensive.py`
     - Trend Screener: `python3 scripts/trend_screener.py`
 - **MC Stock Charts:**
-    - Daily Report: `python3 scripts/mcstock_scraper.py`
-    - Historical Archives: `python3 scripts/mcstock_historical_scraper.py --weeks 10`
+    - Today's Report: `python3 scripts/mcstock_scraper.py --mode single`
+    - Specific Date: `python3 scripts/mcstock_scraper.py --mode single --date 2026-04-06`
+    - Historical Range: `python3 scripts/mcstock_scraper.py --mode historical --start 2024-01-01 --end 2025-04-01`
 - **Backtesting:**
     - Default: `python3 scripts/backtest.py`
     - Custom range: `python3 scripts/backtest.py --start 2025-06-01 --end 2026-03-31`
