@@ -1588,10 +1588,6 @@ def main():
                         print("\n🛑 Stopped by user.")
                         if dashboard:
                             dashboard.stop()
-                            import sys, time
-                            sys.stdout.write("\x1b[?1049l")  # Force exit alternate screen
-                            sys.stdout.flush()
-                            time.sleep(0.3)
                         return
 
                     print("   Market is now open. Starting engine...\n")
@@ -1634,14 +1630,8 @@ def main():
             except KeyboardInterrupt:
                 print("\n🛑 Stopped by user.")
                 break
-        finally:
-            # Always ensure dashboard is stopped to restore terminal
-            if dashboard:
-                dashboard.stop()
-                import sys, time
-                sys.stdout.write("\x1b[?1049l")  # Force exit alternate screen
-                sys.stdout.flush()
-                time.sleep(0.3)
+    if dashboard:
+        dashboard.stop()
 
 
 if __name__ == "__main__":
