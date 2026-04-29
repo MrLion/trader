@@ -1120,7 +1120,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     risk_level, advice = _classify_economic_risk(econ['today'])
     report_data['economic']['risk_level'] = risk_level
     report_data['economic']['advice'] = advice
-    report_data['economic']['events'] = econ['today']
+    report_data['economic']['events'] = [e for e in econ['today'] if e.impact.lower() == 'high']
     report_data['economic']['tomorrow'] = econ['tomorrow']
 
     # MAJOR INDICES

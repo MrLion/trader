@@ -1188,6 +1188,7 @@ class AlpacaPaperEngine:
                     "shares": pos.shares,
                     "current_stop_type": pos.current_stop_type,
                     "exit_phase": phase,
+                    "sector": getattr(pos, "sector", "Unknown"),
                 }
 
         et = pytz.timezone("US/Eastern")
@@ -1213,8 +1214,24 @@ class AlpacaPaperEngine:
         active_cooldowns = self._get_active_cooldowns()
         today_stats = self._get_today_trade_stats()
 
-        # Default regime for _print_status path (computed inline in main flow)
+        # Compute market regime for dashboard
         regime = "UNKNOWN"
+        try:
+            spy_hist = self.alpaca.get_historical_bars("SPY")
+            if spy_hist is not None and len(spy_hist) >= 50:
+                spy_current = float(spy_hist["Close"].iloc[-1])
+                spy_50ma = float(spy_hist["Close"].tail(50).mean())
+                spy_200ma = float(spy_hist["Close"].tail(200).mean()) if len(spy_hist) >= 200 else spy_50ma
+                if spy_current > spy_50ma > spy_200ma and (vix_current or 0) < 20:
+                    regime = "BULL"
+                elif spy_current > spy_50ma and (vix_current or 0) < 25:
+                    regime = "BULL"
+                elif spy_current < spy_50ma and (vix_current or 0) > 25:
+                    regime = "BEAR"
+                else:
+                    regime = "NEUTRAL"
+        except Exception:
+            pass
 
         state_data = {
             "equity": account_value,

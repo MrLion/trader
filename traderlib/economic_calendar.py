@@ -47,6 +47,7 @@ class EconomicEvent:
     """
     date: str
     time: str
+    country: str
     event: str
     impact: str
     estimate: Optional[str]
@@ -265,6 +266,7 @@ class EconomicCalendar:
             # Extract fields with defaults
             date_str = record.get("date")
             time_str = record.get("time", "")
+            country = record.get("country", "")
             event_name = record.get("event")
             impact = record.get("impact", "medium")
             estimate = record.get("estimate")
@@ -277,6 +279,7 @@ class EconomicCalendar:
             event = EconomicEvent(
                 date=date_str,
                 time=time_str,
+                country=country,
                 event=event_name,
                 impact=impact,
                 estimate=estimate,

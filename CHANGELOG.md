@@ -1,3 +1,12 @@
+## [0.6.15.13] — 2026-04-29 — Fix Regime and Sector Dashboard Bugs
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Two dashboard data bugs:
+  - **Market regime stuck on "UNKNOWN"** — regime computation code was missing; replaced hardcoded `"UNKNOWN"` with live SPY 50MA/200MA + VIX calculation
+  - **All sectors showing "Unknown"** — `positions_data` dict was missing the `"sector"` key; now passes `pos.sector` through to dashboard state
+
+---
+
 ## [0.6.15.12] — 2026-04-29 — Fix Graceful Shutdown Signal Handler Leak
 
 ### Fixed
