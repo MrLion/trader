@@ -1,3 +1,18 @@
+## [0.6.15.19] — 2026-04-29 — Post-Market Dashboard Summary
+
+### Added
+- **`scripts/paper_engine_alpaca.py`** — Post-market dashboard summary. When market closes, the dashboard now shows a "POST-MARKET SUMMARY" view with the final portfolio state instead of clearing the screen:
+  - Engine returns final `state_data` dict to `main()` on graceful exit
+  - Dashboard stays alive with preserved equity, positions, P&L, sector exposure
+  - Header shows yellow `POST-MARKET SUMMARY` badge
+  - User sees how the day ended and can review positions until market reopens
+
+### Changed
+- **`traderlib/dashboard.py`** — `_header()` supports `market_status="POST"` rendering with yellow `POST-MARKET SUMMARY` label
+- **`scripts/paper_engine_alpaca.py`** — Removed `dashboard.stop()` from engine cleanup; lifecycle managed by `main()` instead
+
+---
+
 ## [0.6.15.15] — 2026-04-29 — Economic Calendar TBD Filter + Mobile Layout
 
 ### Fixed
