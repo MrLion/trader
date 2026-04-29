@@ -10,3 +10,7 @@
 2026-04-29 10:56:23 [WARNING] trading: [vix_fetch] DNSError: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details. | context: {'ticker': '^VIX'}
 2026-04-29 10:56:23 [WARNING] trading: [vix_fetch] DNSError: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details. | context: {'ticker': '^VIX'}
 2026-04-29 10:56:23 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_kwm2s2p8/watchlist.csv'}
+2026-04-29 16:09:48 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-29 16:09:48 [WARNING] trading: [vix_fetch] DNSError: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details. | context: {'ticker': '^VIX'}
+2026-04-29 16:09:48 [WARNING] trading: [vix_fetch] DNSError: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details. | context: {'ticker': '^VIX'}
+2026-04-29 16:09:48 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_d8vyped4/watchlist.csv'}

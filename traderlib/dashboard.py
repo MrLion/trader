@@ -133,7 +133,12 @@ class Dashboard:
             api_pct = (req / max_req) if max_req else 0
             api_color = "yellow" if api_pct > 0.8 else "white"
 
-        market_color = "green" if market == "OPEN" else "red"
+        if market == "POST":
+            market_color = "yellow"
+            market_label = "POST-MARKET SUMMARY"
+        else:
+            market_color = "green" if market == "OPEN" else "red"
+            market_label = f"MARKET {market}"
         vix_val = state.get("vix")
         vix_color = "white"
         if vix_val is not None:
@@ -149,7 +154,7 @@ class Dashboard:
         return Text.assemble(
             "  PAPER ENGINE    ",
             (now, "bold white"), " ET    ",
-            (f"MARKET {market}", f"bold {market_color}"), "    ",
+            (market_label, f"bold {market_color}"), "    ",
             (regime, f"bold {regime_color}"), "    ",
             "VIX ", (f"{vix}", vix_color), "    ",
             "WS: ", (ws, ws_color), "    ",
@@ -201,10 +206,6 @@ class Dashboard:
         filled = int(min(heat_pct / max_heat, 1.0) * 10)
         bar = "█" * filled + "░" * (10 - filled)
         return heat_pct, bar
-
-    def _at_risk_banner(self, state: Dict[str, Any]) -> Text:
-        """Deprecated: at-risk info now shown per-row in positions table."""
-        return Text("")
 
     def _today_summary(self, state: Dict[str, Any]) -> Text:
         """One-line summary of today's closed trades."""

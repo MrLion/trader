@@ -12,6 +12,7 @@ import csv
 import html
 import re
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pandas as pd
@@ -1163,7 +1164,7 @@ def _deduplicate_events(events):
 
 def _group_events_by_time(events):
     """Group events into time blocks for display."""
-    blocks = {'pre_market': [], 'market_hours': [], 'afternoon': [], 'after_hours': [], 'unknown': []}
+    blocks = {'pre_market': [], 'market_hours': [], 'after_hours': [], 'unknown': []}
     for e in events:
         t = _format_event_time(e)
         if t == 'TBD':
@@ -1192,7 +1193,7 @@ def _get_time_status(event, report_time=None) -> str:
     if t == 'TBD':
         return 'unknown'
     if report_time is None:
-        report_time = datetime.now()
+        report_time = datetime.now(ZoneInfo('America/New_York'))
     try:
         hour = int(t.split(':')[0])
         minute = int(t.split(':')[1])

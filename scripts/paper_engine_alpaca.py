@@ -1253,6 +1253,7 @@ class AlpacaPaperEngine:
             "regime": regime,
         }
 
+        self._last_state_data = state_data
         if self.dashboard and self.dashboard.enabled:
             self.dashboard.update(state_data)
         else:
@@ -1413,13 +1414,13 @@ class AlpacaPaperEngine:
                     pass
         finally:
             loop.set_exception_handler(old_handler)
-        # Stop dashboard
-        if self.dashboard:
-            self.dashboard.stop()
         # Restore signal handlers so main() wait loop isn't hijacked
         self._cleanup()
         print("✅ Engine stopped gracefully")
-        return {'shutdown_requested': self.shutdown_requested}
+        # Preserve final state for post-market dashboard
+        final_state = getattr(self, '_last_state_data', {})
+        final_state['shutdown_requested'] = self.shutdown_requested
+        return final_state
 
 
 def main():
@@ -1515,7 +1516,17 @@ def main():
                 print("\n👋 Goodbye!")
                 break
 
-            # Engine stopped (market closed)
+            # Engine stopped (market closed) — show post-market summary
+            final_state = result or {}
+            if dashboard and dashboard.enabled and not final_state.get('shutdown_requested'):
+                # Preserve final state for post-market viewing
+                post_state = dict(final_state)
+                post_state['market_status'] = 'POST'
+                post_state['next_scan_seconds'] = 0
+                if 'market_close_seconds' in post_state:
+                    post_state['market_close_seconds'] = None
+                dashboard.update(post_state)
+                print("\n📊 Post-market summary displayed. Press Ctrl+C to exit.")
             print("\n⏳ Market closed. Will restart at next open...\n")
             import time
             time.sleep(30)  # Brief pause before checking again
