@@ -1578,6 +1578,9 @@ def main():
                         print("\n🛑 Stopped by user.")
                         if dashboard:
                             dashboard.stop()
+                            import sys, time
+                            sys.stdout.flush()
+                            time.sleep(0.1)
                         return
 
                     print("   Market is now open. Starting engine...\n")
@@ -1620,9 +1623,13 @@ def main():
             except KeyboardInterrupt:
                 print("\n🛑 Stopped by user.")
                 break
-
-    if dashboard:
-        dashboard.stop()
+        finally:
+            # Always ensure dashboard is stopped to restore terminal
+            if dashboard:
+                dashboard.stop()
+                import sys, time
+                sys.stdout.flush()
+                time.sleep(0.1)
 
 
 if __name__ == "__main__":
