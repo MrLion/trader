@@ -1415,6 +1415,9 @@ class AlpacaPaperEngine:
         finally:
             loop.set_exception_handler(old_handler)
         # Restore signal handlers so main() wait loop isn't hijacked
+        # Stop dashboard to exit alternate screen before restoring handlers
+        if self.dashboard:
+            self.dashboard.stop()
         self._cleanup()
         print("✅ Engine stopped gracefully")
         # Preserve final state for post-market dashboard
