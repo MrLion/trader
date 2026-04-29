@@ -260,7 +260,8 @@ class Dashboard:
             current = float(current_price) if current_price is not None else entry
             stop = float(pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
-            ptype = pos.get("current_stop_type", "HARD")
+            ptype_raw = pos.get("current_stop_type", "HARD")
+            ptype = {"HARD": "H", "TRAILING": "T", "EMA10": "E", "EMA21": "E", "EMA50": "E"}.get(ptype_raw, ptype_raw[:1])
             unreal = (current - entry) * shares if entry else 0.0
 
             # R-multiple calculation (internal, not displayed)
@@ -273,13 +274,13 @@ class Dashboard:
             # DIST color: red <25%, yellow <50%, green >=50%
             if dist_pct < 25:
                 dist_style = "bold red"
-                dist_icon = "!"
+                dist_icon = "[!]"
             elif dist_pct < 50:
                 dist_style = "yellow"
-                dist_icon = "●"
+                dist_icon = "[*]"
             else:
                 dist_style = "green"
-                dist_icon = "✓"
+                dist_icon = "[+]"
 
             # Row color based on R-level (kept internally for visual hierarchy)
             if r_mult < 0:
