@@ -994,8 +994,8 @@ def fetch_economic_calendar():
     events = cal.get_events(today, today + timedelta(days=1))
 
     # Separate today vs tomorrow
-    today_events = [e for e in events if e.date == today]
-    tomorrow_events = [e for e in events if e.date == today + timedelta(days=1)]
+    today_events = [e for e in events if e.date.startswith(today.isoformat())]
+    tomorrow_events = [e for e in events if e.date.startswith((today + timedelta(days=1)).isoformat())]
 
     return {
         'today': today_events,

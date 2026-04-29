@@ -1,3 +1,10 @@
+## [0.6.15.12] — 2026-04-29 — Fix Economic Calendar Detection
+
+### Fixed
+- **`scripts/premarket_report.py`** — Fixed economic calendar events never appearing. FMP API returns dates with time suffix (`"2026-04-29 01:30:00"`) but the code compared them as `str == date` objects — always `False`. Changed comparison to `str.startswith(isoformat())` to handle both type and format mismatches.
+
+---
+
 ## [0.6.15.11] — 2026-04-29 — Dashboard P2 UX Improvements
 
 ### Added
