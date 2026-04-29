@@ -1429,7 +1429,9 @@ def _load_post_market_state():
     """Load saved positions and fetch closing prices for post-market summary."""
     import json
     from pathlib import Path
-    positions_file = Path('data/paper_positions.json')
+    # Resolve data dir relative to repo root (script is in scripts/)
+    repo_root = Path(__file__).parent.parent
+    positions_file = repo_root / 'data' / 'paper_positions.json'
     if not positions_file.exists():
         return None
     try:
