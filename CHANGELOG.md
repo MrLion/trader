@@ -1,3 +1,18 @@
+## [0.6.15.15] — 2026-04-29 — Economic Calendar TBD Filter + Mobile Layout
+
+### Fixed
+- **`scripts/premarket_report.py`** — Filter out events with unknown time (TBD) from economic calendar. FMP returns many events without time stamps; these cluttered the report and provided no actionable value.
+
+### Changed
+- **`scripts/premarket_report.py`** — Mobile-responsive CSS for economic calendar table:
+  - Horizontal scroll instead of overflow
+  - Estimate/Previous columns hidden under 768px
+  - Event names truncate with ellipsis at 160px max-width
+  - Time column compacted (50px, 0.75rem font)
+  - Block headers use tighter padding
+
+---
+
 ## [0.6.15.14] — 2026-04-29 — Economic Calendar UX Improvements
 
 ### Added

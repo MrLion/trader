@@ -778,6 +778,13 @@ def generate_html_report(report_data, output_path):
             .crypto-row {{ flex-wrap: wrap; justify-content: center; }}
             table {{ font-size: 0.8rem; }}
             th, td {{ padding: 8px; }}
+            /* Economic calendar mobile */
+            .events-table {{ display: block; overflow-x: auto; white-space: nowrap; }}
+            .events-table th:nth-child(4), .events-table td:nth-child(4),
+            .events-table th:nth-child(5), .events-table td:nth-child(5) {{ display: none; }}
+            .event-name {{ max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+            .event-time {{ min-width: 50px; font-size: 0.75rem; }}
+            .time-block-header td {{ padding: 6px 8px; font-size: 0.7rem; }}
         }}
     </style>
 </head>
@@ -1318,7 +1325,10 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     risk_level, advice = _classify_economic_risk(econ['today'])
     report_data['economic']['risk_level'] = risk_level
     report_data['economic']['advice'] = advice
-    report_data['economic']['events'] = _deduplicate_events(sorted([e for e in econ['today'] if e.country == 'US'], key=lambda e: ({'high': 0, 'medium': 1, 'low': 2}.get(e.impact.lower(), 3), _format_event_time(e))))
+    report_data['economic']['events'] = _deduplicate_events(sorted(
+        [e for e in econ['today'] if _event_attr(e, 'country') == 'US' and _format_event_time(e) != 'TBD'],
+        key=lambda e: ({'high': 0, 'medium': 1, 'low': 2}.get(_event_attr(e, 'impact', '').lower(), 3), _format_event_time(e))
+    ))
     report_data['economic']['tomorrow'] = econ['tomorrow']
 
     # MAJOR INDICES
