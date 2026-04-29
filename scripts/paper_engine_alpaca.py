@@ -327,9 +327,14 @@ class AlpacaPaperEngine:
             print(f"⚠️ Error syncing with Alpaca: {e}")
 
     def _cleanup(self):
-        """Restore original signal handlers so main() can use its own."""
-        signal.signal(signal.SIGINT, self._old_sigint)
-        signal.signal(signal.SIGTERM, self._old_sigterm)
+        """Restore default signal handlers so main() can use its own.
+
+        Always restores the Python default (KeyboardInterrupt for SIGINT,
+        SIG_DFL for SIGTERM) rather than the handlers stored at __init__
+        time. This prevents handler leaks across engine restarts.
+        """
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
     def _signal_handler(self, signum, frame):
         """Graceful shutdown. Force-exits on second Ctrl+C."""
