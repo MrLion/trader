@@ -37,7 +37,7 @@ class Dashboard:
                 self._render(),
                 console=self.console,
                 refresh_per_second=2,
-                screen=True,
+                screen=False,  # Inline rendering — avoids alternate screen buffer stuck state
             )
             self.live.start()
             self._start_timer()
