@@ -1496,11 +1496,6 @@ def _load_post_market_state():
 
 
 def main():
-    # Restore terminal in case previous run left it in alternate screen
-    import sys
-    sys.stdout.write("\x1b[?1049l")
-    sys.stdout.flush()
-
     parser = argparse.ArgumentParser(description='Alpaca Paper Trading Engine')
     parser.add_argument('--mode', choices=['paper', 'live'], default='paper',
                         help='Trading mode (default: paper)')
@@ -1598,17 +1593,17 @@ def main():
                 print("\n👋 Goodbye!")
                 break
 
-            # Engine stopped (market closed) — stop dashboard, show plain-text summary
+            # Engine stopped (market closed)
             final_state = result or {}
             if dashboard and dashboard.enabled and not final_state.get('shutdown_requested'):
-                # Stop dashboard to restore terminal before printing summary
-                dashboard.stop()
-                import sys, time
-                sys.stdout.write("\x1b[?1049l")  # Force exit alternate screen
-                sys.stdout.flush()
-                time.sleep(0.5)
-                # Print plain-text post-market summary
-                _print_post_market_summary(final_state)
+                # Preserve final state for post-market viewing
+                post_state = dict(final_state)
+                post_state['market_status'] = 'POST'
+                post_state['next_scan_seconds'] = 0
+                if 'market_close_seconds' in post_state:
+                    post_state['market_close_seconds'] = None
+                dashboard.update(post_state)
+                print("\n📊 Post-market summary displayed. Press Ctrl+C to exit.")
             print("\n⏳ Market closed. Will restart at next open...\n")
             import time
             time.sleep(30)  # Brief pause before checking again
