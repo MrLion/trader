@@ -1,3 +1,13 @@
+## [0.6.15.12] — 2026-04-29 — Fix Graceful Shutdown Signal Handler Leak
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Signal handlers leaked after engine exit, causing Ctrl+C during market-closed wait loop to force-exit via `os._exit(1)` and corrupt the terminal (Rich alternate screen buffer stuck):
+  - `_cleanup()` method restores original SIGINT/SIGTERM handlers
+  - Called from `run()` before returning and from `main()` after `engine.run()`
+  - Prevents phantom "no output" on subsequent engine runs
+
+---
+
 ## [0.6.15.12] — 2026-04-29 — Fix Economic Calendar Detection
 
 ### Fixed

@@ -117,9 +117,9 @@ class AlpacaPaperEngine:
         # Market data
         self.spy_data = None
 
-        # Setup signal handlers
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        # Setup signal handlers (save old ones for cleanup)
+        self._old_sigint = signal.signal(signal.SIGINT, self._signal_handler)
+        self._old_sigterm = signal.signal(signal.SIGTERM, self._signal_handler)
 
         # Account sync
         self._sync_with_alpaca()
@@ -325,6 +325,11 @@ class AlpacaPaperEngine:
                 severity=TradingExceptionHandler.ERROR
             )
             print(f"⚠️ Error syncing with Alpaca: {e}")
+
+    def _cleanup(self):
+        """Restore original signal handlers so main() can use its own."""
+        signal.signal(signal.SIGINT, self._old_sigint)
+        signal.signal(signal.SIGTERM, self._old_sigterm)
 
     def _signal_handler(self, signum, frame):
         """Graceful shutdown. Force-exits on second Ctrl+C."""
@@ -1208,6 +1213,9 @@ class AlpacaPaperEngine:
         active_cooldowns = self._get_active_cooldowns()
         today_stats = self._get_today_trade_stats()
 
+        # Default regime for _print_status path (computed inline in main flow)
+        regime = "UNKNOWN"
+
         state_data = {
             "equity": account_value,
             "cash": stats.get("cash", 0.0),
@@ -1391,6 +1399,8 @@ class AlpacaPaperEngine:
         # Stop dashboard
         if self.dashboard:
             self.dashboard.stop()
+        # Restore signal handlers so main() wait loop isn't hijacked
+        self._cleanup()
         print("✅ Engine stopped gracefully")
         return {'shutdown_requested': self.shutdown_requested}
 
@@ -1480,6 +1490,8 @@ def main():
             # Run the engine (blocks until market closes or user stops)
             engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy, dashboard=dashboard)
             result = asyncio.run(engine.run())
+            # Engine stopped — restore default signal handling for wait loop
+            engine._cleanup()
 
             # Check if user requested shutdown
             if result and result.get('shutdown_requested'):

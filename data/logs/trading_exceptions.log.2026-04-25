@@ -1,0 +1,834 @@
+2026-04-25 08:40:20 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 08:40:29 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 08:40:34 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 08:40:34 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 08:40:34 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 08:40:34 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:40:34 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:40:34 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_6m28neuo/watchlist.csv'}
+2026-04-25 08:40:35 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 08:40:35 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_6m28neuo/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 08:40:35 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 08:40:35 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmp7p_2cwjf/watchlist.csv'}
+2026-04-25 08:40:44 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 08:40:44 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-121/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 08:40:44 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 08:40:44 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 08:40:44 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:40:44 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:40:44 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:40:44 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 08:40:44 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 08:40:44 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 08:40:44 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 08:40:44 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 08:40:44 [WARNING] trading: [test] Exception: 
+2026-04-25 08:40:44 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 08:40:44 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 08:40:44 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 08:40:44 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 08:40:44 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 08:40:44 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 08:40:44 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-121/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 08:40:44 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-121/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 08:40:44 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 08:40:44 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-121/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 08:40:44 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 08:49:02 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 08:53:02 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 08:53:03 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 08:53:08 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 08:53:08 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 08:53:09 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 08:53:09 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:53:09 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:53:09 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_0yfijasi/watchlist.csv'}
+2026-04-25 08:53:09 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 08:53:09 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_0yfijasi/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 08:53:09 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 08:53:09 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmp7rhwmfp0/watchlist.csv'}
+2026-04-25 08:53:18 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 08:53:18 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-122/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 08:53:18 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 08:53:18 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 08:53:18 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:53:18 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:53:18 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:53:18 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 08:53:18 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 08:53:18 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 08:53:18 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 08:53:18 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 08:53:18 [WARNING] trading: [test] Exception: 
+2026-04-25 08:53:18 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 08:53:18 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 08:53:18 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 08:53:18 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 08:53:18 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 08:53:18 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 08:53:18 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-122/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 08:53:18 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-122/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 08:53:18 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 08:53:18 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-122/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 08:53:18 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 08:56:08 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 08:56:08 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 08:56:11 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 08:56:11 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 08:56:12 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:56:12 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:56:12 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_b55g5ll_/watchlist.csv'}
+2026-04-25 08:56:12 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 08:56:12 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_b55g5ll_/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 08:56:12 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 08:56:13 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmphdtk4o_b/watchlist.csv'}
+2026-04-25 08:56:21 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 08:56:21 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-123/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 08:56:21 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 08:56:21 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 08:56:21 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:56:21 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:56:21 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:56:21 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 08:56:21 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 08:56:21 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 08:56:21 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 08:56:21 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 08:56:21 [WARNING] trading: [test] Exception: 
+2026-04-25 08:56:21 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 08:56:21 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 08:56:21 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 08:56:21 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 08:56:21 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 08:56:21 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 08:56:21 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-123/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 08:56:21 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-123/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 08:56:21 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 08:56:21 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-123/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 08:56:21 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 08:57:41 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 08:57:42 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 08:57:45 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 08:57:45 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 08:57:46 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 08:57:46 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:57:46 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 08:57:46 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_c_h9xybf/watchlist.csv'}
+2026-04-25 08:57:46 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 08:57:46 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_c_h9xybf/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 08:57:46 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 08:57:46 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmpa7xayr79/watchlist.csv'}
+2026-04-25 08:57:55 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 08:57:55 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-124/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 08:57:55 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 08:57:55 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 08:57:55 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:57:55 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:57:55 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 08:57:55 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 08:57:55 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 08:57:55 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 08:57:55 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 08:57:55 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 08:57:55 [WARNING] trading: [test] Exception: 
+2026-04-25 08:57:55 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 08:57:55 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 08:57:55 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 08:57:55 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 08:57:55 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 08:57:55 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 08:57:55 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-124/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 08:57:55 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-124/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 08:57:55 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 08:57:55 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-124/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 08:57:55 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 13:10:47 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 13:10:47 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-125/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 13:10:49 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 13:11:17 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 13:11:18 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 13:37:56 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 13:37:57 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 13:37:57 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 13:37:58 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-126/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 13:37:58 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 13:49:39 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 13:49:41 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 13:49:41 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-127/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 13:49:41 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 16:15:56 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 16:15:57 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 16:16:00 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 16:16:00 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 16:16:01 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 16:16:01 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 16:16:01 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 16:16:01 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_39rzp3jp/watchlist.csv'}
+2026-04-25 16:16:01 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 16:16:01 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_39rzp3jp/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 16:16:02 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 16:16:02 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmpwlyt_6oa/watchlist.csv'}
+2026-04-25 16:16:10 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 16:16:10 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-129/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 16:16:11 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 16:16:11 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 16:16:11 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:16:11 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:16:11 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:16:11 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 16:16:11 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 16:16:11 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 16:16:11 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 16:16:11 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 16:16:11 [WARNING] trading: [test] Exception: 
+2026-04-25 16:16:11 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 16:16:11 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 16:16:11 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 16:16:11 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 16:16:11 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 16:16:11 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 16:16:11 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-129/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 16:16:11 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-129/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 16:16:11 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 16:16:11 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-129/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 16:16:11 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 16:18:51 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 16:18:52 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 16:18:55 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 16:18:55 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 16:18:56 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 16:18:56 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 16:18:56 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 16:18:56 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_d_s8jfj9/watchlist.csv'}
+2026-04-25 16:18:56 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 16:18:56 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_d_s8jfj9/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 16:18:57 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 16:18:57 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmp165954wd/watchlist.csv'}
+2026-04-25 16:19:05 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 16:19:05 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-130/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 16:19:05 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 16:19:05 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 16:19:05 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:19:05 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:19:05 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 16:19:05 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 16:19:05 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 16:19:05 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 16:19:05 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 16:19:05 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 16:19:05 [WARNING] trading: [test] Exception: 
+2026-04-25 16:19:05 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 16:19:05 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 16:19:05 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 16:19:05 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 16:19:05 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 16:19:05 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 16:19:05 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-130/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 16:19:05 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-130/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 16:19:05 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 16:19:05 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-130/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 16:19:05 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
+2026-04-25 21:26:52 [WARNING] trading: [get_order] ConnectionError: Not found | context: {'order_id': 'nonexistent'}
+2026-04-25 21:26:52 [WARNING] trading: [account_value_fetch] ConnectionError: All providers failed
+2026-04-25 21:26:56 [WARNING] trading: [market_conditions] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'SPY'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ALAB'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMAT'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMD'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'AMPX'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ANET'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ARM'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ATI'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'DY'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'EAT'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'ENTG'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'HUBB'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'IMNM'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MOD'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'MU'}
+2026-04-25 21:26:56 [WARNING] trading: [analyze_ticker] TypeError: object of type 'Mock' has no len() | context: {'ticker': 'STRL'}
+2026-04-25 21:26:57 [WARNING] trading: [account_value_fetch] Exception: API error
+2026-04-25 21:26:57 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 21:26:57 [WARNING] trading: [vix_fetch] TypeError: '>' not supported between instances of 'float' and 'Mock' | context: {'ticker': '^VIX'}
+2026-04-25 21:26:57 [WARNING] trading: [watchlist_ticker_load] Exception: Parse error | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_fhkn5hbm/watchlist.csv'}
+2026-04-25 21:26:57 [ERROR] trading: [alpaca_sync] TypeError: unsupported format string passed to MagicMock.__format__
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 286, in _sync_with_alpaca
+    print(f"   📊 Realized P&L: ${position.realized_pnl:,.2f}")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to MagicMock.__format__
+2026-04-25 21:26:57 [CRITICAL] trading: [watchlist_load] FileNotFoundError:  | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/paper_trading_test_fhkn5hbm/watchlist.csv'}
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/scripts/paper_engine_alpaca.py", line 203, in _sync_with_alpaca
+    df = pd.read_csv(WATCHLIST_PATH)
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+FileNotFoundError
+2026-04-25 21:26:57 [WARNING] trading: [market_conditions] Exception: alpaca error | context: {'ticker': 'SPY'}
+2026-04-25 21:26:57 [WARNING] trading: [watchlist_ticker_load] KeyError: 'Ticker' | context: {'file': '/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/tmpuqurmns5/watchlist.csv'}
+2026-04-25 21:27:07 [WARNING] trading: [spy_return_fetch] Exception: API error | context: {'ticker': 'SPY'}
+2026-04-25 21:27:07 [WARNING] trading: [watchlist_lookup] KeyError: 'Ticker' | context: {'ticker': 'AAPL', 'file': '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-0/test_corrupted_csv0/watchlist.csv'}
+2026-04-25 21:27:08 [WARNING] trading: [analyze_ticker] KeyError: 'criteria' | context: {'ticker': 'AAPL'}
+2026-04-25 21:27:08 [WARNING] trading: [test_op] ValueError: test
+2026-04-25 21:27:08 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 21:27:08 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 21:27:08 [ERROR] trading: [db_query] ConnectionError: timeout
+NoneType: None
+2026-04-25 21:27:08 [CRITICAL] trading: [market_fetch] TimeoutError: API timeout | context: {'ticker': 'AAPL', 'source': 'alpaca'}
+NoneType: None
+2026-04-25 21:27:08 [CRITICAL] trading: [critical_op] RuntimeError: fail
+NoneType: None
+2026-04-25 21:27:08 [ERROR] trading: [error_op] ValueError: bad
+NoneType: None
+2026-04-25 21:27:08 [WARNING] trading: [warning_op] KeyError: 'missing'
+2026-04-25 21:27:08 [INFO] trading: [info_op] TimeoutError: slow
+2026-04-25 21:27:08 [WARNING] trading: [test] Exception: 
+2026-04-25 21:27:08 [CRITICAL] trading: [risky_operation] RuntimeError: critical failure
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 116, in failing_function
+    raise RuntimeError('critical failure')
+RuntimeError: critical failure
+2026-04-25 21:27:08 [ERROR] trading: [db_query] ConnectionError: db down
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 129, in failing_function
+    raise ConnectionError('db down')
+ConnectionError: db down
+2026-04-25 21:27:08 [WARNING] trading: [config_load] FileNotFoundError: missing.yaml
+2026-04-25 21:27:08 [INFO] trading: [cache_refresh] TimeoutError: slow cache
+2026-04-25 21:27:08 [ERROR] trading: [process_position] RuntimeError: process failed | context: ticker=TSLA
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 179, in process
+    raise RuntimeError('process failed')
+RuntimeError: process failed
+2026-04-25 21:27:08 [ERROR] trading: [custom_op] RuntimeError: with traceback
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/trading_exceptions.py", line 88, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/tests/test_trading_exceptions.py", line 204, in failing_function
+    raise RuntimeError('with traceback')
+RuntimeError: with traceback
+2026-04-25 21:27:08 [WARNING] trading: [universe_config_load] FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-0/test_missing_file_uses_default0/nonexistent.yaml'
+2026-04-25 21:27:08 [WARNING] trading: [universe_config_load] ScannerError: mapping values are not allowed here
+  in "/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-0/test_invalid_yaml_uses_default0/bad.yaml", line 1, column 11
+2026-04-25 21:27:08 [WARNING] trading: [universe_cache_load] KeyError: 'Ticker'
+2026-04-25 21:27:08 [WARNING] trading: [universe_cache_save] PermissionError: [Errno 13] Permission denied: '/private/var/folders/k6/b93g25tn42l2ty_s56l71lgc0000gn/T/pytest-of-mintmrlion/pytest-0/test_no_temp_file_left_behind_0/readonly/large_cap_2026-01-01.tmp'
+2026-04-25 21:27:08 [CRITICAL] trading: [universe_fetch_assets] Exception: API error
+Traceback (most recent call last):
+  File "/Users/mintmrlion/.openclaw/workspaces/trader/traderlib/universe_builder.py", line 181, in _fetch_assets
+    return self.alpaca.get_assets(status='active', asset_class='us_equity')
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1175, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1179, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 1234, in _execute_mock_call
+    raise effect
+Exception: API error
