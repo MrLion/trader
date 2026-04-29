@@ -1,3 +1,10 @@
+## [0.6.15.20] — 2026-04-29 — Fix Post-Market State Path
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Post-market dashboard now loads positions when running from `scripts/` directory. Used relative path `data/paper_positions.json` which failed when CWD was `scripts/`. Changed to `Path(__file__).parent.parent / 'data' / 'paper_positions.json'` to resolve from repo root regardless of where the script is launched.
+
+---
+
 ## [0.6.15.19] — 2026-04-29 — Post-Market Dashboard Summary
 
 ### Added
