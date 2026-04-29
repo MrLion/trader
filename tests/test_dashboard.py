@@ -95,8 +95,8 @@ class TestDashboard:
             d = Dashboard(enabled=True)
             table = d._positions(mock_state)
             # AAPL is first data row (index 1, after separator at index 0)
-            # CURRENT is column 3 (0-indexed: TICKER, PHASE, ENTRY, CURRENT)
-            cell = table.columns[3]._cells[1]
+            # CURRENT is column 2 (0-indexed: TICKER, ENTRY, CURRENT, STOP, TYPE, UNREAL, DIST)
+            cell = table.columns[2]._cells[1]
             assert cell.style == "green"
             d.stop()
 

@@ -106,7 +106,6 @@ class Dashboard:
             rule,
             self._stats(state),
             rule,
-            self._at_risk_banner(state),
             self._today_summary(state),
             positions_rule,
             self._positions(state),
@@ -204,40 +203,8 @@ class Dashboard:
         return heat_pct, bar
 
     def _at_risk_banner(self, state: Dict[str, Any]) -> Text:
-        """Banner showing positions close to their stop or losing money."""
-        positions = state.get("positions", {})
-        if not positions:
-            return Text("")
-
-        at_risk = []
-        for ticker, pos in positions.items():
-            entry = float(pos.get("entry_price") or 0)
-            current = float(pos.get("current_price") or entry)
-            stop = float(pos.get("stop_price") or 0)
-            shares = int(pos.get("shares") or 0)
-
-            if entry <= 0 or stop <= 0 or shares <= 0:
-                continue
-
-            risk_per_share = entry - stop
-            unreal = (current - entry) * shares
-            r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 else 0
-
-            # Flag if within 0.5R of stop OR below entry
-            if r_mult < 0 or (risk_per_share > 0 and (current - stop) / risk_per_share < 0.5):
-                dist_pct = ((current - stop) / risk_per_share * 100) if risk_per_share > 0 else 0
-                at_risk.append((ticker, r_mult, dist_pct))
-
-        if not at_risk:
-            return Text("")
-
-        parts = []
-        for ticker, r_mult, dist_pct in at_risk:
-            color = "red" if r_mult < 0 else "yellow"
-            parts.append(f"[{color}]{ticker} ({r_mult:+.1f}R, {dist_pct:.0f}% to stop)[/{color}]")
-
-        banner = "  [!] AT RISK:  " + "  |  ".join(parts)
-        return Text.from_markup(banner)
+        """Deprecated: at-risk info now shown per-row in positions table."""
+        return Text("")
 
     def _today_summary(self, state: Dict[str, Any]) -> Text:
         """One-line summary of today's closed trades."""
@@ -276,17 +243,16 @@ class Dashboard:
             expand=True,
         )
         tbl.add_column("TICKER", style="white")
-        tbl.add_column("PHASE", style="cyan")
         tbl.add_column("ENTRY", justify="right", style="white")
         tbl.add_column("CURRENT", justify="right")
         tbl.add_column("STOP", justify="right", style="white")
         tbl.add_column("TYPE", style="yellow")
         tbl.add_column("UNREAL", justify="right")
-        tbl.add_column("R", justify="right")
+        tbl.add_column("DIST", justify="right")
 
         # Separator between header and data rows
         sep = Text("─" * 14, style="dim")
-        tbl.add_row(sep, sep, sep, sep, sep, sep, sep, sep)
+        tbl.add_row(sep, sep, sep, sep, sep, sep, sep)
 
         for ticker, pos in positions.items():
             entry = float(pos.get("entry_price") or 0)
@@ -295,14 +261,27 @@ class Dashboard:
             stop = float(pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
-            phase = pos.get("exit_phase", "P1")
             unreal = (current - entry) * shares if entry else 0.0
 
-            # R-multiple calculation
+            # R-multiple calculation (internal, not displayed)
             risk_per_share = entry - stop if entry > stop > 0 else 0
             r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
 
-            # Row color based on R-level
+            # Distance to stop as % of initial risk
+            dist_pct = ((current - stop) / risk_per_share * 100) if risk_per_share > 0 else 0
+
+            # DIST color: red <25%, yellow <50%, green >=50%
+            if dist_pct < 25:
+                dist_style = "bold red"
+                dist_icon = "!"
+            elif dist_pct < 50:
+                dist_style = "yellow"
+                dist_icon = "●"
+            else:
+                dist_style = "green"
+                dist_icon = "✓"
+
+            # Row color based on R-level (kept internally for visual hierarchy)
             if r_mult < 0:
                 row_style = "red"
             elif r_mult < 1:
@@ -314,21 +293,19 @@ class Dashboard:
 
             cur_color = "green" if current >= entry else "red"
             unreal_color = "green" if unreal >= 0 else "red"
-            r_color = "green" if r_mult >= 0 else "red"
 
             tbl.add_row(
                 Text(ticker, style=row_style),
-                Text(phase, style=row_style),
                 Text(f"{entry:.2f}", style=row_style),
                 Text(f"{current:.2f}", style=cur_color),
                 Text(f"{stop:.2f}", style=row_style),
                 Text(ptype, style=row_style),
                 Text(f"{unreal:+.2f}", style=unreal_color),
-                Text(f"{r_mult:+.1f}", style=r_color),
+                Text(f"{dist_icon} {dist_pct:.0f}%", style=dist_style),
             )
 
         if not positions:
-            tbl.add_row("--", "--", "--", "--", "--", "--", "--", "--")
+            tbl.add_row("--", "--", "--", "--", "--", "--", "--")
 
         return tbl
 
