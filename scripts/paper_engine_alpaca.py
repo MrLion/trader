@@ -1225,6 +1225,7 @@ class AlpacaPaperEngine:
             "market_close_seconds": market_close_seconds,
             "cooldowns": active_cooldowns,
             "today_stats": today_stats,
+            "regime": regime,
         }
 
         if self.dashboard and self.dashboard.enabled:

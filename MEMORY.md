@@ -205,3 +205,52 @@ SUMMARY: X Tier 1 | Y Tier 2 | Z Tier 3 | Total: N
 - Tier 1 + 2-5% from pivot = Set price alert at pivot
 - Tier 2 = Wait for pullback or base formation
 - Tier 3 = Remove or monitor only
+
+---
+
+## Output Format Selection Guide
+
+**Console Output (Default)**
+- Uses ASCII tables, ANSI color codes, monospace formatting
+- Best for: Terminal viewing, local console output
+- Script: `entry_signals.py` default mode
+
+**Plain Text Output**
+- Clean text without tables or special formatting
+- Best for: Telegram, email, SMS, copy-paste to notes
+- Template: `docs/templates/stock_analysis.md`
+- Use when: Output might be viewed in messaging apps or non-monospace contexts
+
+**When to use each:**
+- Telegram posts → Plain text template
+- Terminal review → Console output
+- Email reports → Plain text template
+- Quick scanning → Console output with colors
+- Archiving/sharing → Plain text template
+
+---
+
+## Versioning Convention (2026-04-29)
+
+**Format:** `WW.XX.YY.ZZ`
+
+| Digit | Bump When | Examples |
+|-------|-----------|----------|
+| **ZZ** | Fixes, improvements, chores | bug fix, refactors, cleanups, docs patches |
+| **YY** | Features | new capability that changes what the system can DO |
+| **XX** | Minor releases | milestone completion, multi-feature bundle, significant architectural change |
+| **WW** | Major releases | breaking changes, new engine, strategy overhaul |
+
+**Workflow:**
+1. Do the work
+2. Update `CHANGELOG.md`
+3. Bump `VERSION`
+4. `git commit`
+5. `git tag -a v$VERSION -m "$message"`
+
+
+**Clarification:**
+- **ZZ (improvement)** — Bug fixes, refactors, cleanups, docs patches, better UX, new columns on existing tables, new UI elements on existing screens, new panels on existing dashboards, new scripts that are thin wrappers or organizers, keyboard shortcuts, color coding, layout tweaks, performance gains
+- **YY (feature)** — Entirely new capability the system did not have before: new strategy type, new data integration, backtesting engine, automated trading, Telegram delivery, earnings gating, new screening algorithm
+
+**Rule of thumb:** If it adds a file but doesn't change what the system can *do* for the trader, it's ZZ. If it unlocks a new capability the trader didn't have before, it's YY.

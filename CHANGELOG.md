@@ -1,3 +1,20 @@
+## [0.6.15.11] — 2026-04-29 — Dashboard P2 UX Improvements
+
+### Added
+- **`traderlib/dashboard.py`** — Four medium-effort UX improvements:
+  - **Sector exposure bar chart** — Horizontal bars showing % of equity per GICS sector with position counts
+  - **Activity log → scrollable timeline** — Single-column chronological flow with event icons (+ x * - ! ?) and inline P&L
+  - **Stats visual hierarchy** — Equity and Day P&L bold/white with up/down arrows; cash, unrealized, open, pending, heat dimmed
+  - **Market regime indicator** — BULL/BEAR/NEUTRAL badge in header derived from SPY vs 50MA/200MA + VIX
+- **`scripts/paper_engine_alpaca.py`** — Data feeds for new dashboard elements:
+  - `sector` field added to `positions_data`
+  - SPY 50MA/200MA + VIX regime computation (`BULL`/`BEAR`/`NEUTRAL`)
+
+### Changed
+- **`docs/superpowers/plans/dashboard-ux-improvements.md`** — Marked items 6–9 as complete
+
+---
+
 ## [0.6.15.10] — 2026-04-29 — Dashboard UX Improvements
 
 ### Added

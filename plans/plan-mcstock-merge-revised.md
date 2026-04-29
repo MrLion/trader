@@ -607,6 +607,55 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ---
 
+### Task 7: Fix `traderlib` module path for `--populate-watchlist`
+
+**Problem:** When `mcstock_scraper.py` runs `--populate-watchlist`, it spawns `watchlist_manager.py` via `subprocess.run()`. `watchlist_manager.py` imports `traderlib` but has no `sys.path.insert(0, str(Path(__file__).parent.parent))`, so the import fails with `ModuleNotFoundError`.
+
+**Files:**
+- Modify: `scripts/watchlist_manager.py`
+
+- [ ] **Step 1: Add `sys.path` insertion at the top of the imports**
+
+  After the existing `import` block and before the `from traderlib` imports, add:
+
+  ```python
+  import json
+  import sys
+  from datetime import datetime
+  from pathlib import Path
+
+  # Allow imports from project root when script is run directly
+  sys.path.insert(0, str(Path(__file__).parent.parent))
+
+  import pandas as pd
+  import yfinance as yf
+
+  from traderlib import calculate_stage2_score
+  from traderlib.validation import validate_ticker, EMOJI_CHECK, EMOJI_CROSS, EMOJI_WARN, EMOJI_INFO
+  ```
+
+- [ ] **Step 2: Verify the fix**
+
+  Run:
+  ```bash
+  cd /Users/mintmrlion/.openclaw/workspaces/trader && python3 scripts/watchlist_manager.py list
+  ```
+  Expected: Watchlist lists without `ModuleNotFoundError`.
+
+- [ ] **Step 3: Commit**
+
+  ```bash
+  git add scripts/watchlist_manager.py
+  git commit -m "fix: add sys.path for traderlib import in watchlist_manager.py
+
+  Fixes ModuleNotFoundError when watchlist_manager.py is run standalone
+  (e.g., from mcstock_scraper.py --populate-watchlist subprocess).
+
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+  ```
+
+---
+
 ## Spec Coverage Check
 
 | Requirement | Task | Status |
@@ -619,6 +668,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 | Update documentation | Task 4 | ✅ Covered |
 | Add tests | Task 5 | ✅ Covered |
 | Verify implementation | Task 6 | ✅ Covered |
+| Fix watchlist_manager.py sys.path | Task 7 | ✅ Covered |
 
 ## Execution Handoff
 

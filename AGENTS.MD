@@ -170,13 +170,9 @@ Read this file to provide the latest analytics.
 
 ## Data & Alerts
 
-**Feeds:** Price/volume (Yahoo/Finnhub/Polygon), breadth (Stockbee/custom), RS rankings (custom, weekly), sector ETFs (daily), factor ETFs (daily), credit/bonds (daily), earnings cal (weekly), econ cal (daily).
+**Feeds:** Price/volume (Alpaca API for real-time + yfinance for historical), breadth (Stockbee/custom), RS rankings (custom, weekly), sector ETFs (daily), factor ETFs (daily), credit/bonds (daily), earnings cal (weekly), econ cal (daily).
 
-**Scans:**
-```
-Breakout: Price>10, AvgDolVol>20M, Close>SMA(100)>SMA(200), Close>0.75×52wHi, Close>1.25×52wLo, ATR(14)/Close<0.05
-RS New Hi: (Close/SPY)=Max(Close/SPY,60), Close>SMA(50), Vol<SMA(Vol,50)
-```
+**Scans:** Run via scripts — `entry_signals.py` (watchlist entry signals), `sector_scan_comprehensive.py` (131-ETF sector ranking). See TOOLS.md for details.
 
 **Alerts:** Price at pivots (A-tier). Volume >2x pace by 10:30. Stop early-warning (0.5% above). Regime: SPY crossing 50 SMA, breadth thresholds. Sector ETF crossing 50 SMA. SPLV outperforming MTUM on 5d rolling.
 
@@ -187,3 +183,5 @@ RS New Hi: (Close/SPY)=Max(Close/SPY,60), Close>SMA(50), Vol<SMA(Vol,50)
 **Trade alert:** Ticker, sector (ETF rank), setup, entry, stop, risk/share, shares, position size, targets, R/R, regime, market context, sector exposure count.
 
 **Daily summary:** Positions count, % invested, portfolio heat, day/week P&L. Sector exposure breakdown. Sector leadership ranks. Trades today. Open positions (R-multiple, day count, trail status). Watchlist moves. Regime + breadth + factor check. Notes.
+
+**Templates:** Use standardized formats in `docs/templates/` for pre-market and post-market commentary.

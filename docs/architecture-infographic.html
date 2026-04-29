@@ -524,8 +524,8 @@
                 </div>
                 <div class="card cat-scan">
                     <div class="card-icon">🎯</div>
-                    <h3>Stage 2 + RS Screen</h3>
-                    <p>Finds stocks in uptrends with strong relative strength. Filters for quality setups only.</p>
+                    <h3>Trend Screener</h3>
+                    <p>MA convergence screener with MarketSurge-inspired filters. Finds stocks in strong uptrends across multiple timeframes.</p>
                 </div>
                 <div class="card cat-scan">
                     <div class="card-icon">🔍</div>
@@ -555,7 +555,7 @@
                 <div class="card cat-core">
                     <div class="card-icon">🧠</div>
                     <h3>Stage 2 Utils</h3>
-                    <p>Scores stocks on trend quality using 7 criteria. Higher scores mean better setups worth trading.</p>
+                    <p>Scores stocks on trend quality using 10 criteria. Higher scores mean better setups worth trading.</p>
                 </div>
                 <div class="card cat-core">
                     <div class="card-icon">⚖️</div>
@@ -605,6 +605,12 @@
                     <h3>Exit Engine</h3>
                     <p>Manages when to sell. Moves stops up as profits grow to lock in gains and limit losses.</p>
                 </div>
+                <div class="card cat-engine">
+                    <div class="card-icon">🖥️</div>
+                    <h3>TUI Dashboard</h3>
+                    <p>Rich-powered live terminal display. Real-time positions table, event log, VIX / API status, and market-close countdown.</p>
+                    <span class="card-tag">New in 0.6.15</span>
+                </div>
                 <div class="card cat-backtest">
                     <div class="card-icon">🧪</div>
                     <h3>Backtest Engine</h3>
@@ -620,8 +626,8 @@
                 <div class="card cat-backtest">
                     <div class="card-icon">📐</div>
                     <h3>Execution Model</h3>
-                    <p>Simulates fills with 5bps slippage and $0.005/share commissions. Deterministic: same inputs, same outputs.</p>
-                    <span class="card-tag">Slippage + Commissions</span>
+                    <p>Simulates fills with 5bps slippage. T+1 entry/exit fills, gap rejection. Deterministic: same inputs produce same outputs.</p>
+                    <span class="card-tag">Slippage Model</span>
                 </div>
                 <div class="card cat-backtest">
                     <div class="card-icon">📊</div>
@@ -640,11 +646,11 @@
                     </div>
                     <div class="rule-card">
                         <h4>Triple-Constraint Sizing</h4>
-                        <p>Risk 0.5% of account per trade. No single position over 5%. Partial positions when cash is limited. Max 3 positions per sector.</p>
+                        <p>Risk 0.5% of account per trade. No single position over 10%. Partial positions when cash is limited. Max 10 positions per sector.</p>
                     </div>
                     <div class="rule-card">
                         <h4>Circuit Breakers</h4>
-                        <p>Stop after 5 trades in one day. Halt trading if daily loss exceeds 2%. Re-entry cooldown after losses.</p>
+                        <p>Stop after 10 trades in one day. Halt trading if daily loss exceeds 2%. Re-entry cooldown after losses.</p>
                     </div>
                     <div class="rule-card">
                         <h4>Exit Ladder</h4>
@@ -657,7 +663,7 @@
         <!-- Stats -->
         <div class="stats-row">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Stage 2 Criteria</div>
             </div>
             <div class="stat-item">
@@ -694,29 +700,29 @@
             <div class="cards-grid">
                 <div class="card cat-state">
                     <div class="card-icon">💾</div>
-                    <h3>Paper State</h3>
-                    <p>Keeps track of open positions, account balance, and daily trading limits in real time.</p>
+                    <h3>Paper & Live State</h3>
+                    <p>Tracks open positions, account balance, and daily limits. Fully isolated: <code>data/paper/</code> vs <code>data/live/</code> — no cross-contamination.</p>
                 </div>
                 <div class="card cat-state">
                     <div class="card-icon">📜</div>
                     <h3>Trade Ledger</h3>
-                    <p>Records every trade made: entries, exits, profits, and losses. Used for performance review.</p>
+                    <p>Records every trade — entries, exits, P&amp;L — partitioned by mode. Append-only JSONL for audit and performance review.</p>
                 </div>
                 <div class="card cat-watchlist">
                     <div class="card-icon">📑</div>
                     <h3>Watchlist</h3>
-                    <p>The master list of stocks being tracked with entry prices, stop levels, and pattern notes.</p>
+                    <p>The shared master list of stocks being tracked with entry prices, stop levels, and pattern notes. Not mode-specific.</p>
                 </div>
                 <div class="card cat-state">
                     <div class="card-icon">📊</div>
                     <h3>Regime & Scans</h3>
-                    <p>Stores daily market conditions and scan results to see how the market is behaving over time.</p>
+                    <p>Daily market conditions and scan results to track market behavior over time. Shared across paper and live.</p>
                 </div>
                 <div class="card cat-core">
                     <div class="card-icon">⚙️</div>
                     <h3>Config Files</h3>
-                    <p>YAML configuration for risk parameters, scraper validation thresholds, and risk profile presets (conservative, aggressive, tight_stops).</p>
-                    <span class="card-tag">config/</span>
+                    <p>Separate risk configs per mode: <code>config/paper/</code> vs <code>config/live/</code>. Shared: screener, backtest, strategy configs with profile presets.</p>
+                    <span class="card-tag">config/{mode}/</span>
                 </div>
             </div>
         </div>
@@ -763,13 +769,14 @@
             <div class="footer-meta">
                 <span class="footer-tag">Stage 2 Methodology</span>
                 <span class="footer-tag">Minervini Framework</span>
-                <span class="footer-tag">7-Point Trend Check</span>
+                <span class="footer-tag">10-Point Trend Check</span>
                 <span class="footer-tag">R-Multiple Exits</span>
                 <span class="footer-tag">Backtesting Engine</span>
+                <span class="footer-tag">TUI Live Dashboard</span>
             </div>
             <p class="footer-note">
-                Source of truth: <strong>Shared Core Library</strong> · <strong>Risk Config</strong> · <strong>Watchlist</strong><br>
-                Built with Python, Alpaca API, and systematic discipline. Backtested before live deployment.
+                Source of truth: <strong>Shared Core Library</strong> · <strong>Mode-Separated Risk Config</strong> · <strong>Watchlist</strong><br>
+                Built with Python, Alpaca API, and systematic discipline. Backtested before live. Paper/live state fully isolated.
             </p>
         </footer>
     </div>

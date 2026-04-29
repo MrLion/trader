@@ -113,6 +113,8 @@ class Dashboard:
             positions_rule,
             self._activity(),
             rule,
+            self._sector_exposure(state),
+            rule,
             self._footer(state),
             rule,
         )
@@ -142,10 +144,14 @@ class Dashboard:
                 vix_color = "yellow"
         ws_color = "green" if state.get("ws_connected") else "red"
 
+        regime = state.get("regime", "UNKNOWN")
+        regime_color = {"BULL": "green", "BEAR": "red", "NEUTRAL": "yellow"}.get(regime, "dim")
+
         return Text.assemble(
             "  PAPER ENGINE    ",
             (now, "bold white"), " ET    ",
             (f"MARKET {market}", f"bold {market_color}"), "    ",
+            (regime, f"bold {regime_color}"), "    ",
             "VIX ", (f"{vix}", vix_color), "    ",
             "WS: ", (ws, ws_color), "    ",
             "API: ", (api, api_color),
@@ -166,10 +172,12 @@ class Dashboard:
         heat_pct, heat_bar = self._heat_gauge(state)
         heat_color = "green" if heat_pct < 3.0 else "yellow" if heat_pct < 5.0 else "red"
 
+        # Visual hierarchy: equity + day P&L bold and large; rest dimmed
+        arrow = "▲" if day_pnl >= 0 else "▼"
         lines = [
-            f"  EQUITY        ${equity:,.2f}          [bold {day_color}]DAY P&L       ${day_pnl:+.2f}[/]          OPEN POS      {open_pos}",
-            f"  CASH          ${cash:,.2f}           [bold {unreal_color}]UNREALIZED    ${unreal:+.2f}[/]          PENDING       {pending}",
-            f"  HEAT          [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%",
+            f"  [bold white]EQUITY[/]      [bold white]${equity:>12,.2f}[/]          [bold {day_color}]DAY P&L     {arrow} ${day_pnl:>+10,.2f}[/]",
+            f"  [dim]CASH          ${cash:>12,.2f}           UNREALIZED    ${unreal:>+10,.2f}          OPEN      {open_pos}[/]",
+            f"  [dim]PENDING       {pending:>12}          HEAT        [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%[/]",
         ]
         return Text.from_markup("\n".join(lines))
 
@@ -328,6 +336,14 @@ class Dashboard:
         if not self.events:
             return Text("  No events yet", style="dim")
 
+        icons = {
+            "ENTRY": "+",
+            "EXIT":  "x",
+            "STOP":  "*",
+            "SKIP":  "-",
+            "ERROR": "!",
+            "WARN":  "?",
+        }
         colors = {
             "ENTRY": "cyan",
             "STOP": "yellow",
@@ -337,36 +353,46 @@ class Dashboard:
         }
 
         lines = []
-        # Show last 8 events in 2 columns
-        event_list = list(self.events)[:8]
-        for i in range(0, len(event_list), 2):
-            left = event_list[i]
-            right = event_list[i + 1] if i + 1 < len(event_list) else None
+        # Show last 10 events in single-column chronological flow
+        event_list = list(self.events)[:10]
+        for evt in event_list:
+            etype = evt.get("type", "UNKNOWN")
+            icon = icons.get(etype, " ")
+            color = "green" if etype == "EXIT" and evt.get("pnl", 0) >= 0 else                     "red" if etype == "EXIT" and evt.get("pnl", 0) < 0 else                     colors.get(etype, "white")
+            ts = evt.get("timestamp", "--:--:--")
+            ticker = evt.get("ticker", "")
+            detail = evt.get("detail", "")
+            pnl = evt.get("pnl")
+            pnl_str = f"  [{color}]{pnl:+.0f}[/{color}]" if pnl is not None else ""
+            lines.append(f"  [{color}]{icon}[/{color}] {ts}  [{color}]{etype:<6}[/{color}]  {ticker:<6}  {detail}{pnl_str}")
 
-            def _color(evt):
-                etype = evt.get("type", "UNKNOWN")
-                if etype == "EXIT":
-                    return "green" if evt.get("pnl", 0) >= 0 else "red"
-                return colors.get(etype, "white")
+        return Text.from_markup("\n".join(lines))
 
-            ts = left.get("timestamp", "--:--:--")
-            evt_type = left.get("type", "UNKNOWN")
-            ticker = left.get("ticker", "")
-            detail = left.get("detail", "")
-            color = _color(left)
-            left_str = f"[{ts}] [{color}]{evt_type}  {ticker} {detail}[/]"
+    def _sector_exposure(self, state: Dict[str, Any]) -> Text:
+        """Horizontal bar chart of sector exposure as % of equity."""
+        equity = float(state.get("equity") or 0.0)
+        positions = state.get("positions", {})
+        if not positions or equity <= 0:
+            return Text("")
 
-            if right:
-                ts2 = right.get("timestamp", "--:--:--")
-                evt2 = right.get("type", "UNKNOWN")
-                tkr2 = right.get("ticker", "")
-                det2 = right.get("detail", "")
-                col2 = _color(right)
-                right_str = f"[{ts2}] [{col2}]{evt2}  {tkr2} {det2}[/]"
-            else:
-                right_str = ""
+        # Aggregate by sector
+        sector_values: Dict[str, float] = {}
+        for pos in positions.values():
+            sector = pos.get("sector", "Unknown")
+            current = float(pos.get("current_price") or pos.get("entry_price", 0))
+            shares = int(pos.get("shares", 0))
+            sector_values[sector] = sector_values.get(sector, 0.0) + current * shares
 
-            lines.append(f"  {left_str:<52}  {right_str}")
+        # Sort by value descending
+        sorted_sectors = sorted(sector_values.items(), key=lambda x: x[1], reverse=True)
+
+        lines = ["  [bold white]SECTOR EXPOSURE[/]          % of Equity"]
+        for sector, value in sorted_sectors:
+            pct = (value / equity) * 100
+            filled = int(min(pct / 3.0, 1.0) * 10)  # 3% = full bar
+            bar = "█" * filled + "░" * (10 - filled)
+            pos_count = sum(1 for p in positions.values() if p.get("sector", "Unknown") == sector)
+            lines.append(f"  {sector:<14} [{bar}]  {pct:>5.1f}% ({pos_count} pos)")
 
         return Text.from_markup("\n".join(lines))
 

@@ -659,6 +659,143 @@
 
 ---
 
+## Task 6: Fix static clock — add background auto-refresh timer
+
+**Problem:** The `Live` display auto-refreshes every 500ms, but it only re-displays the existing renderable. `_header()` calls `datetime.now()` once per `_render()`, and `_render()` is only called on engine updates (every ~30 seconds). So the clock and countdown appear frozen.
+
+**Files:**
+- Modify: `traderlib/dashboard.py`
+
+- [ ] **Step 1: Add timer thread to `__init__`**
+
+  Import `threading` and `time` at the top of `dashboard.py`.
+
+  Add to `__init__`:
+
+  ```python
+  self._timer_thread = None
+  self._timer_stop = threading.Event()
+  if self.enabled:
+      self.console = Console()
+      self.live = Live(...)
+      self.live.start()
+      self._start_timer()
+  ```
+
+- [ ] **Step 2: Add timer start/stop methods**
+
+  ```python
+  def _start_timer(self):
+      """Start background thread that re-renders every second."""
+      self._timer_stop.clear()
+      self._timer_thread = threading.Thread(target=self._timer_loop, daemon=True)
+      self._timer_thread.start()
+
+  def _timer_loop(self):
+      """Re-render dashboard every second for live clock/countdown."""
+      while not self._timer_stop.is_set():
+          time.sleep(1.0)
+          if self.enabled and self.live:
+              self.live.update(self._render())
+
+  def stop(self):
+      """Stop the live display and timer thread."""
+      if self.enabled and self.live:
+          self._timer_stop.set()
+          if self._timer_thread:
+              self._timer_thread.join(timeout=2.0)
+          self.live.stop()
+          self.enabled = False
+  ```
+
+- [ ] **Step 3: Verify tests still pass**
+
+  Run:
+  ```bash
+  python3 -m pytest tests/test_dashboard.py -v
+  ```
+  Expected: All 9 tests pass.
+
+- [ ] **Step 4: Commit**
+
+  ```bash
+  git add traderlib/dashboard.py
+  git commit -m "fix: add background timer for live clock refresh"
+  ```
+
+---
+
+## Task 7: Fix static countdown — compute from target time
+
+**Problem:** `next_scan_seconds` is a static value in state. The engine sets it once per update (e.g., `30` or `1540`), but the dashboard shows that same number until the next engine update.
+
+**Solution:** The dashboard stores `monotonic_time() + next_scan_seconds` as a target. On each timer tick, it computes `remaining = int(target - monotonic_time())`.
+
+**Files:**
+- Modify: `traderlib/dashboard.py`
+
+- [ ] **Step 1: Store countdown target in `update()`**
+
+  Import `time` at the top of the file.
+
+  Modify `update()`:
+
+  ```python
+  def update(self, state: Dict[str, Any]) -> None:
+      """Refresh dashboard with new state and compute countdown target."""
+      if not self.enabled:
+          return
+      self._last_state = state
+      # Compute countdown target from monotonic clock
+      next_scan = state.get("next_scan_seconds", 30)
+      self._next_scan_target = time.monotonic() + next_scan
+      self.live.update(self._render(state))
+  ```
+
+  Add to `__init__`:
+
+  ```python
+  self._next_scan_target: Optional[float] = None
+  ```
+
+- [ ] **Step 2: Compute live countdown in `_footer()`**
+
+  Replace the footer countdown logic:
+
+  ```python
+  def _footer(self, state: Dict[str, Any]) -> Text:
+      # Live countdown from target time
+      if self._next_scan_target is not None:
+          remaining = int(self._next_scan_target - time.monotonic())
+          next_scan = max(0, remaining)
+      else:
+          next_scan = state.get("next_scan_seconds", 30)
+      ...
+  ```
+
+- [ ] **Step 3: Run the demo script to verify countdown ticks**
+
+  ```bash
+  python3 scripts/demo_dashboard.py
+  ```
+  Expected: `Next scan: 29s` counts down every second.
+
+- [ ] **Step 4: Verify tests still pass**
+
+  ```bash
+  python3 -m pytest tests/test_dashboard.py -v
+  ```
+  Expected: All 9 tests pass.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add traderlib/dashboard.py
+  git commit -m "fix: compute live countdown from monotonic target time"
+  ```
+
+---
+
 ## Self-Review
 
 **Spec coverage check:**

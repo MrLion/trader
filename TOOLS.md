@@ -60,6 +60,8 @@ put_options = ticker.option_chain('2025-01-17').puts
 
 ### Pre-Market Standard Checklist
 
+> ⚠️ **Legacy:** Automated in pre-market report. Manual reference only.
+
 Every session, pull:
 1. **Index Futures:** ES=F (S&P), NQ=F (NASDAQ), RTY=F (Russell)
 2. **Volatility:** ^VIX
@@ -137,42 +139,7 @@ python3 scripts/watchlist_manager.py list
 
 Entry scores are calculated by `entry_signals.py` (max 100 points).
 
-**See [docs/entry_signals/TIER_SCORING.md](docs/entry_signals/TIER_SCORING.md) for complete documentation including:**
-- Tier classification logic (dual-requirement: Entry Score AND Stage 2 Score)
-- Scoring components table
-- Output categories (Ready Now, Close to Pivot, Extended, Tier 2 Watch, Tier 3)
-- Console output column reference
-- Signal age tracking
-- Dual risk parameters (ATR vs MA Support Stop)
-
-**Quick Reference:**
-
-| Component | Criteria | Points |
-|-----------|----------|--------|
-| **Stage 2 Score** | 7-8/8 | +30 |
-| | 6/8 | +25 |
-| | 5/8 | +20 |
-| | 4/8 | +15 |
-| | 3/8 | +10 |
-| | 2/8 | +5 |
-| **Risk %** | < 10% | +30 |
-| | < 15% | +20 |
-| | < 20% | +10 |
-| | < 25% | +5 |
-| **Distance to Pivot** | < 3% | +25 |
-| | < 5% | +15 |
-| | < 10% | +5 |
-| **6M Momentum** | > 50% | +15 |
-| | > 25% | +10 |
-| **RS vs SPY** | > 20% | +10 |
-| | > 10% | +5 |
-| **MA Penalties** | Below 50 MA | -20 |
-| | Below 20 MA | -10 |
-
-**Tier Thresholds (Dual-Requirement):**
-- **Tier 1 (>=60 pts + Stage 2 >= 6):** Best entry setups — ready now
-- **Tier 2 (40-59 pts + Stage 2 >= 5):** Good setups — wait for better entry
-- **Tier 3 (<40 pts):** Monitor only — too far or too wide
+**Full documentation:** See `docs/entry_signals/TIER_SCORING.md` for tier classification, scoring components, output categories, and signal tracking.
 
 ### Watchlist Schema
 
@@ -189,7 +156,7 @@ Target_2, R_Ratio, Avg_Volume_50d, Market_Cap
 
 **Script:** `scripts/entry_signals.py`
 
-**Purpose:** Scan watchlist for entry signals and analyze single tickers. Replaces the former `analyze_ticker.py`, `analyze_watchlist.py`, and `midday_scan.py`.
+**Purpose:** Scan watchlist for entry signals and analyze single tickers.
 
 ### Modes
 
@@ -505,7 +472,9 @@ python3 scripts/deliver_report.py --file report.html --bot-token $OTHER_BOT_TOKE
 
 ### Common Workflow
 
-Generate and deliver in one command:
+> Automated via cron jobs. See Daily Cron Jobs section for schedule.
+
+Manual execution (if needed):
 
 ```bash
 # Generate HTML report and deliver to Telegram
@@ -601,42 +570,7 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 | **Action Items** | Dynamic checklist based on today's action |
 | **Key Levels** | Support/resistance levels for tomorrow |
 
-### Console Output Example
-
-```
-🌙 POST-MARKET REPORT — 2026-04-07
-
-**📊 MARKET CLOSE SUMMARY**
-SPY  $654.03 (-4.90, -0.74%) | H: $658.36 L: $651.06
-QQQ  $582.60 (-5.90, -1.00%) | H: $587.06 L: $578.40
-IWM  $250.88 (-1.48, -0.59%) | H: $253.48 L: $249.52
-
-VIX:  27.34 (+3.17) — Elevated 18-28
-
-**📈 WATCHLIST PERFORMANCE TODAY**
-Total: 21 | Gained: 6 | Declined: 14
-
-Ticker   Change     Vol      Close      Pivot      Dist%    Tier
----------------------------------------------------------------------------
-POWL     +6.67%     1.0x     $199.18    $207.23    4.0%     🟢 T1
-STRL     -4.64%     1.0x     $375.44    $396.61    5.6%     🟢 T1
-...
-
-**🚀 GAPS >3%**
-📈 POWL: +6.67% (Vol: 1.0x) — News/Driven
-📉 STRL: -4.64% (Vol: 1.0x) — News/Driven
-
-**🎯 ACTION ITEMS FOR TOMORROW**
-1. ☐ Review today's 5 gaps >3%
-2. ☐ Update watchlist pivots for any breakouts
-3. ☐ Note: BEAR day - adjust sizing accordingly
-4. ☐ Check overnight futures before bed
-5. ☐ Review tomorrow's economic calendar
-
-**⚡ KEY LEVELS FOR TOMORROW**
-SPY: Support ~$651 | Resistance ~$658
-QQQ: Support ~$578 | Resistance ~$587
-```
+**Commentary Template:** See `docs/templates/postmarket_commentary_template.md` for standardized format including market verdict, movers, setups, and action items.
 
 ### Telegram Integration
 
@@ -1006,14 +940,14 @@ python3 scripts/setup_alpaca.py --test     # Test connection only
 python3 scripts/sync_state.py
 ```
 
-### Show Positions — Quick Position Display
+### Sync State — Reconcile with Alpaca
 
-**Script:** `scripts/show_positions.py`
+**Script:** `scripts/sync_state.py`
 
-**Purpose:** Quick position display with yfinance prices. Uses hardcoded ticker list. For dynamic data, prefer `paper_portfolio.py live`.
+**Purpose:** Force sync local state files with live Alpaca API. Reconciles positions and daily tracker. Use when local state drifts from API reality (e.g., after test runs).
 
 ```bash
-python3 scripts/show_positions.py
+python3 scripts/sync_state.py
 ```
 
 ### Clean Test Trades — Cleanup Utility
@@ -1054,6 +988,68 @@ python3 scripts/risk_config_demo.py --demo env         # Environment overrides
 |--------|-------------|---------|
 | `--profile` | Risk profile to use | None |
 | `--demo` | Which demo (sizing/profiles/env/all) | all |
+
+---
+
+## Daily Cron Jobs
+
+Automated reports run weekdays via cron:
+
+| Job | Time (ET) | Script | Output |
+|-----|-----------|--------|--------|
+| **Pre-Market Report** | 9:05 AM | `premarket_report_comprehensive.py` | HTML + commentary to Trading Sandbox |
+| **Sector Scan** | 7:50 AM | `sector_scan_comprehensive.py` | CSV + summary to Trading Sandbox |
+| **MC Stock Scraper** | 9:01 AM | `mcstock_scraper.py` | CSV + watchlist populate |
+| **Post-Market Report** | 4:10 PM | `postmarket_report.py` | HTML + commentary to Trading Sandbox |
+
+All jobs post to **Trading Sandbox** (`-4872065090`). Commentary uses standardized templates from `docs/templates/`.
+
+---
+
+## MC Stock Scraper
+
+**Script:** `scripts/mcstock_scraper.py`
+
+**Purpose:** Scrape trade ideas from MC Stock Charts (Ready List + Watch List), validate with Yahoo Finance, optionally populate watchlist.
+
+```bash
+# Scrape today's ideas
+python3 scripts/mcstock_scraper.py
+
+# Scrape with verbose output
+python3 scripts/mcstock_scraper.py --verbose
+
+# Dry run (preview only)
+python3 scripts/mcstock_scraper.py --dry-run
+
+# Populate watchlist after scrape
+python3 scripts/mcstock_scraper.py --populate-watchlist
+```
+
+### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--date` | Specific date (YYYY-MM-DD) | Today |
+| `--mode` | `single` or `historical` | single |
+| `--dry-run` | Preview without saving | False |
+| `--populate-watchlist` | Auto-populate after scrape | False |
+| `--verbose` | Debug logging | False |
+
+---
+
+## Sector Scan (Comprehensive)
+
+**Script:** `scripts/sector_scan_comprehensive.py`
+
+**Purpose:** Scan 131 ETFs with weighted ranking (6M/3M/1M/1W returns + Stage 2 scores). Outputs top 15 by overall rank.
+
+```bash
+python3 scripts/sector_scan_comprehensive.py
+# Output: scans/YYYY-MM-DD_sector_scan.csv
+```
+
+Runs automatically at 7:50 AM ET weekdays. Posts summary to Trading Sandbox.
 
 ---
 
@@ -1174,94 +1170,35 @@ Backup files are auto-created before cleanup operations:
 
 ### How to Post
 
-**Use the `openclaw message send` command via `exec` tool:**
-
+**Command:**
 ```bash
-# Post to channel (direct)
-openclaw message send --channel telegram --account trader --target -1002556195363 --message "Your analysis here"
+openclaw message send --channel telegram --account trader --target -4872065090 \
+  --message "Your analysis here"
+```
 
-# Post to discussion group (forwards to channel)
-openclaw message send --channel telegram --account trader --target -1002652699578 --message "Your analysis here"
-
-# With media (chart/screenshot from workspace)
-openclaw message send --channel telegram --account trader --target -1002556195363 --media /Users/mintmrlion/.openclaw/workspaces/trader/chart.png --force-document
+**With media:**
+```bash
+openclaw message send --channel telegram --account trader --target -4872065090 \
+  --media /path/to/chart.png --force-document
 ```
 
 ### When to Post
 
-**Good reasons:**
-- Daily market summary (pre-market or EOD)
-- Significant price movements (>5% in major holdings)
-- Earnings surprises
-- Technical breakouts/breakdowns
-- Sector rotation alerts
-- Economic data releases (CPI, jobs, Fed decisions)
+**Do:** Daily summaries, significant moves (>5%), earnings surprises, breakouts/breakdowns, sector rotation, economic releases  
+**Don't:** Every analysis, rumors, >5 posts/day
 
-**Don't post:**
-- Every single analysis (use DM for detailed back-and-forth)
-- Speculative/unconfirmed rumors
-- Overly frequent updates (max 3-5 posts/day)
+### Commentary Templates
 
-### Post Templates
-
-**Pre-Market Summary:**
-```
-🌅 Pre-Market Update
-
-Indices:
-• S&P 500 (ES=F): +0.3%
-• NASDAQ (NQ=F): +0.5%
-• VIX: 14.2 (-2%)
-
-Movers:
-• NVDA +2.1% (earnings beat)
-• TSLA -1.4% (delivery miss)
-
-Oil (CL=F): $78.45 (+0.8%)
-Gold (GC=F): $2,034 (-0.2%)
-BTC: $67,890 (+1.2%)
-
-Key events today: CPI data @ 8:30 AM ET
-```
-
-**Stock Analysis:**
-```
-📊 $AAPL Analysis
-
-Current: $178.45 (+1.2%)
-
-Technical:
-• Above 20-day SMA ($175)
-• RSI: 58 (neutral)
-• Support: $172, Resistance: $182
-
-Fundamentals:
-• P/E: 29.4
-• Market Cap: $2.8T
-• Next earnings: Apr 25
-
-Verdict: HOLD — waiting for breakout above $182
-```
-
-**Alert:**
-```
-🚨 $NVDA Alert
-
-Breaking above resistance at $485
-Volume: 2.3x average
-Target: $500
-Stop: $475
-
-Position: Watching for confirmation
-```
+Standardized formats in `docs/templates/`:
+- **Pre-Market:** Overnight verdict, regime status, gaps, developing setups, action items
+- **Post-Market:** Market verdict, movers, valid/failed setups, action items, bottom line
 
 ### Notes
 
-- Always use `--account trader` flag (not default)
-- Channel posts are permanent and visible to all subscribers
-- Discussion group posts show comment count on channel
-- Images must be in workspace directory (`~/.openclaw/workspaces/trader/`)
+- Use `--account trader` flag
+- Channel posts are permanent
 - Use `--force-document` for charts to prevent compression
+- Images must be in workspace directory
 
 ## Paper Engine Dashboard
 

@@ -78,8 +78,8 @@ class TestDashboard:
             d = Dashboard(enabled=True)
             stats = d._stats(mock_state)
             text = str(stats)
-            assert "$103,420.50" in text
-            assert "$+420.50" in text
+            assert "$  103,420.50" in text
+            assert "▲ $   +420.50" in text
             d.stop()
 
     def test_positions_table_has_rows(self, mock_state):

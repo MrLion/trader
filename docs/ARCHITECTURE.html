@@ -395,38 +395,38 @@
     <div class="row cols-4">
       <div class="card">
         <h3>Sector Scan</h3>
-        <div class="file">sector_scan.py · sector_scan_comprehensive.py</div>
-        <p>Ranks sector ETFs by performance to surface market leadership.</p>
+        <div class="file">sector_scan_comprehensive.py</div>
+        <p>Ranks sector ETFs by performance to surface market leadership. Runs daily at 7:50 AM ET before premarket report.</p>
       </div>
       <div class="card">
-        <h3>Stage 2 + RS Screen</h3>
-        <div class="file">stage2_rs_screen.py</div>
-        <p>Screens the universe (price ≥ $10, $20M ADV, $1B cap) for Stage 2 candidates with strong relative strength.</p>
+        <h3>Trend Screener</h3>
+        <div class="file">trend_screener.py</div>
+        <p>MA convergence screener with MarketSurge-inspired filters. Identifies Stage 2 candidates with strong trend structure across multiple timeframes.</p>
       </div>
       <div class="card">
-        <h3>Ticker / Watchlist Analysis</h3>
-        <div class="file">analyze_ticker.py · analyze_watchlist.py</div>
-        <p>Deep technical breakdown per ticker: Stage 2 score, pivot, ATR stop, risk %, pattern notes.</p>
+        <h3>Entry Signals</h3>
+        <div class="file">entry_signals.py</div>
+        <p>Reports tickers meeting entry criteria (score ≥ 60, within ±1% of pivot, SPY ≥ −0.3%). Read-only — no execution. Shares scoring logic with the automated engine.</p>
+        <span class="tag">Tier 1 / Tier 2</span>
       </div>
       <div class="card">
-        <h3>Midday Scan</h3>
-        <div class="file">midday_scan.py</div>
-        <p>Intraday re-scan of watchlist + custom universe for emerging leaders.</p>
+        <h3>Ticker Analyzer</h3>
+        <div class="file">traderlib/ticker_analyzer.py</div>
+        <p>Deep technical breakdown per ticker: Stage 2 score, pivot detection, ATR stop, risk %, and pattern classification.</p>
       </div>
     </div>
 
     <div class="row cols-2" style="margin-top:14px;">
-      <div class="card">
-        <h3>Entry Signals Scanner</h3>
-        <div class="file">entry_signals.py</div>
-        <p>Reports tickers meeting entry criteria (Tier 1 ≥ 60, within ±1% of pivot, SPY ≥ −0.3%) — read-only, no execution. Shares scoring logic with the automated engine.</p>
-        <span class="tag">Tier 1 / Tier 2</span>
-      </div>
       <div class="card cat-watchlist" style="background:linear-gradient(180deg, rgba(250,204,21,0.06) 0%, var(--bg-1) 100%);">
         <h3>Watchlist Manager</h3>
         <div class="file">watchlist_manager.py · mcstock_scraper.py</div>
         <p>Add / remove / populate the live trading universe. Tiers: A (actionable) · B (developing) · C (radar). Persists to <code>data/watchlist.csv</code>.</p>
         <span class="tag">Tier A / B / C</span>
+      </div>
+      <div class="card">
+        <h3>Universe Builder</h3>
+        <div class="file">traderlib/universe_builder.py</div>
+        <p>Builds and maintains the stock universe for screening (price ≥ $10, $20M ADV, $1B market cap). Filters for liquidity and tradeability.</p>
       </div>
     </div>
   </section>
@@ -450,15 +450,15 @@
       <div class="card">
         <h3>stage2_utils</h3>
         <div class="file">traderlib/stage2_utils.py</div>
-        <p><strong>calculate_stage2_score</strong> — 8-point Stage 2 check (20/50/100/200 MA, stacking, slope, 52-wk position).<br>
-           <strong>get_entry_score</strong> — 110-pt composite (Stage 2 · risk · proximity · momentum · RS).<br>
+        <p><strong>calculate_stage2_score</strong> — 10-point Stage 2 check (20/50/100/150/200 MA, stacking, slope, 52-wk position).<br>
+           <strong>get_entry_score</strong> — 100-pt composite (Stage 2 · risk · proximity · momentum · RS).<br>
            <strong>get_stage2_tier</strong> — Tier 1 / 2 / 3 classification.</p>
       </div>
       <div class="card">
         <h3>risk_config</h3>
         <div class="file">traderlib/risk_config.py</div>
-        <p><strong>RiskConfigManager</strong> — loads <code>config/risk_config.yaml</code> (profiles, thresholds).<br>
-           <strong>calculate_position_size_with_constraints</strong> — 0.75% account risk, &lt; 20% equity, sector caps.</p>
+        <p><strong>RiskConfigManager</strong> — loads <code>config/{mode}/risk_config.yaml</code> (paper/live separated).<br>
+           <strong>calculate_position_size_with_constraints</strong> — 0.5% account risk, &lt; 10% equity, sector caps.</p>
       </div>
       <div class="card">
         <h3>Shared Infra</h3>
@@ -505,10 +505,25 @@
       </div>
     </div>
 
+    <div class="row cols-2" style="margin-top:14px;">
+      <div class="card">
+        <h3>TUI Dashboard</h3>
+        <div class="file">traderlib/dashboard.py</div>
+        <p>Rich-powered live terminal dashboard. Real-time positions table, scrollable event log, VIX / WebSocket / API rate status, and live market-close countdown. Falls back to plain text if rich unavailable.</p>
+        <span class="tag">New in 0.6.15</span>
+      </div>
+      <div class="card" style="background:linear-gradient(180deg, rgba(129,140,248,0.06) 0%, var(--bg-1) 100%);">
+        <h3>Backtesting Engine</h3>
+        <div class="file">scripts/backtest.py · traderlib/backtest/</div>
+        <p>Day-by-day simulation against historical data. Pluggable strategies, T+1 fills, deterministic slippage + commissions. 16 metrics: Sharpe, Sortino, Calmar, max drawdown, win rate, profit factor.</p>
+        <span class="tag">16 Metrics</span>
+      </div>
+    </div>
+
     <div class="rules">
       <div class="rule"><strong>Entry Gate</strong>Score ≥ 60 · ±1% of pivot · vol ≥ 1.5× · SPY ≥ −0.3%</div>
-      <div class="rule"><strong>Position Size</strong>0.75% risk · &lt; 20% equity · max 3/sector</div>
-      <div class="rule"><strong>Circuit Breakers</strong>≤ 5 entries/day · halt if day P&amp;L &lt; −2%</div>
+      <div class="rule"><strong>Position Size</strong>0.5% risk · &lt; 10% equity · max 10/sector</div>
+      <div class="rule"><strong>Circuit Breakers</strong>≤ 10 entries/day · halt if day P&amp;L &lt; −2%</div>
       <div class="rule"><strong>Exit Ladder</strong>BE → EMA10 → EMA21 · hard stop 2×ATR</div>
     </div>
   </section>
@@ -527,28 +542,28 @@
     <div class="row cols-4">
       <div class="card">
         <h3>Paper State</h3>
-        <div class="file">paper_state.py → paper_positions.json · paper_account.json</div>
-        <p>In-memory <strong>PaperState</strong> and <strong>Position</strong> objects persisted to JSON; snapshots capital, open positions, and day-level counters.</p>
+        <div class="file">paper_state.py → data/paper/positions.json</div>
+        <p>In-memory <strong>PaperState</strong> and <strong>Position</strong> objects persisted to mode-specific directories. Paper and live state fully isolated — no cross-contamination.</p>
       </div>
       <div class="card">
         <h3>Trade Ledger</h3>
-        <div class="file">paper_trades.jsonl · trade_log.csv</div>
-        <p>Append-only history of every fill, exit, and realized P&amp;L — consumed by the portfolio monitor and post-market report.</p>
+        <div class="file">data/paper/trades.jsonl · data/live/trades.jsonl</div>
+        <p>Append-only history of every fill, exit, and realized P&amp;L — partitioned by mode. Consumed by portfolio monitor and post-market report.</p>
       </div>
       <div class="card cat-watchlist" style="background:linear-gradient(180deg, rgba(250,204,21,0.06) 0%, var(--bg-1) 100%);">
         <h3>Watchlist</h3>
-        <div class="file">watchlist.csv</div>
-        <p>Ticker · Stage · RS_Rank · Pivot · Stop · ATR · Risk% · Sector · Pattern · Notes. The engine's universe of truth.</p>
+        <div class="file">data/watchlist.csv</div>
+        <p>Ticker · Stage · RS_Rank · Pivot · Stop · ATR · Risk% · Sector · Pattern · Notes. The engine's shared universe — not mode-specific.</p>
       </div>
       <div class="card">
         <h3>Positions &amp; Orders</h3>
-        <div class="file">paper_positions.json · alpaca_orders.json</div>
-        <p>Open positions with stop/target data plus order lifecycle tracking — synced with Alpaca API as source of truth.</p>
+        <div class="file">data/{mode}/positions.json · orders.json</div>
+        <p>Open positions with stop/target data plus order lifecycle tracking. Synced with Alpaca API as source of truth. Isolated per paper/live.</p>
       </div>
       <div class="card">
-        <h3>Regime &amp; Scans</h3>
-        <div class="file">daily_tracker.json · scans/*.csv</div>
-        <p>Daily reset tracking plus CSV outputs from sector / Stage 2 scans — feeds back into reports.</p>
+        <h3>Regime &amp; Config</h3>
+        <div class="file">daily_tracker.json · config/{mode}/risk_config.yaml</div>
+        <p>Daily reset tracking plus separate risk profiles per mode (paper: aggressive, live: conservative). Shared: screener, backtest, strategy configs.</p>
       </div>
     </div>
   </section>
@@ -590,8 +605,8 @@
 
   <!-- ================= FOOTER ================= -->
   <footer>
-    <div>Methodology: Stage 2 (Minervini) · 8-point trend check · 110-pt entry score · R-multiple trailing exits</div>
-    <div>Source of truth: <code>traderlib/</code> · <code>config/risk_config.yaml</code> · <code>data/watchlist.csv</code></div>
+    <div>Methodology: Stage 2 (Minervini) · 10-point trend check · 100-pt entry score · R-multiple trailing exits · TUI live dashboard</div>
+    <div>Source of truth: <code>traderlib/</code> · <code>config/{mode}/risk_config.yaml</code> · <code>data/{mode}/</code> · <code>data/watchlist.csv</code></div>
   </footer>
 
 </main>

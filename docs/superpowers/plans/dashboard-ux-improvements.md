@@ -76,7 +76,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
 
 ## Medium Effort (half day each)
 
-### 6. Sector Exposure Bar Chart
+### 6. Sector Exposure Bar Chart  ✅
 **File:** `traderlib/dashboard.py` — new `_sector_exposure()`  
 **What:** Replace the bottom half of the activity log (or add as a toggle) with a horizontal bar chart:
 
@@ -91,7 +91,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
 
 ---
 
-### 7. Activity Log → Scrollable Timeline
+### 7. Activity Log  ✅ → Scrollable Timeline
 **File:** `traderlib/dashboard.py` — `_activity()`  
 **What:** Convert the two-column event grid into a single-column, scrollable timeline with severity icons and minute grouping:
 
@@ -106,7 +106,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
 
 ---
 
-### 8. Stats Visual Hierarchy
+### 8. Stats Visual Hierarchy  ✅
 **File:** `traderlib/dashboard.py` — `_stats()`  
 **What:** Use larger/bolder text for the two numbers that matter most (Equity, Day P&L). Dim the rest.
 
@@ -124,7 +124,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
 
 ---
 
-### 9. Market Regime Indicator
+### 9. Market Regime Indicator  ✅
 **File:** `traderlib/dashboard.py` — `_header()`  
 **What:** Add a single-word regime badge in the header:
 
