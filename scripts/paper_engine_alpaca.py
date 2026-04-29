@@ -1423,6 +1423,76 @@ class AlpacaPaperEngine:
         return final_state
 
 
+
+
+def _load_post_market_state():
+    """Load saved positions and fetch closing prices for post-market summary."""
+    import json
+    from pathlib import Path
+    positions_file = Path('data/paper_positions.json')
+    if not positions_file.exists():
+        return None
+    try:
+        with open(positions_file, 'r') as f:
+            positions = json.load(f)
+    except Exception:
+        return None
+    if not positions:
+        return None
+    # Fetch closing prices via yfinance
+    import yfinance as yf
+    tickers = list(positions.keys())
+    prices = {}
+    try:
+        data = yf.download(tickers, period='1d', progress=False, threads=True) if len(tickers) > 1 else yf.Ticker(tickers[0]).history(period='1d')
+        if len(tickers) == 1:
+            prices[tickers[0]] = float(data['Close'].iloc[-1]) if not data.empty else None
+        else:
+            for t in tickers:
+                try:
+                    prices[t] = float(data['Close'][t].iloc[-1])
+                except Exception:
+                    prices[t] = None
+    except Exception:
+        prices = {}
+    # Build positions_data
+    positions_data = {}
+    total_unreal = 0.0
+    total_value = 0.0
+    for ticker, pos in positions.items():
+        entry = float(pos.get('entry_price', 0))
+        shares = int(pos.get('shares', 0))
+        stop = float(pos.get('stop_price', 0))
+        current = prices.get(ticker) or entry  # fallback to entry price
+        unreal = (current - entry) * shares
+        total_unreal += unreal
+        total_value += current * shares
+        positions_data[ticker] = {
+            'entry_price': entry,
+            'current_price': current,
+            'stop_price': stop,
+            'shares': shares,
+            'current_stop_type': pos.get('current_stop_type', 'HARD'),
+            'sector': pos.get('sector', 'Unknown'),
+        }
+    return {
+        'equity': total_value,  # approximate, cash not persisted
+        'cash': 0.0,
+        'day_pnl': 0.0,
+        'unrealized_pnl': total_unreal,
+        'open_positions': len(positions),
+        'pending_orders': 0,
+        'positions': positions_data,
+        'market_status': 'POST',
+        'vix': None,
+        'ws_connected': False,
+        'api_requests': None,
+        'api_max': None,
+        'next_scan_seconds': 0,
+        'market_close_seconds': None,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description='Alpaca Paper Trading Engine')
     parser.add_argument('--mode', choices=['paper', 'live'], default='paper',
@@ -1471,22 +1541,27 @@ def main():
 
                     # Show dashboard while waiting
                     if dashboard and dashboard.enabled:
-                        dashboard.update({
-                            "equity": 0.0,
-                            "cash": 0.0,
-                            "day_pnl": 0.0,
-                            "unrealized_pnl": 0.0,
-                            "open_positions": 0,
-                            "pending_orders": 0,
-                            "positions": {},
-                            "market_status": "CLOSED",
-                            "vix": None,
-                            "ws_connected": False,
-                            "api_requests": None,
-                            "api_max": None,
-                            "next_scan_seconds": int(wait_seconds),
-                            "market_close_seconds": None,
-                        })
+                        post_state = _load_post_market_state()
+                        if post_state:
+                            post_state['next_scan_seconds'] = int(wait_seconds)
+                            dashboard.update(post_state)
+                        else:
+                            dashboard.update({
+                                "equity": 0.0,
+                                "cash": 0.0,
+                                "day_pnl": 0.0,
+                                "unrealized_pnl": 0.0,
+                                "open_positions": 0,
+                                "pending_orders": 0,
+                                "positions": {},
+                                "market_status": "CLOSED",
+                                "vix": None,
+                                "ws_connected": False,
+                                "api_requests": None,
+                                "api_max": None,
+                                "next_scan_seconds": int(wait_seconds),
+                                "market_close_seconds": None,
+                            })
 
                     # Sleep in 10-second chunks to allow interrupt
                     try:
