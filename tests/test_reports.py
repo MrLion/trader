@@ -291,27 +291,34 @@ class TestPremarketHtmlReport:
 
 
 class TestFetchEconomicCalendar:
-    """Test fetch_economic_calendar with mocked urlopen."""
+    """Test fetch_economic_calendar with mocked EconomicCalendar."""
 
     def test_parses_usd_events(self):
-        fake_html = """
-        <html><body>
-        <div>08:30 AM USD</div>
-        <div>CPI Report</div>
-        </body></html>
-        """
-        mock_response = MagicMock()
-        mock_response.read.return_value = fake_html.encode("utf-8")
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
+        from traderlib.economic_calendar import EconomicEvent
+        from datetime import datetime
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        fake_event = EconomicEvent(
+            date=today_str,
+            time="08:30",
+            country="US",
+            event="CPI Report",
+            impact="high",
+            estimate="+0.3%",
+            previous="+0.4%"
+        )
+        mock_cal = MagicMock()
+        mock_cal.get_events.return_value = [fake_event]
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("traderlib.economic_calendar.EconomicCalendar", return_value=mock_cal):
             result = premarket_report.fetch_economic_calendar()
         assert result["today"]
-        assert any("CPI" in e["event"] for e in result["today"])
+        assert any("CPI" in e.event for e in result["today"])
 
     def test_network_error_returns_empty(self):
-        with patch("urllib.request.urlopen", side_effect=Exception("network")):
+        mock_cal = MagicMock()
+        mock_cal.get_events.side_effect = Exception("network")
+
+        with patch("traderlib.economic_calendar.EconomicCalendar", return_value=mock_cal):
             result = premarket_report.fetch_economic_calendar()
         assert result == {"today": [], "tomorrow": []}
 

@@ -116,32 +116,54 @@ def generate_html_report(report_data, output_path):
     if econ.get('events'):
         risk_class = "high" if econ.get('risk_level') == '🔴' else "medium" if econ.get('risk_level') == '🟡' else "low"
 
-        # Build events table
-        table_rows = ""
-        for event in econ.get('events', []):
-            impact_class = "high" if event.impact == 'high' else "medium" if event.impact == 'medium' else "low"
-            impact_emoji = '🔴' if event.impact == 'high' else '🟡' if event.impact == 'medium' else '🟢'
-            estimate_str = esc(event.estimate) if event.estimate else "—"
-            previous_str = esc(event.previous) if event.previous else "—"
+        # Group events by time block
+        blocks = _group_events_by_time(econ.get('events', []))
+        block_labels = {
+            'pre_market': 'Pre-Market',
+            'market_hours': 'Market Hours',
+            'after_hours': 'After Hours',
+            'unknown': 'Time TBD',
+        }
+        block_order = ['pre_market', 'market_hours', 'after_hours', 'unknown']
 
-            table_rows += f'''
-            <tr>
-                <td class="event-time">{esc(event.time)}</td>
-                <td class="event-impact impact-{impact_class}">{impact_emoji}</td>
-                <td class="event-name">{esc(event.event)}</td>
-                <td class="event-estimate">{estimate_str}</td>
-                <td class="event-previous">{previous_str}</td>
-            </tr>
-            '''
+        # Build events table with time blocks
+        table_rows = ""
+        for block_key in block_order:
+            block_events = blocks.get(block_key, [])
+            if not block_events:
+                continue
+            label = block_labels.get(block_key, block_key)
+            count = len(block_events)
+            table_rows += f'''<tr class="time-block-header"><td colspan="5"><span class="time-block-label">{label}</span><span class="time-block-count">({count})</span></td></tr>'''
+            for event in block_events:
+                impact_raw = _event_attr(event, 'impact', '').lower()
+                impact_class = "high" if impact_raw == 'high' else "medium" if impact_raw == 'medium' else "low"
+                impact_emoji = '🔴' if impact_raw == 'high' else '🟡' if impact_raw == 'medium' else '🟢'
+                time_str = _format_event_time(event)
+                time_status = _get_time_status(event)
+                status_icon = {'past': '✓', 'immediate': '◈', 'upcoming': '○', 'unknown': '?'}.get(time_status, '')
+                estimate_str = _format_event_value(event, 'estimate')
+                previous_str = _format_event_value(event, 'previous')
+
+                table_rows += f'''
+                <tr class="time-{time_status}">
+                    <td class="event-time">{esc(time_str)}<span class="time-status {time_status}">{status_icon}</span></td>
+                    <td class="event-impact impact-{impact_class}">{impact_emoji}</td>
+                    <td class="event-name">{esc(_event_attr(event, 'event', ''))}</td>
+                    <td class="event-estimate event-value">{estimate_str}</td>
+                    <td class="event-previous event-value">{previous_str}</td>
+                </tr>
+                '''
 
         # Tomorrow preview
         tomorrow_html = ""
         if econ.get('tomorrow'):
-            high_tomorrow = [e for e in econ.get('tomorrow', []) if e.impact == 'high']
+            high_tomorrow = [e for e in econ.get('tomorrow', []) if _event_attr(e, 'impact', '').lower() == 'high']
             if high_tomorrow:
                 tomorrow_items = ""
                 for e in high_tomorrow[:3]:  # Limit to 3
-                    tomorrow_items += f'<div class="tomorrow-item">{esc(e.time)} — {esc(e.event)}</div>'
+                    tm_time = _format_event_time(e)
+                    tomorrow_items += f'<div class="tomorrow-item">{esc(tm_time)} — {esc(_event_attr(e, "event", ""))}</div>'
                 tomorrow_html = f'''
                 <div class="tomorrow-preview">
                     <div class="tomorrow-header">⚠️ Major Events Tomorrow</div>
@@ -623,6 +645,37 @@ def generate_html_report(report_data, output_path):
             font-family: monospace;
             font-size: 0.85rem;
         }}
+        .time-block-header td {{
+            background: rgba(255,255,255,0.05);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        .time-block-label {{
+            color: var(--text-secondary);
+        }}
+        .time-block-count {{
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            margin-left: 6px;
+        }}
+        .time-status {{
+            font-size: 0.75rem;
+            margin-left: 4px;
+            font-weight: 500;
+        }}
+        .time-status.past {{ color: var(--text-muted); }}
+        .time-status.immediate {{ color: var(--accent-yellow); }}
+        .time-status.upcoming {{ color: var(--accent-green); }}
+        .time-status.unknown {{ color: var(--text-muted); }}
+        tr.time-past {{ opacity: 0.5; }}
+        tr.time-immediate {{ background: rgba(250, 204, 21, 0.08); }}
+        tr.time-upcoming {{ }}
+        tr.time-unknown {{ }}
+        .event-value {{ font-family: monospace; font-size: 0.85rem; }}
 
         .tomorrow-preview {{
             margin-top: 20px;
@@ -987,20 +1040,165 @@ def fetch_economic_calendar():
     """Fetch US economic events from FMP."""
     from traderlib.economic_calendar import EconomicCalendar
 
-    cal = EconomicCalendar()
-    today = datetime.now().date()
+    try:
+        cal = EconomicCalendar()
+        today = datetime.now().date()
 
-    # Get today + tomorrow events
-    events = cal.get_events(today, today + timedelta(days=1))
+        # Get today + tomorrow events
+        events = cal.get_events(today, today + timedelta(days=1))
 
-    # Separate today vs tomorrow
-    today_events = [e for e in events if e.date.startswith(today.isoformat())]
-    tomorrow_events = [e for e in events if e.date.startswith((today + timedelta(days=1)).isoformat())]
+        # Separate today vs tomorrow
+        today_events = [e for e in events if e.date.startswith(today.isoformat())]
+        tomorrow_events = [e for e in events if e.date.startswith((today + timedelta(days=1)).isoformat())]
 
-    return {
-        'today': today_events,
-        'tomorrow': tomorrow_events,
+        return {
+            'today': today_events,
+            'tomorrow': tomorrow_events,
+        }
+    except Exception:
+        return {
+            'today': [],
+            'tomorrow': [],
+        }
+
+
+def _event_attr(event, attr, default=None):
+    """Get event attribute whether it's a dict or object."""
+    if isinstance(event, dict):
+        return event.get(attr, default)
+    return getattr(event, attr, default)
+
+
+def _format_event_time(event) -> str:
+    """Format event time for display."""
+    known_times = {
+        'fed interest rate decision': '14:00',
+        'fomc economic projections': '14:00',
+        'fomc statement': '14:00',
+        'fomc minutes': '14:00',
+        'fed press conference': '14:30',
+        'press conference': '14:30',
+        'durable goods orders': '08:30',
+        'housing starts': '08:30',
+        'building permits': '08:30',
+        'retail sales': '08:30',
+        'cpi': '08:30',
+        'ppi': '08:30',
+        'nonfarm payrolls': '08:30',
+        'unemployment rate': '08:30',
+        'jobless claims': '08:30',
+        'gdp': '08:30',
+        'advance gdp': '08:30',
+        'consumer confidence': '10:00',
+        'ism manufacturing': '10:00',
+        'ism services': '10:00',
+        'factory orders': '10:00',
+        'existing home sales': '10:00',
+        'new home sales': '10:00',
+        'pending home sales': '10:00',
+        'philadelphia fed': '08:30',
+        'empire state manufacturing': '08:30',
+        'industrial production': '09:15',
+        'capacity utilization': '09:15',
+        'consumer sentiment': '10:00',
+        'pmi': '09:45',
     }
+    raw_time = (_event_attr(event, 'time') or '').strip()
+    if raw_time:
+        return raw_time
+    event_lower = _event_attr(event, 'event', '').lower()
+    for key, t in known_times.items():
+        if key in event_lower:
+            return t
+    return 'TBD'
+
+
+def _format_event_value(event, field: str) -> str:
+    """Format estimate or previous value with units."""
+    val = _event_attr(event, field)
+    if val is None or val == '':
+        return '—'
+    val_str = str(val).strip()
+    if not val_str or val_str.lower() == 'none':
+        return '—'
+    event_lower = _event_attr(event, 'event', '').lower()
+    if any(k in event_lower for k in ['mom', 'yoy', 'qoq', 'rate', 'inflation', 'cpi', 'ppi']):
+        return f"{val_str}%"
+    if any(k in event_lower for k in ['housing starts', 'building permits', 'home sales', 'factory orders']):
+        return f"{val_str}M"
+    if 'claims' in event_lower:
+        return f"{val_str}K"
+    if any(k in event_lower for k in ['durable goods', 'retail sales']):
+        return f"${val_str}B"
+    return val_str
+
+
+def _deduplicate_events(events):
+    """Remove duplicate/generic events."""
+    seen = set()
+    filtered = []
+    event_names = {_event_attr(e, 'event', '').lower() for e in events}
+    for e in events:
+        name_lower = _event_attr(e, 'event', '').lower()
+        if name_lower == 'press conference' and 'fed press conference' in event_names:
+            continue
+        if name_lower == 'economic projections' and 'fomc economic projections' in event_names:
+            continue
+        if name_lower == 'statement' and 'fomc statement' in event_names:
+            continue
+        key = (_event_attr(e, 'date'), _event_attr(e, 'time'), name_lower)
+        if key in seen:
+            continue
+        seen.add(key)
+        filtered.append(e)
+    return filtered
+
+
+def _group_events_by_time(events):
+    """Group events into time blocks for display."""
+    blocks = {'pre_market': [], 'market_hours': [], 'afternoon': [], 'after_hours': [], 'unknown': []}
+    for e in events:
+        t = _format_event_time(e)
+        if t == 'TBD':
+            blocks['unknown'].append(e)
+            continue
+        try:
+            hour = int(t.split(':')[0])
+            minute = int(t.split(':')[1])
+            total = hour * 60 + minute
+            if total < 570:
+                blocks['pre_market'].append(e)
+            elif total < 960:
+                blocks['market_hours'].append(e)
+            elif total < 1200:
+                blocks['after_hours'].append(e)
+            else:
+                blocks['unknown'].append(e)
+        except (ValueError, IndexError):
+            blocks['unknown'].append(e)
+    return blocks
+
+
+def _get_time_status(event, report_time=None) -> str:
+    """Return CSS class for time status: past, immediate, upcoming, unknown."""
+    t = _format_event_time(event)
+    if t == 'TBD':
+        return 'unknown'
+    if report_time is None:
+        report_time = datetime.now()
+    try:
+        hour = int(t.split(':')[0])
+        minute = int(t.split(':')[1])
+        event_dt = report_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        diff = (event_dt - report_time).total_seconds() / 60
+        if diff < -30:
+            return 'past'
+        elif diff <= 120:
+            return 'immediate'
+        else:
+            return 'upcoming'
+    except (ValueError, IndexError):
+        return 'unknown'
 
 
 def _classify_economic_risk(events):
@@ -1008,8 +1206,8 @@ def _classify_economic_risk(events):
     if not events:
         return '🟢', 'Clear day, trade normally'
 
-    has_high = any(e.impact == 'high' for e in events)
-    has_medium = any(e.impact == 'medium' for e in events)
+    has_high = any(e.impact.lower() == 'high' for e in events)
+    has_medium = any(e.impact.lower() == 'medium' for e in events)
 
     if has_high:
         return '🔴', 'Reduce size 50% or wait for post-event clarity'
@@ -1120,7 +1318,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
     risk_level, advice = _classify_economic_risk(econ['today'])
     report_data['economic']['risk_level'] = risk_level
     report_data['economic']['advice'] = advice
-    report_data['economic']['events'] = [e for e in econ['today'] if e.impact.lower() == 'high']
+    report_data['economic']['events'] = _deduplicate_events(sorted([e for e in econ['today'] if e.country == 'US'], key=lambda e: ({'high': 0, 'medium': 1, 'low': 2}.get(e.impact.lower(), 3), _format_event_time(e))))
     report_data['economic']['tomorrow'] = econ['tomorrow']
 
     # MAJOR INDICES
@@ -1302,7 +1500,7 @@ def generate_comprehensive_report(output_format='console', output_path=None):
         if report_data['economic']['events']:
             print(f"{report_data['economic']['risk_level']} Today's Events:")
             for e in report_data['economic']['events']:
-                impact_emoji = '🔴' if e.impact == 'high' else '🟡' if e.impact == 'medium' else '🟢'
+                impact_emoji = '🔴' if e.impact.lower() == 'high' else '🟡' if e.impact.lower() == 'medium' else '🟢'
                 estimate_str = f" (est: {e.estimate}, prev: {e.previous})" if e.estimate else ""
                 print(f"   {e.time}  {impact_emoji} {e.event}{estimate_str}")
             print(f"\n   → {report_data['economic']['advice']}")

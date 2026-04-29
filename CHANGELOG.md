@@ -1,3 +1,24 @@
+## [0.6.15.14] — 2026-04-29 — Economic Calendar UX Improvements
+
+### Added
+- **`scripts/premarket_report.py`** — Economic calendar HTML output overhaul:
+  - **Time block grouping** — Events grouped into Pre-Market, Market Hours, After Hours, and Time TBD sections
+  - **Time status indicators** — Past (dimmed), Immediate (yellow highlight, within 2h), Upcoming, Unknown — with inline icons
+  - **Smart value formatting** — Auto-adds units: `%` for CPI/PPI/rates, `M` for housing, `K` for claims, `$B` for durable goods/retail
+  - **Deduplication** — Removes generic "Press Conference" when "Fed Press Conference" exists, etc.
+  - **Known-time fallback** — Maps common events (FOMC, CPI, Nonfarm) to standard ET times when API returns empty time
+  - **Tomorrow preview** — Uses formatted time and robust impact detection
+
+### Fixed
+- **`scripts/premarket_report.py`** — `_classify_economic_risk` case-sensitivity bug: `e.impact == 'high'` → `e.impact.lower() == 'high'` so FOMC events now correctly trigger red risk badge
+- **`scripts/premarket_report.py`** — `fetch_economic_calendar` now fail-open: returns empty events on network/API errors instead of crashing
+- **`tests/test_reports.py`** — Updated `TestFetchEconomicCalendar` to mock `EconomicCalendar` instead of deprecated `urllib.request.urlopen`
+
+### Changed
+- **`scripts/premarket_report.py`** — Event filtering now includes ALL US events sorted by impact (high→medium→low) then time, instead of only high-impact
+
+---
+
 ## [0.6.15.13] — 2026-04-29 — Fix Regime and Sector Dashboard Bugs
 
 ### Fixed
