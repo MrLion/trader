@@ -28,7 +28,7 @@ python3 scripts/entry_signals.py
 ## What It Does
 
 - **Real-time Trading Engine** — Automated entry/exit via Alpaca API with resilient WebSocket
-- **Stage 2 Screening** — 8-point momentum scoring with MA convergence detection
+- **Stage 2 Screening** — 10-point momentum scoring with MA convergence detection
 - **Trend Screener** — Find stocks with optimal MA clusters and VCP patterns
 - **Pre/Post Market Reports** — HTML briefings with futures, VIX, economic calendar
 - **Backtesting Engine** — Simulate strategies against historical data
@@ -71,9 +71,9 @@ trader/
 The system follows Mark Minervini's Stage 2 methodology with MA convergence scoring and VCP pattern detection.
 
 **Entry Tiers:**
-- **Tier 1** (≥60 pts, Stage 2 ≥6): Best setups — ready now
-- **Tier 2** (40-59 pts, Stage 2 ≥5): Good setups — wait for better entry
-- **Tier 3** (<40 pts): Monitor only
+- **Tier 1** (≥60 pts, Stage 2 ≥8): Best setups — ready now
+- **Tier 2** (≥40 pts, Stage 2 ≥6): Good setups — wait for better entry
+- **Tier 3** (<40 pts or Stage 2 <6): Monitor only
 
 **Risk Rules:** 0.5% account risk per trade, max 3 positions/sector, trailing stops (+1R breakeven, +1.5R EMA10, +3R EMA21)
 

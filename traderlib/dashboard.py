@@ -99,12 +99,18 @@ class Dashboard:
         state = state or self._last_state or {}
         width = getattr(self.console, "width", 80) if self.console else 80
         rule = Text("─" * width, style="dim")
+        positions_rule = Text("─" * width, style="dim")
         return Group(
             rule,
             self._header(state),
             rule,
             self._stats(state),
+            rule,
+            self._at_risk_banner(state),
+            self._today_summary(state),
+            positions_rule,
             self._positions(state),
+            positions_rule,
             self._activity(),
             rule,
             self._footer(state),
@@ -140,9 +146,9 @@ class Dashboard:
             "  PAPER ENGINE    ",
             (now, "bold white"), " ET    ",
             (f"MARKET {market}", f"bold {market_color}"), "    ",
-            "VIX ", (str(vix), f"bold {vix_color}"), "    ",
-            "WS: ", (ws, f"bold {ws_color}"), "    ",
-            "API: ", (api, f"bold {api_color}"),
+            "VIX ", (f"{vix}", vix_color), "    ",
+            "WS: ", (ws, ws_color), "    ",
+            "API: ", (api, api_color),
         )
 
     def _stats(self, state: Dict[str, Any]) -> Text:
@@ -156,11 +162,99 @@ class Dashboard:
         day_color = "green" if day_pnl >= 0 else "red"
         unreal_color = "green" if unreal >= 0 else "red"
 
+        # Portfolio heat calculation
+        heat_pct, heat_bar = self._heat_gauge(state)
+        heat_color = "green" if heat_pct < 3.0 else "yellow" if heat_pct < 5.0 else "red"
+
         lines = [
             f"  EQUITY        ${equity:,.2f}          [bold {day_color}]DAY P&L       ${day_pnl:+.2f}[/]          OPEN POS      {open_pos}",
             f"  CASH          ${cash:,.2f}           [bold {unreal_color}]UNREALIZED    ${unreal:+.2f}[/]          PENDING       {pending}",
+            f"  HEAT          [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%",
         ]
         return Text.from_markup("\n".join(lines))
+
+    def _heat_gauge(self, state: Dict[str, Any]) -> tuple[float, str]:
+        """Calculate portfolio heat: total at-risk dollars / equity."""
+        equity = state.get("equity", 0.0)
+        if equity <= 0:
+            return 0.0, "░░░░░░░░░░"
+
+        positions = state.get("positions", {})
+        total_risk = 0.0
+        for pos in positions.values():
+            entry = float(pos.get("entry_price") or 0)
+            stop = float(pos.get("stop_price") or 0)
+            shares = int(pos.get("shares") or 0)
+            if entry > stop > 0 and shares > 0:
+                total_risk += (entry - stop) * shares
+
+        heat_pct = (total_risk / equity) * 100 if equity else 0.0
+        # 10-char bar, max 6% = full bar
+        max_heat = 6.0
+        filled = int(min(heat_pct / max_heat, 1.0) * 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        return heat_pct, bar
+
+    def _at_risk_banner(self, state: Dict[str, Any]) -> Text:
+        """Banner showing positions close to their stop or losing money."""
+        positions = state.get("positions", {})
+        if not positions:
+            return Text("")
+
+        at_risk = []
+        for ticker, pos in positions.items():
+            entry = float(pos.get("entry_price") or 0)
+            current = float(pos.get("current_price") or entry)
+            stop = float(pos.get("stop_price") or 0)
+            shares = int(pos.get("shares") or 0)
+
+            if entry <= 0 or stop <= 0 or shares <= 0:
+                continue
+
+            risk_per_share = entry - stop
+            unreal = (current - entry) * shares
+            r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 else 0
+
+            # Flag if within 0.5R of stop OR below entry
+            if r_mult < 0 or (risk_per_share > 0 and (current - stop) / risk_per_share < 0.5):
+                dist_pct = ((current - stop) / risk_per_share * 100) if risk_per_share > 0 else 0
+                at_risk.append((ticker, r_mult, dist_pct))
+
+        if not at_risk:
+            return Text("")
+
+        parts = []
+        for ticker, r_mult, dist_pct in at_risk:
+            color = "red" if r_mult < 0 else "yellow"
+            parts.append(f"[{color}]{ticker} ({r_mult:+.1f}R, {dist_pct:.0f}% to stop)[/{color}]")
+
+        banner = "  [!] AT RISK:  " + "  |  ".join(parts)
+        return Text.from_markup(banner)
+
+    def _today_summary(self, state: Dict[str, Any]) -> Text:
+        """One-line summary of today's closed trades."""
+        today_stats = state.get("today_stats", {})
+        if not today_stats:
+            return Text("")
+
+        wins = today_stats.get("wins", 0)
+        losses = today_stats.get("losses", 0)
+        total_pnl = today_stats.get("total_pnl", 0.0)
+        avg_r = today_stats.get("avg_r", 0.0)
+        total = wins + losses
+
+        if total == 0:
+            return Text("")
+
+        pnl_color = "green" if total_pnl >= 0 else "red"
+        win_rate = (wins / total * 100) if total > 0 else 0
+
+        line = (
+            f"  [white]TODAY:[/]  {wins}W / {losses}L  |  "
+            f"[{pnl_color}]${total_pnl:>+,.0f}[/{pnl_color}]  |  "
+            f"avg {avg_r:+.1f}R  |  {win_rate:.0f}% WR"
+        )
+        return Text.from_markup(line)
 
     def _positions(self, state: Dict[str, Any]) -> Table:
         positions = state.get("positions", {})
@@ -174,11 +268,17 @@ class Dashboard:
             expand=True,
         )
         tbl.add_column("TICKER", style="white")
+        tbl.add_column("PHASE", style="cyan")
         tbl.add_column("ENTRY", justify="right", style="white")
         tbl.add_column("CURRENT", justify="right")
         tbl.add_column("STOP", justify="right", style="white")
         tbl.add_column("TYPE", style="yellow")
         tbl.add_column("UNREAL", justify="right")
+        tbl.add_column("R", justify="right")
+
+        # Separator between header and data rows
+        sep = Text("─" * 14, style="dim")
+        tbl.add_row(sep, sep, sep, sep, sep, sep, sep, sep)
 
         for ticker, pos in positions.items():
             entry = float(pos.get("entry_price") or 0)
@@ -187,22 +287,40 @@ class Dashboard:
             stop = float(pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
             ptype = pos.get("current_stop_type", "HARD")
+            phase = pos.get("exit_phase", "P1")
             unreal = (current - entry) * shares if entry else 0.0
+
+            # R-multiple calculation
+            risk_per_share = entry - stop if entry > stop > 0 else 0
+            r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
+
+            # Row color based on R-level
+            if r_mult < 0:
+                row_style = "red"
+            elif r_mult < 1:
+                row_style = "yellow"
+            elif r_mult < 2:
+                row_style = "green"
+            else:
+                row_style = "bold green"
 
             cur_color = "green" if current >= entry else "red"
             unreal_color = "green" if unreal >= 0 else "red"
+            r_color = "green" if r_mult >= 0 else "red"
 
             tbl.add_row(
-                ticker,
-                f"{entry:.2f}",
+                Text(ticker, style=row_style),
+                Text(phase, style=row_style),
+                Text(f"{entry:.2f}", style=row_style),
                 Text(f"{current:.2f}", style=cur_color),
-                f"{stop:.2f}",
-                ptype,
+                Text(f"{stop:.2f}", style=row_style),
+                Text(ptype, style=row_style),
                 Text(f"{unreal:+.2f}", style=unreal_color),
+                Text(f"{r_mult:+.1f}", style=r_color),
             )
 
         if not positions:
-            tbl.add_row("--", "--", "--", "--", "--", "--")
+            tbl.add_row("--", "--", "--", "--", "--", "--", "--", "--")
 
         return tbl
 
@@ -287,9 +405,18 @@ class Dashboard:
             elif api_pct > 0.8:
                 rate_color = "yellow"
 
+        # Cooldowns
+        cooldowns = state.get("cooldowns", {})
+        if cooldowns:
+            cd_parts = [f"{t}({int(m)}m)" for t, m in sorted(cooldowns.items())]
+            cd_str = "  COOLDOWNS: " + "  |  ".join(cd_parts)
+        else:
+            cd_str = ""
+
         return Text.assemble(
             "  Next scan: ", (f"{next_scan}s", "white"), "    ",
             "Market closes in: ", (close_str, close_color), "    ",
             "WebSocket: ", (ws, ws_color), "    ",
             "Rate limit: ", (rate_str, rate_color),
+            (cd_str, "dim") if cd_str else "",
         )

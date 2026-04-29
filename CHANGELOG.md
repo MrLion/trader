@@ -1,3 +1,28 @@
+## [0.6.15.10] — 2026-04-29 — Dashboard UX Improvements
+
+### Added
+- **`traderlib/dashboard.py`** — Five quick-win UX improvements for the paper engine dashboard:
+  - **R-multiple column** in positions table — shows risk-adjusted return per position
+  - **Row color bands by R-level** — red (<0R), yellow (0–1R), green (1–2R), bright green (2R+)
+  - **At-risk banner** — surfaces tickers within 0.5R of their stop or below entry
+  - **Portfolio heat gauge** — 10-char bar showing total at-risk dollars / equity vs 6% max
+  - **Today's results summary** — wins/losses, dollar P&L, avg R, win rate
+  - **Cooldown visibility** — active re-entry cooldowns shown in footer
+- **`scripts/paper_engine_alpaca.py`** — Dashboard data feeds:
+  - `_get_active_cooldowns()` — computes remaining cooldown minutes per ticker
+  - `_get_today_trade_stats()` — reads trade log for today's win/loss/R stats
+  - Both values passed through `state_data` to the dashboard
+
+### Changed
+- **`docs/METHODOLOGY.md`** — Aligned with code: 10-point Stage 2 scoring, updated tier thresholds (Tier 1: Stage 2 ≥8, Tier 2: ≥6), hybrid trailing stops, position caps, sector limits, and penalty explanation
+- **`README.md`** — Updated Stage 2 description to 10-point, tier thresholds, and risk rules
+- **`plans/roadmap-2026.md`** — Added v0.6.17.0 Dashboard UX section, bumped downstream versions
+
+### Fixed
+- **`tests/test_dashboard.py`** — Fixed pre-existing test bugs: separator row indexing caused off-by-one errors in row count and cell style assertions
+
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

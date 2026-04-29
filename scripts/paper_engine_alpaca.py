@@ -548,6 +548,90 @@ class AlpacaPaperEngine:
                 del self.consecutive_losses[ticker]
                 print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
 
+
+    def _get_active_cooldowns(self) -> Dict[str, float]:
+        """Return active cooldowns for dashboard display.
+
+        Returns:
+            Dict mapping ticker -> remaining minutes.
+        """
+        active = {}
+        cooldown_cfg = self.risk_config.cooldown
+        for ticker, last_exit in self.last_exit_time.items():
+            elapsed_minutes = (datetime.now() - last_exit).total_seconds() / 60
+            consecutive_count = self.consecutive_losses.get(ticker, 0)
+            base_cooldown = cooldown_cfg.reentry_cooldown_minutes
+            multiplier = cooldown_cfg.consecutive_loss_multiplier ** consecutive_count
+            effective_cooldown = min(
+                base_cooldown * multiplier,
+                cooldown_cfg.max_cooldown_minutes
+            )
+            remaining = effective_cooldown - elapsed_minutes
+            if remaining > 0:
+                active[ticker] = remaining
+        return active
+
+    def _get_today_trade_stats(self) -> Dict[str, Any]:
+        """Return today's closed trade statistics from trade log.
+
+        Returns:
+            Dict with wins, losses, total_pnl, avg_r.
+        """
+        today = datetime.now().strftime("%Y-%m-%d")
+        wins = 0
+        losses = 0
+        total_pnl = 0.0
+        total_r = 0.0
+
+        if not TRADES_FILE.exists():
+            return {"wins": 0, "losses": 0, "total_pnl": 0.0, "avg_r": 0.0}
+
+        try:
+            with open(TRADES_FILE, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if self.state._is_test_trade(trade):
+                        continue
+                    if trade.get("event") != "EXIT":
+                        continue
+
+                    ts = trade.get("timestamp", "")
+                    if not ts.startswith(today):
+                        continue
+
+                    pnl = trade.get("realized_pnl", 0.0)
+                    total_pnl += pnl
+                    if pnl >= 0:
+                        wins += 1
+                    else:
+                        losses += 1
+
+                    # Approximate R: if entry and exit prices available,
+                    # infer stop distance from exit reason or use 5% fallback
+                    entry = trade.get("entry_price", 0)
+                    exit_p = trade.get("exit_price", 0)
+                    if entry > 0 and exit_p > 0:
+                        risk = abs(entry - exit_p) * 1.5  # rough proxy
+                        if risk > 0:
+                            total_r += pnl / risk
+        except Exception:
+            pass
+
+        total = wins + losses
+        return {
+            "wins": wins,
+            "losses": losses,
+            "total_pnl": total_pnl,
+            "avg_r": total_r / total if total > 0 else 0.0,
+        }
+
     def _rebuild_cooldown_state(self):
         """Rebuild cooldown state from trade log after engine restart.
 
@@ -1120,6 +1204,10 @@ class AlpacaPaperEngine:
             pass
 
         rl = self.alpaca.rate_limiter.get_status()
+        # Compute dashboard extras
+        active_cooldowns = self._get_active_cooldowns()
+        today_stats = self._get_today_trade_stats()
+
         state_data = {
             "equity": account_value,
             "cash": stats.get("cash", 0.0),
@@ -1135,6 +1223,8 @@ class AlpacaPaperEngine:
             "api_max": rl.get("max_requests", 10000),
             "next_scan_seconds": 30,
             "market_close_seconds": market_close_seconds,
+            "cooldowns": active_cooldowns,
+            "today_stats": today_stats,
         }
 
         if self.dashboard and self.dashboard.enabled:

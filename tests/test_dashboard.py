@@ -86,15 +86,17 @@ class TestDashboard:
         with patch("traderlib.dashboard.Live"):
             d = Dashboard(enabled=True)
             table = d._positions(mock_state)
-            assert table.row_count == 2
+            # separator row + 2 data rows = 3 total
+            assert table.row_count == 3
             d.stop()
 
     def test_positions_color_green_for_profit(self, mock_state):
         with patch("traderlib.dashboard.Live"):
             d = Dashboard(enabled=True)
             table = d._positions(mock_state)
-            # AAPL is row 0, CURRENT is column 3 (0-indexed: TICKER, PHASE, ENTRY, CURRENT)
-            cell = table.columns[3]._cells[0]
+            # AAPL is first data row (index 1, after separator at index 0)
+            # CURRENT is column 3 (0-indexed: TICKER, PHASE, ENTRY, CURRENT)
+            cell = table.columns[3]._cells[1]
             assert cell.style == "green"
             d.stop()
 

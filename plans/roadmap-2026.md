@@ -1,22 +1,7 @@
 # Product Roadmap 2026
 
 **Created:** 2026-04-26
-**Latest Shipped:** 0.6.14.1
-
-**Note:** This roadmap uses 4-digit versioning `WW.XX.YY.ZZ`. All planned work appears in the **Version Summary** table below.
-
----
-
-## Overview
-
-This roadmap outlines the strategic direction for the trader project from its current state through v0.6.19.0. The progression prioritizes:
-
-1. **Safety (v0.6.14.0)** -- FMP Economic Calendar (ready to implement)
-2. **UX (v0.6.15.0)** -- TUI Dashboard for Paper Engine (in progress)
-3. **Safety (v0.6.16.0)** -- Live state isolation
-4. **Insight (v0.6.17.0)** -- Analytics & journaling
-5. **Capability (v0.6.18.0)** -- Config + new capabilities
-6. **Accessibility (v0.6.19.0)** -- Wrap proven features in approachable web UI
+**Latest Shipped:** 0.6.15.0
 
 ---
 
@@ -26,11 +11,9 @@ This roadmap outlines the strategic direction for the trader project from its cu
 
 | Version | Status | Theme | Focus | Plan |
 |---------|--------|-------|-------|------|
-| 0.6.12.0 | Shipped | -- | Trailing exits | -- |
-| 0.6.13.0 | Shipped | -- | Backtest config tracking + fixes | [plan](plans/archive/plan-backtest-config-tracking.md) |
-| **0.6.14.0** | Shipped | **Safety** | FMP Economic Calendar | [spec](plans/spec-fmp-economic-calendar.md) / [impl](docs/superpowers/plans/impl-fmp-economic-calendar.md) |
-| **0.6.15.0** | In Progress | **UX** | TUI Dashboard for Paper Engine | [design](docs/superpowers/specs/2026-04-27-paper-engine-dashboard-design.md) / [plan](plans/plan-paper-engine-dashboard.md) |
-| 0.6.16.0 | TBD | **Safety** | Live state isolation | -- |
+| **0.6.15.0** | Shipped | **UX** | TUI Dashboard for Paper Engine | [design](docs/superpowers/specs/2026-04-27-paper-engine-dashboard-design.md) / [plan](plans/plan-paper-engine-dashboard.md) |
+| **0.6.15.10** | Shipped | **UX** | Dashboard UX improvements | [plan](docs/superpowers/plans/dashboard-ux-improvements.md) |
+| 0.6.16.0 | TBD | **Safety** | Live state isolation | [design](docs/superpowers/specs/2026-04-28-live-state-isolation-design.md) / [plan](docs/superpowers/plans/2026-04-28-live-state-isolation.md) |
 | 0.6.17.0 | TBD | **Insight** | Analytics & journaling | -- |
 | 0.6.18.0 | TBD | **Capability** | Config + new capabilities | -- |
 | 0.6.19.0 | TBD | **Accessibility** | Web dashboard | -- |
@@ -59,12 +42,33 @@ This is a UX investment that pays off every trading session. It does not change 
 
 ---
 
+## Dashboard UX Improvements (v0.6.17.0)
+
+The shipped TUI dashboard (v0.6.15.0) is data-dense but prioritizes volume over scanability. Trading is a risk-management sport; the UI should elevate loss-prevention metrics (heat, at-risk positions, cooldowns, R-multiples) above descriptive account metrics (equity, cash).
+
+Planned improvements:
+- **R-multiple column + row color bands** — risk-adjusted returns at a glance
+- **At-risk banner** — tickers within 0.5R of stop, surfaced above the positions table
+- **Portfolio heat gauge** — total risk exposure vs 6% max limit
+- **Today's closed trades summary** — win rate, avg R, behavioral feedback loop
+- **Cooldown visibility** — active re-entry cooldowns surfaced in UI
+- **Sector exposure bars** — concentration breakdown by GICS sector
+- **Activity log timeline** — single-column chronological flow with event icons
+- **Stats visual hierarchy** — equity + day P&L bolded; other stats dimmed
+- **Market regime badge** — computed bull/neutral/bear from SPY/VIX/breadth
+- **Keyboard shortcuts** — turn the dashboard from a monitor into a control panel
+- **WebSocket health sparkline** — latency + data freshness, not just connected/disconnected
+- **Layout modes** — trading / scanning / post-market views
+
+See full plan: [docs/superpowers/plans/dashboard-ux-improvements.md](docs/superpowers/plans/dashboard-ux-improvements.md)
+
+---
+
 ## Next Steps
 
 When ready to begin:
-1. Phase 1 (0.6.14.0) -- FMP Economic Calendar is ready to implement
-2. Phase 2 (0.6.15.0) -- TUI Dashboard is in progress; see [plan](plans/plan-paper-engine-dashboard.md)
-3. Execute phase-by-phase
+1. Phase (0.6.16.0) -- Live state isolation
+2. Execute phase-by-phase
 
 ---
 

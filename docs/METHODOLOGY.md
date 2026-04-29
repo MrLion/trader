@@ -12,9 +12,9 @@ A stock in Stage 2 has:
 
 ---
 
-## The 8-Point Stage 2 Scoring System
+## The 10-Point Stage 2 Scoring System
 
-Each stock is scored on 8 criteria. Score range: **0-8 points**.
+Each stock is scored on 10 criteria. Score range: **0-10 points**.
 
 ### Scoring Criteria
 
@@ -23,35 +23,40 @@ Each stock is scored on 8 criteria. Score range: **0-8 points**.
 | 1 | Price > 20 MA | 1 | Short-term trend positive |
 | 2 | Price > 50 MA | 1 | Medium-term trend positive |
 | 3 | Price > 100 MA | 1 | Intermediate trend positive |
-| 4 | Price > 200 MA | 1 | Long-term trend positive |
-| 5 | MA Stacking | 1 | 50 > 100 > 200 (proper order) |
-| 6 | 200 MA Rising | 1 | Sustained uptrend (20+ days) |
-| 7 | Within 25% of 52W High | 1 | Not extended, room to run |
-| 8 | Above 1.25x 52W Low | 1 | Strong recovery from lows |
+| 4 | Price > 150 MA | 1 | Long intermediate trend positive |
+| 5 | Price > 200 MA | 1 | Long-term trend positive |
+| 6 | MA Stacking | 1 | 50 > 100 > 200 (proper order) |
+| 7 | Extended MA Stacking | 1 | 50 > 100 > 150 > 200 |
+| 8 | 200 MA Rising | 1 | Sustained uptrend (20+ days) |
+| 9 | Within 25% of 52W High | 1 | Not extended, room to run |
+| 10 | Above 1.25x 52W Low | 1 | Strong recovery from lows |
 
 ### Score Interpretation
 
 ```
-Score: 0-4  → Stage 0 (Not in Stage 2) — Avoid
-Score: 5-6  → Stage 2 with penalty — Use caution
-Score: 7-8  → Full Stage 2 — Ideal candidates
+Score: 0-4   → Stage 0 (Not in Stage 2) — Avoid
+Score: 5-6   → Stage 2 with penalty — Use caution
+Score: 7-8   → Full Stage 2 — Good candidates
+Score: 9-10  → Excellent Stage 2 — Ideal candidates
 ```
 
 ### Visual Scoring Example
 
 ```
-AAPL Stage 2 Analysis (Score: 8/8)
+AAPL Stage 2 Analysis (Score: 10/10)
 ═══════════════════════════════════════════════════════════════
 
 Price: $175.50
 
 Moving Averages:
-  20 MA: $170.25  ✓ (Price above)
-  50 MA: $165.80  ✓ (Price above)
-  100 MA: $158.40 ✓ (Price above)
-  200 MA: $145.20 ✓ (Price above, rising)
+  20 MA:  $170.25  ✓ (Price above)
+  50 MA:  $165.80  ✓ (Price above)
+  100 MA: $158.40  ✓ (Price above)
+  150 MA: $152.00  ✓ (Price above)
+  200 MA: $145.20  ✓ (Price above, rising)
 
 MA Stacking: 50 > 100 > 200 ✓
+Extended Stacking: 50 > 100 > 150 > 200 ✓
 200 MA Rising (20 days): ✓
 
 52-Week Range:
@@ -60,7 +65,7 @@ MA Stacking: 50 > 100 > 200 ✓
   Current vs High: -5.1% (< 25%) ✓
   Current vs Low: +40.4% (> 25%) ✓
 
-SCORE: 8/8 — Full Stage 2 Compliant
+SCORE: 10/10 — Full Stage 2 Compliant
 ═══════════════════════════════════════════════════════════════
 ```
 
@@ -69,6 +74,8 @@ SCORE: 8/8 — Full Stage 2 Compliant
 ## Entry Score System (0-100)
 
 Beyond Stage 2 compliance, the system calculates an **entry attractiveness score** to prioritize setups.
+
+The raw component sum is 110 points, but penalties for weakness (below key MAs) are applied immediately, capping the final score at 100.
 
 ### Score Components
 
@@ -90,9 +97,9 @@ Beyond Stage 2 compliance, the system calculates an **entry attractiveness score
 ### Tier Classification
 
 ```
-Entry Score 60-100 → Tier 1 (Actionable now)
-Entry Score 40-59  → Tier 2 (Developing)
-Entry Score 0-39   → Tier 3 (Radar only)
+Entry Score ≥60 AND Stage 2 ≥8 → Tier 1 (Actionable now)
+Entry Score ≥40 AND Stage 2 ≥6 → Tier 2 (Developing)
+Otherwise                        → Tier 3 (Radar only)
 ```
 
 ---
@@ -128,7 +135,7 @@ When moving averages converge below price, they form a natural support zone. The
 
 **Algorithm:**
 ```
-1. Collect all MAs below current price (10, 20, 50, 100, 200)
+1. Collect all MAs below current price (10, 20, 50, 100, 150, 200)
 2. Require at least 2 MAs in cluster (min_cluster_size)
 3. Check spread: (highest - lowest) / highest ≤ 5% (cluster_spread_pct)
 4. Stop = lowest_ma × (1 - 1%) (buffer_pct)
@@ -138,9 +145,10 @@ When moving averages converge below price, they form a natural support zone. The
 ```
 Price: $100.00
 MAs below price:
-  - 10 MA: $97.50
-  - 20 MA: $96.80
-  - 50 MA: $95.20
+  - 10 MA:  $97.50
+  - 20 MA:  $96.80
+  - 50 MA:  $95.20
+  - 100 MA: $94.10
 
 Cluster: 10, 20 MA ($97.50, $96.80)
 Spread: ($97.50 - $96.80) / $97.50 = 0.7% (< 5% ✓)
@@ -251,9 +259,8 @@ Note: Partial position due to cash limitation
 | R Multiple | Action | Stop Location | Mode |
 |------------|--------|---------------|------|
 | +2R | Move to breakeven | Entry price | Trailing/Hybrid |
-| +3R | Begin trailing | 10 EMA | Trailing/Hybrid |
-| +5R | Widen trail | 21 EMA | Trailing/Hybrid |
-| +3R/+4R | Take partial profit | Trail remainder | Hybrid only |
+| +3R | Begin trailing + sell 33% | 10 EMA | Hybrid only |
+| +4R | Sell 50% of remainder | 21 EMA trail | Hybrid only |
 
 **Exit Modes:**
 - **Target Mode (Default):** Fixed 2R profit target - simple and consistent
@@ -280,15 +287,21 @@ Current R: 2.3R
 
 **Trailing Stop Update:**
 ```
-At +1.5R:
+At +2R:
   Current Stop: $95.00
-  10 EMA: $98.50
-  → New Stop: $98.50 (EMA10)
-  
+  → New Stop: $100.00 (breakeven)
+
 At +3R:
-  Current Stop: $98.50
-  21 EMA: $102.00
-  → New Stop: $102.00 (EMA21)
+  Current Stop: $100.00
+  10 EMA: $103.00
+  → New Stop: $103.00 (EMA10)
+  → Scale out: sell 33% of position
+
+At +4R:
+  Current Stop: $103.00
+  21 EMA: $106.00
+  → New Stop: $106.00 (EMA21)
+  → Scale out: sell 50% of remaining position
 ```
 
 ---
@@ -357,10 +370,10 @@ Risk Calculation:
   
   Constraint Check:
     - Account risk: 20 shares ✓
-    - Position cap: 5% = 5 shares (LIMITING)
+    - Position cap: 10% = 10 shares (LIMITING)
     - Available cash: 50 shares
     
-  FINAL: 5 shares ($4,402 position, 4.4% of equity)
+  FINAL: 10 shares ($8,805 position, 8.8% of equity)
 
 EXECUTE: Buy 5 NVDA @ $880.50, Stop $858.40
 ═══════════════════════════════════════════════════════════════
@@ -381,7 +394,7 @@ EXECUTE: Buy 5 NVDA @ $880.50, Stop $858.40
 
 ### Sector Constraints
 
-- **Max 3 positions per GICS sector**
+- **Max 10 positions per GICS sector**
 - No longs in sectors with ETF below 50 SMA
 - No longs in sectors underperforming SPY (1-month)
 
@@ -410,8 +423,8 @@ EXECUTE: Buy 5 NVDA @ $880.50, Stop $858.40
 
 | Profile | Risk/Trade | Max Position | Stop Method | Use Case |
 |---------|------------|--------------|-------------|----------|
-| Default | 0.5% | 5% | atr_or_ma_support | Balanced |
-| Conservative | 0.5% | 3% | atr_or_ma_support | Lower volatility |
+| Default | 0.5% | 10% | atr_or_ma_support | Balanced |
+| Conservative | 0.5% | 10% | atr_or_ma_support | Lower volatility |
 | Aggressive | 1.0% | 10% | atr_or_ma_support | Higher conviction |
 | Tight Stops | 0.5% | 15% | atr_or_support | Pivot-based entries |
 
@@ -421,11 +434,11 @@ EXECUTE: Buy 5 NVDA @ $880.50, Stop $858.40
 # Account Risk
 risk_per_trade_pct: 0.005      # 0.5% of equity per trade
 daily_loss_limit_pct: 0.02      # 2% daily stop
-max_sector_positions: 3         # Per sector limit
+max_sector_positions: 10        # Per sector limit
 
 # Position Sizing
-max_position_pct: 0.05          # 5% max position
-min_position_pct: 0.005         # 0.5% min position
+max_position_pct: 0.10          # 10% max position
+min_position_pct: 0.05          # 5% min position
 
 # Stop Loss
 method: "atr_or_ma_support"   # Dual stop calculation
