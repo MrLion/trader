@@ -294,8 +294,8 @@ class TestOrderManager(unittest.TestCase):
             self.assertIsNone(result)
 
     def test_submit_exit_direct_calls_alpaca(self):
-        """Direct exit submit should call Alpaca close_position."""
-        self.mock_alpaca.close_position.return_value = {
+        """Direct exit submit should call Alpaca submit_market_order."""
+        self.mock_alpaca.submit_market_order.return_value = {
             'id': 'alpaca-exit-123',
             'status': 'accepted',
         }
@@ -310,7 +310,7 @@ class TestOrderManager(unittest.TestCase):
                 reason='STOP_HIT',
             )
 
-            self.mock_alpaca.close_position.assert_called_once_with('AAPL')
+            self.mock_alpaca.submit_market_order.assert_called_once_with('AAPL', 100, 'sell')
             self.assertIsNotNone(result)
             self.assertEqual(result.reason, 'STOP_HIT')
 

@@ -141,8 +141,8 @@ class OrderManager:
         self.expected_positions: Dict[str, int] = {}  # Shares we expect to have
 
         # Persistence - configurable via environment variable for testing
-        default_data_dir = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
-        self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', default_data_dir))
+        default_data_dir = Path(__file__).resolve().parent.parent / 'data'
+        self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', str(default_data_dir)))
         self.orders_file = self.data_dir / 'alpaca_orders.json'
 
         # Order storm protection - TPS limiting
@@ -203,7 +203,9 @@ class OrderManager:
                     stop_price=queued.stop_price,
                     target_price=queued.target_price,
                     sector=queued.sector,
-                    expected_entry_price=queued.expected_entry_price
+                    expected_entry_price=queued.expected_entry_price,
+                    pivot_type=queued.pivot_type,
+                    entry_mode=queued.entry_mode
                 )
             elif queued.order_type == 'stop_entry':
                 result = self._submit_stop_entry_to_alpaca(
@@ -298,6 +300,8 @@ class OrderManager:
                     target_price: Optional[float] = None,
                     sector: Optional[str] = None,
                     expected_entry_price: Optional[float] = None,
+                    pivot_type: Optional[str] = None,
+                    entry_mode: Optional[str] = None,
                     priority: int = 0,
                     callback: Optional[Callable] = None) -> Optional[Order]:
         """Submit a buy order (with storm protection queue).
@@ -315,10 +319,14 @@ class OrderManager:
         Returns:
             Order object if submitted directly, None if queued or failed
         """
+        if shares <= 0:
+            raise ValueError(f"shares must be positive, got {shares} for {ticker}")
+
         # Check if we can submit directly (no recent orders and queue empty)
         if self._can_submit_directly():
             result = self._submit_entry_to_alpaca(
-                ticker, shares, stop_price, target_price, sector, expected_entry_price
+                ticker, shares, stop_price, target_price, sector, expected_entry_price,
+                pivot_type, entry_mode
             )
             if callback:
                 try:
@@ -337,6 +345,8 @@ class OrderManager:
                 target_price=target_price,
                 sector=sector,
                 expected_entry_price=expected_entry_price,
+                pivot_type=pivot_type,
+                entry_mode=entry_mode,
                 priority=priority,
                 callback=callback
             )
@@ -353,7 +363,9 @@ class OrderManager:
     def _submit_entry_to_alpaca(self, ticker: str, shares: int, stop_price: float,
                                 target_price: Optional[float] = None,
                                 sector: Optional[str] = None,
-                                expected_entry_price: Optional[float] = None) -> Optional[Order]:
+                                expected_entry_price: Optional[float] = None,
+                                pivot_type: Optional[str] = None,
+                                entry_mode: Optional[str] = None) -> Optional[Order]:
         """Internal: Submit entry directly to Alpaca."""
         result = self.alpaca.submit_market_order(ticker, shares, 'buy', stop_price)
 
@@ -372,6 +384,8 @@ class OrderManager:
             target_price=target_price,
             sector=sector,
             expected_entry_price=expected_entry_price,
+            pivot_type=pivot_type,
+            entry_mode=entry_mode,
             order_type='entry'
         )
 
@@ -408,6 +422,9 @@ class OrderManager:
         Returns:
             Order object if submitted directly, None if queued or failed
         """
+        if shares <= 0:
+            raise ValueError(f"shares must be positive, got {shares} for {ticker}")
+
         if self._can_submit_directly():
             result = self._submit_stop_entry_to_alpaca(
                 ticker, shares, trigger_price, stop_price, target_price,
@@ -535,6 +552,9 @@ class OrderManager:
         Returns:
             Order object if submitted directly, None if queued or failed
         """
+        if shares <= 0:
+            raise ValueError(f"shares must be positive, got {shares} for {ticker}")
+
         # Check if we can submit directly
         if self._can_submit_directly():
             result = self._submit_exit_to_alpaca(ticker, shares, reason)
@@ -567,7 +587,7 @@ class OrderManager:
 
     def _submit_exit_to_alpaca(self, ticker: str, shares: int, reason: str) -> Optional[Order]:
         """Internal: Submit exit directly to Alpaca."""
-        result = self.alpaca.close_position(ticker)
+        result = self.alpaca.submit_market_order(ticker, shares, 'sell')
 
         if not result:
             print(f"❌ Failed to submit exit order for {ticker}")

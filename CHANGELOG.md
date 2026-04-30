@@ -1,3 +1,12 @@
+## [0.6.15.26] — 2026-04-30 — Fix Order Manager Hardcoded Values & Logic
+
+### Fixed
+- **`traderlib/order_manager.py`** — `_submit_exit_to_alpaca()` now calls `submit_market_order(ticker, shares, 'sell')` instead of `close_position(ticker)`. Partial exits (e.g., hybrid mode scaling out at 3R) now work correctly instead of liquidating the entire position.
+- **`traderlib/order_manager.py`** — Hardcoded absolute path replaced with project-root-relative derivation (`Path(__file__).resolve().parent.parent / 'data'`).
+- **`traderlib/order_manager.py`** — Added `shares > 0` validation to `submit_entry()`, `submit_stop_entry()`, and `submit_exit()`.
+- **`traderlib/order_manager.py`** — Added `pivot_type` and `entry_mode` optional params to `submit_entry()`. Market entries now track technique/entry-mode telemetry the same as stop entries.
+- **`tests/test_order_manager.py`** — Updated `test_submit_exit_direct_calls_alpaca` to assert `submit_market_order` instead of `close_position`.
+
 ## [0.6.15.25] — 2026-04-30 — Fix Target Price R-Multiple Math
 
 ### Fixed
