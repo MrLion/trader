@@ -1,3 +1,10 @@
+## [0.6.15.28] — 2026-04-30 — Exit Engine Uses Alpaca Bars, Not yfinance
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `evaluate_exit` calls now pass Alpaca historical daily bars as `historical_data` instead of letting the exit engine fall back to yfinance. EMA10/EMA21 trailing stop calculations during live trading use real-time Alpaca data instead of 15-minute-delayed yfinance data.
+- **`scripts/paper_engine_alpaca.py`** — Added `_get_historical_for_exits()` helper that fetches daily bars from Alpaca via `get_bars()` and caches them per ticker for the session lifetime. Daily bars don't change intraday, so one fetch per ticker suffices.
+- **`traderlib/paper_exits.py`** — yfinance fallback path in `_get_ema_values` is now only hit by standalone scripts (reports, tools) — never by the live paper engine.
+
 ## [0.6.15.27] — 2026-04-30 — Fix Paper Exits Audit: 10 Logic & Hardcoded Value Issues
 
 ### Fixed
