@@ -100,6 +100,9 @@ class AlpacaPaperEngine:
         self.price_cache: Dict[str, Dict] = {}
         self.ws_tickers: Set[str] = set()
 
+        # Alpaca historical bars for exit engine (replaces yfinance fallback)
+        self._alpaca_bar_cache: Dict[str, pd.DataFrame] = {}
+
         # Entry tracking
         self.signaled_tickers: Set[str] = set()
         self.last_signal_reset = datetime.now().strftime('%Y-%m-%d')
@@ -453,6 +456,26 @@ class AlpacaPaperEngine:
             )
             return []
 
+    def _get_historical_for_exits(self, ticker: str) -> Optional[pd.DataFrame]:
+        """Fetch historical daily bars from Alpaca for exit engine EMA calculations.
+
+        Cached per ticker for the session lifetime — daily bars don't change
+        intraday, so one fetch per ticker is enough. Replaces the yfinance
+        fallback in ExitEngine._get_ema_values.
+        """
+        if ticker in self._alpaca_bar_cache:
+            return self._alpaca_bar_cache[ticker]
+
+        ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+        try:
+            df = self.alpaca.get_bars(ticker, limit=ema_long + 40)
+            if df is not None and len(df) >= ema_long:
+                self._alpaca_bar_cache[ticker] = df
+                return df
+        except Exception:
+            pass
+        return None
+
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price via AlpacaClient (WebSocket cache + REST fallback).
 
@@ -720,7 +743,8 @@ class AlpacaPaperEngine:
             return
 
         position = self.state.positions[ticker]
-        signal = self.exits.evaluate_exit(position, current_price)
+        historical_data = self._get_historical_for_exits(ticker)
+        signal = self.exits.evaluate_exit(position, current_price, historical_data=historical_data)
 
         # Handle scale_out before stop update
         scale_out_info = signal.metadata.get('scale_out') if signal.metadata else None
@@ -842,7 +866,8 @@ class AlpacaPaperEngine:
                 continue
 
             position = self.state.positions[ticker]
-            signal = self.exits.evaluate_exit(position, current_price)
+            historical_data = self._get_historical_for_exits(ticker)
+            signal = self.exits.evaluate_exit(position, current_price, historical_data=historical_data)
 
             # Handle scale_out before stop update
             scale_out_info = signal.metadata.get('scale_out') if signal.metadata else None
