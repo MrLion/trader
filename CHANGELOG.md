@@ -1,3 +1,22 @@
+## [0.6.15.27] — 2026-04-30 — Fix Paper Exits Audit: 10 Logic & Hardcoded Value Issues
+
+### Fixed
+- **`traderlib/paper_exits.py`** — Flattened `elif` chain to independent `if`-blocks in `evaluate_exit` and `evaluate_exit_action`. Lower-tier trailing stops (EMA10, breakeven) now still apply when higher-tier EMA hasn't caught up (e.g., at +3R with ema21 below current stop, EMA10 still fires).
+- **`traderlib/paper_exits.py`** — Fixed cache age check from `.seconds` to `.total_seconds()` in `_get_cached_data`. Previously wrapped at 86400, making caches older than 1 day appear fresh.
+- **`traderlib/paper_exits.py`** — `evaluate_exit` now delegates to `TrailingExitEngine` when trailing/hybrid mode is active, matching `evaluate_exit_action` behavior. Both methods return consistent decisions for the same position.
+- **`traderlib/paper_exits.py`** — Exit profit-target check now uses `position.entry_min_r` (stored at entry time) instead of live config `min_r_multiple`. Entry/exit parity: a position entered at 3R target won't exit prematurely at 2R.
+- **`traderlib/paper_exits.py`** — Removed `max(shares, 10)` floor from fallback `calculate_position_size`. Now returns 0 for rejected sizes, consistent with the main triple-constraint path.
+- **`traderlib/paper_exits.py`** — Per-ticker cache timestamps (`cache_timestamps` dict) replace single global `cache_timestamp`. Fetching AAPL no longer resets the TTL clock for TSLA.
+- **`traderlib/paper_exits.py`** — `get_position_summary` now uses `initial_stop_price` (immutable) instead of `position.stop_price` (current, possibly trailed) for R-multiple calculation.
+- **`traderlib/paper_exits.py`** — Removed position mutation from `evaluate_exit_action`. Scale-out info is now returned in ExitAction metadata; the caller applies mutations.
+- **`traderlib/paper_exits.py`** — `_get_cached_data` minimum bars check now uses `ema_long_period` (configurable, default 21) instead of hardcoded 50. Injected data and yfinance paths have consistent validation.
+- **`traderlib/paper_exits.py`** — EMA column names are now dynamic (`EMA{period}`) instead of hardcoded `EMA10`/`EMA21`.
+
+### Added
+- **`traderlib/paper_state.py`** — `Position` dataclass gains `entry_min_r` field to store the `min_r_multiple` from risk config at entry time.
+- **`scripts/paper_engine_alpaca.py`** — `entry_min_r` is now stored on position creation and synced on partial fills. Scale-out handling in `check_exits` and `check_exits_during_stream`.
+- **`tests/test_exit_engine.py`** — Updated tests for independent if-block behavior (breakeven/EMA10 fallback when higher-tier EMA doesn't apply). Per-ticker cache timestamp tests.
+
 ## [0.6.15.26] — 2026-04-30 — Fix Order Manager Hardcoded Values & Logic
 
 ### Fixed
