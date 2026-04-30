@@ -35,7 +35,7 @@ def _atomic_write_json(filepath: Path, data: dict) -> None:
         raise
 
 # Data paths - configurable via environment variable for testing
-DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+DEFAULT_DATA_DIR = Path.home() / '.openclaw/workspaces/trader/data'
 DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
 POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
 DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
@@ -133,36 +133,39 @@ class Position:
             mapped_data['stop_price'] = 0.0
             mapped_data['current_stop_type'] = 'UNSYNCED'
 
-        # Only calculate target/initial_risk if stop_price is valid
-        if 'target_price' not in mapped_data:
-            entry = mapped_data.get('entry_price', 0)
-            stop = mapped_data.get('stop_price', 0)
-            if entry and stop and stop > 0:
-                risk = entry - stop
-                mapped_data['target_price'] = entry + (risk * 2)
-            else:
-                # No target without valid stop
-                mapped_data['target_price'] = 0.0
-
-        # Validate/recalculate initial_risk
         entry = mapped_data.get('entry_price', 0)
         stop = mapped_data.get('stop_price', 0)
         shares = mapped_data.get('shares', 0)
 
+        # Only calculate target/initial_risk if stop_price is valid
+        if 'target_price' not in mapped_data:
+            if entry and stop and stop > 0:
+                risk = entry - stop
+                # Use entry_min_r if available, otherwise default to 2R
+                min_r = mapped_data.get('entry_min_r', 2)
+                mapped_data['target_price'] = entry + (risk * min_r)
+            else:
+                mapped_data['target_price'] = 0.0
+
+        # Validate/recalculate initial_risk from initial_stop_price, not current stop
         if 'initial_risk' not in mapped_data or mapped_data['initial_risk'] == 0:
-            # Recalculate if missing or zero (but only if we have valid data)
-            if entry and stop and shares and stop > 0:
-                calculated_risk = (entry - stop) * shares
-                # Only update if we calculated a non-zero value, or if entry == stop (breakeven)
-                mapped_data['initial_risk'] = calculated_risk
+            # Prefer initial_stop_price for accurate risk calculation
+            ref_stop = mapped_data.get('initial_stop_price') or stop
+            if entry and ref_stop and shares and ref_stop > 0:
+                mapped_data['initial_risk'] = (entry - ref_stop) * shares
             elif 'initial_risk' not in mapped_data:
                 mapped_data['initial_risk'] = 0.0
 
         # FINDING-013: Migration - set initial_stop_price if missing
-        # Use stop_price as the source of truth for initial stop
-        # This handles legacy positions created before this field existed
+        # Try to derive from target/entry_min_r before falling back to current stop
         if 'initial_stop_price' not in mapped_data or mapped_data['initial_stop_price'] is None:
-            if stop and stop > 0:
+            target = mapped_data.get('target_price', 0)
+            min_r = mapped_data.get('entry_min_r')
+            if entry and target and min_r and target > entry and min_r > 0:
+                # Derive: risk = (target - entry) / min_r → initial_stop = entry - risk
+                risk = (target - entry) / min_r
+                mapped_data['initial_stop_price'] = entry - risk
+            elif stop and stop > 0:
                 mapped_data['initial_stop_price'] = stop
             else:
                 mapped_data['initial_stop_price'] = None
@@ -236,23 +239,14 @@ class PaperState:
     def _is_test_trade(self, trade: dict) -> bool:
         """Detect test trades using metadata patterns."""
         meta = trade.get('_meta', {})
-        ticker = trade.get('ticker', '')
-        price = trade.get('entry_price', 0)
 
         # Explicit test mode flag
         if meta.get('test_mode'):
             return True
 
-        # Known test pattern: AAPL at exactly $150.00 (synthetic test price)
-        # This catches trades even if validation was bypassed or passed
-        if ticker == 'AAPL' and price == 150.0:
-            return True
-
-        # Known test patterns in validation failures
+        # Test trades flagged by validation failures
         if meta.get('validation_failed'):
-            # Other known test tickers at suspicious prices
-            if ticker in ('MSFT', 'GOOGL', 'STOCK0', 'STOCK1', 'STOCK2'):
-                return True
+            return True
 
         return False
 
@@ -341,13 +335,17 @@ class PaperState:
         }
         _atomic_write_json(DAILY_TRACKER_FILE, daily_data)
 
-    def get_equity(self) -> float:
-        """Calculate total equity (cash + position values)."""
-        # Phase 1: Use entry price for simplicity
-        # Phase 2: Will fetch live prices
-        position_value = sum(
-            pos.entry_price * pos.shares for pos in self.positions.values()
-        )
+    def get_equity(self, current_prices: Optional[Dict[str, float]] = None) -> float:
+        """Calculate total equity (cash + position values at market).
+
+        Args:
+            current_prices: Optional dict of ticker -> current market price.
+                           Uses entry_price as fallback for any ticker not found.
+        """
+        position_value = 0.0
+        for pos in self.positions.values():
+            price = (current_prices or {}).get(pos.ticker, pos.entry_price)
+            position_value += price * pos.shares
         return self.cash + position_value
 
     def get_sector_counts(self) -> Dict[str, int]:
@@ -358,15 +356,17 @@ class PaperState:
         return counts
 
     def can_enter_position(self, sector: str, position_value: float,
-                           risk_config=None) -> tuple:
+                           risk_config=None,
+                           current_prices: Optional[Dict[str, float]] = None) -> tuple:
         """Check if entry is allowed based on risk rules.
 
         Args:
             sector: Stock sector
             position_value: Dollar value of position
             risk_config: Optional RiskConfig object (uses defaults if None)
+            current_prices: Optional dict of ticker -> current market price
         """
-        equity = self.get_equity()
+        equity = self.get_equity(current_prices)
 
         # Get thresholds from config or use defaults
         if risk_config:
@@ -377,7 +377,7 @@ class PaperState:
         else:
             max_entries = 10
             max_sector = MAX_SECTOR_POSITIONS
-            max_position_pct = 0.20
+            max_position_pct = 0.05  # match risk_config.py default
             daily_loss_pct = 0.02
 
         # Check daily entry limit
@@ -397,8 +397,8 @@ class PaperState:
         if position_value > self.cash:
             return False, f"Insufficient cash (${self.cash:,.2f} < ${position_value:,.2f})"
 
-        # Check daily loss limit
-        if self.day_pnl < -daily_loss_pct * self.initial_capital:
+        # Check daily loss limit against current equity, not frozen initial_capital
+        if self.day_pnl < -daily_loss_pct * equity:
             return False, f"Daily loss limit hit (${self.day_pnl:,.2f})"
 
         return True, "OK"
@@ -455,11 +455,12 @@ class PaperState:
         self.cash += exit_price * pos.shares
         self.day_pnl += realized_pnl
 
-        # Remove from open positions
-        del self.positions[ticker]
-
-        self.save_state()
         self._log_trade('EXIT', pos)
+
+        # Remove from open positions — persist BEFORE deleting so a crash
+        # during save_state doesn't leave cash inflated with no position
+        del self.positions[ticker]
+        self.save_state()
 
         return pos
 
@@ -565,14 +566,19 @@ class PaperState:
         """Return list of open positions."""
         return list(self.positions.values())
 
-    def get_stats(self) -> dict:
-        """Return trading statistics."""
+    def get_stats(self, current_prices: Optional[Dict[str, float]] = None) -> dict:
+        """Return trading statistics.
+
+        Args:
+            current_prices: Optional dict of ticker -> current market price.
+        """
+        equity = self.get_equity(current_prices)
         return {
             'cash': self.cash,
-            'equity': self.get_equity(),
+            'equity': equity,
             'open_positions': len(self.positions),
             'day_pnl': self.day_pnl,
             'total_trades': self.trade_count,
             'entries_today': self.entries_today,
-            'day_return_pct': (self.day_pnl / self.initial_capital) * 100
+            'day_return_pct': (self.day_pnl / equity) * 100 if equity > 0 else 0.0
         }

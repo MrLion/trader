@@ -476,6 +476,14 @@ class AlpacaPaperEngine:
             pass
         return None
 
+    def _get_current_prices_map(self) -> Dict[str, float]:
+        """Extract ticker->price map from price cache for equity calculations."""
+        return {
+            ticker: data['price']
+            for ticker, data in self.price_cache.items()
+            if data.get('price')
+        }
+
     def _get_current_price(self, ticker: str) -> Optional[float]:
         """Get current price via AlpacaClient (WebSocket cache + REST fallback).
 
@@ -1017,7 +1025,8 @@ class AlpacaPaperEngine:
         sector = analysis['sector']
 
         # Calculate position size with triple constraint system (risk, position cap, cash)
-        equity = self.state.get_equity()
+        prices = self._get_current_prices_map()
+        equity = self.state.get_equity(prices)
         shares = self.exits.calculate_position_size(
             equity, entry_price, stop_price,
             available_cash=self.state.cash
@@ -1048,7 +1057,8 @@ class AlpacaPaperEngine:
         print(f"      Account risk: ${calc_meta.get('account_risk_dollars', 0):.2f} ({calc_meta.get('account_risk_pct', 0):.2f}%)")
 
         # Validate
-        can_enter, reason = self.state.can_enter_position(sector, position_value, self.risk_config)
+        can_enter, reason = self.state.can_enter_position(
+            sector, position_value, self.risk_config, current_prices=prices)
         if not can_enter:
             print(f"   ⏸️  {ticker}: Risk validation failed - {reason}")
             return
@@ -1227,7 +1237,8 @@ class AlpacaPaperEngine:
 
     async def _print_status(self):
         """Print current status — dashboard mode or fallback."""
-        stats = self.state.get_stats()
+        prices = self._get_current_prices_map()
+        stats = self.state.get_stats(prices)
         account_value = stats.get("cash", 0.0)
         unrealized_pnl = 0.0
         positions_data = {}
