@@ -1,3 +1,16 @@
+## [0.6.15.29] — 2026-04-30 — Fix PaperState: Live Equity, Loss Limits, Persistence Order
+
+### Fixed
+- **`traderlib/paper_state.py`** — `get_equity()` now accepts optional `current_prices` dict and computes equity = cash + market value when prices are available, instead of cash + cost basis. Falls back to entry prices when no live prices provided (backward compatible).
+- **`traderlib/paper_state.py`** — `can_enter_position()` daily loss limit now uses current equity instead of frozen `initial_capital`. Grows/shrinks with the account instead of staying at startup baseline.
+- **`traderlib/paper_state.py`** — Fallback `max_position_pct` corrected from 20% to 5%, matching `risk_config.py` default.
+- **`traderlib/paper_state.py`** — `from_dict`: target price uses `entry_min_r` instead of hardcoded 2R. `initial_risk` uses `initial_stop_price` instead of current (trailed) stop. Legacy `initial_stop_price` derived from target/entry_min_r when possible.
+- **`traderlib/paper_state.py`** — `close_position()` now persists state AFTER removing position from memory (log before delete, save after delete). Crash during save can't leave cash inflated with no position.
+- **`traderlib/paper_state.py`** — `DEFAULT_DATA_DIR` uses `Path.home()` instead of hardcoded user path.
+- **`traderlib/paper_state.py`** — `get_stats()` uses current equity for `day_return_pct` instead of `initial_capital`.
+- **`traderlib/paper_state.py`** — `_is_test_trade()` removed ticker/price heuristics (AAPL@$150, MSFT/GOOGL). Only checks `test_mode` flag and `validation_failed` metadata.
+- **`scripts/paper_engine_alpaca.py`** — Added `_get_current_prices_map()` helper. All PaperState method calls now pass WebSocket price cache for live equity.
+
 ## [0.6.15.28] — 2026-04-30 — Exit Engine Uses Alpaca Bars, Not yfinance
 
 ### Fixed
