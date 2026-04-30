@@ -1,3 +1,13 @@
+## [0.6.15.25] — 2026-04-30 — Fix Target Price R-Multiple Math
+
+### Fixed
+- **`traderlib/pivot_detection.py`** — `detect_range_20d_pivot()` no longer sets a `target_price`. The 20-day range width was used as "risk" to compute the target even when the engine rejected that stop in favor of a tighter ATR/MA stop, producing wildly inflated targets (e.g., 8R+ instead of 2R). Target is now computed in `ticker_analyzer.py` from the actual risk per share using `min_r_multiple` from the risk config.
+- **`scripts/paper_engine_alpaca.py`** — Replaced hardcoded `2` in target R-multiple calculations (migration sync, order fill, and position update paths) with `self.risk_config.profit_target.min_r_multiple`. Changing `min_r_multiple` in `config/risk_config.yaml` now propagates consistently everywhere.
+
+### Changed
+- **`MEMORY.md`** — Added Roadmap Management section with versioning, plan-linking, and who-why-what-how narrative guidelines.
+- **`plans/roadmap-2026.md`** — Revamped format: split Design/Plan columns, added version-anchored decision log, added who-why-what-how narratives for all versions, marked 0.6.15.0 as partially shipped.
+- **`docs/superpowers/plans/dashboard-ux-improvements.md`** — Marked P0 and P1 items as shipped.
 ## [0.6.15.20] — 2026-04-29 — Fix Post-Market State Path
 
 ### Fixed

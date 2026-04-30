@@ -22,7 +22,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
 - **Green:** 1R–2R (healthy profit)
 - **Bright green:** 2R+ (significant profit, trailing stop active)
 
-**Why:** R is the universal language of risk-adjusted returns. The dashboard should speak it natively.
+**Why:** R is the universal language of risk-adjusted returns. The dashboard should speak it natively. ✅ **Shipped**
 
 ---
 
@@ -34,7 +34,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
   ⚠️  AT RISK:  NVDA (-0.3R)  |  TSLA (stop $195.00, current $196.10)
 ```
 
-**Why:** The most important question a trader asks is *"am I about to get stopped out?"* This should be answered in <100ms.
+**Why:** The most important question a trader asks is *"am I about to get stopped out?"* This should be answered in <100ms. ✅ **Shipped**
 
 ---
 
@@ -46,7 +46,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
   HEAT:  ████████░░  3.2% / 6.0% max    (5 positions, avg stop 4.1%)
 ```
 
-**Why:** Surfaces the "portfolio heat check" rule from `AGENTS.MD` directly in the UI.
+**Why:** Surfaces the "portfolio heat check" rule from `AGENTS.MD` directly in the UI. ✅ **Shipped**
 
 ---
 
@@ -58,7 +58,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
   TODAY:  3 wins / 1 loss  |  +$1,240  |  avg +1.8R  |  win rate 75%
 ```
 
-**Why:** Behavioral feedback loop. Traders perform better when they can see their edge in real time.
+**Why:** Behavioral feedback loop. Traders perform better when they can see their edge in real time. ✅ **Shipped**
 
 ---
 
@@ -70,7 +70,7 @@ The current dashboard is a **data-dense Rich TUI** that prioritizes information 
   COOLDOWNS:  FLY (12min)  |  META (45min)
 ```
 
-**Why:** Prevents the exact mistake the cooldown feature was built to stop — the trader needs to see it.
+**Why:** Prevents the exact mistake the cooldown feature was built to stop — the trader needs to see it. ✅ **Shipped**
 
 ---
 

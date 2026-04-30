@@ -252,8 +252,8 @@ class AlpacaPaperEngine:
                             if pd.notna(stop_val) and stop_val > 0:
                                 stop_price = float(stop_val)
                                 # Recalculate target based on actual stop
-                                risk = pos['avg_price'] - stop_price
-                                target_price = pos['avg_price'] + (2 * risk) if risk > 0 else pos['avg_price'] * 1.05
+                                risk = pos['avg_price'] - stop_price; r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+                                target_price = pos['avg_price'] + (r_mult * risk) if risk > 0 else pos['avg_price'] * 1.05
                                 print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
                     except Exception as e:
                         TradingExceptionHandler.log_exception(
@@ -1112,9 +1112,9 @@ class AlpacaPaperEngine:
                     stop_price = order.stop_price
                     sector = order.sector or 'Unknown'
 
-                    # Calculate target from actual stop (2R)
+                    # Calculate target from actual stop (R multiple from config)
                     risk = actual_fill - stop_price
-                    target_price = order.target_price or (actual_fill + (2 * risk) if risk > 0 else actual_fill * 1.05)
+                    r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0; target_price = order.target_price or (actual_fill + (r_mult * risk) if risk > 0 else actual_fill * 1.05)
 
                     position = self.state.enter_position(
                         ticker=order.ticker,
@@ -1132,9 +1132,9 @@ class AlpacaPaperEngine:
                         pos = self.state.positions[order.ticker]
                         old_entry = pos.entry_price
                         pos.entry_price = actual_fill
-                        # Recalculate target based on new entry price
+                        # Recalculate target based on new entry price (R from config)
                         risk = actual_fill - pos.stop_price
-                        pos.target_price = actual_fill + (2 * risk) if risk > 0 else actual_fill * 1.05
+                        r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0; pos.target_price = actual_fill + (r_mult * risk) if risk > 0 else actual_fill * 1.05
                         # Recalculate initial_risk
                         pos.initial_risk = risk * pos.shares
                         self.state.save_state()

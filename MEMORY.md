@@ -254,3 +254,16 @@ SUMMARY: X Tier 1 | Y Tier 2 | Z Tier 3 | Total: N
 - **YY (feature)** — Entirely new capability the system did not have before: new strategy type, new data integration, backtesting engine, automated trading, Telegram delivery, earnings gating, new screening algorithm
 
 **Rule of thumb:** If it adds a file but doesn't change what the system can *do* for the trader, it's ZZ. If it unlocks a new capability the trader didn't have before, it's YY.
+---
+
+## Roadmap Management (2026-04-30)
+
+The roadmap lives in `plans/roadmap-2026.md`. It tracks **version-level milestones only** — not individual fixes, patches, or sub-features.
+
+- **What goes on the roadmap:** net-new versions with a distinct theme (UX, Safety, Insight, Capability, Accessibility). Each row is one discrete phase of work.
+- **What stays off:** patches, bug fixes, incremental improvements, or sub-items of an existing version. Those live in version-specific plans under `docs/superpowers/plans/` and get marked there.
+- **Every version row must link to its plan and spec/design doc** (if they exist). No bare entries. The plan is the source of truth for sub-items and completion status; the roadmap is just the index.
+- **Statuses:** `TBD` → `Partially Shipped` (core done, some sub-items remain) → `Shipped` (all plan sub-items complete). Never mark `Shipped` until the linked plan has every item checked off.
+- **On ship:** update `Latest Shipped` in the header, mark status. If partially shipped, note what remains.
+- **Version narratives follow who-why-what-how:** who it's for (the trader), why it matters (the pain point), what's being built, and how (the approach). Keep each section to 2-3 sentences. The table is the index; the sections carry the context.
+- **When adding a new version:** write the plan first (in `docs/superpowers/plans/`), then add the row to the roadmap with links. Aspirational rows (no plan yet) are allowed as north-star direction — mark Design and Plan as `—` and keep them at the bottom of the table.
