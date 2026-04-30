@@ -76,6 +76,7 @@ class Position:
     # FINDING-013: Immutable initial stop - never changes after entry
     # Used for accurate R-multiple calculation regardless of stop ratcheting
     initial_stop_price: Optional[float] = None
+    entry_min_r: Optional[float] = None  # min_r_multiple from config at entry time
     # NEW: Scale-out tracking for hybrid trailing mode
     # Records R-levels at which scale-outs were executed to prevent duplicate triggers
     scale_out_history: list = field(default_factory=list)
@@ -403,7 +404,8 @@ class PaperState:
         return True, "OK"
 
     def enter_position(self, ticker: str, entry_price: float, shares: int,
-                     stop_price: float, target_price: float, sector: str) -> Position:
+                     stop_price: float, target_price: float, sector: str,
+                     entry_min_r: Optional[float] = None) -> Position:
         """Create and record a new position."""
         position_value = entry_price * shares
         initial_risk = (entry_price - stop_price) * shares
@@ -418,7 +420,8 @@ class PaperState:
             target_price=target_price,
             initial_risk=initial_risk,
             sector=sector,
-            initial_stop_price=stop_price  # FINDING-013: Immutable initial stop
+            initial_stop_price=stop_price,  # FINDING-013: Immutable initial stop
+            entry_min_r=entry_min_r,
         )
 
         self.positions[ticker] = position

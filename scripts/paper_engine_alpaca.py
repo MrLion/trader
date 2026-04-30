@@ -276,7 +276,8 @@ class AlpacaPaperEngine:
                         initial_risk=(pos['avg_price'] - stop_price) * pos['qty'] if stop_price else 0,
                         sector=sector,
                         current_stop_type='UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD',
-                        initial_stop_price=stop_price  # FINDING-013: Immutable initial stop
+                        initial_stop_price=stop_price,  # FINDING-013: Immutable initial stop
+                        entry_min_r=r_mult,
                     )
                     self.state.positions[ticker] = position
 
@@ -721,6 +722,24 @@ class AlpacaPaperEngine:
         position = self.state.positions[ticker]
         signal = self.exits.evaluate_exit(position, current_price)
 
+        # Handle scale_out before stop update
+        scale_out_info = signal.metadata.get('scale_out') if signal.metadata else None
+        if scale_out_info:
+            shares_to_sell = scale_out_info['shares_to_sell']
+            if shares_to_sell > 0 and shares_to_sell < position.shares:
+                order = self.order_manager.submit_exit(
+                    ticker=ticker,
+                    shares=shares_to_sell,
+                    reason=signal.reason
+                )
+                if order:
+                    position.shares -= shares_to_sell
+                    position.record_scale_out(scale_out_info['trigger_r'])
+                    self.state.save_state()
+                    print(f"   📤 {ticker}: Scale-out {shares_to_sell} shares "
+                          f"at {scale_out_info['trigger_r']}R "
+                          f"({scale_out_info['scale_fraction']*100:.0f}%)")
+
         # Apply stop update if returned (no mutation inside evaluate_exit)
         if signal.new_stop is not None:
             position.stop_price = signal.new_stop
@@ -824,6 +843,21 @@ class AlpacaPaperEngine:
 
             position = self.state.positions[ticker]
             signal = self.exits.evaluate_exit(position, current_price)
+
+            # Handle scale_out before stop update
+            scale_out_info = signal.metadata.get('scale_out') if signal.metadata else None
+            if scale_out_info:
+                shares_to_sell = scale_out_info['shares_to_sell']
+                if shares_to_sell > 0 and shares_to_sell < position.shares:
+                    order = self.order_manager.submit_exit(
+                        ticker=ticker,
+                        shares=shares_to_sell,
+                        reason=signal.reason
+                    )
+                    if order:
+                        position.shares -= shares_to_sell
+                        position.record_scale_out(scale_out_info['trigger_r'])
+                        self.state.save_state()
 
             # Apply stop update if returned (no mutation inside evaluate_exit)
             if signal.new_stop is not None:
@@ -1122,7 +1156,8 @@ class AlpacaPaperEngine:
                         shares=filled_qty,
                         stop_price=stop_price,
                         target_price=target_price,
-                        sector=sector
+                        sector=sector,
+                        entry_min_r=r_mult,
                     )
                     print(f"   📝 Created position: ${actual_fill:.2f} x {filled_qty} shares")
                 else:
@@ -1135,6 +1170,7 @@ class AlpacaPaperEngine:
                         # Recalculate target based on new entry price (R from config)
                         risk = actual_fill - pos.stop_price
                         r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0; pos.target_price = actual_fill + (r_mult * risk) if risk > 0 else actual_fill * 1.05
+                        pos.entry_min_r = r_mult
                         # Recalculate initial_risk
                         pos.initial_risk = risk * pos.shares
                         self.state.save_state()

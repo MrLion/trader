@@ -52,6 +52,7 @@ class ExitSignal:
     r_multiple: float
     new_stop: Optional[float] = None
     new_stop_type: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class ExitActionType(Enum):
@@ -95,8 +96,8 @@ class ExitEngine:
     """Manages exit rules: hard stops, trailing stops, and profit targets."""
 
     def __init__(self, risk_config: Optional[RiskConfig] = None, risk_profile: Optional[str] = None):
-        self.price_cache = {}  # Cache for EMA calculations
-        self.cache_timestamp = None
+        self.price_cache: Dict[str, pd.DataFrame] = {}  # Cache for EMA calculations
+        self.cache_timestamps: Dict[str, datetime] = {}  # Per-ticker cache timestamps
 
         # Load or use provided risk configuration
         if risk_config:
@@ -123,24 +124,26 @@ class ExitEngine:
         if self.risk_config:
             cache_ttl = self.risk_config.cache.ttl_seconds
 
-        # Clear cache if older than TTL
-        if self.cache_timestamp and (now - self.cache_timestamp).seconds > cache_ttl:
-            self.price_cache = {}
-            self.cache_timestamp = None
+        # Clear per-ticker cache entry if older than TTL
+        if ticker in self.cache_timestamps:
+            age = (now - self.cache_timestamps[ticker]).total_seconds()
+            if age > cache_ttl:
+                del self.price_cache[ticker]
+                del self.cache_timestamps[ticker]
 
         if ticker not in self.price_cache:
             try:
                 stock = yf.Ticker(ticker)
                 # Get 60 days for EMA calculations
                 hist = stock.history(period="60d", interval="1d")
-                if len(hist) >= 50:
+                ema_short = self.risk_config.profit_target.ema_short_period if self.risk_config else 10
+                ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
+                if len(hist) >= ema_long:
                     # Calculate EMAs using configured periods
-                    ema_short = self.risk_config.profit_target.ema_short_period if self.risk_config else 10
-                    ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
-                    hist['EMA10'] = hist['Close'].ewm(span=ema_short, adjust=False).mean()
-                    hist['EMA21'] = hist['Close'].ewm(span=ema_long, adjust=False).mean()
+                    hist[f'EMA{ema_short}'] = hist['Close'].ewm(span=ema_short, adjust=False).mean()
+                    hist[f'EMA{ema_long}'] = hist['Close'].ewm(span=ema_long, adjust=False).mean()
                     self.price_cache[ticker] = hist
-                    self.cache_timestamp = now
+                    self.cache_timestamps[ticker] = now
                 else:
                     return None
             except Exception as e:
@@ -188,11 +191,12 @@ class ExitEngine:
         else:
             # Use yfinance (legacy behavior for reports/tools)
             hist = self._get_cached_data(ticker)
+            ema_short = self.risk_config.profit_target.ema_short_period if self.risk_config else 10
             ema_long = self.risk_config.profit_target.ema_long_period if self.risk_config else 21
             if hist is None or len(hist) < ema_long:
                 return None, None
 
-            return hist['EMA10'].iloc[-1], hist['EMA21'].iloc[-1]
+            return hist[f'EMA{ema_short}'].iloc[-1], hist[f'EMA{ema_long}'].iloc[-1]
 
     def evaluate_exit(self, position, current_price: float,
                       historical_data: Optional[pd.DataFrame] = None) -> ExitSignal:
@@ -218,6 +222,51 @@ class ExitEngine:
         entry_price = position.entry_price
         shares = position.shares
         current_stop = position.stop_price
+
+        # If trailing mode is active, delegate to trailing engine
+        if self.trailing_engine:
+            ema10, ema21 = self._get_ema_values(ticker, historical_data)
+            result = self.trailing_engine.evaluate(position, current_price, ema10, ema21)
+
+            if result.action == 'exit':
+                return ExitSignal(
+                    should_exit=True,
+                    reason=result.reason,
+                    exit_price=current_price,
+                    r_multiple=result.r_multiple,
+                )
+            elif result.action == 'update_stop':
+                return ExitSignal(
+                    should_exit=False,
+                    reason="HOLD",
+                    exit_price=current_price,
+                    r_multiple=result.r_multiple,
+                    new_stop=result.new_stop,
+                    new_stop_type=result.new_stop_type,
+                )
+            elif result.action == 'scale_out':
+                return ExitSignal(
+                    should_exit=False,
+                    reason=f"SCALE_OUT_{result.trigger_r}R",
+                    exit_price=current_price,
+                    r_multiple=result.r_multiple,
+                    new_stop=result.new_stop,
+                    new_stop_type=result.new_stop_type,
+                    metadata={
+                        'scale_out': {
+                            'trigger_r': result.trigger_r,
+                            'scale_fraction': result.scale_fraction,
+                            'shares_to_sell': result.shares_to_sell,
+                        }
+                    }
+                )
+            else:  # hold
+                return ExitSignal(
+                    should_exit=False,
+                    reason="HOLD",
+                    exit_price=current_price,
+                    r_multiple=result.r_multiple,
+                )
 
         # FINDING-013: Use immutable initial_stop_price for accurate R-multiple
         # This prevents R-multiple drift when stop ratchets up (breakeven/EMA trailing)
@@ -265,20 +314,17 @@ class ExitEngine:
             breakeven_r, ema10_r, ema21_r = 1.0, 1.5, 3.0
 
         if r_multiple >= ema21_r and ema21 is not None:
-            # +3R: Trail 21 EMA
-            if ema21 > current_stop:
+            if ema21 > new_stop:
                 new_stop = ema21
                 new_stop_type = "EMA21"
 
-        elif r_multiple >= ema10_r and ema10 is not None:
-            # +1.5R to +2R: Trail 10 EMA
-            if ema10 > current_stop:
+        if r_multiple >= ema10_r and ema10 is not None:
+            if ema10 > new_stop:
                 new_stop = ema10
                 new_stop_type = "EMA10"
 
-        elif r_multiple >= breakeven_r:
-            # +1R: Move to breakeven
-            if entry_price > current_stop:
+        if r_multiple >= breakeven_r:
+            if entry_price > new_stop:
                 new_stop = entry_price
                 new_stop_type = "BREAKEVEN"
 
@@ -287,7 +333,9 @@ class ExitEngine:
 
         # 4. Check profit target (target hit OR min R multiple)
         target_price = position.target_price
-        min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+        min_r = getattr(position, 'entry_min_r', None)
+        if min_r is None:
+            min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
         if current_price >= target_price or r_multiple >= min_r:
             reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= min_r else "TARGET_HIT"
             return ExitSignal(
@@ -359,16 +407,20 @@ class ExitEngine:
                     new_stop_type=result.new_stop_type
                 )
             elif result.action == 'scale_out':
-                # Scale-out is handled by caller, record it on position
-                if hasattr(position, 'record_scale_out') and result.trigger_r is not None:
-                    position.record_scale_out(result.trigger_r)
                 return ExitAction(
                     ticker=ticker,
                     action=ExitActionType.UPDATE_STOP,
                     reason=result.reason,
                     r_multiple=result.r_multiple,
                     new_stop_price=current_stop,  # No stop change
-                    new_stop_type='SCALE_OUT'
+                    new_stop_type='SCALE_OUT',
+                    metadata={
+                        'scale_out': {
+                            'trigger_r': result.trigger_r,
+                            'scale_fraction': result.scale_fraction,
+                            'shares_to_sell': result.shares_to_sell,
+                        }
+                    }
                 )
             else:  # hold
                 return ExitAction(
@@ -419,20 +471,17 @@ class ExitEngine:
             breakeven_r, ema10_r, ema21_r = 1.0, 1.5, 3.0
 
         if r_multiple >= ema21_r and ema21 is not None:
-            # +3R: Trail 21 EMA
-            if ema21 > current_stop:
+            if ema21 > new_stop:
                 new_stop = ema21
                 new_stop_type = "EMA21"
 
-        elif r_multiple >= ema10_r and ema10 is not None:
-            # +1.5R to +2R: Trail 10 EMA
-            if ema10 > current_stop:
+        if r_multiple >= ema10_r and ema10 is not None:
+            if ema10 > new_stop:
                 new_stop = ema10
                 new_stop_type = "EMA10"
 
-        elif r_multiple >= breakeven_r:
-            # +1R: Move to breakeven
-            if entry_price > current_stop:
+        if r_multiple >= breakeven_r:
+            if entry_price > new_stop:
                 new_stop = entry_price
                 new_stop_type = "BREAKEVEN"
 
@@ -441,7 +490,9 @@ class ExitEngine:
 
         # 4. Check profit target (target hit OR min R multiple) → EXIT
         target_price = position.target_price
-        min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+        min_r = getattr(position, 'entry_min_r', None)
+        if min_r is None:
+            min_r = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
         if current_price >= target_price or r_multiple >= min_r:
             reason = f"TARGET_HIT_{r_multiple:.1f}R" if r_multiple >= min_r else "TARGET_HIT"
             return ExitAction(
@@ -477,7 +528,7 @@ class ExitEngine:
         """Generate summary stats for a position."""
         entry_price = position.entry_price
         shares = position.shares
-        initial_stop = position.stop_price
+        initial_stop = getattr(position, 'initial_stop_price', None) or position.stop_price
 
         unrealized_pnl = (current_price - entry_price) * shares
         r_multiple = self._calculate_r_multiple(current_price, entry_price,
@@ -699,7 +750,7 @@ class ExitEngine:
         account_risk_dollars = equity * risk_pct
         shares = int(account_risk_dollars / risk_per_share)
         shares = (shares // 10) * 10
-        return max(shares, 10)
+        return shares
 
     def get_last_position_calc(self) -> Optional[dict]:
         """Get metadata from last position size calculation."""

@@ -50,8 +50,21 @@ def make_position(**overrides) -> Position:
     return Position(**defaults)
 
 
+def _target_config() -> RiskConfig:
+    """Return a RiskConfig with mode='target' so trailing_engine stays disabled."""
+    config = RiskConfig()
+    config.profit_target.mode = 'target'
+    return config
+
+
 def make_engine(ema10=None, ema21=None, risk_config=None) -> ExitEngine:
-    """Create an ExitEngine with _get_ema_values mocked."""
+    """Create an ExitEngine with _get_ema_values mocked.
+
+    Defaults to mode='target' RiskConfig so trailing_engine is inactive.
+    Pass an explicit risk_config to test trailing/hybrid paths.
+    """
+    if risk_config is None:
+        risk_config = _target_config()
     engine = ExitEngine(risk_config=risk_config)
     engine._get_ema_values = Mock(return_value=(ema10, ema21))
     return engine
@@ -195,12 +208,14 @@ class TestEMA10Trailing(unittest.TestCase):
         self.assertEqual(signal.new_stop, 155.0)
         self.assertEqual(signal.new_stop_type, 'EMA10')
 
-    def test_ema10_below_stop_does_not_move_stop(self):
-        # EMA10 below current stop — ratchet must not go down
+    def test_ema10_below_stop_falls_back_to_breakeven(self):
+        # EMA10 below current stop — ratchet must not go down,
+        # but breakeven still applies since price is at +1.5R
         engine = make_engine(ema10=135.0, ema21=None)
         pos = make_position()
         signal = engine.evaluate_exit(pos, 165.0)
-        self.assertIsNone(signal.new_stop)
+        self.assertEqual(signal.new_stop, 150.0)
+        self.assertEqual(signal.new_stop_type, 'BREAKEVEN')
 
     def test_ema10_none_falls_back_to_breakeven(self):
         # No EMA data at +1.5R — should still apply breakeven logic
@@ -225,11 +240,13 @@ class TestEMA21Trailing(unittest.TestCase):
         self.assertEqual(signal.new_stop, 165.0)
         self.assertEqual(signal.new_stop_type, 'EMA21')
 
-    def test_ema21_below_stop_does_not_move_stop(self):
+    def test_ema21_below_stop_falls_back_to_ema10(self):
+        # EMA21 below current stop — EMA10 should still apply as fallback
         engine = make_engine(ema10=155.0, ema21=135.0)
         pos = make_position()
         signal = engine.evaluate_exit(pos, 180.0)
-        self.assertIsNone(signal.new_stop)
+        self.assertEqual(signal.new_stop, 155.0)
+        self.assertEqual(signal.new_stop_type, 'EMA10')
 
     def test_ema21_none_falls_back_to_ema10(self):
         # Gap 2 decision: at +3R with ema21=None, fall back to EMA10 trailing
@@ -472,9 +489,9 @@ class TestGetCachedData(unittest.TestCase):
 
     @patch('traderlib.paper_exits.yf.Ticker')
     def test_insufficient_history_returns_none(self, mock_ticker_class):
-        """Fewer than 50 rows → returns None, nothing cached."""
+        """Fewer than ema_long rows → returns None, nothing cached."""
         engine = ExitEngine()
-        mock_ticker_class.return_value.history.return_value = self._make_hist(30)
+        mock_ticker_class.return_value.history.return_value = self._make_hist(5)
 
         result = engine._get_cached_data('AAPL')
 
@@ -500,7 +517,7 @@ class TestGetCachedData(unittest.TestCase):
 
         # Seed cache with a stale timestamp (10 minutes ago)
         engine.price_cache['AAPL'] = hist
-        engine.cache_timestamp = datetime.now() - pd.Timedelta(minutes=10)
+        engine.cache_timestamps['AAPL'] = datetime.now() - pd.Timedelta(minutes=10)
 
         engine._get_cached_data('AAPL')
 
@@ -550,7 +567,11 @@ class TestEvaluateExitEdgePaths(unittest.TestCase):
 
     def test_no_risk_config_uses_default_thresholds(self):
         """Engine with risk_config=None uses hardcoded 1.0/1.5/3.0 thresholds."""
-        engine = ExitEngine(risk_config=None)
+        engine = ExitEngine.__new__(ExitEngine)
+        engine.price_cache = {}
+        engine.cache_timestamps = {}
+        engine.risk_config = None
+        engine.trailing_engine = None
         engine._get_ema_values = Mock(return_value=(None, None))
         pos = make_position()
 
@@ -783,7 +804,7 @@ class TestCalculatePositionSize(unittest.TestCase):
         """Without risk_config, uses 0.75% account risk fallback."""
         engine = ExitEngine.__new__(ExitEngine)
         engine.price_cache = {}
-        engine.cache_timestamp = None
+        engine.cache_timestamps = {}
         engine.risk_config = None
         # equity=100k, risk=0.75% → $750 / $10 risk/share = 75 shares → round to 70
         shares = engine.calculate_position_size(100_000, 150.0, 140.0)
@@ -793,7 +814,7 @@ class TestCalculatePositionSize(unittest.TestCase):
         """account_risk_pct override is respected in fallback path."""
         engine = ExitEngine.__new__(ExitEngine)
         engine.price_cache = {}
-        engine.cache_timestamp = None
+        engine.cache_timestamps = {}
         engine.risk_config = None
         # equity=100k, risk=1% → $1000 / $10 = 100 shares
         shares = engine.calculate_position_size(100_000, 150.0, 140.0,
@@ -804,7 +825,7 @@ class TestCalculatePositionSize(unittest.TestCase):
         """stop >= entry → risk/share <= 0 → returns 0."""
         engine = ExitEngine.__new__(ExitEngine)
         engine.price_cache = {}
-        engine.cache_timestamp = None
+        engine.cache_timestamps = {}
         engine.risk_config = None
         shares = engine.calculate_position_size(100_000, 150.0, 150.0)
         self.assertEqual(shares, 0)
