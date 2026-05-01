@@ -1,3 +1,11 @@
+## [0.6.15.32] — 2026-05-01 — Fix Dashboard DIST and avg_r Accuracy
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_print_status()` now passes `initial_stop_price` to dashboard positions dict, fixing DIST column showing 0% for all positions.
+- **`traderlib/dashboard.py`** — `_positions()` risk_per_share calculation now falls back to current stop when `initial_stop_price` is unavailable.
+- **`traderlib/paper_state.py`** — `_log_trade()` now records `initial_stop_price` and `initial_risk` (dollar amount risked at entry) in EXIT trade log records.
+- **`scripts/paper_engine_alpaca.py`** — `_get_today_trade_stats()` R-multiple calculation now uses actual initial risk from trade log instead of broken proxy (`abs(entry - exit) * 1.5`), fixing wildly inaccurate avg_r display.
+
 ## [0.6.15.31] — 2026-05-01 — Fix Dashboard Auto-Restart After Market Close
 
 ### Fixed

@@ -650,12 +650,16 @@ class AlpacaPaperEngine:
                     else:
                         losses += 1
 
-                    # Approximate R: if entry and exit prices available,
-                    # infer stop distance from exit reason or use 5% fallback
-                    entry = trade.get("entry_price", 0)
-                    exit_p = trade.get("exit_price", 0)
-                    if entry > 0 and exit_p > 0:
-                        risk = abs(entry - exit_p) * 1.5  # rough proxy
+                    # Use actual initial risk from trade log if available
+                    risk = trade.get("initial_risk", 0.0) or trade.get("initial_risk_amount", 0.0)
+                    if risk > 0:
+                        total_r += pnl / risk
+                    else:
+                        # Fallback: estimate from entry/stop distance
+                        entry = trade.get("entry_price", 0)
+                        stop = trade.get("initial_stop_price") or trade.get("stop_price") or 0
+                        shares = trade.get("shares", 0)
+                        risk = (entry - stop) * shares if entry > stop > 0 and shares > 0 else 0
                         if risk > 0:
                             total_r += pnl / risk
         except Exception:
@@ -1261,6 +1265,7 @@ class AlpacaPaperEngine:
                     "current_stop_type": pos.current_stop_type,
                     "exit_phase": phase,
                     "sector": getattr(pos, "sector", "Unknown"),
+                    "initial_stop_price": getattr(pos, "initial_stop_price", 0.0),
                 }
 
         et = pytz.timezone("US/Eastern")

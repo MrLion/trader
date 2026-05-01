@@ -271,7 +271,8 @@ class Dashboard:
             unreal = (current - entry) * shares if entry else 0.0
 
             # R-multiple calculation uses initial stop (fallback to current stop)
-            risk_per_share = entry - initial_stop if entry > initial_stop > 0 else 0
+            effective_stop = initial_stop if initial_stop > 0 else stop
+            risk_per_share = entry - effective_stop if entry > effective_stop > 0 else 0
             r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
 
             # Distance to stop as % of initial risk

@@ -540,6 +540,13 @@ class PaperState:
                 f.write(json.dumps(trade_record) + '\n')
             return
 
+        # Safely extract initial stop (may be None for legacy positions)
+        _init_stop = getattr(position, 'initial_stop_price', None)
+        _init_stop = float(_init_stop) if _init_stop else 0.0
+        _entry = float(position.entry_price or 0)
+        _shares = float(position.shares or 0)
+        _initial_risk = (_entry - _init_stop) * _shares if _init_stop > 0 and _entry > _init_stop > 0 else 0.0
+
         trade_record = {
             'event': event_type,
             'timestamp': datetime.now().isoformat(),
@@ -550,6 +557,8 @@ class PaperState:
             'realized_pnl': position.realized_pnl,
             'exit_reason': position.exit_reason,
             'stop_type': position.current_stop_type,
+            'initial_stop_price': _init_stop,
+            'initial_risk': _initial_risk,
             # PHASE 2: Test isolation metadata
             '_meta': {
                 'test_mode': os.environ.get('PAPER_TRADING_TEST_MODE', 'false').lower() == 'true',
