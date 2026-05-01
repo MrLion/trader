@@ -189,16 +189,16 @@ class Dashboard:
         """Calculate portfolio heat: total at-risk dollars / equity."""
         equity = state.get("equity", 0.0)
         if equity <= 0:
-            return 0.0, "░░░░░░░░░░"
+            return 100.0, "██████████"
 
         positions = state.get("positions", {})
         total_risk = 0.0
         for pos in positions.values():
             entry = float(pos.get("entry_price") or 0)
-            stop = float(pos.get("stop_price") or 0)
+            initial_stop = float(pos.get("initial_stop_price") or pos.get("stop_price") or 0)
             shares = int(pos.get("shares") or 0)
-            if entry > stop > 0 and shares > 0:
-                total_risk += (entry - stop) * shares
+            if entry > initial_stop > 0 and shares > 0:
+                total_risk += (entry - initial_stop) * shares
 
         heat_pct = (total_risk / equity) * 100 if equity else 0.0
         # 10-char bar, max 6% = full bar
@@ -211,16 +211,16 @@ class Dashboard:
         """One-line summary of today's closed trades."""
         today_stats = state.get("today_stats", {})
         if not today_stats:
-            return Text("")
+            return Text.from_markup("  [dim]TODAY:  --  no closed trades yet[/]")
 
         wins = today_stats.get("wins", 0)
         losses = today_stats.get("losses", 0)
         total_pnl = today_stats.get("total_pnl", 0.0)
-        avg_r = today_stats.get("avg_r", 0.0)
+        avg_r = max(-10.0, min(10.0, today_stats.get("avg_r", 0.0)))
         total = wins + losses
 
         if total == 0:
-            return Text("")
+            return Text.from_markup("  [dim]TODAY:  --  no closed trades yet[/]")
 
         pnl_color = "green" if total_pnl >= 0 else "red"
         win_rate = (wins / total * 100) if total > 0 else 0
@@ -260,13 +260,18 @@ class Dashboard:
             current_price = pos.get("current_price")
             current = float(current_price) if current_price is not None else entry
             stop = float(pos.get("stop_price") or 0)
+            initial_stop = float(pos.get("initial_stop_price") or 0)
             shares = int(pos.get("shares") or 0)
             ptype_raw = pos.get("current_stop_type", "HARD")
-            ptype = {"HARD": "H", "TRAILING": "T", "EMA10": "E", "EMA21": "E", "EMA50": "E"}.get(ptype_raw, ptype_raw[:1])
+            ptype = {
+                "HARD": "H", "TRAILING": "T", "BREAKEVEN": "B",
+                "EMA10": "0", "EMA21": "2", "EMA50": "5",
+                "SCALE_OUT": "S", "UNSYNCED": "!",
+            }.get(ptype_raw, ptype_raw[:1])
             unreal = (current - entry) * shares if entry else 0.0
 
-            # R-multiple calculation (internal, not displayed)
-            risk_per_share = entry - stop if entry > stop > 0 else 0
+            # R-multiple calculation uses initial stop (fallback to current stop)
+            risk_per_share = entry - initial_stop if entry > initial_stop > 0 else 0
             r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
 
             # Distance to stop as % of initial risk

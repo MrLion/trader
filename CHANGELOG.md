@@ -1,3 +1,11 @@
+## [0.6.15.30] — 2026-04-30 — Fix Dashboard: Initial Stop for Risk Calculations
+
+### Fixed
+- **`traderlib/dashboard.py`** — `_heat_gauge()` now uses `initial_stop_price` with fallback to `stop_price` for portfolio heat calculation. Heat gauge correctly reflects entry-time risk, not current trailing stop level.
+- **`traderlib/dashboard.py`** — `_today_summary()` shows a placeholder line (`"no closed trades yet"`) instead of disappearing entirely when no stats or closed trades exist.
+- **`traderlib/dashboard.py`** — `avg_r` display clamped to [-10, +10] range to prevent extreme outlier values from breaking layout.
+- **`traderlib/dashboard.py`** — `_heat_gauge()` returns 100% filled bar when equity <= 0, making zero/negative equity visually alarming instead of silently blank.
+
 ## [0.6.15.29] — 2026-04-30 — Fix PaperState: Live Equity, Loss Limits, Persistence Order
 
 ### Fixed
