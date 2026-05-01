@@ -1,3 +1,9 @@
+## [0.6.15.31] — 2026-05-01 — Fix Dashboard Auto-Restart After Market Close
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — Dashboard now recreates after each engine shutdown instead of reusing the same disabled object. `engine.run()` calls `dashboard.stop()` at market close which permanently sets `enabled=False`. A fresh `Dashboard()` is constructed after `run()` returns so the next day's engine starts with a live TUI instead of falling back to plain text mode.
+- **`scripts/entry_signals.py`** — Stop labeling improved: shows `Entry Stop` with distance-to-pivot annotation, `Risk from Current`, `Raw ATR` with percentage-below-current, and `Raw MA` with percentage-below-current. Disambiguates the intermediate ATR/MA values from the final entry stop.
+
 ## [0.6.15.30] — 2026-04-30 — Fix Dashboard: Initial Stop for Risk Calculations
 
 ### Fixed

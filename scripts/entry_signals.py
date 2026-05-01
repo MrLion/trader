@@ -583,16 +583,30 @@ class EntrySignalScanner:
                 _src_badge = f' [{_SOURCE_LABEL[_src]}]' if _src in _SOURCE_LABEL else ''
                 pivot_display = f"${_pv:.2f}{_src_badge}" if _pv is not None else '— (no pivot set)'
                 print(f"| Pivot | {pivot_display} |")
-                print(f"| Stop | ${analysis['stop']:.2f} ({analysis['stop_type']}) |")
+
+                # Entry Stop: the actual stop you enter with, annotated with type
+                _stop = analysis['stop']
+                _stop_type = analysis['stop_type']
+                _pivot = analysis.get('pivot')
+                if _pivot and _pivot > 0 and _stop < _pivot:
+                    _pivot_rel = abs((_pivot - _stop) / _pivot) * 100
+                    _stop_anno = f"{_stop_type}, {_pivot_rel:.1f}% below pivot"
+                else:
+                    _stop_anno = _stop_type
+                print(f"| Entry Stop | ${_stop:.2f} ({_stop_anno}) |")
+
                 print(f"| Target | ${analysis['target']:.2f} |")
-                print(f"| Risk % | {analysis['risk_pct']:.1f}% |")
+                print(f"| Risk from Current | {analysis['risk_pct']:.1f}% |")
+
+                # Raw ATR: pre-override intermediate value, not the final stop
                 _atr_risk = analysis.get('atr_risk_pct')
-                atr_risk_str = f"{_atr_risk:.1f}%" if _atr_risk is not None else "N/A"
-                print(f"| ATR Stop | ${analysis['atr_stop']:.2f} ({atr_risk_str}) |")
+                atr_risk_str = f"{_atr_risk:.1f}% below current" if _atr_risk is not None else "N/A"
+                print(f"| Raw ATR | ${analysis['atr_stop']:.2f} ({atr_risk_str}) |")
+
                 if analysis.get('ma_support_stop'):
                     _ma_risk = analysis.get('ma_risk_pct')
-                    ma_risk_str = f"{_ma_risk:.1f}%" if _ma_risk is not None else "N/A"
-                    print(f"| MA Stop | ${analysis['ma_support_stop']:.2f} ({ma_risk_str}) |")
+                    ma_risk_str = f"{_ma_risk:.1f}% below current" if _ma_risk is not None else "N/A"
+                    print(f"| Raw MA | ${analysis['ma_support_stop']:.2f} ({ma_risk_str}) |")
 
                 if score >= 7 and analysis['risk_pct'] < 10:
                     verdict = "🟢 A-TIER — Strong setup. Watch for volume-confirmed breakout."

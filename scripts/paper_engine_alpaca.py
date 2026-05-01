@@ -1668,7 +1668,16 @@ def main():
                 print("\n👋 Goodbye!")
                 break
 
-            # Engine stopped (market closed)
+            # Engine stopped (market closed) — engine called dashboard.stop()
+            # which permanently disabled it. Create a fresh dashboard for
+            # post-market viewing and the next day's engine startup.
+            if dashboard:
+                dashboard.stop_now()
+            try:
+                dashboard = Dashboard() if Dashboard else None
+            except Exception:
+                dashboard = None
+
             final_state = result or {}
             if dashboard and dashboard.enabled and not final_state.get('shutdown_requested'):
                 # Preserve final state for post-market viewing
