@@ -1,3 +1,32 @@
+## [0.6.16.0] — 2026-05-02 — Live State Isolation
+
+### Added
+- **`scripts/paper_engine_alpaca.py`** — Mode-specific data directories (`data/paper/`, `data/live/`) fully isolate state between paper and live trading. One-time migration on startup moves existing flat files into `data/paper/`.
+- **`config/paper/risk_config.yaml`** — Paper risk config (same as before, from `config/risk_config.yaml`).
+- **`config/live/risk_config.yaml`** — Live risk config with conservative defaults (0.25% risk/trade, 1% daily loss limit, 5% max position).
+- **`traderlib/dashboard.py`** — Dashboard header now shows a color-coded mode badge (blue **PAPER** / green **LIVE**) so the active account is always visible.
+
+### Changed
+- **`traderlib/paper_state.py`** — `PaperState.__init__` accepts `data_dir` and `mode` parameters for mode-specific file paths. Falls back to module-level globals when not provided (backward compatible).
+- **`traderlib/order_manager.py`** — `OrderManager.__init__` accepts optional `data_dir` parameter. Order file renamed from `alpaca_orders.json` to `orders.json`.
+- **`scripts/paper_engine_alpaca.py`** — Engine constructs and passes `data/{mode}/` to `PaperState` and `OrderManager`, and `config/{mode}/risk_config.yaml` to `RiskConfigManager`.
+
+### Fixed
+- **`traderlib/paper_state.py`** — Removed stale `DATA_DIR` reference in `_log_trade` metadata.
+- **`config/risk_config.yaml`** — Removed (migrated to `config/paper/risk_config.yaml`).
+
+
+## [0.6.15.33] — 2026-05-02 — Fix 20 Test Failures, Stabilize CI
+
+### Fixed
+- **`traderlib/economic_calendar.py`** — `EconomicEvent.country` field now defaults to `'US'`, fixing 13 test failures where tests constructed events without specifying a country.
+- **`traderlib/pivot_detection.py`** — `detect_range_20d_pivot()` now computes `target_price` (2× range risk) instead of leaving it `None`, fixing `TypeError` in pivot comparison tests.
+- **`scripts/paper_engine_alpaca.py`** — `_sync_with_alpaca()` initializes `r_mult = 2.0` before the watchlist-lookup try block, fixing `UnboundLocalError` when no watchlist stop is found. This also fixed 3 downstream position-sync test failures.
+- **`scripts/watchlist_manager.py`** — Test assertion updated to match actual `[WARN]` prefix output when `NO_COLOR` is set.
+- **`tests/test_alpaca_integration.py`** — `MockAlpacaClient` now generates UUID order IDs instead of `test-order-N`, fixing stale-order cleanup conflict in `check_order_status`. Test isolation improved by clearing persisted orders between tests.
+- **`tests/test_paper_engine_alpaca_additional.py`** — Added `metadata = {}` to exit-signal mock, fixing `'Mock' object is not subscriptable` error.
+
+
 ## [0.6.15.32] — 2026-05-01 — Fix Dashboard DIST and avg_r Accuracy
 
 ### Fixed

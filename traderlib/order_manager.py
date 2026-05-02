@@ -123,13 +123,14 @@ class OrderManager:
     Includes order storm protection via submission queue with TPS limiting.
     """
 
-    def __init__(self, alpaca_client, max_tps: float = 2.0, max_queue_size: int = 50):
+    def __init__(self, alpaca_client, max_tps: float = 2.0, max_queue_size: int = 50, data_dir: Optional[Path] = None):
         """Initialize order manager.
 
         Args:
             alpaca_client: Instance of AlpacaClient
             max_tps: Maximum transactions per second (order submission rate)
             max_queue_size: Maximum number of orders in queue before rejection
+            data_dir: Mode-specific data directory. If None, uses env var or default.
         """
         self.alpaca = alpaca_client
 
@@ -141,9 +142,12 @@ class OrderManager:
         self.expected_positions: Dict[str, int] = {}  # Shares we expect to have
 
         # Persistence - configurable via environment variable for testing
-        default_data_dir = Path(__file__).resolve().parent.parent / 'data'
-        self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', str(default_data_dir)))
-        self.orders_file = self.data_dir / 'alpaca_orders.json'
+        if data_dir is not None:
+            self.data_dir = data_dir
+        else:
+            default_data_dir = Path(__file__).resolve().parent.parent / 'data'
+            self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', str(default_data_dir)))
+        self.orders_file = self.data_dir / 'orders.json'
 
         # Order storm protection - TPS limiting
         self.max_tps = max_tps

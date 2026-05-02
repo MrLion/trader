@@ -148,11 +148,14 @@ class Dashboard:
                 vix_color = "yellow"
         ws_color = "green" if state.get("ws_connected") else "red"
 
+        mode = state.get("mode", "PAPER")
+        mode_color = "green" if mode.upper() == "LIVE" else "cornflower_blue"
         regime = state.get("regime", "UNKNOWN")
         regime_color = {"BULL": "green", "BEAR": "red", "NEUTRAL": "yellow"}.get(regime, "dim")
 
         return Text.assemble(
-            "  PAPER ENGINE    ",
+            (f"  {mode.upper()} ENGINE", f"bold {mode_color}"),
+            "    ",
             (now, "bold white"), " ET    ",
             (market_label, f"bold {market_color}"), "    ",
             (regime, f"bold {regime_color}"), "    ",

@@ -70,7 +70,6 @@ def trades_file(tmp_path):
 def cooldown_engine(trades_file):
     """Create a minimal engine with cooldown state and patched TRADES_FILE."""
     from scripts.paper_engine_alpaca import AlpacaPaperEngine
-    import scripts.paper_engine_alpaca as engine_mod
 
     risk_config = _make_risk_config()
 
@@ -89,9 +88,9 @@ def cooldown_engine(trades_file):
     real_state.positions = {}
     engine.state = real_state
 
-    # Patch TRADES_FILE in the module namespace so the method reads from our temp file
-    with patch.object(engine_mod, 'TRADES_FILE', trades_file):
-        yield engine, trades_file
+    # Point state's trades_file so the method reads from our temp file
+    engine.state.trades_file = trades_file
+    yield engine, trades_file
 
 
 # ---------------------------------------------------------------------------

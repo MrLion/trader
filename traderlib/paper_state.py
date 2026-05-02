@@ -35,11 +35,14 @@ def _atomic_write_json(filepath: Path, data: dict) -> None:
         raise
 
 # Data paths - configurable via environment variable for testing
-DEFAULT_DATA_DIR = Path.home() / '.openclaw/workspaces/trader/data'
-DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
-POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
-DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
-TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
+DEFAULT_ROOT_DATA_DIR = Path.home() / '.openclaw/workspaces/trader/data'
+ROOT_DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_ROOT_DATA_DIR))
+
+# Backward-compatible aliases for scripts/tests that import these directly
+DATA_DIR = ROOT_DATA_DIR
+POSITIONS_FILE = ROOT_DATA_DIR / 'paper_positions.json'
+DAILY_TRACKER_FILE = ROOT_DATA_DIR / 'daily_tracker.json'
+TRADES_FILE = ROOT_DATA_DIR / 'paper_trades.jsonl'
 
 # Trading limits - configurable via environment variables
 MAX_SECTOR_POSITIONS = int(os.environ.get('MAX_SECTOR_POSITIONS', '3'))
@@ -180,8 +183,9 @@ class PaperState:
     Only daily tracker (last_entry_reset) is persisted.
     """
 
-    def __init__(self, initial_capital: float = 100000):
+    def __init__(self, initial_capital: float = 100000, data_dir: Optional[Path] = None, mode: str = "paper"):
         self.initial_capital = initial_capital
+        self.mode = mode
         self.positions: Dict[str, Position] = {}
         self.cash = initial_capital  # Will be fetched from API when needed
         self.day_pnl = 0.0
@@ -189,8 +193,19 @@ class PaperState:
         self.entries_today = 0
         self.last_entry_reset = datetime.now().strftime('%Y-%m-%d')
 
-        # Ensure data directory exists
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        # Use mode-specific subdirectory when explicitly provided
+        if data_dir is not None:
+            self.data_dir = data_dir
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            self.positions_file = self.data_dir / 'positions.json'
+            self.daily_tracker_file = self.data_dir / 'daily_tracker.json'
+            self.trades_file = self.data_dir / 'trades.jsonl'
+        else:
+            # Fall back to module-level globals (old layout, backward compat)
+            self.data_dir = DATA_DIR
+            self.positions_file = POSITIONS_FILE
+            self.daily_tracker_file = DAILY_TRACKER_FILE
+            self.trades_file = TRADES_FILE
 
         # Load existing state if available
         self._load_state()
@@ -198,9 +213,9 @@ class PaperState:
     def _load_state(self):
         """Load positions from disk and daily tracker."""
         # Load positions
-        if POSITIONS_FILE.exists():
+        if self.positions_file.exists():
             try:
-                with open(POSITIONS_FILE, 'r') as f:
+                with open(self.positions_file, 'r') as f:
                     data = json.load(f)
                     # Handle both dict format (from paper_state) and list format (from Alpaca/sync_state)
                     if isinstance(data, list):
@@ -217,9 +232,9 @@ class PaperState:
                 print(f"⚠️ Error loading positions: {e}")
 
         # Load daily tracker (for last_entry_reset only)
-        if DAILY_TRACKER_FILE.exists():
+        if self.daily_tracker_file.exists():
             try:
-                with open(DAILY_TRACKER_FILE, 'r') as f:
+                with open(self.daily_tracker_file, 'r') as f:
                     data = json.load(f)
                     self.last_entry_reset = data.get('last_entry_reset', datetime.now().strftime('%Y-%m-%d'))
             except Exception as e:
@@ -256,7 +271,7 @@ class PaperState:
         Called during _load_state to ensure accuracy.
         Returns stats for reporting.
         """
-        if not TRADES_FILE.exists():
+        if not self.trades_file.exists():
             return {'error': 'No trade log file'}
 
         today = datetime.now().strftime('%Y-%m-%d')
@@ -270,7 +285,7 @@ class PaperState:
         }
 
         try:
-            with open(TRADES_FILE, 'r') as f:
+            with open(self.trades_file, 'r') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -319,7 +334,7 @@ class PaperState:
         """
         # Save positions atomically
         positions_dict = {ticker: pos.to_dict() for ticker, pos in self.positions.items()}
-        _atomic_write_json(POSITIONS_FILE, positions_dict)
+        _atomic_write_json(self.positions_file, positions_dict)
 
         # Save daily tracker atomically
         self._save_daily_tracker()
@@ -333,7 +348,7 @@ class PaperState:
             'last_entry_reset': self.last_entry_reset,
             'timestamp': datetime.now().isoformat()
         }
-        _atomic_write_json(DAILY_TRACKER_FILE, daily_data)
+        _atomic_write_json(self.daily_tracker_file, daily_data)
 
     def get_equity(self, current_prices: Optional[Dict[str, float]] = None) -> float:
         """Calculate total equity (cash + position values at market).
@@ -530,13 +545,13 @@ class PaperState:
                 'shares': position.shares,
                 '_meta': {
                     'test_mode': os.environ.get('PAPER_TRADING_TEST_MODE', 'false').lower() == 'true',
-                    'data_dir': str(DATA_DIR),
+                    'data_dir': str(self.data_dir),
                     'source': 'paper_state',
                     'validation_failed': True,
                     'validation_reason': reason
                 }
             }
-            with open(TRADES_FILE, 'a') as f:
+            with open(self.trades_file, 'a') as f:
                 f.write(json.dumps(trade_record) + '\n')
             return
 
@@ -562,13 +577,13 @@ class PaperState:
             # PHASE 2: Test isolation metadata
             '_meta': {
                 'test_mode': os.environ.get('PAPER_TRADING_TEST_MODE', 'false').lower() == 'true',
-                'data_dir': str(DATA_DIR),
+                'data_dir': str(self.data_dir),
                 'source': 'paper_state',
                 'validation_passed': True
             }
         }
 
-        with open(TRADES_FILE, 'a') as f:
+        with open(self.trades_file, 'a') as f:
             f.write(json.dumps(trade_record) + '\n')
 
     def get_open_positions(self) -> List[Position]:

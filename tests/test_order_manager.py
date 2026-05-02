@@ -469,7 +469,7 @@ class TestOrderManagerPersistence(unittest.TestCase):
             'filled': {}
         }
 
-        orders_file = Path(self.temp_dir) / 'alpaca_orders.json'
+        orders_file = Path(self.temp_dir) / 'orders.json'
         with open(orders_file, 'w') as f:
             json.dump(orders_data, f)
 
@@ -496,7 +496,7 @@ class TestOrderManagerPersistence(unittest.TestCase):
 
             manager._save_orders()
 
-            orders_file = Path(self.temp_dir) / 'alpaca_orders.json'
+            orders_file = Path(self.temp_dir) / 'orders.json'
             self.assertTrue(orders_file.exists())
 
             with open(orders_file, 'r') as f:

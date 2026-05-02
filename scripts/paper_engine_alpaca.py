@@ -25,7 +25,7 @@ except ImportError:
 
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.earnings_calendar import EarningsCalendar
-from traderlib.paper_state import PaperState, Position, TRADES_FILE
+from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
 from traderlib.order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
@@ -73,13 +73,25 @@ class AlpacaPaperEngine:
     def __init__(self, mode: str = 'paper', risk_profile: str = None, strategy: str = 'default', dashboard=None):
         print("🔌 Initializing Alpaca client...")
 
-        # Load risk configuration first
-        self.risk_manager = RiskConfigManager(profile=risk_profile)
+        # Mode-specific data directory for state isolation
+        root_data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', 
+                            Path(__file__).resolve().parent.parent / 'data'))
+        self.mode = mode
+        self.mode_data_dir = root_data_dir / mode
+        self.mode_data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Run one-time migration from old flat layout to mode-specific directories
+        self._migrate_old_layout()
+
+        # Mode-specific risk config path
+        config_path = Path(__file__).resolve().parent.parent / 'config' / mode / 'risk_config.yaml'
+        self.risk_manager = RiskConfigManager(config_path=config_path, profile=risk_profile)
         self.risk_config = self.risk_manager.get_config()
 
         self.alpaca = AlpacaClient(mode=mode)
-        self.order_manager = OrderManager(self.alpaca)
-        self.state = PaperState(initial_capital=self._get_account_value())
+        self.order_manager = OrderManager(self.alpaca, data_dir=self.mode_data_dir)
+        self.state = PaperState(initial_capital=self._get_account_value(), 
+                                data_dir=self.mode_data_dir, mode=mode)
         self.analyzer = TickerAnalyzer(self.alpaca, self.risk_config, WATCHLIST_PATH)
 
         # Pass risk config to ExitEngine
@@ -194,6 +206,40 @@ class AlpacaPaperEngine:
             risk_config=self.risk_config,
         )
 
+    def _migrate_old_layout(self) -> None:
+        """Migrate old flat data files into mode-specific subdirectory (one-time)."""
+        if self.mode != 'paper':
+            return
+        old_dir = self.mode_data_dir.parent  # data/
+        old_files = [
+            ('paper_positions.json', 'positions.json'),
+            ('paper_trades.jsonl', 'trades.jsonl'),
+            ('alpaca_orders.json', 'orders.json'),
+        ]
+        migrated = False
+        for old_name, new_name in old_files:
+            old_path = old_dir / old_name
+            new_path = self.mode_data_dir / new_name
+            if old_path.exists() and not new_path.exists():
+                try:
+                    import shutil
+                    shutil.move(str(old_path), str(new_path))
+                    print(f"📦 Migrated {old_name} -> {self.mode_data_dir.name}/{new_name}")
+                    migrated = True
+                except Exception as e:
+                    print(f"⚠️  Migration failed for {old_name}: {e}")
+        if migrated:
+            # Also migrate daily_tracker if it exists at root level
+            old_tracker = old_dir / 'daily_tracker.json'
+            new_tracker = self.mode_data_dir / 'daily_tracker.json'
+            if old_tracker.exists() and not new_tracker.exists():
+                try:
+                    import shutil
+                    shutil.move(str(old_tracker), str(new_tracker))
+                    print(f"📦 Migrated daily_tracker.json -> {self.mode_data_dir.name}/")
+                except Exception as e:
+                    print(f"⚠️  Migration failed for daily_tracker.json: {e}")
+
     def _get_account_value(self) -> float:
         """Get initial account value from Alpaca."""
         try:
@@ -247,6 +293,8 @@ class AlpacaPaperEngine:
                     stop_price = pos['avg_price'] * 0.95  # Temporary until watchlist lookup
                     target_price = pos['avg_price'] * 1.1
 
+                    r_mult = 2.0  # Default risk multiple before watchlist lookup
+                    
                     # Try to get proper stop from watchlist
                     try:
                         row = df[df['Ticker'] == ticker]
@@ -620,11 +668,11 @@ class AlpacaPaperEngine:
         total_pnl = 0.0
         total_r = 0.0
 
-        if not TRADES_FILE.exists():
+        if not self.state.trades_file.exists():
             return {"wins": 0, "losses": 0, "total_pnl": 0.0, "avg_r": 0.0}
 
         try:
-            with open(TRADES_FILE, 'r') as f:
+            with open(self.state.trades_file, 'r') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -683,14 +731,14 @@ class AlpacaPaperEngine:
         cutoff = datetime.now() - timedelta(
             minutes=self.risk_config.cooldown.max_cooldown_minutes)
 
-        if not TRADES_FILE.exists():
+        if not self.state.trades_file.exists():
             return
 
         # Collect EXIT events within cooldown window, grouped by ticker
         ticker_exits = {}  # ticker -> [(timestamp, pnl), ...]
 
         try:
-            with open(TRADES_FILE, 'r') as f:
+            with open(self.state.trades_file, 'r') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -1311,6 +1359,7 @@ class AlpacaPaperEngine:
             pass
 
         state_data = {
+            "mode": self.mode,
             "equity": account_value,
             "cash": stats.get("cash", 0.0),
             "day_pnl": stats.get("day_pnl", 0.0),

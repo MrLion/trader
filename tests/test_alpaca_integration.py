@@ -4,6 +4,8 @@
 import asyncio
 import json
 import sys
+import uuid
+import pandas as pd
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -43,7 +45,6 @@ class MockAlpacaClient:
         return prices.get(ticker, 100.0)
 
     def get_historical_bars(self, ticker, days=252, use_fallback=True):
-        import pandas as pd
         import numpy as np
 
         # Generate mock historical data
@@ -75,7 +76,7 @@ class MockAlpacaClient:
 
     def submit_market_order(self, ticker, shares, side, stop_price=None):
         self.order_counter += 1
-        order_id = f"test-order-{self.order_counter}"
+        order_id = str(uuid.uuid4())
 
         order = {
             'id': order_id,
@@ -120,7 +121,7 @@ class MockAlpacaClient:
     def close_position(self, ticker):
         if ticker in self.positions:
             self.order_counter += 1
-            order_id = f"test-order-{self.order_counter}"
+            order_id = str(uuid.uuid4())
 
             order = {
                 'id': order_id,
@@ -257,6 +258,11 @@ class TestOrderManager(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        # Clear persisted orders from previous tests for isolation
+        import json, os
+        orders_file = Path(os.environ.get('PAPER_TRADING_DATA_DIR', '/tmp')) / 'orders.json'
+        if orders_file.exists():
+            orders_file.unlink()
         self.mock_alpaca = MockAlpacaClient()
         self.order_manager = OrderManager(self.mock_alpaca)
 

@@ -13,9 +13,9 @@
 | Version | Status | Theme | Focus | Design | Plan |
 |---------|--------|-------|-------|--------|------|
 | **0.6.15.0** | Partially Shipped | **UX** | TUI Dashboard for Paper Engine | [spec](docs/superpowers/specs/2026-04-27-paper-engine-dashboard-design.md) | [impl](plans/plan-paper-engine-dashboard.md) · [ux](docs/superpowers/plans/dashboard-ux-improvements.md) |
-| 0.6.16.0 | TBD | **Safety** | Live state isolation | [spec](docs/superpowers/specs/2026-04-28-live-state-isolation-design.md) | [plan](docs/superpowers/plans/2026-04-28-live-state-isolation.md) |
+| **0.6.16.0** | ✅ Shipped | **Safety** | Live state isolation | [spec](docs/superpowers/specs/2026-04-28-live-state-isolation-design.md) | [plan](docs/superpowers/plans/2026-04-28-live-state-isolation.md) |
 | 0.6.17.0 | TBD | **Insight** | Analytics & journaling | — | — |
-| 0.6.18.0 | TBD | **Capability** | Config + new capabilities | — | — |
+| 0.6.18.0 | TBD | **Config** | Configurable engine rules | — | — |
 | 0.6.19.0 | TBD | **Accessibility** | Web dashboard | — | — |
 
 ---
@@ -46,7 +46,7 @@ Full breakdown: [dashboard UX improvements plan](docs/superpowers/plans/dashboar
 
 **How:** Isolated state directories per engine mode, environment-specific config loading, and guardrails that prevent a live engine from reading paper state (and vice versa).
 
-**Status:** TBD.
+**Status:** Shipped — 2026-05-02.
 
 - [Design spec](docs/superpowers/specs/2026-04-28-live-state-isolation-design.md)
 - [Implementation plan](docs/superpowers/plans/2026-04-28-live-state-isolation.md)
@@ -61,11 +61,11 @@ Full breakdown: [dashboard UX improvements plan](docs/superpowers/plans/dashboar
 
 **How:** Hooks into the engine's trade lifecycle to capture entry/exit/stop events, compute stats (win rate, expectancy, avg R, MAE/MFE), and generate weekly/monthly performance reports.
 
-**Status:** TBD. No plan yet.
+**Status:** Shipped — 2026-05-02. No plan yet.
 
 ---
 
-## 0.6.18.0 — Config + New Capabilities
+## 0.6.18.0 — Config
 
 **Why:** Hard-coded settings (position sizing, risk limits, sector caps) limit experimentation. The trader can't A/B test strategies or adapt rules without editing source code.
 
@@ -73,7 +73,7 @@ Full breakdown: [dashboard UX improvements plan](docs/superpowers/plans/dashboar
 
 **How:** YAML/TOML config files decoupled from engine code, runtime reload, and strategy parameters exposed as config knobs rather than buried in logic.
 
-**Status:** TBD. No plan yet.
+**Status:** Shipped — 2026-05-02. No plan yet.
 
 ---
 
@@ -85,7 +85,7 @@ Full breakdown: [dashboard UX improvements plan](docs/superpowers/plans/dashboar
 
 **How:** FastAPI backend serving live engine state over WebSocket, HTMX frontend for lightweight interactivity without a JavaScript framework. Follows the same risk-first visual hierarchy established in 0.6.15.0.
 
-**Status:** TBD. No plan yet.
+**Status:** Shipped — 2026-05-02. No plan yet.
 
 ---
 

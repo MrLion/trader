@@ -1,0 +1,308 @@
+# Risk Management Configuration for Paper Trading Engine
+# All percentages are expressed as decimals (0.0075 = 0.75%)
+
+# =============================================================================
+# ACCOUNT-LEVEL RISK SETTINGS
+# =============================================================================
+account:
+  # Maximum risk per trade as % of total account equity
+  # This is your R - the amount you're willing to lose if stop is hit
+  risk_per_trade_pct: 0.005  # 0.5% of account per trade
+
+  # Maximum daily loss before halting trading
+  daily_loss_limit_pct: 0.02  # 2% of initial capital
+
+  # Maximum positions per sector
+  max_sector_positions: 10
+
+  # Daily entry limit
+  max_entries_per_day: 10
+
+# =============================================================================
+# POSITION-LEVEL RISK SETTINGS
+# =============================================================================
+position:
+  # Maximum position size as % of account equity (hard cap)
+  # Formula: position_value / equity <= max_position_pct
+  max_position_pct: 0.10  # 5% max position regardless of stop distance
+
+  # Alternative formula: min(account_risk / stop_distance, max_position_pct)
+  # Example: 0.75% / 5% stop = 15% position, but capped at 5%
+
+  # Minimum position size (to avoid tiny positions)
+  min_position_pct: 0.05  # 5% of equity minimum
+
+# =============================================================================
+# STOP LOSS CONFIGURATION
+# =============================================================================
+stop_loss:
+  # Method for calculating initial stop:
+  # - "atr": Use 2x ATR below entry
+  # - "atr_or_support": Use max(2x ATR, recent low)
+  # - "atr_or_ma_support": Use max(2x ATR, recent low, MA support cluster)
+  # - "percent": Fixed percentage below entry
+  # - "pivot_based": Based on pivot/support levels
+  # (method key removed — stop method is now chosen per-strategy in config/strategies/)
+
+  # When method is "percent"
+  fixed_pct: 0.07  # 7% below entry
+
+  # ATR settings (when method uses ATR)
+  atr:
+    period: 14
+    multiplier: 2.0  # 2x ATR
+
+  # Hard limits on stop distance (safety rails)
+  min_stop_distance_pct: 0.03   # Minimum 3% stop (tighter stops = larger positions)
+  max_stop_distance_pct: 0.10   # Maximum 10% stop (rejects wide stops)
+
+  # Fallback if calculation fails
+  fallback_pct: 0.07  # 7% below entry
+
+# =============================================================================
+# MA SUPPORT STOP CONFIGURATION
+# =============================================================================
+# When enabled, calculates an alternative stop based on clustered moving averages
+# below the price. The system uses max(ATR stop, MA support stop) for tighter
+# risk management. MA support is used when MAs converge below price forming
+# a natural support zone.
+ma_support:
+  enabled: true
+  buffer_pct: 0.01  # 1% buffer below lowest cluster MA
+  cluster_spread_pct: 0.05  # 5% max spread for convergence
+  min_cluster_size: 2  # Minimum MAs required in cluster
+
+# =============================================================================
+# CACHE CONFIGURATION
+# =============================================================================
+cache:
+  # Price data cache TTL in seconds
+  ttl_seconds: 300  # 5 minutes
+
+# =============================================================================
+# EXIT STRATEGY - PICK ONE (Comment out all other options)
+# =============================================================================
+#
+# ⚠️  CRITICAL: Only ONE exit strategy can be active. "profit_target:" can only
+#     appear ONCE in this file. Pick the mode that matches your trading style.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  WHAT IS "R"? (Risk Multiple)                                             ║
+# ║  ─────────────────────────────────────────                                ║
+# ║  R = The amount you risk losing on each trade (set above: 0.5% default)  ║
+# ║  Example: Entry $100, stop at $95 (-5%), then +2R = $110 (+10% gain)      ║
+# ║  The system calculates R automatically based on your entry vs stop price ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  OPTION 1: TARGET MODE ── Fixed profit at 2R                              ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Sells 100% of position when +2R profit is reached         ║
+# ║  BEST FOR: Beginners, swing traders, consistent profits                 ║
+# ║  EXAMPLE: Buy $100 → Sell $110 (+10%) ─ Done. No emotions needed.        ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 2: TRAILING STAGE ── Breakeven, then trail with EMAs            ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Protects gains, then follows price with moving averages  ║
+# ║  BEST FOR: Trend traders, momentum stocks, letting winners run          ║
+# ║  EXAMPLE: Buy $100, stop at $95                                            ║
+# ║    • Stock hits $110 (+2R) → Stop moves to $100 (breakeven, no loss)     ║
+# ║    • Stock hits $115 (+3R) → Stop now trails 10 EMA (tight)              ║
+# ║    • Stock hits $125 (+5R) → Stop switches to 21 EMA (looser, more room)   ║
+# ║    • If stock pulls back to EMA → Position sells, you keep gains          ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 3: TRAILING CONTINUOUS ── Smooth EMA transitions                ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Like Stage mode but EMAs blend smoothly between levels     ║
+# ║  BEST FOR: Advanced traders wanting fine-grained control                 ║
+# ║  EXAMPLE: 10 EMA gradually hands off to 21 EMA between +2.5R and +4R     ║
+# ╠═══════════════════════════════════════════════════════════════════════════╣
+# ║  OPTION 4: HYBRID MODE ── Take partial profits + trail rest               ║
+# ║  ─────────────────────────────────────────────────────────                ║
+# ║  WHAT IT DOES: Sells some shares at targets, lets remainder run          ║
+# ║  BEST FOR: Balanced approach - lock in gains + capture big trends        ║
+# ║  EXAMPLE: Buy $100, 100 shares                                             ║
+# ║    • +3R hit → Sell 33 shares (33%), start trailing rest with 10 EMA      ║
+# ║    • +4R hit → Sell 33 shares (50% of remaining 67)                      ║
+# ║    • Remaining 34 shares trail until EMA stop hit                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# HOW TO SWITCH MODES:
+#   1. Find your ACTIVE option (lines WITHOUT # at the start)
+#   2. Add # to the START of EVERY line in that option (comment it out)
+#   3. Remove # from the START of EVERY line in your NEW option
+#   4. Only ONE option should have uncommented lines
+#   5. Save the file and restart your trading session
+#
+#   TIP: Use block select in your editor (Cmd+Option+drag on Mac, Alt+drag Win)
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# OPTION 1: TARGET MODE - Sell at fixed profit (Simple, consistent)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "target"
+#  min_r_multiple: 2.0         # Sell entire position at +2R profit
+#  fallback_target_pct: 0.10   # Fallback: 10% gain if R calculation fails
+
+# -----------------------------------------------------------------------------
+# OPTION 2: TRAILING STAGE-BASED - Breakeven, then trail with EMAs (Active)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "trailing"              # Enable trailing stop system
+#  trailing_mode: "stage_based"  # Use discrete trigger levels
+#  trailing_stages:
+#    - trigger_r: 2.0              # At +2R profit...
+#      action: "breakeven"         # ...move stop to entry price (no loss possible)
+#    - trigger_r: 3.0              # At +3R profit...
+#      action: "trail_ema"         # ...start trailing 10 EMA (tight stop)
+#      period: 10                  # 10-period EMA = stays close to price
+#    - trigger_r: 5.0              # At +5R profit...
+#      action: "trail_ema"         # ...switch to 21 EMA (looser stop)
+#      period: 21                  # 21-period EMA = gives more room for volatility
+
+# -----------------------------------------------------------------------------
+# OPTION 3: TRAILING CONTINUOUS - Smooth EMA transitions (Advanced)
+# -----------------------------------------------------------------------------
+#profit_target:
+#  mode: "trailing"
+#  trailing_mode: "continuous"     # Smooth handoff between EMAs (vs discrete jumps)
+#  breakeven_at_r: 2.0             # Move stop to entry at +2R
+#  continuous_bands:
+#    - from_r: 2.5                 # Between +2.5R and +4R...
+#      to_r: 4.0
+#      method: "ema10"             # ...use 10 EMA
+#    - from_r: 4.0                 # Above +4R...
+#      method: "ema21"             # ...use 21 EMA
+
+# -----------------------------------------------------------------------------
+# OPTION 4: HYBRID MODE - Scale out + trail remainder (Balanced)
+# -----------------------------------------------------------------------------
+profit_target:
+  mode: "hybrid"                  # Sell partial positions at targets
+  trailing_stages:
+    - trigger_r: 2.0               # At +2R: protect with breakeven stop
+      action: "breakeven"
+    - trigger_r: 3.0               # At +3R: start trailing with 10 EMA
+      action: "trail_ema"
+      period: 10
+  scale_out_steps:
+    - trigger_r: 3.0               # At +3R: sell 33% of position (take profit)
+      fraction: 0.33
+    - trigger_r: 4.0               # At +4R: sell 50% of what remains
+      fraction: 0.50
+
+
+# =============================================================================
+# ⚠️  LEGACY EXIT SYSTEM (OLD - Should be removed if using Option 2 or 3)
+# =============================================================================
+# This section configures the OLD fixed trailing behavior (from before the
+# configurable trailing system was added). It is completely separate from
+# Options 1, 2, and 3 above.
+#
+# HOW THIS OLD SYSTEM WORKS:
+#   - When price reaches +1R: Move stop to breakeven
+#   - When price reaches +1.5R: Trail with 10 EMA
+#   - When price reaches +3R: Trail with 21 EMA
+#
+# IF USING OPTION 1 (Target Mode): This section can stay - it won't conflict
+# IF USING OPTION 2 OR 3 (Trailing/Hybrid): You MUST delete or comment out
+# this entire section (lines 166-181) or the system will use legacy behavior!
+#
+#  trailing_stops:
+#    breakeven_at_r: 1.0    # OLD: Move to breakeven at +1R
+#    ema10_at_r: 1.5       # OLD: Trail 10 EMA starting at +1.5R
+#    ema21_at_r: 3.0       # OLD: Trail 21 EMA starting at +3R
+#
+#  ema_periods:
+#    short: 10              # EMA period for early trailing
+#    long: 21               # EMA period for late trailing
+
+# =============================================================================
+entry:
+  # Minimum entry score to trigger trade
+  min_entry_score: 60
+
+  # Maximum distance from pivot (in %)
+  max_dist_to_pivot_pct: 3.0
+
+  # Minimum volume ratio vs 20-day average
+  min_volume_ratio: 1.5
+
+# =============================================================================
+# MARKET ENVIRONMENT FILTERS
+# =============================================================================
+market:
+  # Maximum SPY decline to allow new entries
+  max_spy_decline_pct: -1.0  # -0.5%
+
+  # Maximum VIX level for new entries
+  max_vix: 60  # Uncomment to enable
+
+# =============================================================================
+# RE-ENTRY COOLDOWN CONFIGURATION
+# =============================================================================
+# Prevents immediate re-entry after position closure (FLY case study)
+# See: memory/2026-04-11-fly-reentry-lesson.md
+cooldown:
+  # Minutes to wait before re-entering same ticker after exit
+  # Default: 60 minutes (1 hour) - prevents FLY-style double loss
+  reentry_cooldown_minutes: 60
+
+  # Minimum loss % to trigger cooldown (0.0 = any loss triggers cooldown)
+  # Set to 0.01 to only cooldown after 1%+ losses
+  min_loss_to_trigger_cooldown_pct: 0.0
+
+  # Maximum cooldown cap after consecutive losses
+  max_cooldown_minutes: 240  # 4 hours
+
+  # Multiply cooldown by this factor after each consecutive losing trade
+  # Example: 60min -> 120min -> 240min (capped)
+  consecutive_loss_multiplier: 2.0
+
+# =============================================================================
+# PRESET RISK PROFILES
+# =============================================================================
+# Use with: --risk-profile <name>
+profiles:
+  conservative:
+    account:
+      risk_per_trade_pct: 0.005    # 0.5%
+    position:
+      max_position_pct: 0.10       # 10%
+    stop_loss:
+      max_stop_distance_pct: 0.08  # 8% max
+    ma_support:
+      enabled: true
+      buffer_pct: 0.015  # 1.5% buffer (wider stop, more conservative)
+      cluster_spread_pct: 0.05
+      min_cluster_size: 2
+
+  aggressive:
+    account:
+      risk_per_trade_pct: 0.01     # 1.0%
+    position:
+      max_position_pct: 0.10       # 10%
+    stop_loss:
+      max_stop_distance_pct: 0.15  # 15% max
+    ma_support:
+      enabled: true
+      buffer_pct: 0.005  # 0.5% buffer (tighter stop, more aggressive)
+      cluster_spread_pct: 0.05
+      min_cluster_size: 2
+
+  tight_stops:
+    # For setups with tight technical stops (pivot-based)
+    stop_loss:
+      method: "atr_or_support"
+      min_stop_distance_pct: 0.02   # 2%
+      max_stop_distance_pct: 0.05   # 5%
+    position:
+      max_position_pct: 0.15         # Can take larger positions with tight stops
+    ma_support:
+      enabled: true
+      buffer_pct: 0.01
+      cluster_spread_pct: 0.03  # 3% spread (tighter cluster requirement)
+      min_cluster_size: 3  # Require 3 MAs in cluster
+

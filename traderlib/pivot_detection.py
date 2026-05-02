@@ -16,6 +16,8 @@ import pandas as pd
 import numpy as np
 
 from traderlib.vcp_utils import detect_vcp_pattern, VCPPattern
+
+
 @dataclass
 class PivotSignal:
     """Standardized pivot detection result."""
@@ -27,6 +29,8 @@ class PivotSignal:
     target_price: Optional[float] = None
     entry_mode: str = 'breakout'
     context: Dict = field(default_factory=dict)
+
+
 def detect_range_20d_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect 20-day range high pivot.
 
@@ -53,13 +57,16 @@ def detect_range_20d_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[Piv
         return None
     confidence = max(0.0, min(1.0, (current - range_low) / (pivot_high - range_low)))
 
-    # Target: left to ticker_analyzer to compute from actual stop
+    # Target: 2.0 * risk (standard R:R) using range as proxy
+    risk = pivot_high - range_low
+    target_price = round(pivot_high + 2.0 * risk, 2) if risk > 0 else None
     return PivotSignal(
         ticker=ticker,
         pivot_price=round(pivot_high, 2),
         pivot_type='range_20d',
         confidence=round(confidence, 2),
         stop_price=round(range_low, 2),
+        target_price=target_price,
         entry_mode='immediate',
         context={
             'range_low': round(range_low, 2),
@@ -67,6 +74,8 @@ def detect_range_20d_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[Piv
             'days': 20,
         }
     )
+
+
 def detect_vcp_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect VCP pivot via existing detect_vcp_pattern().
 
@@ -118,6 +127,8 @@ def detect_vcp_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSign
             'stop_date': str(pattern.stop_date) if pattern.stop_date else None,
         }
     )
+
+
 def detect_pocket_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotSignal]:
     """Detect pocket pivot: up-day with volume > max down-volume in prior 10 days.
 
@@ -183,6 +194,8 @@ def detect_pocket_pivot(hist: pd.DataFrame, ticker: str = '') -> Optional[PivotS
             )
 
     return None
+
+
 def detect_pivot(
     ticker: str,
     hist: pd.DataFrame,

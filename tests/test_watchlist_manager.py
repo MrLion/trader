@@ -494,7 +494,7 @@ class TestRemoveAllTickers(unittest.TestCase):
 
         wm.remove_all_tickers(force=True)
 
-        mock_print.assert_any_call("⚠️ Watchlist is already empty")
+        mock_print.assert_any_call("[WARN] Watchlist is already empty")
 
 
 class TestMainEntryPoints(unittest.TestCase):

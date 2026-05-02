@@ -403,6 +403,7 @@ class TestCheckExits:
         mock_signal.should_exit = False
         mock_signal.new_stop = None
         mock_signal.new_stop_type = None
+        mock_signal.metadata = {}
         engine.exits.evaluate_exit = Mock(return_value=mock_signal)
 
         await engine._check_exits()

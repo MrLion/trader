@@ -47,11 +47,11 @@ class EconomicEvent:
     """
     date: str
     time: str
-    country: str
     event: str
     impact: str
     estimate: Optional[str]
     previous: Optional[str]
+    country: str = 'US'
 
     def __repr__(self) -> str:
         return f"EconomicEvent(date={self.date}, event={self.event}, impact={self.impact})"
