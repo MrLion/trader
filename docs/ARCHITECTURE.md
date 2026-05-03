@@ -707,14 +707,25 @@ trader/
 │       └── report.py
 │
 ├── data/                      # Runtime data
-│   ├── watchlist.csv         # User watchlist
-│   ├── portfolio.json        # Open positions
-│   ├── daily_tracker.json    # Daily stats
-│   └── ticker_sectors_cache.json
+│   ├── paper/                 # Paper trading state (--mode paper)
+│   │   ├── positions.json    # Open positions
+│   │   ├── trades.jsonl      # Trade log
+│   │   ├── orders.json       # Orders
+│   │   └── daily_tracker.json# Daily stats
+│   ├── live/                  # Live trading state (--mode live)
+│   │   ├── positions.json
+│   │   ├── trades.jsonl
+│   │   ├── orders.json
+│   │   └── daily_tracker.json
+│   ├── watchlist.csv         # Shared: user watchlist
+│   └── ticker_sectors_cache.json  # Shared
 │
 ├── config/                    # Configuration
-│   ├── risk_config.yaml      # Risk profiles
-│   ├── screener_config.yaml   # Scraper settings
+│   ├── paper/                 # Paper trading risk config
+│   │   └── risk_config.yaml  # Paper risk profiles
+│   ├── live/                  # Live trading risk config
+│   │   └── risk_config.yaml  # Conservative live defaults
+│   ├── screener_config.yaml   # Shared: scraper settings
 │   └── secrets/              # API credentials
 │       └── alpaca_config.json
 │
@@ -783,7 +794,7 @@ Portfolio state saved atomically:
 4. Document in ARCHITECTURE.md
 
 ### Configuration Changes
-1. Update `config/risk_config.yaml` for new profiles
+1. Update `config/paper/risk_config.yaml` (or `config/live/risk_config.yaml` for live mode) for new profiles
 2. Update `RiskConfig` dataclass in `risk_config.py`
 3. Add validation in `validation.py`
 4. Document in RISK_GUIDE.md

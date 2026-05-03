@@ -10,7 +10,7 @@ Configuration is managed through YAML files in the `config/` directory:
 
 | File | Purpose |
 |------|---------|
-| `risk_config.yaml` | Risk management parameters |
+| `paper/risk_config.yaml` | Paper risk parameters (default mode) |
 | `screener_config.yaml` | Scraper validation thresholds |
 | `secrets/alpaca_config.json` | API credentials |
 
@@ -20,7 +20,8 @@ Configuration can be overridden via environment variables and command-line risk 
 
 ## Risk Configuration
 
-**File:** `config/risk_config.yaml`
+**Default file:** `config/paper/risk_config.yaml`
+**Live file:** `config/live/risk_config.yaml`
 
 ### Account-Level Risk Settings
 

@@ -78,8 +78,8 @@ python3 scripts/paper_portfolio.py close AAPL --confirm
 
 | File | Purpose |
 |------|---------|
-| `data/paper_positions.json` | Open positions state |
-| `data/paper_trades.jsonl` | Trade log (append-only) |
+| `data/paper/positions.json` | Open positions state (paper mode) |
+| `data/paper/trades.jsonl` | Trade log (append-only, paper mode) |
 | `data/paper_account.json` | Account equity tracking |
 
 ---

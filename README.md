@@ -44,7 +44,7 @@ python3 scripts/entry_signals.py
 | **Scans** | `sector_scan_comprehensive.py`, `trend_screener.py` | [Trend Screener](docs/trend_screener/USER_GUIDE.md) |
 | **Reports** | `premarket_report.py`, `postmarket_report.py`, `deliver_report.py` | [Reports](docs/reports/) |
 | **Backtesting** | `backtest.py` | [Backtesting Guide](docs/BACKTESTING_GUIDE.md) |
-| **Trading** | `paper_engine_alpaca.py`, `paper_portfolio.py`, `show_positions.py` | [AGENTS.MD](AGENTS.MD) |
+| **Trading** | `paper_engine_alpaca.py --mode paper\|live`, `paper_portfolio.py`, `show_positions.py` | [docs/trading-modes.md](docs/trading-modes.md) |
 | **Watchlist** | `watchlist_manager.py`, `mcstock_scraper.py` | [TOOLS.md](TOOLS.md) |
 | **Setup** | `setup_alpaca.py`, `validate_alpaca.py`, `doctor.py` | [docs/getting-started.md](docs/getting-started.md) |
 | **Utilities** | `sync_state.py`, `clean_test_trades.py`, `risk_config_demo.py` | [docs/scripts/utility_scripts.md](docs/scripts/utility_scripts.md) |
@@ -58,9 +58,13 @@ trader/
 ├── scripts/          # CLI tools for analysis, scanning, trading
 ├── traderlib/        # Core library (alpaca_client, order_manager, strategies)
 ├── traderlib/backtest/  # Backtesting engine
-├── data/             # watchlist.csv, positions, trade logs
+├── data/
+│   ├── paper/        # Paper trading state (positions, trades, orders)
+│   └── live/         # Live trading state (fully isolated)
 ├── docs/             # All documentation
-├── config/           # Configuration files (risk_config.yaml, screener_config.yaml)
+├── config/
+│   ├── paper/        # Paper trading risk config
+│   └── live/         # Live trading risk config (conservative defaults)
 └── AGENTS.MD         # AI assistant instructions & trading reference
 ```
 

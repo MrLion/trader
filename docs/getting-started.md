@@ -135,15 +135,23 @@ python3 scripts/sector_scan_comprehensive.py
 **Paper Trading (Automated):**
 
 ```bash
-# Start paper trading engine
+# Start paper trading engine (default mode)
 python3 scripts/paper_engine_alpaca.py
+
+# Start in paper mode explicitly
+python3 scripts/paper_engine_alpaca.py --mode paper
+
+# Start in live trading mode (requires live Alpaca keys)
+python3 scripts/paper_engine_alpaca.py --mode live
 ```
+
+> **Trading Modes:** See [Trading Modes Guide](docs/trading-modes.md) for the difference between paper and live mode, data isolation, and safety guardrails.
 
 The engine will:
 - Monitor your watchlist for entry signals
 - Automatically enter positions on confirmed breakouts
 - Manage trailing stops (breakeven at +1R, EMA10 at +1.5R, EMA21 at +3R)
-- Log all trades to `data/paper_trades.jsonl`
+- Log all trades to `data/paper/trades.jsonl`
 
 **Monitor positions:**
 

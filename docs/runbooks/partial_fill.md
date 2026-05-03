@@ -85,7 +85,7 @@ If automatic sync fails:
 import json
 from pathlib import Path
 
-positions_file = Path('data/paper_positions.json')
+positions_file = Path('data/paper/positions.json')
 with open(positions_file) as f:
     positions = json.load(f)
 

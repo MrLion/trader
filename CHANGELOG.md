@@ -1,3 +1,20 @@
+## [0.6.16.1] — 2026-05-02 — Documentation — Live State Isolation Coverage
+
+### Added
+- **`docs/trading-modes.md`** — New guide covering paper vs live modes, data isolation, risk config separation, dashboard mode badge, migration from v0.6.15.x, and safety guardrails.
+
+### Changed
+- **`README.md`** — Updated repo tree to show mode-partitioned `data/` and `config/` directories; trading scripts table links to trading-modes.md.
+- **`docs/ARCHITECTURE.md`** — File organization tree updated with `data/paper/`, `data/live/`, `config/paper/`, `config/live/` structure.
+- **`docs/getting-started.md`** — Trade log paths updated to `data/paper/trades.jsonl`; engine start examples include `--mode` flag; links to trading-modes.md.
+- **`docs/RISK_GUIDE.md`** — Added mode-specific config section with paper vs live defaults comparison table.
+- **`docs/config/configuration-reference.md`** — Updated config file references to `config/paper/risk_config.yaml` (default) with live variant noted.
+- **`docs/DEPLOYMENT.md`** — Updated persistent file paths and `PAPER_TRADING_DATA_DIR` documentation.
+- **`docs/scripts/paper_portfolio.md`** — Updated file path references.
+- **`docs/runbooks/data_quality.md`** — Updated cleanup path.
+- **`docs/runbooks/partial_fill.md`** — Updated code example path.
+
+
 ## [0.6.16.0] — 2026-05-02 — Live State Isolation
 
 ### Added

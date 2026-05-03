@@ -115,7 +115,7 @@ User=trader
 WorkingDirectory=/opt/trader
 Environment=ALPACA_API_KEY=your_key
 Environment=ALPACA_SECRET_KEY=your_secret
-Environment=PAPER_TRADING_DATA_DIR=/opt/trader/data
+Environment=PAPER_TRADING_DATA_DIR=/opt/trader/data  # Root dir; /paper or /live appended by mode
 ExecStart=/usr/bin/python3 /opt/trader/scripts/paper_engine_alpaca.py
 Restart=always
 RestartSec=10
@@ -141,7 +141,7 @@ sudo systemctl status trader-paper
 tail -f data/logs/trading_exceptions.log
 
 # Paper trades
-tail -f data/paper_trades.jsonl
+tail -f data/paper/trades.jsonl
 
 # systemd journal
 sudo journalctl -u trader-paper -f
@@ -161,7 +161,7 @@ Monitor these directories:
 | Directory | What Grows | Rotation |
 |-----------|-----------|----------|
 | `data/logs/` | Exception logs | Daily rotation |
-| `data/paper_trades.jsonl` | Trade history | Manual archive |
+| `data/paper/trades.jsonl` | Trade history (paper mode) | Manual archive |
 | `scans/` | Daily CSV scans | Manual cleanup |
 | `reports/` | HTML reports | Weekly cleanup |
 | `memory/` | Daily notes | Manual review |
@@ -173,7 +173,7 @@ Monitor these directories:
 ```bash
 # Essential files to backup
 data/watchlist.csv
-data/paper_positions.json
+data/paper/positions.json
 data/paper_trades.jsonl
 config/risk_config.yaml
 config/screener_config.yaml

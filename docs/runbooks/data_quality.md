@@ -145,7 +145,7 @@ print('✅ Watchlist corrected')
 cp -r data data.backup.$(date +%Y%m%d_%H%M)
 
 # Clear cache
-rm -rf data/paper_positions.json
+rm -rf data/paper/positions.json
 rm -rf data/paper_account.json
 rm -rf data/cache/*
 
