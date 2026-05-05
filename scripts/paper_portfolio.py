@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""CLI tool for paper trading portfolio management and monitoring."""
+"""CLI tool for paper/live trading portfolio management and monitoring.
+
+Supports both paper and live modes via --mode flag. Data paths are resolved
+to mode-specific subdirectories under ~/.openclaw/workspaces/trader/data/.
+"""
 
 import argparse
 import json
@@ -19,6 +23,19 @@ from traderlib.validation import validate_ticker
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
 
+# Constants
+DEFAULT_INITIAL_CAPITAL = 100000.0
+
+
+def _get_data_dir(mode: str = "paper") -> Path:
+    """Resolve mode-specific data directory.
+
+    paper -> ~/.openclaw/workspaces/trader/data/paper/
+    live  -> ~/.openclaw/workspaces/trader/data/live/
+    """
+    base = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
+    return base / mode
+
 
 def format_et_timestamp(dt: datetime = None) -> str:
     """Format datetime with ET timezone suffix.
@@ -28,13 +45,6 @@ def format_et_timestamp(dt: datetime = None) -> str:
     if dt is None:
         dt = datetime.now()
     return dt.strftime('%Y-%m-%d %H:%M:%S') + ' ET'
-DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
-POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
-DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
-TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
-
-# Constants
-DEFAULT_INITIAL_CAPITAL = 100000.0
 
 
 def load_json_file(filepath: Path) -> Optional[Dict]:
@@ -48,14 +58,14 @@ def load_json_file(filepath: Path) -> Optional[Dict]:
         return None
 
 
-def load_trades(limit: int = 100) -> List[Dict]:
+def load_trades(trades_file: Path, limit: int = 100) -> List[Dict]:
     """Load recent trades from JSONL file."""
-    if not TRADES_FILE.exists():
+    if not trades_file.exists():
         return []
 
     trades = []
     try:
-        with open(TRADES_FILE, 'r') as f:
+        with open(trades_file, 'r') as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -64,7 +74,7 @@ def load_trades(limit: int = 100) -> List[Dict]:
         TradingExceptionHandler.log_exception(
             "load_recent_trades", e,
             severity=TradingExceptionHandler.WARNING,
-            file=str(TRADES_FILE)
+            file=str(trades_file)
         )
 
     return trades[-limit:] if trades else []
@@ -103,10 +113,10 @@ def _is_test_trade(trade: dict) -> bool:
     return False
 
 
-def _calculate_day_stats() -> Dict:
+def _calculate_day_stats(trades_file: Path) -> Dict:
     """Calculate day stats from trade log (source of truth), excluding test data."""
     today = datetime.now().strftime('%Y-%m-%d')
-    trades = load_trades(limit=1000)  # Load enough to cover the day
+    trades = load_trades(trades_file, limit=1000)  # Load enough to cover the day
 
     day_pnl = 0.0
     entries_today = 0
@@ -143,22 +153,25 @@ def cmd_status(args):
     """Show current account and market status using Alpaca real-time prices."""
     from traderlib.alpaca_client import AlpacaClient
 
-    positions = load_json_file(POSITIONS_FILE)
+    data_dir = _get_data_dir(args.mode)
+    positions_file = data_dir / 'positions.json'
+
+    positions = load_json_file(positions_file)
 
     # Load watchlist for sector lookup
     watchlist_df = None
     try:
-        watchlist_df = pd.read_csv(DATA_DIR / 'watchlist.csv')
+        watchlist_df = pd.read_csv(data_dir.parent / 'watchlist.csv')
     except Exception as e:
         TradingExceptionHandler.log_exception(
             "watchlist_load", e,
             severity=TradingExceptionHandler.WARNING,
-            file=str(DATA_DIR / 'watchlist.csv')
+            file=str(data_dir.parent / 'watchlist.csv')
         )
 
     # Initialize Alpaca client for real-time pricing
     try:
-        alpaca = AlpacaClient(mode='paper')
+        alpaca = AlpacaClient(mode=args.mode)
         price_source = "Alpaca Real-Time"
     except Exception as e:
         TradingExceptionHandler.log_exception(
@@ -229,8 +242,9 @@ def cmd_status(args):
             }
             account_value += position_market_value
 
+    mode_label = args.mode.upper()
     print("\n" + "=" * 60)
-    print(f"📊 PAPER TRADING ACCOUNT STATUS ({price_source})")
+    print(f"📊 {mode_label} TRADING ACCOUNT STATUS ({price_source})")
     print("=" * 60)
 
     print(f"\n💰 ACCOUNT")
@@ -244,7 +258,8 @@ def cmd_status(args):
 
     print(f"\n📈 DAILY PERFORMANCE")
     # Calculate from trade log instead of stale account file
-    day_stats = _calculate_day_stats()
+    trades_file = data_dir / 'trades.jsonl'
+    day_stats = _calculate_day_stats(trades_file)
     print(f"   Day P&L: {format_currency(day_stats['day_pnl'])} ({format_pct(day_stats['day_return'])})")
 
     # Calculate unrealized P&L using Alpaca real-time prices
@@ -327,9 +342,11 @@ def cmd_live(args):
     """Show real-time position values."""
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.alpaca_client import AlpacaClient
-    alpaca = AlpacaClient(mode='paper')
+    alpaca = AlpacaClient(mode=args.mode)
 
-    positions = load_json_file(POSITIONS_FILE)
+    data_dir = _get_data_dir(args.mode)
+    positions_file = data_dir / 'positions.json'
+    positions = load_json_file(positions_file)
 
     if not positions:
         print("📭 No open positions")
@@ -390,10 +407,11 @@ def cmd_live(args):
 
 
 
-
 def cmd_today(args):
     """Show today's trades."""
-    trades = load_trades(limit=200)
+    data_dir = _get_data_dir(args.mode)
+    trades_file = data_dir / 'trades.jsonl'
+    trades = load_trades(trades_file, limit=200)
 
     # Filter out test entries
     trades = [t for t in trades if not t.get('_meta', {}).get('test_mode', False)]
@@ -441,7 +459,9 @@ def cmd_today(args):
 
 def cmd_history(args):
     """Show trade history."""
-    trades = load_trades(limit=args.limit)
+    data_dir = _get_data_dir(args.mode)
+    trades_file = data_dir / 'trades.jsonl'
+    trades = load_trades(trades_file, limit=args.limit)
 
     # Filter out test entries unless --include-test-data
     if not getattr(args, 'include_test_data', False):
@@ -475,7 +495,9 @@ def cmd_history(args):
 
 def cmd_report(args):
     """Generate performance report."""
-    trades = load_trades(limit=1000)
+    data_dir = _get_data_dir(args.mode)
+    trades_file = data_dir / 'trades.jsonl'
+    trades = load_trades(trades_file, limit=1000)
 
     if not trades:
         print("📭 No trades to report")
@@ -562,9 +584,11 @@ def cmd_close(args):
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.paper_state import PaperState
     from traderlib.alpaca_client import AlpacaClient
-    alpaca = AlpacaClient(mode='paper')
+    alpaca = AlpacaClient(mode=args.mode)
 
-    positions = load_json_file(POSITIONS_FILE)
+    data_dir = _get_data_dir(args.mode)
+    positions_file = data_dir / 'positions.json'
+    positions = load_json_file(positions_file)
 
     if not positions or ticker not in positions:
         print(f"❌ Position {ticker} not found in open positions")
@@ -599,7 +623,7 @@ def cmd_close(args):
         current_price = None
 
     # Initialize state and close
-    state = PaperState()
+    state = PaperState(data_dir=data_dir, mode=args.mode)
     reason = args.reason or "manual_close"
 
     pos = state.close_position(ticker, current_price, reason)
@@ -618,6 +642,8 @@ def cmd_reconcile(args):
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from traderlib.paper_state import PaperState
 
+    data_dir = _get_data_dir(args.mode)
+
     print("🔄 Reconciling counters with trade log...")
     print()
 
@@ -625,8 +651,8 @@ def cmd_reconcile(args):
     initial_capital = DEFAULT_INITIAL_CAPITAL
     print(f"   Using initial_capital: ${initial_capital:,.2f}")
 
-    # Initialize state with initial_capital
-    state = PaperState(initial_capital=initial_capital)
+    # Initialize state with initial_capital and mode-specific data_dir
+    state = PaperState(initial_capital=initial_capital, data_dir=data_dir, mode=args.mode)
 
     # Get the reconciliation stats
     stats = state._reconcile_counters_from_log()
@@ -656,19 +682,24 @@ def cmd_reconcile(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Paper Trading Portfolio CLI',
+        description='Paper/Live Trading Portfolio CLI',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 scripts/paper_portfolio.py status       # Account overview
-  python3 scripts/paper_portfolio.py live         # Live position prices
-  python3 scripts/paper_portfolio.py today         # Today's trades
-  python3 scripts/paper_portfolio.py history       # Full trade log
-  python3 scripts/paper_portfolio.py report        # Performance stats
-  python3 scripts/paper_portfolio.py close AAPL  # Emergency close
-  python3 scripts/paper_portfolio.py reconcile   # Fix counter discrepancies
+  python3 scripts/paper_portfolio.py status                    # Paper account overview
+  python3 scripts/paper_portfolio.py status --mode live       # Live account overview
+  python3 scripts/paper_portfolio.py live                      # Paper live position prices
+  python3 scripts/paper_portfolio.py today                    # Today's paper trades
+  python3 scripts/paper_portfolio.py history                  # Full paper trade log
+  python3 scripts/paper_portfolio.py report                     # Paper performance stats
+  python3 scripts/paper_portfolio.py close AAPL               # Emergency close (paper)
+  python3 scripts/paper_portfolio.py close AAPL --mode live  # Emergency close (live)
+  python3 scripts/paper_portfolio.py reconcile               # Fix paper counter discrepancies
         """
     )
+
+    parser.add_argument('--mode', choices=['paper', 'live'], default='paper',
+                        help='Trading mode: paper or live (default: paper)')
 
     subparsers = parser.add_subparsers(dest='command', help='Command')
 

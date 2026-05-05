@@ -1,3 +1,11 @@
+## [0.6.16.2] — 2026-05-05 — Bug Fix — Paper Portfolio Mode-Aware Data Paths
+
+### Fixed
+- **`scripts/paper_portfolio.py`** — Now resolves data paths to mode-specific subdirectories (`data/paper/`, `data/live/`) introduced in 0.6.16.0. Previously hardcoded to the legacy flat `data/paper_positions.json`, causing the CLI to read stale pre-migration positions instead of the engine's actual state. All commands (`status`, `live`, `today`, `history`, `report`, `close`, `reconcile`) respect the `--mode` flag.
+- **`scripts/paper_portfolio.py`** — `AlpacaClient` and `PaperState` now initialized with the correct `mode` parameter so `close` and `reconcile` operate on the right account.
+- **`scripts/paper_portfolio.py`** — Header and help text updated to reflect paper/live support.
+
+
 ## [0.6.16.1] — 2026-05-02 — Documentation — Live State Isolation Coverage
 
 ### Added
