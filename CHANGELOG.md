@@ -1,3 +1,9 @@
+## [0.6.16.4] — 2026-05-05 — Bug Fix — Eliminate Optimistic Exit Close (Ghost Exit)
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_execute_exit()` no longer calls `state.close_position()` optimistically on order submission. The position is now closed ONLY when Alpaca confirms the fill in `_process_pending_orders()`. This eliminates "ghost exits" where a trade was logged locally (with realized P&L, trade log entry, and dashboard event) but Alpaca never actually filled the order, leaving the position open in the broker account. On next engine restart, `_sync_with_alpaca()` would silently recreate the position with Alpaca's `avg_entry_price`, causing stale phantom positions. Also moves dashboard logging, cooldown tracking, and P&L printout to the confirmed-fill path.
+
+
 ## [0.6.16.3] — 2026-05-05 — Bug Fix — Post-Market Dashboard Uses Mode-Specific Paths
 
 ### Fixed

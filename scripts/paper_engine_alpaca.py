@@ -1172,31 +1172,13 @@ class AlpacaPaperEngine:
         )
 
         if order:
-            # Record locally (optimistic)
-            position = self.state.close_position(
-                ticker=ticker,
-                exit_price=signal.exit_price,
-                reason=signal.reason
-            )
-
-            if position:
-                pnl_emoji = "🎯" if position.realized_pnl and position.realized_pnl > 0 else "🛑"
-                exit_msg = f"AUTO-EXIT: {ticker} at ${signal.exit_price:.2f}"
-                print(f"\n{pnl_emoji} {exit_msg}")
-                if self.dashboard:
-                    self.dashboard.log_event({
-                        "type": "EXIT",
-                        "timestamp": datetime.now().strftime("%H:%M:%S"),
-                        "ticker": ticker,
-                        "detail": f"${signal.exit_price:.2f}",
-                        "pnl": position.realized_pnl,
-                    })
-                print(f"   Reason: {signal.reason}")
-                print(f"   P&L: ${position.realized_pnl:,.2f}")
-
-                # Record exit for cooldown tracking (FLY case study)
-                realized_pnl = position.realized_pnl or 0.0
-                self._record_position_exit(ticker, realized_pnl)
+            # DO NOT optimistically close here — wait for Alpaca fill
+            # confirmation in _process_pending_orders(). This prevents
+            # ghost exits where the trade is logged locally but Alpaca
+            # never fills it (e.g. order rejected, partial fill, crash).
+            print(f"\n⏳ EXIT SUBMITTED: {ticker} at ${signal.exit_price:.2f}")
+            print(f"   Reason: {signal.reason}")
+            print(f"   Waiting for Alpaca fill confirmation...")
 
     async def _process_pending_orders(self):
         """Check status of all pending orders."""
@@ -1263,9 +1245,36 @@ class AlpacaPaperEngine:
                         self.state.save_state()
                         print(f"   📝 Updated entry price: ${old_entry:.2f} → ${actual_fill:.2f}")
             else:
-                # Exit orders - position is closed by order_manager or elsewhere
+                # Exit orders - close position ONLY when Alpaca confirms fill
                 print(f"✅ Exit filled: {order.ticker} "
                       f"(${order.reason})")
+
+                if order.ticker in self.state.positions:
+                    fill_price = order.filled_price or self.state.positions[order.ticker].entry_price
+                    position = self.state.close_position(
+                        ticker=order.ticker,
+                        exit_price=fill_price,
+                        reason=order.reason
+                    )
+                    if position:
+                        pnl_emoji = "🎯" if position.realized_pnl and position.realized_pnl > 0 else "🛑"
+                        print(f"\n{pnl_emoji} EXIT CONFIRMED: {order.ticker}")
+                        print(f"   Fill Price: ${fill_price:.2f}")
+                        print(f"   Reason: {order.reason}")
+                        print(f"   P&L: ${position.realized_pnl:,.2f}")
+
+                        if self.dashboard:
+                            self.dashboard.log_event({
+                                "type": "EXIT",
+                                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                                "ticker": order.ticker,
+                                "detail": f"${fill_price:.2f}",
+                                "pnl": position.realized_pnl,
+                            })
+
+                        # Record exit for cooldown tracking (FLY case study)
+                        realized_pnl = position.realized_pnl or 0.0
+                        self._record_position_exit(order.ticker, realized_pnl)
 
     def _reset_daily_signals(self):
         """Reset entry signals for new day."""
