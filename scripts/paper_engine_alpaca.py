@@ -1554,13 +1554,17 @@ class AlpacaPaperEngine:
 
 
 
-def _load_post_market_state():
-    """Load saved positions and fetch closing prices for post-market summary."""
+def _load_post_market_state(mode: str = "paper"):
+    """Load saved positions and fetch closing prices for post-market summary.
+
+    Args:
+        mode: 'paper' or 'live' — reads from data/{mode}/positions.json
+    """
     import json
     from pathlib import Path
     # Resolve data dir relative to repo root (script is in scripts/)
     repo_root = Path(__file__).parent.parent
-    positions_file = repo_root / 'data' / 'paper_positions.json'
+    positions_file = repo_root / 'data' / mode / 'positions.json'
     if not positions_file.exists():
         return None
     try:
@@ -1672,7 +1676,7 @@ def main():
 
                     # Show dashboard while waiting
                     if dashboard and dashboard.enabled:
-                        post_state = _load_post_market_state()
+                        post_state = _load_post_market_state(args.mode)
                         if post_state:
                             post_state['next_scan_seconds'] = int(wait_seconds)
                             dashboard.update(post_state)

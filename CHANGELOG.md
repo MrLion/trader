@@ -1,3 +1,9 @@
+## [0.6.16.3] — 2026-05-05 — Bug Fix — Post-Market Dashboard Uses Mode-Specific Paths
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_load_post_market_state()` now accepts a `mode` parameter and reads from `data/{mode}/positions.json` instead of the hardcoded legacy `data/paper_positions.json`. The pre-market wait loop passes `args.mode` so the dashboard shows the correct positions for paper vs live. Previously the post-market summary loaded stale pre-migration data, causing exited positions (e.g. PRIM after earnings) to incorrectly appear as still open.
+
+
 ## [0.6.16.2] — 2026-05-05 — Bug Fix — Paper Portfolio Mode-Aware Data Paths
 
 ### Fixed
