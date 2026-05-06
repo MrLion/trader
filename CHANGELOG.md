@@ -1,3 +1,17 @@
+## [0.6.16.5] — 2026-05-06 — Bug Fix — Test Isolation Leak & Portfolio Display
+
+### Fixed
+- **`tests/test_order_manager.py`** — `tearDown()` no longer pops `PAPER_TRADING_DATA_DIR` env var. It now saves and restores the original value, preventing subsequent tests from losing data isolation and writing to production `data/paper/`.
+- **`tests/test_paper_portfolio.py`** — All `Mock()` args objects now include `mode='paper'` so `_get_data_dir()` resolves correctly instead of crashing on `Path / Mock()`.
+
+### Changed
+- **`scripts/paper_portfolio.py`** — Account section redesigned for clarity: shows Cash, Positions Value, Account Value, Buying Power (with 4× margin label), and P&L instead of the old Initial Capital / Account Value / Available Cash format.
+
+### Restored
+- **`data/paper/positions.json`** — Recovered 8 positions from Alpaca after test-suite corruption. Stop prices and types reconstructed from trade log + dashboard data.
+- **`data/paper/trades.jsonl`** — Cleaned 30 test entries (`test_mode: true`) that leaked from the test suite.
+
+
 ## [0.6.16.4] — 2026-05-05 — Bug Fix — Eliminate Optimistic Exit Close (Ghost Exit)
 
 ### Fixed

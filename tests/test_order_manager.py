@@ -208,13 +208,17 @@ class TestOrderManager(unittest.TestCase):
         """Create mock Alpaca client and temp directory."""
         self.mock_alpaca = Mock()
         self.temp_dir = tempfile.mkdtemp()
+        self._saved_data_dir = os.environ.get('PAPER_TRADING_DATA_DIR')
         os.environ['PAPER_TRADING_DATA_DIR'] = self.temp_dir
 
     def tearDown(self):
-        """Clean up temp directory."""
+        """Clean up temp directory and restore original data dir."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        os.environ.pop('PAPER_TRADING_DATA_DIR', None)
+        if self._saved_data_dir is not None:
+            os.environ['PAPER_TRADING_DATA_DIR'] = self._saved_data_dir
+        else:
+            os.environ.pop('PAPER_TRADING_DATA_DIR', None)
 
     @patch('traderlib.order_manager.threading.Thread')
     def test_init_creates_directories(self, mock_thread):
@@ -445,13 +449,17 @@ class TestOrderManagerPersistence(unittest.TestCase):
         """Create mock Alpaca client and temp directory."""
         self.mock_alpaca = Mock()
         self.temp_dir = tempfile.mkdtemp()
+        self._saved_data_dir = os.environ.get('PAPER_TRADING_DATA_DIR')
         os.environ['PAPER_TRADING_DATA_DIR'] = self.temp_dir
 
     def tearDown(self):
-        """Clean up temp directory."""
+        """Clean up temp directory and restore original data dir."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        os.environ.pop('PAPER_TRADING_DATA_DIR', None)
+        if self._saved_data_dir is not None:
+            os.environ['PAPER_TRADING_DATA_DIR'] = self._saved_data_dir
+        else:
+            os.environ.pop('PAPER_TRADING_DATA_DIR', None)
 
     def test_load_orders_from_file(self):
         """Should load orders from file on init."""
@@ -511,13 +519,17 @@ class TestOrderManagerSync(unittest.TestCase):
         """Create mock Alpaca client and temp directory."""
         self.mock_alpaca = Mock()
         self.temp_dir = tempfile.mkdtemp()
+        self._saved_data_dir = os.environ.get('PAPER_TRADING_DATA_DIR')
         os.environ['PAPER_TRADING_DATA_DIR'] = self.temp_dir
 
     def tearDown(self):
-        """Clean up temp directory."""
+        """Clean up temp directory and restore original data dir."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        os.environ.pop('PAPER_TRADING_DATA_DIR', None)
+        if self._saved_data_dir is not None:
+            os.environ['PAPER_TRADING_DATA_DIR'] = self._saved_data_dir
+        else:
+            os.environ.pop('PAPER_TRADING_DATA_DIR', None)
 
     def test_sync_positions_finds_added(self):
         """Should detect positions in Alpaca but not local."""
@@ -597,13 +609,17 @@ class TestOrderManagerCallbacks(unittest.TestCase):
         """Create mock Alpaca client and temp directory."""
         self.mock_alpaca = Mock()
         self.temp_dir = tempfile.mkdtemp()
+        self._saved_data_dir = os.environ.get('PAPER_TRADING_DATA_DIR')
         os.environ['PAPER_TRADING_DATA_DIR'] = self.temp_dir
 
     def tearDown(self):
-        """Clean up temp directory."""
+        """Clean up temp directory and restore original data dir."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        os.environ.pop('PAPER_TRADING_DATA_DIR', None)
+        if self._saved_data_dir is not None:
+            os.environ['PAPER_TRADING_DATA_DIR'] = self._saved_data_dir
+        else:
+            os.environ.pop('PAPER_TRADING_DATA_DIR', None)
 
     def test_callback_invoked_on_direct_submit(self):
         """Callback should be invoked on direct submit."""

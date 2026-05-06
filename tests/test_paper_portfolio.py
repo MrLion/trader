@@ -158,7 +158,7 @@ class TestCmdStatus:
     def test_status_shows_alpaca_data(self, capsys):
         """Test status shows Alpaca real-time data."""
         # Mock Alpaca client
-        mock_alpaca = Mock()
+        mock_alpaca = Mock(mode='paper')
         mock_alpaca.get_account.return_value = {
             'cash': 95000.0,
             'portfolio_value': 97500.0,
@@ -167,7 +167,7 @@ class TestCmdStatus:
         mock_alpaca.list_positions.return_value = []
 
         with patch('traderlib.alpaca_client.AlpacaClient', return_value=mock_alpaca):
-            cmd_status(Mock())
+            cmd_status(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         assert 'PAPER TRADING ACCOUNT STATUS' in captured.out
@@ -177,7 +177,7 @@ class TestCmdStatus:
 
     def test_status_with_positions(self, capsys):
         """Test status with open positions."""
-        mock_alpaca = Mock()
+        mock_alpaca = Mock(mode='paper')
         mock_alpaca.get_account.return_value = {
             'cash': 90000.0,
             'portfolio_value': 99500.0,
@@ -200,7 +200,7 @@ class TestCmdStatus:
         with patch('alpaca_client.AlpacaClient') as mock_class:
             mock_class.return_value = mock_alpaca
             with patch('paper_portfolio.load_json_file', return_value=mock_positions):
-                cmd_status(Mock())
+                cmd_status(Mock(mode='paper'))
                 captured = capsys.readouterr()
 
         assert 'OPEN POSITIONS' in captured.out
@@ -208,7 +208,7 @@ class TestCmdStatus:
 
     def test_status_with_alpaca_format_positions(self, capsys):
         """Test status with Alpaca API format positions."""
-        mock_alpaca = Mock()
+        mock_alpaca = Mock(mode='paper')
         mock_alpaca.get_account.return_value = {
             'cash': 90000.0,
             'portfolio_value': 99500.0,
@@ -231,7 +231,7 @@ class TestCmdStatus:
         with patch('alpaca_client.AlpacaClient') as mock_class:
             mock_class.return_value = mock_alpaca
             with patch('paper_portfolio.load_json_file', return_value=mock_positions):
-                cmd_status(Mock())
+                cmd_status(Mock(mode='paper'))
                 captured = capsys.readouterr()
 
         assert 'TSLA' in captured.out
@@ -243,7 +243,7 @@ class TestCmdToday:
     def test_today_no_trades(self, capsys):
         """Test today command with no trades."""
         with patch('paper_portfolio.load_trades', return_value=[]):
-            cmd_today(Mock())
+            cmd_today(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         today = datetime.now().strftime('%Y-%m-%d')
@@ -258,7 +258,7 @@ class TestCmdToday:
         ]
 
         with patch('paper_portfolio.load_trades', return_value=trades):
-            cmd_today(Mock())
+            cmd_today(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         assert "TODAY'S TRADES" in captured.out
@@ -273,7 +273,7 @@ class TestCmdHistory:
 
     def test_history_no_trades(self, capsys):
         """Test history command with no trades."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.limit = 100
 
         with patch('paper_portfolio.load_trades', return_value=[]):
@@ -284,7 +284,7 @@ class TestCmdHistory:
 
     def test_history_with_trades(self, capsys):
         """Test history command with trades."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.limit = 100
 
         trades = [
@@ -308,7 +308,7 @@ class TestCmdReport:
     def test_report_no_trades(self, capsys):
         """Test report command with no trades."""
         with patch('paper_portfolio.load_trades', return_value=[]):
-            cmd_report(Mock())
+            cmd_report(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         assert 'No trades to report' in captured.out
@@ -320,7 +320,7 @@ class TestCmdReport:
         ]
 
         with patch('paper_portfolio.load_trades', return_value=trades):
-            cmd_report(Mock())
+            cmd_report(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         assert 'No completed trades yet' in captured.out
@@ -335,7 +335,7 @@ class TestCmdReport:
         ]
 
         with patch('paper_portfolio.load_trades', return_value=trades):
-            cmd_report(Mock())
+            cmd_report(Mock(mode='paper'))
             captured = capsys.readouterr()
 
         assert 'PERFORMANCE REPORT' in captured.out
@@ -351,7 +351,7 @@ class TestCmdClose:
 
     def test_close_no_ticker(self, capsys):
         """Test close command with no ticker."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.ticker = None
 
         cmd_close(args)
@@ -361,7 +361,7 @@ class TestCmdClose:
 
     def test_close_position_not_found(self, capsys):
         """Test close when position doesn't exist."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.ticker = 'AAPL'
 
         with patch('paper_portfolio.load_json_file', return_value=None):
@@ -372,7 +372,7 @@ class TestCmdClose:
 
     def test_close_position_success(self, capsys):
         """Test successful position close - simplified due to local imports."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.ticker = 'AAPL'
         args.reason = 'manual_test'
         args.force = True
@@ -392,7 +392,7 @@ class TestCmdClose:
 
     def test_close_position_fetch_error(self, capsys):
         """Test close when price fetch fails - simplified due to local imports."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.ticker = 'AAPL'
         args.reason = 'manual_test'
         args.force = True
@@ -447,7 +447,7 @@ class TestMain:
 
     def test_main_close_command(self):
         """Test main with close command."""
-        args = Mock()
+        args = Mock(mode='paper')
         args.ticker = 'AAPL'
         args.reason = None
         args.force = False

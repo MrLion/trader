@@ -186,10 +186,12 @@ def cmd_status(args):
     try:
         alpaca_account = alpaca.get_account()
         cash = alpaca_account['cash']
+        buying_power = alpaca_account.get('buying_power', 0)
         cash_source = "Alpaca Live"
     except Exception as e:
         # Fallback if API fails
         cash = 0
+        buying_power = 0
         cash_source = "Unavailable"
         TradingExceptionHandler.log_exception(
             "cash_fetch", e,
@@ -242,15 +244,18 @@ def cmd_status(args):
             }
             account_value += position_market_value
 
+    positions_value = account_value - cash
+
     mode_label = args.mode.upper()
     print("\n" + "=" * 60)
     print(f"📊 {mode_label} TRADING ACCOUNT STATUS ({price_source})")
     print("=" * 60)
 
     print(f"\n💰 ACCOUNT")
-    print(f"   Initial Capital:   {format_currency(initial_capital)}")
+    print(f"   Cash:              {format_currency(cash)}")
+    print(f"   Positions Value:   {format_currency(positions_value)}")
     print(f"   Account Value:     {format_currency(account_value)}")
-    print(f"   Available Cash:    {format_currency(cash)} ({cash_source})")
+    print(f"   Buying Power:      {format_currency(buying_power)} (4× margin)")
 
     pnl = account_value - initial_capital
     pnl_pct = (pnl / initial_capital) * 100 if initial_capital else 0
