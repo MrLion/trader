@@ -1615,6 +1615,7 @@ def _load_post_market_state(mode: str = "paper"):
             'entry_price': entry,
             'current_price': current,
             'stop_price': stop,
+            'initial_stop_price': float(pos.get('initial_stop_price', 0)),
             'shares': shares,
             'current_stop_type': pos.get('current_stop_type', 'HARD'),
             'sector': pos.get('sector', 'Unknown'),

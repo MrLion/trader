@@ -1,3 +1,12 @@
+## [0.6.16.6] — 2026-05-10 — Enhancement — DIST Column Replaced with R-Multiple
+
+### Changed
+- **`traderlib/dashboard.py`** — Post-market dashboard `DIST` column replaced with `R` column showing `+1.6R` format instead of distance-to-stop percentage. Uses same R-multiple calculation already driving row color coding, directly answering "how many R's is this trade up?"
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_load_post_market_state()` now includes `initial_stop_price` in the serialized position state, ensuring the post-market dashboard can compute R-multiple correctly.
+
+
 ## [0.6.16.5] — 2026-05-06 — Bug Fix — Test Isolation Leak & Portfolio Display
 
 ### Fixed

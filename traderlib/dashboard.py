@@ -252,7 +252,7 @@ class Dashboard:
         tbl.add_column("STOP", justify="right", style="white")
         tbl.add_column("TYPE", style="yellow")
         tbl.add_column("UNREAL", justify="right")
-        tbl.add_column("DIST", justify="right")
+        tbl.add_column("R", justify="right")
 
         # Separator between header and data rows
         sep = Text("─" * 14, style="dim")
@@ -278,21 +278,7 @@ class Dashboard:
             risk_per_share = entry - effective_stop if entry > effective_stop > 0 else 0
             r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
 
-            # Distance to stop as % of initial risk
-            dist_pct = ((current - stop) / risk_per_share * 100) if risk_per_share > 0 else 0
-
-            # DIST color: red <25%, yellow <50%, green >=50%
-            if dist_pct < 25:
-                dist_style = "bold red"
-                dist_icon = "[!]"
-            elif dist_pct < 50:
-                dist_style = "yellow"
-                dist_icon = "[*]"
-            else:
-                dist_style = "green"
-                dist_icon = "[+]"
-
-            # Row color based on R-level (kept internally for visual hierarchy)
+            # Row color based on R-level
             if r_mult < 0:
                 row_style = "red"
             elif r_mult < 1:
@@ -312,7 +298,7 @@ class Dashboard:
                 Text(f"{stop:.2f}", style=row_style),
                 Text(ptype, style=row_style),
                 Text(f"{unreal:+.2f}", style=unreal_color),
-                Text(f"{dist_icon} {dist_pct:.0f}%", style=dist_style),
+                Text(f"{r_mult:+.1f}R", style=row_style),
             )
 
         if not positions:
