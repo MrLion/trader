@@ -634,6 +634,60 @@ class AlpacaPaperEngine:
                 print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
 
 
+
+    def _handle_scale_out_fill(self, order, fill_price: float):
+        """Handle a scale-out (partial exit) order fill.
+
+        Shares were already reduced and scale_out_history recorded when the
+        order was submitted. Here we just update cash, log the event, and keep
+        the position open — NOT close_position() which would delete it entirely.
+
+        Args:
+            order: The filled Order object (order.qty = shares sold).
+            fill_price: Actual fill price from Alpaca.
+        """
+        position = self.state.positions[order.ticker]
+        shares_sold = order.qty
+        realized_pnl = (fill_price - position.entry_price) * shares_sold
+        self.state.cash += fill_price * shares_sold
+
+        # Log scale-out fill to trades.jsonl with the actual shares sold
+        trade_record = {
+            'event': 'EXIT',
+            'timestamp': datetime.now().isoformat(),
+            'ticker': order.ticker,
+            'entry_price': position.entry_price,
+            'exit_price': fill_price,
+            'shares': shares_sold,
+            'realized_pnl': realized_pnl,
+            'exit_reason': order.reason,
+            'stop_type': position.current_stop_type,
+            'initial_stop_price': position.initial_stop_price or 0.0,
+            'initial_risk': getattr(position, 'initial_risk', 0.0),
+            '_meta': {
+                'test_mode': False,
+                'data_dir': str(self.state.data_dir),
+                'source': 'paper_engine',
+                'partial_exit': True,
+                'remaining_shares': position.shares,
+            }
+        }
+        with open(self.state.trades_file, 'a') as f:
+            f.write(json.dumps(trade_record) + '\n')
+
+        if self.dashboard:
+            self.dashboard.log_event({
+                "type": "EXIT",
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                "ticker": order.ticker,
+                "detail": f"Scale-out {shares_sold} @ ${fill_price:.2f}",
+                "pnl": realized_pnl,
+            })
+
+        print(f"   📤 Scale-out filled: {order.ticker} {shares_sold} shares "
+              f"@ ${fill_price:.2f} ({order.reason})")
+        print(f"   📤 {position.shares} shares remain | P&L: ${realized_pnl:+.2f}")
+
     def _get_active_cooldowns(self) -> Dict[str, float]:
         """Return active cooldowns for dashboard display.
 
@@ -1251,30 +1305,35 @@ class AlpacaPaperEngine:
 
                 if order.ticker in self.state.positions:
                     fill_price = order.filled_price or self.state.positions[order.ticker].entry_price
-                    position = self.state.close_position(
-                        ticker=order.ticker,
-                        exit_price=fill_price,
-                        reason=order.reason
-                    )
-                    if position:
-                        pnl_emoji = "🎯" if position.realized_pnl and position.realized_pnl > 0 else "🛑"
-                        print(f"\n{pnl_emoji} EXIT CONFIRMED: {order.ticker}")
-                        print(f"   Fill Price: ${fill_price:.2f}")
-                        print(f"   Reason: {order.reason}")
-                        print(f"   P&L: ${position.realized_pnl:,.2f}")
 
-                        if self.dashboard:
-                            self.dashboard.log_event({
-                                "type": "EXIT",
-                                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                                "ticker": order.ticker,
-                                "detail": f"${fill_price:.2f}",
-                                "pnl": position.realized_pnl,
-                            })
+                    # Scale-out: partial exit, keep remaining position open
+                    if order.reason and order.reason.startswith("SCALE_OUT_"):
+                        self._handle_scale_out_fill(order, fill_price)
+                    else:
+                        position = self.state.close_position(
+                            ticker=order.ticker,
+                            exit_price=fill_price,
+                            reason=order.reason
+                        )
+                        if position:
+                            pnl_emoji = "🎯" if position.realized_pnl and position.realized_pnl > 0 else "🛑"
+                            print(f"\n{pnl_emoji} EXIT CONFIRMED: {order.ticker}")
+                            print(f"   Fill Price: ${fill_price:.2f}")
+                            print(f"   Reason: {order.reason}")
+                            print(f"   P&L: ${position.realized_pnl:,.2f}")
 
-                        # Record exit for cooldown tracking (FLY case study)
-                        realized_pnl = position.realized_pnl or 0.0
-                        self._record_position_exit(order.ticker, realized_pnl)
+                            if self.dashboard:
+                                self.dashboard.log_event({
+                                    "type": "EXIT",
+                                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                                    "ticker": order.ticker,
+                                    "detail": f"${fill_price:.2f}",
+                                    "pnl": position.realized_pnl,
+                                })
+
+                            # Record exit for cooldown tracking (FLY case study)
+                            realized_pnl = position.realized_pnl or 0.0
+                            self._record_position_exit(order.ticker, realized_pnl)
 
     def _reset_daily_signals(self):
         """Reset entry signals for new day."""

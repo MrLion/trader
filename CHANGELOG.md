@@ -1,3 +1,12 @@
+## [0.6.16.7] — 2026-05-11 — Bug Fix — Scale-Out Fill Closes Entire Position (Ghost Exit)
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_process_pending_orders()` no longer calls `close_position()` for scale-out exit fills. Previously, any scale-out order fill would delete the entire position from local state. On the next engine restart, `_sync_with_alpaca()` would recreate the position from Alpaca without `scale_out_history`, causing the same R-level trigger (e.g. 3.0R) to fire repeatedly — once per engine restart cycle. Now scale-out fills update cash, log the partial exit with the correct shares sold, and keep the remaining position open with its `scale_out_history` intact.
+
+### Changed
+- **`scripts/paper_engine_alpaca.py`** — Added `_handle_scale_out_fill()` method to handle partial exit fills separately from full position closes. Trade EXIT events now record `partial_exit: True` and `remaining_shares` in `_meta` for scale-outs.
+
+
 ## [0.6.16.6] — 2026-05-10 — Enhancement — DIST Column Replaced with R-Multiple
 
 ### Changed
