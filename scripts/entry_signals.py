@@ -146,7 +146,7 @@ class EntrySignalScanner:
     """Scan watchlist for tickers meeting entry criteria."""
 
     def __init__(self, mode: str = 'paper', risk_profile: str = None,
-                 pivot_mode: str = 'auto'):
+                 pivot_mode: str = 'pocket_pivot'):
         self.mode = mode
         self.risk_manager = RiskConfigManager(profile=risk_profile)
         self.risk_config = self.risk_manager.get_config()
@@ -665,8 +665,8 @@ Examples:
     parser.add_argument('--risk-profile', default=None,
                         help='Risk profile (conservative, aggressive, tight_stops)')
     parser.add_argument('--pivot-mode', choices=['auto', 'range_20d', 'vcp', 'pocket_pivot'],
-                        default='auto',
-                        help='Pivot detection technique (default: auto)')
+                        default='pocket_pivot',
+                        help='Pivot detection technique (default: pocket_pivot)')
 
     args = parser.parse_args()
 

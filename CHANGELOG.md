@@ -1,3 +1,9 @@
+## [0.6.16.8] — 2026-05-12 — Enhancement — Pocket Pivot Default Entry Mode
+
+### Changed
+- **`scripts/entry_signals.py`** — Default pivot mode changed from `auto` (VCP→pocket→20d fallback chain) to `pocket_pivot`. `--pivot-mode` now defaults to `pocket_pivot` when running without the flag. Tickets without a detectable pocket pivot still fall back to 20d range high (existing fallback at `ticker_analyzer.py:267`).
+
+
 ## [0.6.16.7] — 2026-05-11 — Bug Fix — Scale-Out Fill Closes Entire Position (Ghost Exit)
 
 ### Fixed
