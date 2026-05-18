@@ -212,7 +212,7 @@ class TickerAnalyzer:
                     ticker=ticker, file=str(self.watchlist_path)
                 )
 
-        sector = self.sector_resolver.resolve(ticker, getattr(self, '_universe_path', None))
+        sector = self.sector_resolver.resolve(ticker, self._universe_path)
         return pivot, sector
 
     # ------------------------------------------------------------------

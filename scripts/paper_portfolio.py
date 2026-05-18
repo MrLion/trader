@@ -165,8 +165,12 @@ def cmd_status(args):
     watchlist_df = None
     try:
         watchlist_df = pd.read_csv(data_dir.parent / 'watchlist.csv')
-    except Exception:
-        pass
+    except Exception as e:
+        TradingExceptionHandler.log_exception(
+            "watchlist_load", e,
+            severity=TradingExceptionHandler.WARNING,
+            file=str(data_dir.parent / 'watchlist.csv')
+        )
 
     # Initialize Alpaca client for real-time pricing
     try:

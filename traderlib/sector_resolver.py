@@ -28,21 +28,21 @@ class ThreadSafeRateLimiter:
         self.lock = threading.Lock()
 
     def acquire(self) -> None:
-        with self.lock:
-            now = time.monotonic()
-            elapsed = now - self.last_update
-            self.tokens = min(
-                self.max_per_minute,
-                self.tokens + elapsed * (self.max_per_minute / 60.0),
-            )
-            self.last_update = now
-            if self.tokens >= 1.0:
-                self.tokens -= 1.0
-                return
-            sleep_time = (1.0 - self.tokens) * (60.0 / self.max_per_minute)
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                elapsed = now - self.last_update
+                self.tokens = min(
+                    self.max_per_minute,
+                    self.tokens + elapsed * (self.max_per_minute / 60.0),
+                )
+                self.last_update = now
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return
+                sleep_time = (1.0 - self.tokens) * (60.0 / self.max_per_minute)
 
-        time.sleep(sleep_time)
-        self.acquire()
+            time.sleep(sleep_time)
 
 
 class SectorResolver:
