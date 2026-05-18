@@ -1,6 +1,8 @@
 import threading
 import time
+from pathlib import Path
 
+import pandas as pd
 import pytest
 
 
@@ -86,3 +88,134 @@ class TestThreadSafeRateLimiter:
 
         assert len(errors) == 0, f"Errors during contention: {errors}"
         assert len(timestamps) == 20
+
+
+class TestSectorResolverWatchlistFallback:
+    def test_resolves_from_watchlist(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL") == "Technology"
+
+    def test_watchlist_unknown_ticker(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("UNKNOWN") == "Unknown"
+
+    def test_watchlist_missing_sector_column(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL") == "Unknown"
+
+
+class TestSectorResolverUniverseFallback:
+    def test_resolves_from_universe_csv(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        universe = tmp_path / "large_cap_2026-05-17.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL", "MSFT"],
+            "Sector": ["Technology", "Technology"],
+            "Profile": ["large_cap", "large_cap"],
+        }).to_csv(universe, index=False)
+
+        resolver = SectorResolver()
+        assert resolver.resolve("AAPL", universe_path=universe) == "Technology"
+
+    def test_watchlist_overrides_universe(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Consumer Discretionary"],
+        }).to_csv(watchlist, index=False)
+
+        universe = tmp_path / "universe.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(universe, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL", universe_path=universe) == "Consumer Discretionary"
+
+    def test_universe_missing_sector_column(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        universe = tmp_path / "universe.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+        }).to_csv(universe, index=False)
+
+        resolver = SectorResolver()
+        assert resolver.resolve("AAPL", universe_path=universe) == "Unknown"
+
+
+class TestSectorResolverCaching:
+    def test_caches_watchlist_results(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        # First call
+        result1 = resolver.resolve("AAPL")
+        # Second call should hit cache
+        result2 = resolver.resolve("AAPL")
+        assert result1 == "Technology"
+        assert result2 == "Technology"
+        assert len(resolver._cache) == 1
+
+    def test_cache_persists_across_calls(self, tmp_path: Path):
+        from traderlib.sector_resolver import SectorResolver
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL", "MSFT"],
+            "Sector": ["Technology", "Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        resolver.resolve("AAPL")
+        resolver.resolve("MSFT")
+        assert resolver._cache == {"AAPL": "Technology", "MSFT": "Technology"}
+
+
+class TestSectorResolverFMPFallback:
+    def test_fmp_fallback_without_key_returns_unknown(self):
+        from traderlib.sector_resolver import SectorResolver
+
+        resolver = SectorResolver(fmp_api_key=None)
+        # No watchlist, no universe, no API key
+        assert resolver.resolve("AAPL") == "Unknown"
+
+    def test_prefetch_from_fmp_without_key_returns_all_unknown(self):
+        from traderlib.sector_resolver import SectorResolver
+
+        resolver = SectorResolver(fmp_api_key=None)
+        result = resolver.prefetch_from_fmp(["AAPL", "MSFT"])
+        assert result == {"AAPL": "Unknown", "MSFT": "Unknown"}
