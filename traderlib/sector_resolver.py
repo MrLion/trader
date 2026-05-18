@@ -103,40 +103,72 @@ class SectorResolver:
         return {t: self.resolve(t, universe_path) for t in tickers}
 
     def prefetch_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
-        """Batch-fetch sectors from FMP and populate cache."""
+        """Batch-fetch sectors from FMP and populate cache.
+
+        Retries up to 3 times on HTTP 429 (rate limit) with exponential backoff.
+        Non-429 errors are treated as permanent and return Unknown immediately.
+        """
         if not self._fmp_api_key:
             logger.warning("FMP_API_KEY not set; skipping sector prefetch")
             return {t: "Unknown" for t in tickers}
 
         from concurrent.futures import ThreadPoolExecutor
+        import time as _time
 
         def fetch_one(ticker: str) -> tuple[str, str]:
             self._limiter.acquire()
-            import requests
+            import requests as req
 
             url = f"{_FMP_BASE}/profile"
             params = {"symbol": ticker, "apikey": self._fmp_api_key}
-            try:
-                resp = requests.get(url, params=params, timeout=_REQUEST_TIMEOUT)
-                resp.raise_for_status()
-                data = resp.json()
-                if isinstance(data, list) and len(data) > 0:
-                    sector = data[0].get("sector", "Unknown")
-                    if sector in ("—", "ETF", ""):
-                        sector = "Unknown"
-                    return ticker, sector
-            except Exception as exc:
-                logger.debug("FMP sector fetch failed for %s: %s", ticker, exc)
+            for attempt in range(5):
+                try:
+                    resp = req.get(url, params=params, timeout=_REQUEST_TIMEOUT)
+                    if resp.status_code == 429:
+                        if attempt < 4:
+                            _time.sleep(1.0 + attempt * 1.5 + (hash(ticker) % 10) * 0.1)
+                            continue
+                        logger.debug("FMP 429 rate limited for %s after 5 attempts", ticker)
+                        return ticker, "Unknown"
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        sector = data[0].get("sector", "Unknown")
+                        if sector in ("—", "ETF", ""):
+                            sector = "Unknown"
+                        return ticker, sector
+                except req.HTTPError as exc:
+                    if attempt < 4:
+                        _time.sleep(1.0 + attempt * 1.5 + (hash(ticker) % 10) * 0.1)
+                        continue
+                    logger.debug("FMP sector fetch failed for %s: %s", ticker, exc)
+                    return ticker, "Unknown"
+                except Exception as exc:
+                    logger.debug("FMP sector fetch failed for %s: %s", ticker, exc)
+                    return ticker, "Unknown"
+                _time.sleep(0.5)
             return ticker, "Unknown"
 
         results: Dict[str, str] = {}
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(fetch_one, t) for t in tickers]
             for future in futures:
                 t, s = future.result()
                 results[t] = s
                 if s != "Unknown":
                     self._cache[t] = s
+
+        # Sequential cleanup pass — stragglers that 429'd despite retries
+        unknowns = [t for t, s in results.items() if s == "Unknown"]
+        if unknowns:
+            logger.info("Cleanup pass for %s stragglers...", len(unknowns))
+            _time.sleep(5.0)
+            for t in unknowns:
+                sector = fetch_one(t)[1]
+                if sector != "Unknown":
+                    results[t] = sector
+                    self._cache[t] = sector
+
         return results
 
     # ------------------------------------------------------------------
