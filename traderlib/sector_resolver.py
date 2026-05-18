@@ -93,7 +93,8 @@ class SectorResolver:
 
         # 3. FMP fallback
         sector = self._from_fmp(ticker)
-        self._cache[ticker] = sector
+        if sector != "Unknown":
+            self._cache[ticker] = sector
         return sector
 
     def resolve_many(
@@ -129,12 +130,13 @@ class SectorResolver:
             return ticker, "Unknown"
 
         results: Dict[str, str] = {}
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(fetch_one, t) for t in tickers]
             for future in futures:
                 t, s = future.result()
                 results[t] = s
-                self._cache[t] = s
+                if s != "Unknown":
+                    self._cache[t] = s
         return results
 
     # ------------------------------------------------------------------
