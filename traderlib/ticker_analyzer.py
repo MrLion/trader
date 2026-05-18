@@ -6,6 +6,7 @@ duplicated analysis logic (Stage 2 scoring, pivot detection, stop/target
 calculation, entry scoring, market conditions).
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,8 @@ from traderlib import get_entry_score, get_stage2_details, calculate_ma_support_
 from traderlib.pivot_detection import detect_pivot, PivotSignal
 from traderlib.sector_resolver import SectorResolver
 from traderlib.trading_exceptions import TradingExceptionHandler
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -342,9 +345,15 @@ class TickerAnalyzer:
                 # current ATR stop is above the pivot (which would be an invalid stop).
                 atr_stop_above_pivot = pivot and stop >= pivot
                 if tech_stop <= stop and not atr_stop_above_pivot:
-                    print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} looser than ATR/MA stop {stop:.2f}, keeping ATR/MA")
+                    logger.debug(
+                        "%s: %s stop %.2f looser than ATR/MA stop %.2f, keeping ATR/MA",
+                        ticker, detected_signal.pivot_type, tech_stop, stop
+                    )
                 elif not (min_stop <= tech_stop <= max_stop):
-                    print(f"   ℹ️  {ticker}: {detected_signal.pivot_type} stop {tech_stop:.2f} outside bounds [{min_stop:.2f}, {max_stop:.2f}], clamped to ATR/MA")
+                    logger.debug(
+                        "%s: %s stop %.2f outside bounds [%.2f, %.2f], clamped to ATR/MA",
+                        ticker, detected_signal.pivot_type, tech_stop, min_stop, max_stop
+                    )
                 else:
                     stop = tech_stop
                     risk_pct = abs((current - tech_stop) / current) * 100
@@ -359,7 +368,10 @@ class TickerAnalyzer:
                 stop = min_stop
                 clamped = True
             if clamped and stop_type not in ('ATR', 'MA'):
-                print(f"   ℹ️  {ticker}: {stop_type} stop clamped to bounds, reverting stop_type to ATR")
+                logger.debug(
+                    "%s: %s stop clamped to bounds, reverting stop_type to ATR",
+                    ticker, stop_type
+                )
                 stop_type = 'ATR'
 
             # Hard guard: for breakout entries, stop must be below pivot

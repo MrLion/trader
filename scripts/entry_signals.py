@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import pytz
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -241,8 +242,6 @@ class EntrySignalScanner:
         if universe_path:
             self.analyzer.set_universe_path(universe_path)
 
-        # Brief progress line (replaced by full dashboard output)
-        print(f"  ⟳  Scanning {len(tickers)} tickers...", end='\r', flush=True)
         t_start = time.monotonic()
 
         # Prefetch all earnings in one pass before the scan loop
@@ -260,18 +259,34 @@ class EntrySignalScanner:
         all_analyses:     List[Dict] = []
 
         technique = pivot_mode or self.pivot_mode
-        for ticker in tickers:
-            if self.earnings_calendar.is_earnings_blackout(ticker, today):
-                blackout_tickers.append(ticker)
-                continue
-            result = self.analyzer.analyze(ticker, technique=technique)
-            if result:
-                analysis = result.to_dict()
-                earnings_date = self.earnings_calendar.get_next_earnings(ticker)
-                earnings_days = (earnings_date - _date.today()).days if earnings_date else None
-                analysis['earnings_date'] = earnings_date
-                analysis['earnings_days'] = earnings_days
-                all_analyses.append(analysis)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("{task.fields[sig_count]} signals"),
+            TimeElapsedColumn(),
+            transient=True,
+        ) as progress:
+            task = progress.add_task(
+                f"Scanning {len(tickers)} tickers...", total=len(tickers), sig_count=0
+            )
+            for ticker in tickers:
+                progress.update(task, description=f"Analyzing {ticker}...")
+                if self.earnings_calendar.is_earnings_blackout(ticker, today):
+                    blackout_tickers.append(ticker)
+                    progress.advance(task)
+                    continue
+                result = self.analyzer.analyze(ticker, technique=technique)
+                if result:
+                    analysis = result.to_dict()
+                    earnings_date = self.earnings_calendar.get_next_earnings(ticker)
+                    earnings_days = (earnings_date - _date.today()).days if earnings_date else None
+                    analysis['earnings_date'] = earnings_date
+                    analysis['earnings_days'] = earnings_days
+                    all_analyses.append(analysis)
+                    progress.update(task, sig_count=len(all_analyses))
+                progress.advance(task)
 
         t_elapsed = time.monotonic() - t_start
 
