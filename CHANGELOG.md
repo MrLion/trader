@@ -1,3 +1,9 @@
+## [0.6.17.2] — 2026-05-17 — Enhancement — Rich Progress Bar + Silent Stop Logging
+
+### Changed
+- **`scripts/entry_signals.py`** — Scan loop now displays a `rich.progress` bar with animated spinner, progress bar, percentage, running signal count, and elapsed timer. The progress bar is transient (disappears cleanly when the scan completes, leaving only the dashboard output).
+- **`traderlib/ticker_analyzer.py`** — Three internal stop-decision `print()` messages (pocket_pivot stop looser than ATR/MA, outside bounds, clamped to bounds) converted to `logger.debug()`. These are no longer visible during normal scans; enable with `python3 scripts/entry_signals.py --debug` or `LOG_LEVEL=DEBUG` to see them for troubleshooting.
+
 ## [0.6.17.1] — 2026-05-17 — Bug Fix — Dashboard Unknown Sector Display
 
 ### Fixed
