@@ -213,6 +213,15 @@ class EntrySignalScanner:
         """Legacy method — delegates to _load_tickers_from_source."""
         return self._load_tickers_from_source()
 
+    def _resolve_universe_path(self, source: Optional[str]) -> Optional[Path]:
+        """If source is a universe profile, return the latest CSV path."""
+        if source is None:
+            return None
+        universe_dir = DATA_DIR / 'universes'
+        profile = source.replace('-', '_')
+        matches = sorted(universe_dir.glob(f"{profile}_*.csv"))
+        return matches[-1] if matches else None
+
     # ------------------------------------------------------------------
     # Main scan + dashboard
     # ------------------------------------------------------------------
@@ -226,6 +235,11 @@ class EntrySignalScanner:
         if not tickers:
             print("⚠️  No tickers to scan")
             return []
+
+        # Resolve universe path for sector lookup
+        universe_path = self._resolve_universe_path(source)
+        if universe_path:
+            self.analyzer.set_universe_path(universe_path)
 
         # Brief progress line (replaced by full dashboard output)
         print(f"  ⟳  Scanning {len(tickers)} tickers...", end='\r', flush=True)
