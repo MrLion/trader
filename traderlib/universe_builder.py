@@ -300,53 +300,13 @@ class UniverseBuilder:
     def _fetch_sectors_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
         """Fetch sector data from FMP for a list of tickers.
 
-        Uses ThreadPoolExecutor with a thread-safe rate limiter to stay
-        within the 300 req/min FMP paid-plan budget.
+        Delegates to SectorResolver.prefetch_from_fmp to avoid
+        duplicating rate-limiting and fetch logic.
         """
-        from concurrent.futures import ThreadPoolExecutor
-        from traderlib.sector_resolver import ThreadSafeRateLimiter
+        from traderlib.sector_resolver import SectorResolver
 
-        api_key = os.environ.get("FMP_API_KEY")
-        if not api_key:
-            TradingExceptionHandler.log_exception(
-                "fmp_api_key_missing",
-                Exception("FMP_API_KEY not set"),
-                severity=TradingExceptionHandler.WARNING,
-            )
-            return {t: "Unknown" for t in tickers}
-
-        limiter = ThreadSafeRateLimiter(max_per_minute=300)
-        results: Dict[str, str] = {}
-
-        def fetch_one(ticker: str) -> tuple[str, str]:
-            limiter.acquire()
-            import requests
-            url = "https://financialmodelingprep.com/stable/profile"
-            params = {"symbol": ticker, "apikey": api_key}
-            try:
-                resp = requests.get(url, params=params, timeout=5)
-                resp.raise_for_status()
-                data = resp.json()
-                if isinstance(data, list) and len(data) > 0:
-                    sector = data[0].get("sector", "Unknown")
-                    if sector in ("—", "ETF", ""):
-                        sector = "Unknown"
-                    return ticker, sector
-            except Exception as exc:
-                TradingExceptionHandler.log_exception(
-                    "fmp_sector_fetch", exc,
-                    severity=TradingExceptionHandler.DEBUG,
-                    ticker=ticker,
-                )
-            return ticker, "Unknown"
-
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(fetch_one, t) for t in tickers]
-            for future in futures:
-                ticker, sector = future.result()
-                results[ticker] = sector
-
-        return results
+        resolver = SectorResolver()
+        return resolver.prefetch_from_fmp(tickers)
 
     def build_universe(self, profile: str, force_refresh: bool = False) -> UniverseResult:
         """

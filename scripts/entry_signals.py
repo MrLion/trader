@@ -189,10 +189,10 @@ class EntrySignalScanner:
         universe_dir = DATA_DIR / 'universes'
         if not path.exists() and source.replace('-', '_') not in ('.', '/'):
             profile = source.replace('-', '_')
-            pattern = f"{profile}_*.csv"
-            matches = sorted(universe_dir.glob(pattern))
+            pattern = f"{profile}_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].csv"
+            matches = sorted(universe_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
             if matches:
-                latest = matches[-1]  # Glob is sorted lexicographically; YYYY-MM-DD works
+                latest = matches[-1]
                 print(f"  📁 Using universe: {latest.name}")
                 df = pd.read_csv(latest)
                 if 'Ticker' in df.columns:
@@ -219,7 +219,8 @@ class EntrySignalScanner:
             return None
         universe_dir = DATA_DIR / 'universes'
         profile = source.replace('-', '_')
-        matches = sorted(universe_dir.glob(f"{profile}_*.csv"))
+        pattern = f"{profile}_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].csv"
+        matches = sorted(universe_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
         return matches[-1] if matches else None
 
     # ------------------------------------------------------------------

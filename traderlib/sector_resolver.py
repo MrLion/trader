@@ -8,11 +8,9 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-# Load .env from project root if available
 from dotenv import load_dotenv
 
 _PROJECT_ROOT = Path(__file__).parent.parent
-load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +54,18 @@ class SectorResolver:
         watchlist_path: Optional[Path] = None,
         universe_dir: Optional[Path] = None,
     ):
+        load_dotenv(_PROJECT_ROOT / ".env")
         self._cache: Dict[str, str] = {}
         self._fmp_api_key = fmp_api_key or os.environ.get("FMP_API_KEY")
         self._limiter = ThreadSafeRateLimiter(max_per_minute=300)
         self._watchlist_path = watchlist_path or (_PROJECT_ROOT / "data" / "watchlist.csv")
         self._universe_dir = universe_dir or (_PROJECT_ROOT / "data" / "universes")
+        # Cached DataFrames to avoid repeated disk I/O
+        self._watchlist_df: Optional[pd.DataFrame] = None
+        self._watchlist_mtime: Optional[float] = None
+        self._universe_df: Optional[pd.DataFrame] = None
+        self._universe_mtime: Optional[float] = None
+        self._universe_path: Optional[Path] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -140,7 +145,11 @@ class SectorResolver:
         if not self._watchlist_path.exists():
             return "Unknown"
         try:
-            df = pd.read_csv(self._watchlist_path)
+            mtime = self._watchlist_path.stat().st_mtime
+            if self._watchlist_df is None or self._watchlist_mtime != mtime:
+                self._watchlist_df = pd.read_csv(self._watchlist_path)
+                self._watchlist_mtime = mtime
+            df = self._watchlist_df
             if "Sector" not in df.columns:
                 return "Unknown"
             row = df[df["Ticker"] == ticker]
@@ -155,7 +164,12 @@ class SectorResolver:
         if path is None or not path.exists():
             return "Unknown"
         try:
-            df = pd.read_csv(path)
+            mtime = path.stat().st_mtime
+            if self._universe_df is None or self._universe_path != path or self._universe_mtime != mtime:
+                self._universe_df = pd.read_csv(path)
+                self._universe_path = path
+                self._universe_mtime = mtime
+            df = self._universe_df
             if "Sector" not in df.columns:
                 return "Unknown"
             row = df[df["Ticker"] == ticker]
@@ -188,9 +202,19 @@ class SectorResolver:
             logger.debug("FMP sector fetch failed for %s: %s", ticker, exc)
         return "Unknown"
 
-    def _latest_universe_path(self) -> Optional[Path]:
-        """Auto-resolve the most recent universe CSV for the default profile."""
+    def _latest_universe_path(self, profile: Optional[str] = None) -> Optional[Path]:
+        """Auto-resolve the most recent universe CSV.
+
+        Args:
+            profile: Optional profile name filter (e.g. 'large_cap').
+                     If None, searches across all profiles.
+        """
         if not self._universe_dir.exists():
             return None
-        matches = sorted(self._universe_dir.glob("large_cap_*.csv"))
+        pattern = (
+            f"{profile}_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].csv"
+            if profile
+            else "*_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].csv"
+        )
+        matches = sorted(self._universe_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
         return matches[-1] if matches else None

@@ -161,6 +161,13 @@ def cmd_status(args):
 
     sector_resolver = SectorResolver()
 
+    # Load watchlist for stop-level fallback
+    watchlist_df = None
+    try:
+        watchlist_df = pd.read_csv(data_dir.parent / 'watchlist.csv')
+    except Exception:
+        pass
+
     # Initialize Alpaca client for real-time pricing
     try:
         alpaca = AlpacaClient(mode=args.mode)
@@ -305,6 +312,17 @@ def cmd_status(args):
             sector = pos.get('sector', 'Unknown')
             if sector == 'Unknown':
                 sector = sector_resolver.resolve(ticker)
+
+            # Stop-level fallback from watchlist if missing in position data
+            if stop == 0 and watchlist_df is not None:
+                try:
+                    row = watchlist_df[watchlist_df['Ticker'] == ticker]
+                    if not row.empty and 'Stop_Level' in watchlist_df.columns:
+                        stop_val = row['Stop_Level'].values[0]
+                        if pd.notna(stop_val) and stop_val > 0:
+                            stop = float(stop_val)
+                except Exception:
+                    pass
 
             # Get current price from Alpaca fetched values
             pos_value = position_values.get(ticker, {})
