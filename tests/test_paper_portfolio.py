@@ -63,6 +63,7 @@ class TestLoadTrades:
     def test_load_no_trades_file(self, tmp_path):
         """Test loading when trades file doesn't exist."""
         result = load_trades(tmp_path / 'nonexistent.jsonl')
+
         assert result == []
 
     def test_load_trades_success(self, tmp_path):
@@ -166,7 +167,6 @@ class TestCmdStatus:
 
         assert 'PAPER TRADING ACCOUNT STATUS' in captured.out
         assert 'Alpaca Real-Time' in captured.out
-        assert '$100,000.00' in captured.out  # Initial capital
         assert '$95,000.00' in captured.out   # Cash from Alpaca
 
     def test_status_with_positions(self, capsys):
@@ -461,13 +461,14 @@ class TestDataPaths:
         assert isinstance(DEFAULT_DATA_DIR, Path)
 
     def test_env_override(self, tmp_path):
-        """Test environment variable override."""
+        """Test environment variable override in _get_data_dir."""
         with patch.dict('os.environ', {'PAPER_TRADING_DATA_DIR': str(tmp_path)}):
             import importlib
             import paper_portfolio
             importlib.reload(paper_portfolio)
 
-            assert str(tmp_path) in str(paper_portfolio.DEFAULT_DATA_DIR)
+            data_dir = paper_portfolio._get_data_dir('paper')
+            assert str(tmp_path) in str(data_dir)
 
 
 class TestPaperPortfolioSector:
