@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker
+from traderlib.sector_resolver import SectorResolver
 
 # Data paths - configurable via environment variable for testing
 DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
@@ -158,16 +159,7 @@ def cmd_status(args):
 
     positions = load_json_file(positions_file)
 
-    # Load watchlist for sector lookup
-    watchlist_df = None
-    try:
-        watchlist_df = pd.read_csv(data_dir.parent / 'watchlist.csv')
-    except Exception as e:
-        TradingExceptionHandler.log_exception(
-            "watchlist_load", e,
-            severity=TradingExceptionHandler.WARNING,
-            file=str(data_dir.parent / 'watchlist.csv')
-        )
+    sector_resolver = SectorResolver()
 
     # Initialize Alpaca client for real-time pricing
     try:
@@ -309,25 +301,10 @@ def cmd_status(args):
             stop = pos.get('stop_price', 0)
             stop_type = pos.get('current_stop_type', 'HARD')
 
-            # Sector and stop lookup from watchlist if not in position data
+            # Sector lookup via resolver if not in position data
             sector = pos.get('sector', 'Unknown')
-            if watchlist_df is not None:
-                try:
-                    row = watchlist_df[watchlist_df['Ticker'] == ticker]
-                    if not row.empty:
-                        if sector == 'Unknown' and 'Sector' in row.columns:
-                            sector = str(row['Sector'].values[0])
-                        # Look up stop level from watchlist if missing
-                        if stop == 0 and 'Stop_Level' in row.columns:
-                            stop_val = row['Stop_Level'].values[0]
-                            if pd.notna(stop_val) and stop_val > 0:
-                                stop = float(stop_val)
-                except Exception as e:
-                    TradingExceptionHandler.log_exception(
-                        "stop_level_lookup", e,
-                        severity=TradingExceptionHandler.WARNING,
-                        ticker=ticker
-                    )
+            if sector == 'Unknown':
+                sector = sector_resolver.resolve(ticker)
 
             # Get current price from Alpaca fetched values
             pos_value = position_values.get(ticker, {})

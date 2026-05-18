@@ -62,9 +62,7 @@ class TestLoadTrades:
 
     def test_load_no_trades_file(self, tmp_path):
         """Test loading when trades file doesn't exist."""
-        with patch('paper_portfolio.TRADES_FILE', tmp_path / 'nonexistent.jsonl'):
-            result = load_trades()
-
+        result = load_trades(tmp_path / 'nonexistent.jsonl')
         assert result == []
 
     def test_load_trades_success(self, tmp_path):
@@ -76,8 +74,7 @@ class TestLoadTrades:
         ]
         trades_file.write_text('\n'.join(json.dumps(t) for t in trades))
 
-        with patch('paper_portfolio.TRADES_FILE', trades_file):
-            result = load_trades()
+        result = load_trades(trades_file)
 
         assert len(result) == 2
         assert result[0]['ticker'] == 'AAPL'
@@ -88,8 +85,7 @@ class TestLoadTrades:
         trades = [{'event': 'ENTRY', 'ticker': f'STK{i}'} for i in range(10)]
         trades_file.write_text('\n'.join(json.dumps(t) for t in trades))
 
-        with patch('paper_portfolio.TRADES_FILE', trades_file):
-            result = load_trades(limit=5)
+        result = load_trades(trades_file, limit=5)
 
         assert len(result) == 5
         # Should get last 5
@@ -100,8 +96,7 @@ class TestLoadTrades:
         trades_file = tmp_path / 'trades.jsonl'
         trades_file.write_text('\n{"event": "ENTRY"}\n\n{"event": "EXIT"}\n')
 
-        with patch('paper_portfolio.TRADES_FILE', trades_file):
-            result = load_trades()
+        result = load_trades(trades_file)
 
         assert len(result) == 2
 
@@ -110,9 +105,8 @@ class TestLoadTrades:
         trades_file = tmp_path / 'trades.jsonl'
         trades_file.write_text('invalid json')
 
-        with patch('paper_portfolio.TRADES_FILE', trades_file):
-            with patch('paper_portfolio.TradingExceptionHandler') as mock_handler:
-                result = load_trades()
+        with patch('paper_portfolio.TradingExceptionHandler') as mock_handler:
+            result = load_trades(trades_file)
 
         # Should return empty list on exception
         assert result == []
@@ -462,9 +456,9 @@ class TestDataPaths:
 
     def test_default_data_dir(self):
         """Test default data directory is a Path object."""
-        # DATA_DIR should be a Path instance
-        from paper_portfolio import DATA_DIR
-        assert isinstance(DATA_DIR, Path)
+        # DEFAULT_DATA_DIR should be a Path instance
+        from paper_portfolio import DEFAULT_DATA_DIR
+        assert isinstance(DEFAULT_DATA_DIR, Path)
 
     def test_env_override(self, tmp_path):
         """Test environment variable override."""
@@ -473,4 +467,19 @@ class TestDataPaths:
             import paper_portfolio
             importlib.reload(paper_portfolio)
 
-            assert str(tmp_path) in str(paper_portfolio.DATA_DIR)
+            assert str(tmp_path) in str(paper_portfolio.DEFAULT_DATA_DIR)
+
+
+class TestPaperPortfolioSector:
+    def test_resolver_reads_sector(self, tmp_path):
+        from traderlib.sector_resolver import SectorResolver
+        import pandas as pd
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL") == "Technology"
