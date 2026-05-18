@@ -1,3 +1,23 @@
+## [0.6.17.0] — 2026-05-17 — Feature — Sector Enrichment + Shared SectorResolver
+
+### Added
+- **`traderlib/sector_resolver.py`** — New shared `SectorResolver` with 3-tier fallback: watchlist CSV → universe CSV → FMP API `/stable/profile`. Includes `ThreadSafeRateLimiter` (token-bucket, `threading.Lock`-protected) for FMP's 300 req/min budget. In-memory cache prevents redundant lookups across calls.
+- **`traderlib/universe_builder.py`** — Universe CSV files now include a `Sector` column. FMP sector fetch runs after dollar-volume filter (~600 tickers) during `build_universe()`, cached with 4h TTL.
+- **`tests/test_sector_resolver.py`** — 14 tests covering rate limiter thread safety, 3-tier fallback chain, caching, FMP fail-open, and normalization of ETF noise (`"—"`, `"ETF"`, `""` → `'Unknown'`).
+
+### Changed
+- **`traderlib/ticker_analyzer.py`** — Sector lookup now delegates to `SectorResolver` instead of reading watchlist directly. `set_universe_path()` passes universe CSV to resolver for Tier 2 fallback.
+- **`scripts/entry_signals.py`** — Scan from universe profile (`--source large_cap`) now passes universe path to analyzer for sector resolution.
+- **`scripts/trend_screener.py`** — Output now includes `sector` via `SectorResolver`.
+- **`scripts/paper_engine_alpaca.py`** — Sector lookup replaced with `SectorResolver.resolve()`. Watchlist `Stop_Level`/`Pivot_Price` lookups preserved.
+- **`scripts/paper_portfolio.py`** — Sector lookup replaced with `SectorResolver.resolve()`. Watchlist `Stop_Level` fallback restored after review.
+- **`traderlib/strategies/vcp_breakout.py`** — `_get_sector()` implemented via `SectorResolver` (instance reused from `__init__`).
+- **`traderlib/backtest/strategy.py`** — Fixed PascalCase column bug: watchlist DataFrame columns normalized to snake_case before sector lookup.
+
+### Fixed
+- **PascalCase column normalization** in backtest strategy `watchlist_df` lookup — previously `'sector'` (snake_case) was checked against PascalCase DataFrame columns, always returning `'Unknown'`.
+
+
 ## [0.6.16.8] — 2026-05-12 — Enhancement — Pocket Pivot Default Entry Mode
 
 ### Changed
