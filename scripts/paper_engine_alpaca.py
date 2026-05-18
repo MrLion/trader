@@ -37,6 +37,7 @@ from traderlib.strategies import (
 )
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
+from traderlib.sector_resolver import SectorResolver
 
 # FINDING-007: Weekend/holiday market hours
 from traderlib.market_hours import market_hours, is_market_open, is_trading_day, next_market_open, format_market_status
@@ -260,22 +261,19 @@ class AlpacaPaperEngine:
     def _sync_with_alpaca(self):
         """Sync local state with Alpaca positions."""
         try:
-            # Load watchlist for sector lookup
-            watchlist_sectors = {}
+            # Load watchlist for Stop_Level / Pivot_Price lookup
+            watchlist_df = None
             try:
-                df = pd.read_csv(WATCHLIST_PATH)
-                if 'Ticker' in df.columns and 'Sector' in df.columns:
-                    watchlist_sectors = {
-                        row['Ticker']: str(row['Sector']) if pd.notna(row['Sector']) else 'Unknown'
-                        for _, row in df.iterrows()
-                    }
+                watchlist_df = pd.read_csv(WATCHLIST_PATH)
             except Exception as e:
                 TradingExceptionHandler.log_exception(
                     "watchlist_load", e,
                     severity=TradingExceptionHandler.CRITICAL,
                     file=str(WATCHLIST_PATH)
                 )
-                watchlist_sectors = {}
+
+            # Sector resolver for unified sector lookup
+            sector_resolver = SectorResolver()
 
             # Sync positions via order manager
             sync_result = self.order_manager.sync_positions(self.state.positions)
@@ -285,8 +283,8 @@ class AlpacaPaperEngine:
                     ticker = pos['ticker']
                     print(f"📥 Syncing {ticker} position from Alpaca")
 
-                    # Get sector from watchlist, fallback to 'Unknown'
-                    sector = watchlist_sectors.get(ticker, 'Unknown')
+                    # Get sector via unified resolver (watchlist -> universe -> FMP)
+                    sector = sector_resolver.resolve(ticker)
 
                     # DANGEROUS FALLBACK FIX: Don't estimate stop_price from Alpaca
                     # Look up stop from watchlist or mark as UNSYNCED
@@ -297,15 +295,16 @@ class AlpacaPaperEngine:
                     
                     # Try to get proper stop from watchlist
                     try:
-                        row = df[df['Ticker'] == ticker]
-                        if not row.empty and 'Stop_Level' in row.columns:
-                            stop_val = row['Stop_Level'].values[0]
-                            if pd.notna(stop_val) and stop_val > 0:
-                                stop_price = float(stop_val)
-                                # Recalculate target based on actual stop
-                                risk = pos['avg_price'] - stop_price; r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
-                                target_price = pos['avg_price'] + (r_mult * risk) if risk > 0 else pos['avg_price'] * 1.05
-                                print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
+                        if watchlist_df is not None:
+                            row = watchlist_df[watchlist_df['Ticker'] == ticker]
+                            if not row.empty and 'Stop_Level' in row.columns:
+                                stop_val = row['Stop_Level'].values[0]
+                                if pd.notna(stop_val) and stop_val > 0:
+                                    stop_price = float(stop_val)
+                                    # Recalculate target based on actual stop
+                                    risk = pos['avg_price'] - stop_price; r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+                                    target_price = pos['avg_price'] + (r_mult * risk) if risk > 0 else pos['avg_price'] * 1.05
+                                    print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
                     except Exception as e:
                         TradingExceptionHandler.log_exception(
                             "watchlist_stop_lookup", e,
