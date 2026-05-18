@@ -1,3 +1,9 @@
+## [0.6.17.3] — 2026-05-17 — Enhancement — Parallel Setup + Status Messages
+
+### Changed
+- **`scripts/entry_signals.py`** — Earnings prefetch and market conditions check now run in parallel via `ThreadPoolExecutor(max_workers=2)`, reducing the silent delay before the scan progress bar appears by approximately 50%.
+- **`scripts/entry_signals.py`** — Added status messages before setup phase so the user knows what's happening: `📅 Prefetching earnings for N tickers...` and `📊 Checking market conditions...`.
+
 ## [0.6.17.2] — 2026-05-17 — Enhancement — Rich Progress Bar + Silent Stop Logging
 
 ### Changed
