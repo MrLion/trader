@@ -349,10 +349,17 @@ class Dashboard:
         if not positions or equity <= 0:
             return Text("")
 
+        from traderlib.sector_resolver import SectorResolver
+        resolver = SectorResolver()
+
         # Aggregate by sector
         sector_values: Dict[str, float] = {}
         for pos in positions.values():
             sector = pos.get("sector", "Unknown")
+            if sector == "Unknown":
+                ticker = pos.get("ticker") or pos.get("symbol", "")
+                if ticker:
+                    sector = resolver.resolve(ticker)
             current = float(pos.get("current_price") or pos.get("entry_price", 0))
             shares = int(pos.get("shares", 0))
             sector_values[sector] = sector_values.get(sector, 0.0) + current * shares

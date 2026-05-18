@@ -365,6 +365,13 @@ class AlpacaPaperEngine:
                             print(f"📝 Syncing entry price for {ticker}: ${local_pos.entry_price:.2f} → ${alpaca_entry:.2f}")
                             local_pos.entry_price = alpaca_entry
                             self.state.save_state()
+                        # Re-resolve sector if still Unknown (positions from before sector enrichment)
+                        if getattr(local_pos, 'sector', 'Unknown') == 'Unknown':
+                            resolved = sector_resolver.resolve(ticker)
+                            if resolved != 'Unknown':
+                                local_pos.sector = resolved
+                                print(f"   🏷️  {ticker}: sector resolved → {resolved}")
+                                self.state.save_state()
 
             # Update cash
             account = self.alpaca.get_account()
