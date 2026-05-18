@@ -43,6 +43,7 @@ from traderlib.stage2_utils import (
 from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
 from traderlib.risk_config import RiskConfigManager
 from traderlib.universe_builder import UniverseBuilder
+from traderlib.sector_resolver import SectorResolver
 
 
 class TrendScreener:
@@ -51,6 +52,7 @@ class TrendScreener:
     def __init__(self, mode: str = 'paper'):
         self.alpaca = AlpacaClient(mode=mode)
         self.exit_engine = ExitEngine()
+        self.sector_resolver = SectorResolver()
         self.spy_cache: Dict[str, pd.DataFrame] = {}
         self._filter_counts: Dict[str, int] = {}
 
@@ -314,6 +316,7 @@ class TrendScreener:
             'vcp_data': vcp_data,
         }
 
+        result['sector'] = self.sector_resolver.resolve(ticker)
         self._filter_counts['passed'] = self._filter_counts.get('passed', 0) + 1
         return result
 

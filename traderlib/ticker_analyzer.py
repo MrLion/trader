@@ -16,6 +16,7 @@ import pytz
 
 from traderlib import get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.pivot_detection import detect_pivot, PivotSignal
+from traderlib.sector_resolver import SectorResolver
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 
@@ -80,17 +81,25 @@ class TickerAnalysis:
 class TickerAnalyzer:
     """Analyze a single ticker — price, Stage 2, pivot, stop, target, score."""
 
-    def __init__(self, alpaca, risk_config, watchlist_path: Optional[Path] = None):
+    def __init__(self, alpaca, risk_config, watchlist_path: Optional[Path] = None,
+                 sector_resolver=None):
         """
         Args:
             alpaca: AlpacaClient instance
             risk_config: RiskConfig dataclass
             watchlist_path: Path to watchlist CSV (optional — if None, manual pivots are skipped)
+            sector_resolver: SectorResolver instance (optional — created automatically if None)
         """
         self.alpaca = alpaca
         self.risk_config = risk_config
         self.watchlist_path = watchlist_path
+        self.sector_resolver = sector_resolver or SectorResolver(watchlist_path=watchlist_path)
+        self._universe_path: Optional[Path] = None
         self.spy_cache = {'date': None, 'return_6m': 0.0, 'price': None}
+
+    def set_universe_path(self, path: Path) -> None:
+        """Set universe CSV path for sector resolution."""
+        self._universe_path = path
 
     # ------------------------------------------------------------------
     # Shared helpers
@@ -182,35 +191,29 @@ class TickerAnalyzer:
         return True, spy_str, vix_str
 
     def _load_watchlist_pivot_and_sector(self, ticker: str) -> tuple:
-        """Return (pivot, sector) from watchlist CSV."""
-        if self.watchlist_path is None or not self.watchlist_path.exists():
-            return None, 'Unknown'
-        try:
-            df = pd.read_csv(self.watchlist_path)
-            row = df[df['Ticker'] == ticker]
-            if row.empty:
-                return None, 'Unknown'
+        """Return (pivot, sector) for ticker.
 
-            pivot = None
-            if 'Pivot_Price' in row.columns:
-                pv = row['Pivot_Price'].values[0]
-                if not pd.isna(pv):
-                    pivot = float(pv)
+        Pivot comes from watchlist CSV if present.
+        Sector comes from SectorResolver (watchlist → universe → FMP).
+        """
+        pivot = None
+        if self.watchlist_path is not None and self.watchlist_path.exists():
+            try:
+                df = pd.read_csv(self.watchlist_path)
+                row = df[df['Ticker'] == ticker]
+                if not row.empty and 'Pivot_Price' in row.columns:
+                    pv = row['Pivot_Price'].values[0]
+                    if not pd.isna(pv):
+                        pivot = float(pv)
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "watchlist_lookup", e,
+                    severity=TradingExceptionHandler.WARNING,
+                    ticker=ticker, file=str(self.watchlist_path)
+                )
 
-            sector = 'Unknown'
-            if 'Sector' in row.columns:
-                sv = row['Sector'].values[0]
-                if not pd.isna(sv):
-                    sector = str(sv)
-
-            return pivot, sector
-        except Exception as e:
-            TradingExceptionHandler.log_exception(
-                "watchlist_lookup", e,
-                severity=TradingExceptionHandler.WARNING,
-                ticker=ticker, file=str(self.watchlist_path)
-            )
-            return None, 'Unknown'
+        sector = self.sector_resolver.resolve(ticker, self._universe_path)
+        return pivot, sector
 
     # ------------------------------------------------------------------
     # Core analysis

@@ -13,6 +13,7 @@ import pytz
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 from traderlib.pivot_detection import PivotSignal
 from traderlib.risk_config import RiskConfigManager
+from traderlib.sector_resolver import SectorResolver
 
 
 @pytest.fixture
@@ -126,6 +127,7 @@ class TestLoadWatchlistPivotAndSector:
         csv_path = tmp_path / "watchlist.csv"
         csv_path.write_text("Ticker,Pivot_Price,Sector\nAAPL,155.0,Technology\n")
         analyzer.watchlist_path = csv_path
+        analyzer.sector_resolver = SectorResolver(watchlist_path=csv_path)
 
         pivot, sector = analyzer._load_watchlist_pivot_and_sector('AAPL')
 
@@ -137,6 +139,7 @@ class TestLoadWatchlistPivotAndSector:
         csv_path = tmp_path / "watchlist.csv"
         csv_path.write_text("Ticker,Sector\nAAPL,Technology\n")
         analyzer.watchlist_path = csv_path
+        analyzer.sector_resolver = SectorResolver(watchlist_path=csv_path)
 
         pivot, sector = analyzer._load_watchlist_pivot_and_sector('AAPL')
 
@@ -544,3 +547,37 @@ class TestTickerAnalysis:
         assert d['tier'] == 'Tier 1'
         assert d['pivot'] == 150.0
         assert d['pivot_type'] == 'manual'
+
+
+class TestTickerAnalyzerSectorResolver:
+    """Test SectorResolver injection into TickerAnalyzer."""
+
+    def test_analyzer_uses_resolver_for_sector(self, mock_alpaca, risk_config):
+        """Test that analyzer delegates sector lookup to injected resolver."""
+        from unittest.mock import MagicMock
+
+        # Mock resolver
+        resolver = MagicMock()
+        resolver.resolve.return_value = "Technology"
+
+        analyzer = TickerAnalyzer(mock_alpaca, risk_config, watchlist_path=None, sector_resolver=resolver)
+        sector = analyzer._load_watchlist_pivot_and_sector("AAPL")[1]
+
+        assert sector == "Technology"
+        resolver.resolve.assert_called_once_with("AAPL", None)
+
+    def test_analyzer_passes_universe_path_to_resolver(self, mock_alpaca, risk_config, tmp_path):
+        """Test that set_universe_path is forwarded to resolver."""
+        from unittest.mock import MagicMock
+
+        resolver = MagicMock()
+        resolver.resolve.return_value = "Technology"
+
+        analyzer = TickerAnalyzer(mock_alpaca, risk_config, watchlist_path=None, sector_resolver=resolver)
+        universe_path = tmp_path / "large_cap_2026-05-17.csv"
+        analyzer.set_universe_path(universe_path)
+
+        sector = analyzer._load_watchlist_pivot_and_sector("AAPL")[1]
+
+        assert sector == "Technology"
+        resolver.resolve.assert_called_once_with("AAPL", universe_path)

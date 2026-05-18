@@ -42,8 +42,9 @@ class TestEntrySignalScanner:
 class TestLoadWatchlist:
     """Test _load_watchlist method."""
 
+    @patch('entry_signals.Path.exists', return_value=True)
     @patch('entry_signals.pd.read_csv')
-    def test_load_watchlist_success(self, mock_read_csv, scanner):
+    def test_load_watchlist_success(self, mock_read_csv, mock_exists, scanner):
         """Test successful watchlist loading."""
         mock_watchlist = pd.DataFrame({
             'Ticker': ['AAPL', 'MSFT', 'GOOGL'],
@@ -204,3 +205,28 @@ class TestRiskConfigIntegration:
             scanner = EntrySignalScanner(mode='paper', risk_profile='nonexistent')
             # Should still have valid config with defaults
             assert scanner.risk_config.entry.min_entry_score == 60
+
+
+class TestEntrySignalsSector:
+    """Test universe path wiring for sector resolution."""
+
+    def test_scan_sets_universe_path_for_universe_source(self, scanner, tmp_path):
+        """Test that scanning from a universe profile sets the analyzer's universe path."""
+        scanner.analyzer.check_market_conditions = Mock(return_value=(True, "SPY OK", None))
+        scanner.analyzer.analyze = Mock(return_value=None)
+        scanner.earnings_calendar.get_next_earnings = Mock(return_value=None)
+
+        # Create a fake universe CSV
+        universe_dir = tmp_path / "universes"
+        universe_dir.mkdir()
+        universe_csv = universe_dir / "large_cap_2026-05-17.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(universe_csv, index=False)
+
+        # Point scanner's DATA_DIR to tmp_path
+        with patch("entry_signals.DATA_DIR", tmp_path):
+            scanner.scan(tickers=["AAPL"], source="large_cap")
+
+        assert scanner.analyzer._universe_path == universe_csv

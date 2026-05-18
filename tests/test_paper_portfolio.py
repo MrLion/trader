@@ -469,3 +469,18 @@ class TestDataPaths:
 
             data_dir = paper_portfolio._get_data_dir('paper')
             assert str(tmp_path) in str(data_dir)
+
+
+class TestPaperPortfolioSector:
+    def test_resolver_reads_sector(self, tmp_path):
+        from traderlib.sector_resolver import SectorResolver
+        import pandas as pd
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL") == "Technology"

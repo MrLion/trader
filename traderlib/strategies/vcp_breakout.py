@@ -40,6 +40,9 @@ class VCPBreakoutBase(Strategy):
         self.watchlist_tickers = watchlist_tickers or []
         self.watchlist_df = watchlist_df
 
+        from traderlib.sector_resolver import SectorResolver
+        self._sector_resolver = SectorResolver()
+
         # Load profile-specific parameters from config
         self._load_profile_params()
 
@@ -159,9 +162,8 @@ class VCPBreakoutBase(Strategy):
         return self.watchlist_tickers
 
     def _get_sector(self, ticker: str) -> str:
-        """Get sector for ticker (cached)."""
-        # Would implement sector lookup
-        return 'Unknown'
+        """Get sector for ticker via SectorResolver."""
+        return self._sector_resolver.resolve(ticker)
 
     def _calculate_shares(self, context: StrategyContext, entry: float, stop: float) -> int:
         """Triple-constraint position sizing."""

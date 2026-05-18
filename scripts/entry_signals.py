@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.earnings_calendar import EarningsCalendar
 from traderlib.risk_config import RiskConfigManager
+from traderlib.sector_resolver import SectorResolver
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker, validate_tickers
@@ -189,10 +190,10 @@ class EntrySignalScanner:
         universe_dir = DATA_DIR / 'universes'
         if not path.exists() and source.replace('-', '_') not in ('.', '/'):
             profile = source.replace('-', '_')
-            pattern = f"{profile}_*.csv"
-            matches = sorted(universe_dir.glob(pattern))
+            pattern = f"{profile}_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].csv"
+            matches = sorted(universe_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
             if matches:
-                latest = matches[-1]  # Glob is sorted lexicographically; YYYY-MM-DD works
+                latest = matches[-1]
                 print(f"  📁 Using universe: {latest.name}")
                 df = pd.read_csv(latest)
                 if 'Ticker' in df.columns:
@@ -213,6 +214,14 @@ class EntrySignalScanner:
         """Legacy method — delegates to _load_tickers_from_source."""
         return self._load_tickers_from_source()
 
+    def _resolve_universe_path(self, source: Optional[str]) -> Optional[Path]:
+        """If source is a universe profile, return the latest CSV path."""
+        if source is None:
+            return None
+        profile = source.replace('-', '_')
+        resolver = SectorResolver(universe_dir=DATA_DIR / 'universes')
+        return resolver._latest_universe_path(profile)
+
     # ------------------------------------------------------------------
     # Main scan + dashboard
     # ------------------------------------------------------------------
@@ -226,6 +235,11 @@ class EntrySignalScanner:
         if not tickers:
             print("⚠️  No tickers to scan")
             return []
+
+        # Resolve universe path for sector lookup
+        universe_path = self._resolve_universe_path(source)
+        if universe_path:
+            self.analyzer.set_universe_path(universe_path)
 
         # Brief progress line (replaced by full dashboard output)
         print(f"  ⟳  Scanning {len(tickers)} tickers...", end='\r', flush=True)

@@ -431,5 +431,22 @@ class TestPrintStatus(unittest.TestCase):
         asyncio.run(async_print_status())
 
 
+class TestPaperEngineSectorResolver:
+    def test_sync_uses_resolver_for_sector(self, tmp_path):
+        from traderlib.sector_resolver import SectorResolver
+        import pandas as pd
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+            "Stop_Level": [90.0],
+        }).to_csv(watchlist, index=False)
+
+        resolver = SectorResolver(watchlist_path=watchlist)
+        assert resolver.resolve("AAPL") == "Technology"
+        assert resolver.resolve("MSFT") == "Unknown"
+
+
 if __name__ == '__main__':
     unittest.main()

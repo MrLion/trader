@@ -131,7 +131,8 @@ class Stage2MomentumStrategy(Strategy):
     def __init__(self, exit_engine: ExitEngine, watchlist_tickers: Optional[list[str]] = None,
                  risk_config: Optional[RiskConfig] = None,
                  execution_config: Optional[ExecutionConfig] = None,
-                 watchlist_df: Optional[pd.DataFrame] = None):
+                 watchlist_df: Optional[pd.DataFrame] = None,
+                 sector_dict: Optional[dict[str, str]] = None):
         """Initialize with dependencies.
 
         Args:
@@ -151,6 +152,7 @@ class Stage2MomentumStrategy(Strategy):
         self._spy_return_cache: dict[date, float] = {}
         # Sector cache - populated from watchlist_df sector column or provided dict
         self._sector_cache: dict[str, str] = {}
+        self.sector_dict = sector_dict or {}
         # Note: No yfinance imports - backtest must use provided sector data only
 
         # Load strategy-specific parameters from config/strategies/stage2_momentum.yaml.
@@ -214,7 +216,11 @@ class Stage2MomentumStrategy(Strategy):
         # Try to get from watchlist_df sector column
         if self.watchlist_df is not None:
             try:
-                active = self.watchlist_df[pd.to_datetime(self.watchlist_df['week_start']) <= pd.Timestamp(date.today())]
+                # Normalize column names to snake_case for consistent lookup
+                df = self.watchlist_df.copy()
+                df.columns = [c.lower().replace(' ', '_') for c in df.columns]
+
+                active = df[pd.to_datetime(df['week_start']) <= pd.Timestamp(date.today())]
                 active = active.sort_values('week_start').groupby('ticker').last().reset_index()
                 ticker_row = active[active['ticker'] == ticker]
                 if len(ticker_row) > 0 and 'sector' in ticker_row.columns:
@@ -224,6 +230,11 @@ class Stage2MomentumStrategy(Strategy):
                         return self._sector_cache[ticker]
             except Exception:
                 pass
+
+        # Fallback to explicit sector_dict if provided
+        if ticker in self.sector_dict:
+            self._sector_cache[ticker] = self.sector_dict[ticker]
+            return self.sector_dict[ticker]
 
         # Default to Unknown if no sector data available
         self._sector_cache[ticker] = 'Unknown'

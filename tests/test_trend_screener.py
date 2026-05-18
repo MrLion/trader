@@ -329,5 +329,29 @@ class TestRelativeStrength(unittest.TestCase):
             self.assertIsInstance(ret, float)
 
 
+class TestTrendScreenerSector:
+    def test_analyze_ticker_includes_sector(self, tmp_path):
+        from unittest.mock import MagicMock, patch
+        import pandas as pd
+
+        with patch('scripts.trend_screener.AlpacaClient', MockAlpacaClient):
+            from scripts.trend_screener import TrendScreener
+            screener = TrendScreener()
+        screener.sector_resolver = MagicMock()
+        screener.sector_resolver.resolve.return_value = "Technology"
+
+        with patch.object(screener, "_is_rs_near_high", return_value=(True, 5.0)):
+            with patch.object(screener.alpaca, "get_bars", return_value=pd.DataFrame({
+                "Close": list(range(100, 300)),
+                "High": list(range(105, 305)),
+                "Low": list(range(95, 295)),
+                "Volume": [1_000_000] * 200,
+            })):
+                result = screener._analyze_ticker("AAPL", {}, "large_cap")
+
+        assert result is not None
+        assert result["sector"] == "Technology"
+
+
 if __name__ == '__main__':
     unittest.main()
