@@ -354,12 +354,12 @@ class Dashboard:
 
         # Aggregate by sector
         sector_values: Dict[str, float] = {}
-        for pos in positions.values():
+        resolved_sectors: Dict[str, str] = {}
+        for ticker, pos in positions.items():
             sector = pos.get("sector", "Unknown")
             if sector == "Unknown":
-                ticker = pos.get("ticker") or pos.get("symbol", "")
-                if ticker:
-                    sector = resolver.resolve(ticker)
+                sector = resolver.resolve(ticker)
+            resolved_sectors[ticker] = sector
             current = float(pos.get("current_price") or pos.get("entry_price", 0))
             shares = int(pos.get("shares", 0))
             sector_values[sector] = sector_values.get(sector, 0.0) + current * shares
@@ -372,7 +372,7 @@ class Dashboard:
             pct = (value / equity) * 100
             filled = int(min(pct / 3.0, 1.0) * 10)  # 3% = full bar
             bar = "█" * filled + "░" * (10 - filled)
-            pos_count = sum(1 for p in positions.values() if p.get("sector", "Unknown") == sector)
+            pos_count = sum(1 for s in resolved_sectors.values() if s == sector)
             lines.append(f"  {sector:<14} [{bar}]  {pct:>5.1f}% ({pos_count} pos)")
 
         return Text.from_markup("\n".join(lines))
