@@ -1,3 +1,8 @@
+## [0.6.17.4] — 2026-05-17 — Enhancement — Animated Spinner for Setup Phase
+
+### Changed
+- **`scripts/entry_signals.py`** — Setup phase status messages now display with an animated `rich` dots spinner instead of plain static text. The spinner appears while earnings prefetch and market conditions run in parallel, giving clear visual feedback that the script is active.
+
 ## [0.6.17.3] — 2026-05-17 — Enhancement — Parallel Setup + Status Messages
 
 ### Changed
