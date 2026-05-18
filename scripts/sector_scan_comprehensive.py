@@ -11,144 +11,21 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
+import yaml
 import yfinance as yf
 
 from traderlib import calculate_stage2_score
 
-# Full ETF universe from comprehensive CSV
-ETFS = [
-    ("USO", "Oil (commodity)"),
-    ("DBE", "Energy"),
-    ("OIH", "Oil Services"),
-    ("XOP", "E&P (Exploration)"),
-    ("EWY", "South Korea"),
-    ("PDBC", "Opt Yield Commodities"),
-    ("FCG", "Natural Gas"),
-    ("DBC", "Broad Commodities"),
-    ("XLE", "Energy"),
-    ("XTL", "Telecom"),
-    ("CRAK", "Refiners"),
-    ("SLV", "Silver"),
-    ("EWZ", "Brazil"),
-    ("BDRY", "Dry Bulk Shipping"),
-    ("FAN", "Wind Energy"),
-    ("REMX", "Rare Earths"),
-    ("LIT", "Lithium/Battery"),
-    ("SIL", "Silver Miners"),
-    ("XBI", "Biotech"),
-    ("COPX", "Copper Miners"),
-    ("SOXX", "PHLX Semiconductor"),
-    ("DBP", "Precious Metals"),
-    ("GDX", "Gold Miners"),
-    ("AMLP", "MLPs/Midstream"),
-    ("TAN", "Solar Energy"),
-    ("GDXJ", "Junior Gold Miners"),
-    ("RNRG", "Renewables"),
-    ("EWT", "Taiwan"),
-    ("GLD", "Gold"),
-    ("SMH", "Semiconductors"),
-    ("ICLN", "Clean Energy"),
-    ("PPLT", "Platinum"),
-    ("XLB", "Materials"),
-    ("VLUE", "Value Factor"),
-    ("DBB", "Base Metals"),
-    ("XME", "Metals & Mining"),
-    ("PBJ", "Food & Beverage"),
-    ("IFRA", "Infrastructure"),
-    ("CARZ", "Auto"),
-    ("XTN", "Transportation"),
-    ("EWU", "UK"),
-    ("GRID", "Smart Grid"),
-    ("IBB", "Nasdaq Biotech"),
-    ("PPH", "Pharma"),
-    ("EWJ", "Japan"),
-    ("XLU", "Utilities"),
-    ("PALL", "Palladium"),
-    ("IWN", "Small Cap Value"),
-    ("DBA", "Agriculture"),
-    ("XPH", "Pharma (alt)"),
-    ("PAVE", "Infrastructure"),
-    ("XAR", "Aerospace/Defense"),
-    ("QCLN", "Clean Energy/Transport"),
-    ("XLP", "Consumer Staples"),
-    ("XLI", "Industrials"),
-    ("EEM", "Emerging Markets"),
-    ("IWD", "Value (Russell)"),
-    ("URA", "Uranium"),
-    ("KRE", "Regional Banks"),
-    ("EFA", "Developed Markets"),
-    ("SCHH", "REITs"),
-    ("PSR", "Active REITs"),
-    ("ITA", "Aerospace/Defense"),
-    ("SPLV", "Low Volatility"),
-    ("IYT", "Transportation"),
-    ("VGK", "Europe"),
-    ("IWM", "Russell 2000"),
-    ("FXR", "Transportation/Logistics"),
-    ("KBE", "Banks"),
-    ("RGI", "Industrials Equal Weight"),
-    ("MUB", "Municipal Bonds"),
-    ("SHY", "1-3 Year Treasuries"),
-    ("REZ", "Residential REITs"),
-    ("JNK", "Junk Bonds"),
-    ("XLRE", "Real Estate"),
-    ("HYG", "High Yield"),
-    ("TIP", "TIPS"),
-    ("VNQ", "REITs Broad"),
-    ("AGG", "Total Bond Market"),
-    ("RSP", "S&P 500 Equal Weight"),
-    ("BND", "Total Bond Market"),
-    ("IYR", "US Real Estate"),
-    ("IEF", "7-10 Year Treasuries"),
-    ("EMB", "Emerging Market Bonds"),
-    ("LQD", "IG Corporate"),
-    ("REM", "mREITs"),
-    ("MORT", "Mortgage REITs"),
-    ("TLT", "20+ Year Treasuries"),
-    ("XLV", "Health Care"),
-    ("USMV", "Min Volatility"),
-    ("DIA", "Dow Jones"),
-    ("QUAL", "Quality Factor"),
-    ("IWO", "Small Cap Growth"),
-    ("VTI", "Total Stock Market"),
-    ("SPY", "S&P 500"),
-    ("MTUM", "Momentum Factor"),
-    ("PEJ", "Leisure/Entertainment"),
-    ("QQQ", "NASDAQ 100"),
-    ("JETS", "Airlines"),
-    ("XLC", "Communication Services"),
-    ("XLK", "Technology"),
-    ("IAI", "Broker-Dealers"),
-    ("EWG", "Germany"),
-    ("XHE", "Health Care Equipment"),
-    ("KIE", "Insurance"),
-    ("AIQ", "Artificial Intelligence"),
-    ("XRT", "Retail"),
-    ("RYF", "Financial Services"),
-    ("XLF", "Financials"),
-    ("HACK", "Cybersecurity"),
-    ("ARKG", "Genomics"),
-    ("BIZD", "BDCs"),
-    ("IWF", "Growth Factor"),
-    ("HOMZ", "Housing"),
-    ("BOTZ", "Robotics/Automation"),
-    ("XLY", "Consumer Discretionary"),
-    ("FXI", "China"),
-    ("XHB", "Homebuilders"),
-    ("INDA", "India"),
-    ("FDN", "Internet"),
-    ("CIBR", "Cybersecurity (alt)"),
-    ("IHI", "Medical Devices"),
-    ("IHF", "Healthcare Providers"),
-    ("UNG", "Natural Gas (commodity)"),
-    ("ITB", "Home Construction"),
-    ("SKYY", "Cloud Computing"),
-    ("BETZ", "Betting/Gaming"),
-    ("IBUY", "Online Retail"),
-    ("WCLD", "Cloud Computing (alt)"),
-    ("SOCL", "Social Media"),
-    ("IGV", "Software"),
-]
+# Load ETF universe from categorized config file
+_CONFIG_PATH = Path(__file__).parent.parent / "config" / "sector_etfs.yaml"
+with open(_CONFIG_PATH) as _f:
+    _ETF_CONFIG = yaml.safe_load(_f)
+
+ETFS = []
+for _cat_key, _cat_data in _ETF_CONFIG["categories"].items():
+    _label = _cat_data["label"]
+    for _etf in _cat_data["etfs"]:
+        ETFS.append((_etf["ticker"], _etf["name"], _label))
 
 def calculate_stage2_score_from_hist(hist):
     """Calculate Stage 2 score using shared 10-point system."""
@@ -163,7 +40,7 @@ def run_comprehensive_scan(top_n: int = 15):
     
     results = []
     
-    for ticker, name in ETFS:
+    for ticker, name, category in ETFS:
         try:
             # Get full history
             hist = yf.Ticker(ticker).history(period="1y")
@@ -192,6 +69,7 @@ def run_comprehensive_scan(top_n: int = 15):
             results.append({
                 'ticker': ticker,
                 'name': name,
+                'category': category,
                 'ret_1w': ret_1w,
                 'ret_1m': ret_1m,
                 'ret_3m': ret_3m,
@@ -241,7 +119,7 @@ def run_comprehensive_scan(top_n: int = 15):
     with open(output_file, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([
-            'Ticker', 'Name', '1W', '1M', '3M', '6M',
+            'Ticker', 'Name', 'Category', '1W', '1M', '3M', '6M',
             'Above_20', 'Above_50', 'Above_200', 'From_High',
             'Stage2_Score', 'Rank_Score', 'Rank_6M', 'Rank_3M', 'Rank_1M', 'Overall_Rank'
         ])
@@ -250,6 +128,7 @@ def run_comprehensive_scan(top_n: int = 15):
             writer.writerow([
                 row['ticker'],
                 row['name'],
+                row['category'],
                 f"{row['ret_1w']:.2f}",
                 f"{row['ret_1m']:.2f}",
                 f"{row['ret_3m']:.2f}",

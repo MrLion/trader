@@ -1,0 +1,399 @@
+# Sector ETF Configuration
+# Categorized ETF universe for comprehensive sector scan.
+# Categories: US Sector (GICS 11), US Sub-sector, Commodities,
+#              International, Bonds, Factors/Style, Thematic, REITs.
+
+categories:
+  # ============================================================================
+  # US SECTOR (GICS 11) — The 11 SPDR Select Sector ETFs
+  # ============================================================================
+  us_sector:
+    label: "US Sector"
+    etfs:
+      - ticker: XLE
+        name: "Energy"
+      - ticker: XLB
+        name: "Materials"
+      - ticker: XLI
+        name: "Industrials"
+      - ticker: XLK
+        name: "Technology"
+      - ticker: XLV
+        name: "Health Care"
+      - ticker: XLP
+        name: "Consumer Staples"
+      - ticker: XLY
+        name: "Consumer Discretionary"
+      - ticker: XLU
+        name: "Utilities"
+      - ticker: XLF
+        name: "Financials"
+      - ticker: XLC
+        name: "Communication Services"
+      - ticker: XLRE
+        name: "Real Estate"
+
+  # ============================================================================
+  # US SUB-SECTOR — Industry-specific equity ETFs
+  # ============================================================================
+  us_sub_sector:
+    label: "US Sub-sector"
+    etfs:
+      # Energy sub-sectors
+      - ticker: OIH
+        name: "Oil Services"
+      - ticker: XOP
+        name: "E&P (Exploration)"
+      - ticker: FCG
+        name: "Natural Gas (equities)"
+      - ticker: CRAK
+        name: "Refiners"
+      - ticker: AMLP
+        name: "MLPs/Midstream"
+      - ticker: URA
+        name: "Uranium"
+
+      # Metals & Mining sub-sectors
+      - ticker: XME
+        name: "Metals & Mining"
+      - ticker: GDX
+        name: "Gold Miners"
+      - ticker: GDXJ
+        name: "Junior Gold Miners"
+      - ticker: SIL
+        name: "Silver Miners"
+      - ticker: COPX
+        name: "Copper Miners"
+      - ticker: REMX
+        name: "Rare Earths"
+      - ticker: LIT
+        name: "Lithium/Battery"
+      - ticker: PICK
+        name: "Metals & Mining (Global)"
+      - ticker: SLX
+        name: "Steel"
+      - ticker: WOOD
+        name: "Timber/Forestry"
+
+      # Biotech & Pharma
+      - ticker: XBI
+        name: "Biotech"
+      - ticker: IBB
+        name: "Nasdaq Biotech"
+      - ticker: PPH
+        name: "Pharma"
+      - ticker: ARKG
+        name: "Genomics"
+
+      # Semiconductors
+      - ticker: SOXX
+        name: "PHLX Semiconductor"
+      - ticker: SMH
+        name: "Semiconductors"
+      - ticker: XSD
+        name: "Semiconductor (equal weight)"
+
+      # Healthcare sub-sectors
+      - ticker: XHE
+        name: "Health Care Equipment"
+      - ticker: IHI
+        name: "Medical Devices"
+      - ticker: IHF
+        name: "Healthcare Providers"
+
+      # Financial sub-sectors
+      - ticker: KRE
+        name: "Regional Banks"
+      - ticker: KBE
+        name: "Banks"
+      - ticker: IAI
+        name: "Broker-Dealers"
+      - ticker: KIE
+        name: "Insurance"
+      - ticker: RYF
+        name: "Financial Services"
+
+      # Technology sub-sectors
+      - ticker: IGV
+        name: "Software"
+      - ticker: FDN
+        name: "Internet"
+      - ticker: CIBR
+        name: "Cybersecurity"
+      - ticker: SKYY
+        name: "Cloud Computing"
+      - ticker: SOCL
+        name: "Social Media"
+      - ticker: IPAY
+        name: "Digital Payments"
+
+      # Industrials sub-sectors
+      - ticker: ITA
+        name: "Aerospace/Defense"
+      - ticker: IYT
+        name: "Transportation"
+      - ticker: FXR
+        name: "Transportation/Logistics"
+      - ticker: IFRA
+        name: "Infrastructure"
+      - ticker: GRID
+        name: "Smart Grid"
+      - ticker: BDRY
+        name: "Dry Bulk Shipping"
+      - ticker: CARZ
+        name: "Auto"
+      - ticker: JETS
+        name: "Airlines"
+
+      # Consumer sub-sectors
+      - ticker: XRT
+        name: "Retail"
+      - ticker: ITB
+        name: "Home Construction"
+      - ticker: HOMZ
+        name: "Housing"
+      - ticker: PBJ
+        name: "Food & Beverage"
+      - ticker: PEJ
+        name: "Leisure/Entertainment"
+      - ticker: BETZ
+        name: "Betting/Gaming"
+      - ticker: IBUY
+        name: "Online Retail"
+
+      # Clean Energy sub-sectors
+      - ticker: TAN
+        name: "Solar Energy"
+      - ticker: ICLN
+        name: "Clean Energy"
+      - ticker: QCLN
+        name: "Clean Energy/Transport"
+      - ticker: FAN
+        name: "Wind Energy"
+      - ticker: RNRG
+        name: "Renewables"
+
+      # Telecom
+      - ticker: XTL
+        name: "Telecom"
+
+      # Broad industry
+      - ticker: BIZD
+        name: "BDCs"
+      - ticker: DBB
+        name: "Base Metals"
+
+  # ============================================================================
+  # COMMODITIES — ETFs tracking commodity futures / spot prices
+  # ============================================================================
+  commodities:
+    label: "Commodities"
+    etfs:
+      - ticker: GLD
+        name: "Gold"
+      - ticker: SLV
+        name: "Silver"
+      - ticker: USO
+        name: "Oil (commodity)"
+      - ticker: UNG
+        name: "Natural Gas (commodity)"
+      - ticker: DBC
+        name: "Broad Commodities"
+      - ticker: PDBC
+        name: "Opt Yield Commodities"
+      - ticker: DBE
+        name: "Energy (commodity)"
+      - ticker: DBA
+        name: "Agriculture"
+      - ticker: DBP
+        name: "Precious Metals"
+      - ticker: PPLT
+        name: "Platinum"
+      - ticker: PALL
+        name: "Palladium"
+
+  # ============================================================================
+  # INTERNATIONAL — Country, region, and emerging/developed market ETFs
+  # ============================================================================
+  international:
+    label: "International"
+    etfs:
+      # Broad developed markets
+      - ticker: EFA
+        name: "Developed Markets (EAFE)"
+      - ticker: VXUS
+        name: "Total International Stock"
+      - ticker: SCHF
+        name: "International Equity"
+      - ticker: VGK
+        name: "Europe"
+      - ticker: VWO
+        name: "Emerging Markets (broad)"
+      - ticker: EEM
+        name: "Emerging Markets"
+
+      # Individual countries
+      - ticker: EWJ
+        name: "Japan"
+      - ticker: EWT
+        name: "Taiwan"
+      - ticker: FXI
+        name: "China"
+      - ticker: INDA
+        name: "India"
+      - ticker: EPI
+        name: "India (small cap)"
+      - ticker: EWY
+        name: "South Korea"
+      - ticker: EWZ
+        name: "Brazil"
+      - ticker: EWW
+        name: "Mexico"
+      - ticker: EWH
+        name: "Hong Kong"
+      - ticker: EWU
+        name: "UK"
+      - ticker: EWG
+        name: "Germany"
+      - ticker: EWQ
+        name: "France"
+      - ticker: EWL
+        name: "Switzerland"
+      - ticker: EIS
+        name: "Israel"
+
+  # ============================================================================
+  # BONDS — Fixed income ETFs
+  # ============================================================================
+  bonds:
+    label: "Bonds"
+    etfs:
+      # Broad bond market
+      - ticker: AGG
+        name: "Total Bond Market"
+      - ticker: BNDX
+        name: "International Bonds"
+
+      # Treasuries
+      - ticker: TLT
+        name: "20+ Year Treasuries"
+      - ticker: IEF
+        name: "7-10 Year Treasuries"
+      - ticker: SHY
+        name: "1-3 Year Treasuries"
+      - ticker: GOVT
+        name: "Treasury (broad)"
+      - ticker: TIP
+        name: "TIPS"
+      - ticker: STIP
+        name: "Short-Term TIPS"
+
+      # Corporate & MBS
+      - ticker: LQD
+        name: "IG Corporate"
+      - ticker: VCIT
+        name: "Corporate Intermediate"
+      - ticker: MBB
+        name: "Mortgage-Backed Securities"
+
+      # High yield & EM
+      - ticker: HYG
+        name: "High Yield"
+      - ticker: JNK
+        name: "Junk Bonds"
+      - ticker: EMB
+        name: "Emerging Market Bonds"
+
+      # Municipal
+      - ticker: MUB
+        name: "Municipal Bonds"
+
+  # ============================================================================
+  # FACTORS / STYLE — Factor, style, and broad market ETFs
+  # ============================================================================
+  factors:
+    label: "Factors/Style"
+    etfs:
+      # Broad market
+      - ticker: SPY
+        name: "S&P 500"
+      - ticker: VTI
+        name: "Total Stock Market"
+      - ticker: QQQ
+        name: "NASDAQ 100"
+      - ticker: DIA
+        name: "Dow Jones"
+      - ticker: RSP
+        name: "S&P 500 Equal Weight"
+      - ticker: IWM
+        name: "Russell 2000"
+
+      # Style (Growth/Value)
+      - ticker: IWD
+        name: "Value (Russell 1000)"
+      - ticker: IWF
+        name: "Growth (Russell 1000)"
+      - ticker: IWN
+        name: "Small Cap Value"
+      - ticker: IWO
+        name: "Small Cap Growth"
+      - ticker: IVE
+        name: "Large Cap Value (S&P 500)"
+      - ticker: IVW
+        name: "Large Cap Growth (S&P 500)"
+      - ticker: AVUV
+        name: "Small Cap Value (Avantis)"
+
+      # Factors
+      - ticker: MTUM
+        name: "Momentum Factor"
+      - ticker: QUAL
+        name: "Quality Factor"
+      - ticker: VLUE
+        name: "Value Factor"
+      - ticker: USMV
+        name: "Min Volatility"
+      - ticker: SPLV
+        name: "Low Volatility"
+
+      # Dividend
+      - ticker: SCHD
+        name: "Dividend (Schwab)"
+      - ticker: VIG
+        name: "Dividend Growth"
+      - ticker: NOBL
+        name: "Dividend Aristocrats"
+
+  # ============================================================================
+  # THEMATIC — Trend / thematic equity ETFs
+  # ============================================================================
+  thematic:
+    label: "Thematic"
+    etfs:
+      - ticker: ARKK
+        name: "Disruptive Innovation"
+      - ticker: AIQ
+        name: "Artificial Intelligence"
+      - ticker: BOTZ
+        name: "Robotics/Automation"
+      - ticker: ROBO
+        name: "Robotics & AI"
+      - ticker: DRIV
+        name: "Autonomous Driving"
+      - ticker: ESPO
+        name: "Video Gaming"
+      - ticker: FINX
+        name: "Fintech"
+
+  # ============================================================================
+  # REITs — Real estate investment trusts
+  # ============================================================================
+  reits:
+    label: "REITs"
+    etfs:
+      - ticker: VNQ
+        name: "REITs Broad"
+      - ticker: REZ
+        name: "Residential REITs"
+      - ticker: REM
+        name: "mREITs"

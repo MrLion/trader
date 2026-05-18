@@ -12,6 +12,31 @@ import pytest
 import sector_scan_comprehensive as ssc
 
 
+class TestETFConfigLoading:
+    """Test that ETF config loads correctly with category tuples."""
+
+    def test_etfs_loaded_with_category(self):
+        assert len(ssc.ETFS) > 0, "ETFS list should not be empty"
+        ticker, name, category = ssc.ETFS[0]
+        assert isinstance(ticker, str) and len(ticker) > 0
+        assert isinstance(name, str) and len(name) > 0
+        assert isinstance(category, str) and len(category) > 0
+
+    def test_all_etfs_have_category(self):
+        for entry in ssc.ETFS:
+            assert len(entry) == 3, f"{entry} must be (ticker, name, category)"
+            assert entry[2] != "", f"{entry[0]} has empty category"
+
+    def test_all_categories_represented(self):
+        categories = {entry[2] for entry in ssc.ETFS}
+        expected = {"US Sector", "US Sub-sector", "Commodities",
+                    "International", "Bonds", "Factors/Style",
+                    "Thematic", "REITs"}
+        missing = expected - categories
+        assert not missing, f"Missing categories: {missing}"
+
+
+
 class TestCalculateStage2ScoreFromHist:
     """Test calculate_stage2_score_from_hist wrapper."""
 

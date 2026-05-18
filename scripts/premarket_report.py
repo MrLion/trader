@@ -264,6 +264,7 @@ def generate_html_report(report_data, output_path):
             <td>{row.get('overall_rank', 0)}</td>
             <td class="ticker">{esc(row.get('ticker', ''))}</td>
             <td>{esc(row.get('name', '')[:22])}</td>
+            <td>{esc(row.get('category', '')[:16])}</td>
             <td class="{'positive' if row.get('ret_1w', 0) > 0 else 'negative'}">{row.get('ret_1w', 0):+.1f}%</td>
             <td class="{'positive' if row.get('ret_1m', 0) > 0 else 'negative'}">{row.get('ret_1m', 0):+.1f}%</td>
             <td class="{'positive' if row.get('ret_3m', 0) > 0 else 'negative'}">{row.get('ret_3m', 0):+.1f}%</td>
@@ -834,7 +835,7 @@ def generate_html_report(report_data, output_path):
             <h2>Sector Leaders</h2>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th><abbr title="Overall Performance Rank">Rank</abbr></th><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th>Company Name</th><th><abbr title="1 Week Return">1W</abbr></th><th><abbr title="1 Month Return">1M</abbr></th><th><abbr title="3 Month Return">3M</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th></tr></thead>
+                    <thead><tr><th><abbr title="Overall Performance Rank">Rank</abbr></th><th><abbr title="Stock Ticker Symbol">Ticker</abbr></th><th>Company Name</th><th>Category</th><th><abbr title="1 Week Return">1W</abbr></th><th><abbr title="1 Month Return">1M</abbr></th><th><abbr title="3 Month Return">3M</abbr></th><th><abbr title="6 Month Return">6M</abbr></th><th><abbr title="Stage 2 Score (0-4)">S2</abbr></th></tr></thead>
                     <tbody>{sector_rows}</tbody>
                 </table>
             </div>
@@ -1029,6 +1030,7 @@ def load_comprehensive_scan():
             results.append({
                 'ticker': row['Ticker'],
                 'name': row['Name'],
+                'category': row.get('Category', ''),
                 'ret_1w': float(row['1W']),
                 'ret_1m': float(row['1M']),
                 'ret_3m': float(row['3M']),
@@ -1548,10 +1550,10 @@ def generate_comprehensive_report(output_format='console', output_path=None):
 
         if report_data['sector_leaders']:
             print("\n**🏆 TOP 20 LEADING ETFs (by Overall Rank)**")
-            print(f"{'Rank':<5} {'Ticker':<6} {'Name':<22} {'1W':>8} {'1M':>8} {'3M':>8} {'6M':>8} {'S2':>3}")
-            print("-" * 90)
+            print(f"{'Rank':<5} {'Ticker':<6} {'Name':<22} {'Category':<14} {'1W':>8} {'1M':>8} {'3M':>8} {'6M':>8} {'S2':>3}")
+            print("-" * 105)
             for row in report_data['sector_leaders']:
-                print(f"{row['overall_rank']:<5} {row['ticker']:<6} {row['name']:<22} "
+                print(f"{row['overall_rank']:<5} {row['ticker']:<6} {row['name']:<22} {row.get('category', ''):<14} "
                       f"{row['ret_1w']:>+7.1f}% {row['ret_1m']:>+7.1f}% "
                       f"{row['ret_3m']:>+7.1f}% {row['ret_6m']:>+7.1f}% "
                       f"{row['stage2_score']:>3}")

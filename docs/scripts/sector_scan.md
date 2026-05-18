@@ -6,7 +6,7 @@ Comprehensive ETF sector scan with full ranking system.
 
 ## Overview
 
-`scripts/sector_scan_comprehensive.py` scans 131 ETFs across sectors, factors, commodities, bonds, and international markets. It calculates 1-week through 6-month returns, moving average status, Stage 2 scores, and produces a weighted composite ranking.
+`scripts/sector_scan_comprehensive.py` scans 148 ETFs across sectors, sub-sectors, commodities, factors, bonds, and international markets. It calculates 1-week through 6-month returns, moving average status, Stage 2 scores, and produces a weighted composite ranking.
 
 **Output:** `scans/YYYY-MM-DD_sector_scan.csv`
 
@@ -33,6 +33,7 @@ python3 scripts/sector_scan_comprehensive.py --top 25
 |--------|-------------|
 | `Ticker` | ETF symbol |
 | `Name` | Description |
+| `Category` | ETF category (US Sector, US Sub-sector, Commodities, International, Bonds, Factors/Style, Thematic, REITs) |
 | `1W` | 1-week return (%) |
 | `1M` | 1-month return (%) |
 | `3M` | 3-month return (%) |

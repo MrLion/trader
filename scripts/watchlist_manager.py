@@ -240,7 +240,7 @@ def list_watchlist():
         print("   1. From scan CSV: python3 scripts/watchlist_manager.py populate scans/leading_stocks_YYYY-MM-DD.csv")
         print("   2. Add single ticker: python3 scripts/watchlist_manager.py add AAPL")
         print("   3. Run midday scan: python3 scripts/midday_scan.py")
-        print("   4. Sector scan: python3 scripts/sector_scan.py")
+        print("   4. Sector scan: python3 scripts/sector_scan_comprehensive.py")
         print("\n   See docs/getting-started.md for full workflow")
         return
 
