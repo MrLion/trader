@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import pytz
+from concurrent.futures import ThreadPoolExecutor
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -244,11 +245,22 @@ class EntrySignalScanner:
 
         t_start = time.monotonic()
 
-        # Prefetch all earnings in one pass before the scan loop
-        self.earnings_calendar.prefetch(tickers)
+        # ---- Parallel setup: earnings prefetch + market conditions -----
+        print(f"  📅 Prefetching earnings for {len(tickers)} tickers...")
+        print(f"  📊 Checking market conditions...")
 
-        # Market conditions
-        market_ok, spy_str, vix_str = self.analyzer.check_market_conditions()
+        def _prefetch_earnings():
+            self.earnings_calendar.prefetch(tickers)
+            return None
+
+        def _check_market():
+            return self.analyzer.check_market_conditions()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_earnings = executor.submit(_prefetch_earnings)
+            future_market   = executor.submit(_check_market)
+            market_ok, spy_str, vix_str = future_market.result()
+            future_earnings.result()  # ensure prefetch completes before scan
 
         entry_threshold = self.risk_config.entry.min_entry_score
         max_dist        = self.risk_config.entry.max_dist_to_pivot_pct
