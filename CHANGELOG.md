@@ -1,3 +1,8 @@
+## [0.6.17.6] — 2026-05-17 — Bug Fix — FMP 429 Retry + Reduced Concurrency
+
+### Fixed
+- **`traderlib/sector_resolver.py`** — FMP sector fetch now retries HTTP 429 responses up to 5 times with jittered exponential backoff. Reduced `ThreadPoolExecutor` workers from 5 to 2 to avoid triggering FMP's server-side rate limit. Added sequential cleanup pass for stragglers. Resolution rate improved from 66% (459/697) to 99.7% (695/697) across a full universe build.
+
 ## [0.6.17.5] — 2026-05-17 — Bug Fix — Sector Cache Poisoning
 
 ### Fixed
