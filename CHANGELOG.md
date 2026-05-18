@@ -1,3 +1,8 @@
+## [0.6.17.1] — 2026-05-17 — Bug Fix — Dashboard Unknown Sector Display
+
+### Fixed
+- **`traderlib/dashboard.py`** — `_sector_exposure()` now correctly uses the dict key (ticker symbol) as the ticker identifier when live-re-resolving "Unknown" sectors. Previously it checked `pos.get("ticker")` which was always `None` because `positions_data` uses ticker as the dict key, not a field inside the position dict. This caused old positions (entered before sector enrichment) to always display as "Unknown" in the sector exposure chart.
+
 ## [0.6.17.0] — 2026-05-17 — Feature — Sector Enrichment + Shared SectorResolver
 
 ### Added
