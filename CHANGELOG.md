@@ -1,3 +1,8 @@
+## [0.6.18.1] — 2026-05-18 — Fix — Progress Bar + Category Leaders Output
+
+### Fixed
+- **`scripts/sector_scan_comprehensive.py`** — Replaced verbose per-ticker print wall with a transient `rich` progress bar (spinner, bar, percentage, elapsed time). TOP 10 output now shows all timeframes (1W/1M/3M/6M), category, rank score, and Stage 2 score in a tabular format. Added "TOP 3 BY CATEGORY" section grouping results by the 8 ETF categories for rotation analysis at a glance. Default top N reduced from 15 to 10.
+
 ## [0.6.18.0] — 2026-05-18 — Enhancement — Categorized Sector Scan ETF Config
 
 ### Added
