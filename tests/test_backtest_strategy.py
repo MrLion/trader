@@ -209,5 +209,28 @@ class TestExitSignalStopUpdate(unittest.TestCase):
         self.assertIsNone(signal.new_stop_type)
 
 
+class TestBacktestStrategySector:
+    def test_get_sector_from_pascalcase_watchlist(self, tmp_path):
+        from traderlib.backtest.strategy import Stage2MomentumStrategy
+        from traderlib.paper_exits import ExitEngine
+        from traderlib.risk_config import RiskConfig
+        import pandas as pd
+
+        watchlist = tmp_path / "watchlist.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL"],
+            "Sector": ["Technology"],
+            "week_start": ["2026-01-01"],
+        }).to_csv(watchlist, index=False)
+
+        strategy = Stage2MomentumStrategy(
+            exit_engine=ExitEngine(risk_config=RiskConfig()),
+            watchlist_df=pd.read_csv(watchlist),
+            sector_dict={},
+        )
+        sector = strategy._get_sector("AAPL")
+        assert sector == "Technology", f"Expected 'Technology', got '{sector}'"
+
+
 if __name__ == '__main__':
     unittest.main()
