@@ -12,6 +12,7 @@ MarketSurge-style funnel:
 """
 
 import json
+import os
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, date
@@ -39,6 +40,7 @@ class UniverseResult:
     cache_hit: bool = False
     cache_age_hours: float = 0.0
     funnel_metrics: Dict[str, int] = field(default_factory=dict)
+    sectors: Dict[str, str] = field(default_factory=dict)
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert to DataFrame for export."""
@@ -131,6 +133,15 @@ class UniverseBuilder:
                 if col in df.columns:
                     funnel_metrics[col.lower()] = int(df[col].iloc[0]) if len(df) > 0 else 0
 
+            # Reconstruct sectors from cache if available
+            sectors = {}
+            if 'Sector' in df.columns:
+                sectors = {
+                    row['Ticker']: str(row['Sector'])
+                    for _, row in df.iterrows()
+                    if pd.notna(row['Sector'])
+                }
+
             # Populate UniverseResult fields from cached funnel metrics
             return UniverseResult(
                 tickers=tickers,
@@ -142,7 +153,8 @@ class UniverseBuilder:
                 cache_path=cache_path,
                 cache_hit=True,
                 cache_age_hours=age_hours,
-                funnel_metrics=funnel_metrics
+                funnel_metrics=funnel_metrics,
+                sectors=sectors,
             )
         except Exception as e:
             TradingExceptionHandler.log_exception(
@@ -160,6 +172,9 @@ class UniverseBuilder:
         df['AfterTradable'] = result.after_tradable_filter
         df['AfterPrice'] = result.after_price_filter
         df['AfterDVol'] = result.after_dvol_filter
+
+        # Add sector column
+        df['Sector'] = [result.sectors.get(t, 'Unknown') for t in result.tickers]
 
         # Atomic write: write to temp file, then rename
         temp_path = cache_path.with_suffix('.tmp')
@@ -282,6 +297,57 @@ class UniverseBuilder:
         except Exception:
             return None
 
+    def _fetch_sectors_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
+        """Fetch sector data from FMP for a list of tickers.
+
+        Uses ThreadPoolExecutor with a thread-safe rate limiter to stay
+        within the 300 req/min FMP paid-plan budget.
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        from traderlib.sector_resolver import ThreadSafeRateLimiter
+
+        api_key = os.environ.get("FMP_API_KEY")
+        if not api_key:
+            TradingExceptionHandler.log_exception(
+                "fmp_api_key_missing",
+                Exception("FMP_API_KEY not set"),
+                severity=TradingExceptionHandler.WARNING,
+            )
+            return {t: "Unknown" for t in tickers}
+
+        limiter = ThreadSafeRateLimiter(max_per_minute=300)
+        results: Dict[str, str] = {}
+
+        def fetch_one(ticker: str) -> tuple[str, str]:
+            limiter.acquire()
+            import requests
+            url = "https://financialmodelingprep.com/stable/profile"
+            params = {"symbol": ticker, "apikey": api_key}
+            try:
+                resp = requests.get(url, params=params, timeout=5)
+                resp.raise_for_status()
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0:
+                    sector = data[0].get("sector", "Unknown")
+                    if sector in ("—", "ETF", ""):
+                        sector = "Unknown"
+                    return ticker, sector
+            except Exception as exc:
+                TradingExceptionHandler.log_exception(
+                    "fmp_sector_fetch", exc,
+                    severity=TradingExceptionHandler.DEBUG,
+                    ticker=ticker,
+                )
+            return ticker, "Unknown"
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(fetch_one, t) for t in tickers]
+            for future in futures:
+                ticker, sector = future.result()
+                results[ticker] = sector
+
+        return results
+
     def build_universe(self, profile: str, force_refresh: bool = False) -> UniverseResult:
         """
         Build universe with prefilter pipeline.
@@ -393,6 +459,12 @@ class UniverseBuilder:
             after_dvol = len(validated)
             print(f"  Filtered to {after_dvol:,} (dollar vol ≥ ${min_dvol/1e6:.0f}M)")
 
+        # STEP 5: Fetch sectors for validated tickers
+        print(f"  Fetching sectors for {len(validated)} tickers from FMP...")
+        sectors = self._fetch_sectors_from_fmp(validated)
+        resolved = sum(1 for s in sectors.values() if s != "Unknown")
+        print(f"  Resolved sectors for {resolved}/{len(validated)} tickers")
+
         # Build result
         result = UniverseResult(
             tickers=validated,
@@ -408,7 +480,8 @@ class UniverseBuilder:
                 'after_tradable': after_tradable,
                 'after_price': after_price,
                 'after_dvol': after_dvol
-            }
+            },
+            sectors=sectors,
         )
 
         # Save cache

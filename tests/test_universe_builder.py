@@ -9,6 +9,7 @@ Covers:
 5. Full build_universe pipeline with mocked prices and dollar volumes
 6. ETF detection, exchange exclusion, marginable filtering
 7. Profile resolution helpers
+8. Sector enrichment via FMP
 """
 
 from datetime import datetime
@@ -409,3 +410,51 @@ class TestProfileHelpers:
 
         assert result.profile == "large_cap"
         assert "AAPL" in result.tickers
+
+
+class TestSectorEnrichment:
+    """Sector enrichment via FMP."""
+
+    def test_fetch_sectors_fail_open(self, mock_alpaca):
+        """Without FMP_API_KEY, all sectors return Unknown."""
+        builder = UniverseBuilder()
+        sectors = builder._fetch_sectors_from_fmp(["FAKE"])
+        assert sectors["FAKE"] == "Unknown"
+
+    def test_build_universe_adds_sector_column(self, builder, mock_alpaca):
+        assets = [
+            _make_asset("AAPL", name="Apple Inc", marginable=True),
+        ]
+
+        with patch.object(builder, "_fetch_assets", return_value=assets):
+            with patch.object(builder, "_get_current_prices", return_value={"AAPL": 200.0}):
+                with patch.object(builder, "_compute_dollar_volumes", return_value={"AAPL": 100_000_000.0}):
+                    with patch.object(builder, "_fetch_sectors_from_fmp", return_value={"AAPL": "Technology"}):
+                        result = builder.build_universe("large_cap", force_refresh=True)
+
+        assert result.sectors == {"AAPL": "Technology"}
+        # Verify cache was saved with sector column
+        cache_path = builder._get_cache_path("large_cap")
+        df = pd.read_csv(cache_path)
+        assert "Sector" in df.columns
+        assert df["Sector"].iloc[0] == "Technology"
+
+    def test_load_cached_restores_sectors(self, tmp_path, mock_alpaca):
+        builder = UniverseBuilder()
+        builder.UNIVERSES_DIR = tmp_path
+
+        # Write a CSV with sector column
+        csv_path = tmp_path / "large_cap_2026-05-17.csv"
+        pd.DataFrame({
+            "Ticker": ["AAPL", "MSFT"],
+            "Sector": ["Technology", "Technology"],
+            "Profile": ["large_cap", "large_cap"],
+            "TotalAssets": [1000, 1000],
+            "AfterTradable": [500, 500],
+            "AfterPrice": [300, 300],
+            "AfterDVol": [100, 100],
+        }).to_csv(csv_path, index=False)
+
+        loaded = builder._load_cached(csv_path)
+        assert loaded is not None
+        assert loaded.sectors == {"AAPL": "Technology", "MSFT": "Technology"}
