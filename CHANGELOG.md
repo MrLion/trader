@@ -1,3 +1,22 @@
+## [0.6.18.0] — 2026-05-18 — Enhancement — Categorized Sector Scan ETF Config
+
+### Added
+- **`config/sector_etfs.yaml`** — New ETF configuration file with 148 tickers organized across 8 categories: US Sector (11 GICS), US Sub-sector (60), Commodities (11), International (20), Bonds (15), Factors/Style (21), Thematic (7), REITs (3). Replaces the hardcoded ETF list.
+- **`Category` column** — Scan CSV output now includes a Category column populated from the config, enabling category-based filtering and analysis in the premarket report HTML/console output.
+
+### Changed
+- **`scripts/sector_scan_comprehensive.py`** — ETF universe now loads from `config/sector_etfs.yaml` instead of a hardcoded tuple list. Loop unpacks (ticker, name, category) triples. Category written to results dict and CSV output.
+- **`scripts/premarket_report.py`** — `load_comprehensive_scan()` reads Category column from CSV. HTML sector leaders table and console output display ETF category.
+- **`docs/scripts/sector_scan.md`** — Updated ETF count from 131 to 148. Category column documented in CSV output reference.
+
+### Fixed
+- **Duplicate ETF removal** — Removed 13 redundant tickers (BND, XPH, HACK, WCLD, XAR, XTN, XHB, SCHH, IYR, PSR, MORT, PAVE, RGI) keeping the more liquid/representative alternative in each pair.
+- **`scripts/watchlist_manager.py`** — Stale reference to deleted `sector_scan.py` corrected to `sector_scan_comprehensive.py`.
+- **`tests/test_sector_scan.py`** — Removed (tested a deleted module).
+
+### Added
+- **`tests/test_sector_scan_comprehensive.py`** — New test class `TestETFConfigLoading` verifies config loads correctly, all entries are (ticker, name, category) triples, and all 8 expected categories are present.
+
 ## [0.6.17.6] — 2026-05-17 — Bug Fix — FMP 429 Retry + Reduced Concurrency
 
 ### Fixed
