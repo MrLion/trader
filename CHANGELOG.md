@@ -1,3 +1,8 @@
+## [0.6.17.5] — 2026-05-17 — Bug Fix — Sector Cache Poisoning
+
+### Fixed
+- **`traderlib/sector_resolver.py`** — `SectorResolver` no longer caches `"Unknown"` from failed FMP API calls. Previously, when batch-fetching 697 tickers during universe build, ~40% of FMP calls would fail (timeout/rate-limit), and the `"Unknown"` result was stored in the in-memory cache permanently. All future scans for those tickers returned `"Unknown"` even though FMP had the data. Now only successful (non-Unknown) results are cached, allowing retries on subsequent lookups. Reduced `ThreadPoolExecutor` workers from 10 to 5 for better API stability.
+
 ## [0.6.17.4] — 2026-05-17 — Enhancement — Animated Spinner for Setup Phase
 
 ### Changed
