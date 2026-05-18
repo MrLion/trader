@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive Sector Scan - 131 ETFs with full ranking system
+Comprehensive Sector Scan — 148 ETFs across 8 categories with full ranking.
 Saves to scans/YYYY-MM-DD_sector_scan.csv
-Updated with full ETF universe from master CSV
-Shows TOP 15 results
 """
 
 import argparse
@@ -13,6 +11,13 @@ from pathlib import Path
 
 import yaml
 import yfinance as yf
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 from traderlib import calculate_stage2_score
 
@@ -31,61 +36,67 @@ def calculate_stage2_score_from_hist(hist):
     """Calculate Stage 2 score using shared 10-point system."""
     return calculate_stage2_score(hist)
 
-def run_comprehensive_scan(top_n: int = 15):
+def run_comprehensive_scan(top_n: int = 10):
     """Run comprehensive sector scan"""
 
     scan_date = datetime.now().strftime('%Y-%m-%d')
-    print(f"🔍 Running comprehensive sector scan for {scan_date}...")
-    print(f"   Scanning {len(ETFS)} ETFs...")
-    
-    results = []
-    
-    for ticker, name, category in ETFS:
-        try:
-            # Get full history
-            hist = yf.Ticker(ticker).history(period="1y")
-            
-            if len(hist) < 130:
-                continue
-                
-            close = hist['Close'].iloc[-1]
-            high_52w = hist['Close'].max()
-            from_high = ((high_52w - close) / high_52w) * 100
-            
-            # Calculate returns
-            ret_1w = ((close / hist['Close'].iloc[-5]) - 1) * 100 if len(hist) >= 5 else 0
-            ret_1m = ((close / hist['Close'].iloc[-20]) - 1) * 100 if len(hist) >= 20 else 0
-            ret_3m = ((close / hist['Close'].iloc[-65]) - 1) * 100 if len(hist) >= 65 else 0
-            ret_6m = ((close / hist['Close'].iloc[-130]) - 1) * 100 if len(hist) >= 130 else 0
-            
-            # Moving averages
-            above_20 = close > hist['Close'].rolling(20).mean().iloc[-1] if len(hist) >= 20 else False
-            above_50 = close > hist['Close'].rolling(50).mean().iloc[-1] if len(hist) >= 50 else False
-            above_200 = close > hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else False
-            
-            # Calculate full Stage 2 score using shared function
-            stage2_score = calculate_stage2_score(hist)
+    print(f"Scanning {len(ETFS)} ETFs across 8 categories...")
 
-            results.append({
-                'ticker': ticker,
-                'name': name,
-                'category': category,
-                'ret_1w': ret_1w,
-                'ret_1m': ret_1m,
-                'ret_3m': ret_3m,
-                'ret_6m': ret_6m,
-                'above_20': above_20,
-                'above_50': above_50,
-                'above_200': above_200,
-                'from_high': from_high,
-                'stage2_score': stage2_score
-            })
-            
-            print(f"  ✓ {ticker}")
-            
-        except Exception as e:
-            print(f"  ✗ {ticker}: {str(e)[:30]}")
-            continue
+    results = []
+    failed = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Starting...", total=len(ETFS))
+
+        for ticker, name, category in ETFS:
+            progress.update(task, description=f"Fetching {ticker}...")
+            try:
+                hist = yf.Ticker(ticker).history(period="1y")
+
+                if len(hist) < 130:
+                    progress.advance(task)
+                    continue
+
+                close = hist['Close'].iloc[-1]
+                high_52w = hist['Close'].max()
+                from_high = ((high_52w - close) / high_52w) * 100
+
+                ret_1w = ((close / hist['Close'].iloc[-5]) - 1) * 100 if len(hist) >= 5 else 0
+                ret_1m = ((close / hist['Close'].iloc[-20]) - 1) * 100 if len(hist) >= 20 else 0
+                ret_3m = ((close / hist['Close'].iloc[-65]) - 1) * 100 if len(hist) >= 65 else 0
+                ret_6m = ((close / hist['Close'].iloc[-130]) - 1) * 100 if len(hist) >= 130 else 0
+
+                above_20 = close > hist['Close'].rolling(20).mean().iloc[-1] if len(hist) >= 20 else False
+                above_50 = close > hist['Close'].rolling(50).mean().iloc[-1] if len(hist) >= 50 else False
+                above_200 = close > hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else False
+
+                stage2_score = calculate_stage2_score(hist)
+
+                results.append({
+                    'ticker': ticker,
+                    'name': name,
+                    'category': category,
+                    'ret_1w': ret_1w,
+                    'ret_1m': ret_1m,
+                    'ret_3m': ret_3m,
+                    'ret_6m': ret_6m,
+                    'above_20': above_20,
+                    'above_50': above_50,
+                    'above_200': above_200,
+                    'from_high': from_high,
+                    'stage2_score': stage2_score
+                })
+            except Exception:
+                failed += 1
+
+            progress.advance(task)
     
     if len(results) == 0:
         print("No results found!")
@@ -145,12 +156,54 @@ def run_comprehensive_scan(top_n: int = 15):
                 row['overall_rank']
             ])
     
-    print(f"\n✅ Scan complete!")
-    print(f"   Saved: {output_file}")
-    print(f"   ETFs scanned: {len(results)}")
+    # ── Summary ──────────────────────────────────────────────────────────
+    print(f"\n✅ Scanned {len(results)}/{len(ETFS)} ETFs{f' ({failed} failed)' if failed else ''}")
+    print(f"   Output: {output_file}")
+
+    def _row_str(r):
+        return (
+            f"{r['overall_rank']:<3} "
+            f"{r['ticker']:<6} "
+            f"{r['category']:<16} "
+            f"{r['ret_1w']:>+7.1f}% "
+            f"{r['ret_1m']:>+7.1f}% "
+            f"{r['ret_3m']:>+7.1f}% "
+            f"{r['ret_6m']:>+7.1f}% "
+            f"{r['rank_score']:>6.1f} "
+            f"{r['stage2_score']:>3}"
+        )
+
+    hdr = (
+        f"{'#':<3} "
+        f"{'Ticker':<6} "
+        f"{'Category':<16} "
+        f"{'1W':>7} "
+        f"{'1M':>7} "
+        f"{'3M':>7} "
+        f"{'6M':>7} "
+        f"{'Score':>6} "
+        f"{'S2':>3}"
+    )
+
+    # Overall TOP N
     print(f"\n🏆 TOP {top_n} BY OVERALL RANK:")
+    print(hdr)
+    print("─" * len(hdr))
     for row in sorted_by_score[:top_n]:
-        print(f"   #{row['overall_rank']} {row['ticker']} ({row['name']}): {row['ret_6m']:+.1f}% (6M)")
+        print(_row_str(row))
+
+    # TOP 3 per category
+    print(f"\n🏅 TOP 3 BY CATEGORY:")
+    seen_categories = []
+    for row in sorted_by_score:
+        if row['category'] not in seen_categories:
+            seen_categories.append(row['category'])
+    for category in seen_categories:
+        cat_rows = [r for r in sorted_by_score if r['category'] == category]
+        count = len(cat_rows)
+        print(f"\n  {category} ({count}):")
+        for r in cat_rows[:3]:
+            print(f"  {_row_str(r)}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Comprehensive sector scan")
@@ -158,7 +211,7 @@ if __name__ == "__main__":
         "--top",
         type=int,
         default=15,
-        help="Number of top-ranked ETFs to display (default: 15)",
+        help="Number of top-ranked ETFs to display (default: 10)",
     )
     args = parser.parse_args()
     run_comprehensive_scan(top_n=args.top)
