@@ -1,3 +1,9 @@
+## [0.6.16.9] — 2026-05-17 — Fix — Pre-Existing Test Failures in paper_portfolio
+
+### Fixed
+- **`tests/test_paper_portfolio.py`** — 8 pre-existing test failures resolved. `TestLoadTrades` updated to pass `trades_file` directly (function signature changed from module-level constant to parameter). `TestDataPaths` imports `DEFAULT_DATA_DIR` (renamed from `DATA_DIR`). `test_env_override` tests `_get_data_dir()` instead of the hardcoded constant. `test_status_shows_alpaca_data` no longer asserts initial capital is printed directly.
+
+
 ## [0.6.16.8] — 2026-05-12 — Enhancement — Pocket Pivot Default Entry Mode
 
 ### Changed
