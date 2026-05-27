@@ -262,6 +262,16 @@ cooldown:
   consecutive_loss_multiplier: 2.0
 
 # =============================================================================
+# STRATEGY PLUGIN CONFIGURATION
+# =============================================================================
+# When a strategy plugin is loaded (--strategy flag), it can override the
+# legacy ExitEngine for position management. Set to false to always use
+# the legacy ExitEngine (risk_config.yaml hybrid mode, EMA trailing, etc.)
+# regardless of which strategy is loaded.
+strategy:
+  manage_exits: true   # Set to false to disable strategy exit management
+
+# =============================================================================
 # PRESET RISK PROFILES
 # =============================================================================
 # Use with: --risk-profile <name>

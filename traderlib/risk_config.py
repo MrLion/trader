@@ -218,6 +218,12 @@ class CooldownConfig:
 
 
 @dataclass
+class StrategyConfig:
+    """Strategy plugin settings."""
+    manage_exits: bool = True  # When false, legacy ExitEngine handles all exits
+
+
+@dataclass
 class RiskConfig:
     """Complete risk configuration."""
     account: AccountRiskConfig = field(default_factory=AccountRiskConfig)
@@ -229,6 +235,7 @@ class RiskConfig:
     market: MarketFilterConfig = field(default_factory=MarketFilterConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
     cooldown: CooldownConfig = field(default_factory=CooldownConfig)
+    strategy: StrategyConfig = field(default_factory=StrategyConfig)
 
 
 class RiskConfigManager:
@@ -410,6 +417,11 @@ class RiskConfigManager:
                 if hasattr(config.cooldown, key):
                     setattr(config.cooldown, key, val)
 
+        if 'strategy' in data:
+            for key, val in data['strategy'].items():
+                if hasattr(config.strategy, key):
+                    setattr(config.strategy, key, val)
+
     def _apply_env_overrides(self, config: RiskConfig):
         """Apply environment variable overrides.
 
@@ -471,6 +483,7 @@ class RiskConfigManager:
         print(f"EMA Periods:        {cfg.profit_target.ema_short_period}/{cfg.profit_target.ema_long_period}")
         print(f"Cache TTL:          {cfg.cache.ttl_seconds}s")
         print(f"Cooldown:           {cfg.cooldown.reentry_cooldown_minutes}min (loss threshold: {cfg.cooldown.min_loss_to_trigger_cooldown_pct*100:.1f}%)")
+        print(f"Strategy Exits:     {'enabled' if cfg.strategy.manage_exits else 'disabled (legacy ExitEngine)'}")
         print("="*50)
 
 

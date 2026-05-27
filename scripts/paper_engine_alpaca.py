@@ -967,7 +967,8 @@ class AlpacaPaperEngine:
                 await self._execute_exit(ticker, earnings_signal)
 
         # ── 2. Strategy plugin exits ───────────────────────────────────────
-        if self.strategy and hasattr(self.strategy, 'manage_exits'):
+        if (self.strategy and hasattr(self.strategy, 'manage_exits')
+                and self.risk_config.strategy.manage_exits):
             context = self._build_context()
             actions = self.strategy.manage_exits(context)
             for action in actions:
@@ -1562,7 +1563,6 @@ class AlpacaPaperEngine:
                     await asyncio.sleep(2)
 
                 self._reset_daily_signals()
-                await self._print_status()
                 await self._process_pending_orders()
 
                 if self._is_market_hours():
@@ -1572,6 +1572,8 @@ class AlpacaPaperEngine:
                     # This should not happen now (we exit when market closes)
                     # Keeping as fallback for edge cases
                     print("   ⏳ Outside market hours - waiting")
+
+                await self._print_status()
 
                 # Countdown on single line (skip if shutting down)
                 if not self.running:

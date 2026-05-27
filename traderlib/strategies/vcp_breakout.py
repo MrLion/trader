@@ -252,7 +252,8 @@ class VCPBreakoutBase(Strategy):
                 continue
 
             # R-multiple relative to initial stop (needed for all branches)
-            initial_risk = position.entry_price - position.stop_price
+            initial_stop = getattr(position, 'initial_stop_price', None) or position.stop_price
+            initial_risk = position.entry_price - initial_stop
             current_gain = current - position.entry_price
             r_multiple   = current_gain / initial_risk if initial_risk > 0 else 0
 

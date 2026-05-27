@@ -27,6 +27,7 @@ class Dashboard:
         self.live: Optional[Any] = None
         self.events: deque = deque(maxlen=20)
         self._last_state: Dict[str, Any] = {}
+        self._last_update_time: Optional[datetime] = None
         self._next_scan_target: Optional[float] = None
         self._timer_thread: Optional[threading.Thread] = None
         self._timer_stop = threading.Event()
@@ -80,6 +81,7 @@ class Dashboard:
         if not self.enabled:
             return
         self._last_state = state
+        self._last_update_time = datetime.now()
         # Compute countdown target from monotonic clock
         next_scan = state.get("next_scan_seconds", 30)
         self._next_scan_target = time.monotonic() + next_scan
@@ -153,7 +155,7 @@ class Dashboard:
         regime = state.get("regime", "UNKNOWN")
         regime_color = {"BULL": "green", "BEAR": "red", "NEUTRAL": "yellow"}.get(regime, "dim")
 
-        return Text.assemble(
+        parts = [
             (f"  {mode.upper()} ENGINE", f"bold {mode_color}"),
             "    ",
             (now, "bold white"), " ET    ",
@@ -162,7 +164,16 @@ class Dashboard:
             "VIX ", (f"{vix}", vix_color), "    ",
             "WS: ", (ws, ws_color), "    ",
             "API: ", (api, api_color),
-        )
+        ]
+
+        if market != "OPEN" and self._last_update_time:
+            frozen_time = self._last_update_time.strftime("%H:%M:%S")
+            parts.extend([
+                "  |  ",
+                (f"Data frozen since {frozen_time}", "bold red"),
+            ])
+
+        return Text.assemble(*parts)
 
     def _stats(self, state: Dict[str, Any]) -> Text:
         equity = float(state.get("equity") or 0.0)
