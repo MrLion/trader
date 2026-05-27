@@ -1,3 +1,15 @@
+## [0.6.18.2] — 2026-05-26 — Fix — VCP R-Calculation, Dashboard Stale Data, Strategy Exit Override
+
+### Fixed
+- **`traderlib/strategies/vcp_breakout.py`** — R-multiple calculation now uses `position.initial_stop_price` instead of `position.stop_price`. Previously, when a trailing stop ratcheted to breakeven, `stop_price == entry_price` caused `initial_risk = 0`, making `r_multiple = 0` forever and preventing Phase 2 EMA trailing from ever triggering.
+- **`scripts/paper_engine_alpaca.py`** — Main loop reordered so `_check_exits()` runs **before** `_print_status()`. Previously the dashboard rendered stale stop data from the previous 30-second cycle, hiding exit updates for up to 30 seconds (permanently if the market closed in that window).
+- **`traderlib/dashboard.py`** — Added red "Data frozen since HH:MM:SS" indicator to the header when `market_status != "OPEN"`, preventing confusion from stale terminal output after market close.
+
+### Added
+- **`config/risk_config.yaml`** — New `strategy.manage_exits` toggle (default: `true`). When set to `false`, the legacy `ExitEngine` (hybrid mode, EMA trailing, scale-outs from `risk_config.yaml`) handles all positions regardless of loaded strategy plugin.
+- **`traderlib/risk_config.py`** — `StrategyConfig` dataclass with `manage_exits: bool`, wired into `RiskConfig` and parsed from YAML.
+- **`tests/test_rdw_regression.py`** — Regression tests covering all three bugs: VCP R-calculation with breakeven positions, dashboard frozen indicator, and strategy config toggle parsing.
+
 ## [0.6.18.1] — 2026-05-18 — Fix — Progress Bar + Category Leaders Output
 
 ### Fixed
