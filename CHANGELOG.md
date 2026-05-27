@@ -1,3 +1,21 @@
+## [0.6.19.0] — 2026-05-26 — Refactor — Remove VCP Strategy Plugin System
+
+### Removed
+- **`traderlib/strategies/`** — Deleted the entire strategy plugin architecture (`Strategy` ABC, registry, `VCPBreakout` strategies, `CompositeStrategy`). This system was unused in production, duplicated existing systems (`entry_signals.py` for entries, `ExitEngine` for exits), and had caused bugs (R-calculation bug, exit override issue).
+- **`config/strategies/vcp_large_cap.yaml`** and **`vcp_high_octane.yaml`** — VCP strategy config files.
+- **`tests/test_strategy_abc.py`**, **`test_vcp_strategy.py`**, **`test_composite_strategy.py`**, **`test_vcp_breakout.py`**, **`test_rdw_regression.py`** — Tests for the deleted strategy plugin system. Dashboard frozen indicator tests moved to `test_dashboard.py`.
+- **`docs/strategies/OVERVIEW.md`** and **`VCP_BREAKOUT.md`** — Strategy plugin documentation. Moved to `docs/archive/`.
+- **`strategy.manage_exits` toggle** — Removed from `config/risk_config.yaml` and `traderlib/risk_config.py`. This was a temporary safety measure added in 0.6.18.2; it is now unnecessary because the feature it gated no longer exists.
+
+### Changed
+- **`traderlib/backtest/strategy.py`** — Inlined `EntrySignal`, `StrategyContext`, and `Strategy` ABC from the deleted `traderlib/strategies/__init__.py`. The backtest system is now self-contained with no dependency on a separate strategies module. `ExitAction`/`ExitActionType` imported directly from `traderlib/paper_exits.py`.
+- **`scripts/paper_engine_alpaca.py`** — Removed `--strategy` CLI flag, `_load_strategy()`, `_build_context()`, `_process_exit_action()`, and the strategy plugin branch in `_check_exits()`. The engine now uses only the legacy `ExitEngine` path for exits.
+- **`scripts/backtest.py`** — `--strategy` flag deprecated (no-op with warning). Always instantiates `Stage2MomentumStrategy` regardless of flag value.
+- **`docs/ARCHITECTURE.md`**, **`README.md`**, **`CLAUDE.md`** — Removed all strategy plugin architecture references.
+- **`traderlib/strategy_config.py`** — Updated docstrings to use `stage2_momentum` as the example instead of `vcp_large_cap`/`vcp_high_octane`.
+
+---
+
 ## [0.6.18.2] — 2026-05-26 — Fix — VCP R-Calculation, Dashboard Stale Data, Strategy Exit Override
 
 ### Fixed
