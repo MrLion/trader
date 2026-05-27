@@ -1,32 +1,176 @@
+# NOTE: This module imports from traderlib.paper_exits. Do NOT add imports
+# from this module back into paper_exits to avoid circular dependencies.
+
 """Strategy abstraction for backtesting.
 
-This module now re-exports from traderlib.strategies for unified interface.
+This module is self-contained and does not import from traderlib.strategies.
 Backtest-specific implementations (Stage2MomentumStrategy) remain here.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Dict, List, Optional, Any
 
 import pandas as pd
 
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.backtest.execution import ExecutionModel, ExecutionConfig
-from traderlib.paper_exits import ExitEngine
+from traderlib.paper_exits import ExitEngine, ExitAction, ExitActionType
 from traderlib.paper_state import Position
 from traderlib.stage2_utils import calculate_stage2_score, get_entry_score, get_stage2_details, calculate_ma_support_stop
 from traderlib.risk_config import RiskConfig, calculate_position_size_with_constraints
 
-# Import unified strategy types
-from traderlib.strategies import (
-    Strategy as BaseStrategy,
-    StrategyContext,
-    EntrySignal,
-    ExitAction,
-    ExitActionType,
-)
+
+# ============ Signal Dataclasses ============
+
+@dataclass(frozen=True)
+class EntrySignal:
+    """Signal to enter a position.
+
+    Attributes:
+        ticker: Stock symbol
+        side: 'LONG' or 'SHORT'
+        entry_price: Intended entry price
+        stop_price: Initial stop price
+        target_price: Profit target (may be trailed)
+        shares: Number of shares to buy
+        sector: Stock sector for concentration limits
+        entry_score: Entry attractiveness (0-100)
+        stage2_score: Stage 2 compliance (0-10)
+        metadata: Strategy-specific data (VCP data, convergence, etc.)
+    """
+    ticker: str
+    side: str = 'LONG'
+    entry_price: float = 0.0
+    stop_price: float = 0.0
+    target_price: float = 0.0
+    shares: int = 0
+    sector: str = 'Unknown'
+    entry_score: int = 0
+    stage2_score: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+# ============ Strategy Context ============
+
+@dataclass
+class StrategyContext:
+    """All data and dependencies a strategy needs, injected by engine.
+
+    Designed for:
+    - Backtest compatibility (sim_date, data_provider)
+    - Paper/live compatibility (current prices, real portfolio)
+    - Easy testing (mock context with minimal data)
+
+    Note: Uses DataFrameProvider protocol for data access — does not
+    duplicate raw data. Backtest uses AlpacaDataProvider; paper uses
+    PaperDataProvider adapter wrapping AlpacaClient.
+    """
+    # Data provider (authoritative source for all market data)
+    data_provider: DataFrameProvider
+
+    # Market data (cached convenience fields — prefer data_provider for freshness)
+    sim_date: date                          # Backtest: simulation date; Paper: today
+    spy_data: Optional[pd.DataFrame] = None  # SPY history for RS calculations
+    spy_current: Optional[float] = None     # Current SPY price
+    vix_current: Optional[float] = None     # Current VIX (if available)
+
+    # Portfolio state
+    positions: Dict[str, Any] = field(default_factory=dict)  # ticker -> Position
+    cash: float = 0.0
+    equity: float = 0.0
+    day_pnl: float = 0.0
+
+    # Risk configuration
+    risk_config: Optional[Any] = None
+    execution_config: Optional[Any] = None
+
+    # Helpers (delegated to data_provider)
+    def get_bars(self, ticker: str, lookback_days: int = 200) -> Optional[pd.DataFrame]:
+        """Get historical bars for ticker up to sim_date."""
+        return self.data_provider.get_bars(ticker, self.sim_date, min_rows=lookback_days)
+
+    def get_current_price(self, ticker: str) -> Optional[float]:
+        """Get current/latest price for ticker."""
+        return self.data_provider.get_current_price(ticker, self.sim_date)
+
+
+# ============ Strategy ABC ============
+
+class Strategy(ABC):
+    """Abstract base class for all trading strategies.
+
+    One interface for:
+    - Backtesting (deterministic, historical)
+    - Paper trading (real-time, simulated execution)
+    - Live trading (real-time, real execution)
+
+    Implement evaluate_entries() to find opportunities and
+    manage_exits() to handle position management with atomic actions.
+    """
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Strategy identifier (e.g., 'vcp_breakout', 'stage2_momentum')."""
+        pass
+
+    @abstractmethod
+    def evaluate_entries(self, context: StrategyContext) -> List[EntrySignal]:
+        """Scan for entry opportunities.
+
+        Args:
+            context: All market data, portfolio state, helpers
+
+        Returns:
+            List of EntrySignal for new positions
+        """
+        pass
+
+    @abstractmethod
+    def manage_exits(self, context: StrategyContext) -> List[ExitAction]:
+        """Manage exits for all open positions.
+
+        Called once per cycle. Returns atomic actions for each position.
+
+        Args:
+            context: Contains positions dict, current prices, helpers
+
+        Returns:
+            List of ExitAction (EXIT, UPDATE_STOP, or HOLD per position)
+        """
+        pass
+
+    # ============ Optional Lifecycle Hooks (override as needed) ============
+
+    def on_day_start(self, context: StrategyContext):
+        """Called at start of each trading day."""
+        pass
+
+    def on_day_end(self, context: StrategyContext):
+        """Called at end of trading day (after market close)."""
+        pass
+
+    def on_market_regime_change(self, old_regime: str, new_regime: str,
+                                context: StrategyContext):
+        """Called when market regime changes (e.g., BULL → BEAR)."""
+        pass
+
+    def on_position_opened(self, position: Any, context: StrategyContext):
+        """Called when a position is opened (fill confirmed)."""
+        pass
+
+    def on_position_closed(self, position: Any, pnl: float,
+                           context: StrategyContext):
+        """Called when a position is closed."""
+        pass
+
+    @property
+    def side(self) -> str:
+        """Default side for this strategy. Override for short strategies."""
+        return 'LONG'
 
 
 # Backward compatibility alias
@@ -34,7 +178,7 @@ ExitDecision = ExitAction  # Alias for tests using old name
 
 # Re-export for backward compatibility
 __all__ = [
-    'BaseStrategy',
+    'Strategy',
     'StrategyContext',
     'EntrySignal',
     'ExitAction',
@@ -72,53 +216,6 @@ class BacktestStrategyContext(StrategyContext):
     def get_current_price(self, ticker: str) -> Optional[float]:
         """Get current/latest price."""
         return self._data_provider.get_current_price(ticker, self._sim_date)
-
-
-class Strategy(BaseStrategy):
-    """Backtest-compatible Strategy base class using unified StrategyContext interface.
-
-    All strategies must implement evaluate_entries(context) and manage_exits(context)
-    using the unified StrategyContext interface.
-    """
-
-    @abstractmethod
-    def evaluate_entries(self, context: StrategyContext) -> list[EntrySignal]:
-        """Scan for entry opportunities using unified StrategyContext.
-
-        Args:
-            context: StrategyContext with data_provider, positions, equity, etc.
-
-        Returns:
-            List of EntrySignal for new positions
-        """
-        pass
-
-    @abstractmethod
-    def manage_exits(self, context: StrategyContext) -> list[ExitAction]:
-        """Manage exits for current positions using unified StrategyContext.
-
-        Args:
-            context: StrategyContext with data_provider, positions, etc.
-
-        Returns:
-            List of ExitAction (EXIT, UPDATE_STOP, or HOLD per position)
-        """
-        pass
-
-    def _build_context(self, sim_date: date, positions: dict[str, Position],
-                      data_provider: DataFrameProvider, equity: float,
-                      risk_config: Optional[RiskConfig] = None,
-                      vix_current: Optional[float] = None) -> BacktestStrategyContext:
-        """Build unified context from backtest parameters."""
-        return BacktestStrategyContext(
-            data_provider=data_provider,
-            sim_date=sim_date,
-            positions=positions,
-            equity=equity,
-            cash=equity,  # Approximation - backtest tracks cash separately
-            risk_config=risk_config,
-            vix_current=vix_current
-        )
 
 
 class Stage2MomentumStrategy(Strategy):

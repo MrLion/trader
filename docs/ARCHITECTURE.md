@@ -65,101 +65,6 @@ class ExitAction:
 
 ---
 
-## Strategy Plugin Architecture
-
-**Status:** Implemented (v0.6.1.0)
-
-### Overview
-
-Unified Strategy ABC that works across backtest, paper, and live trading modes with auto-discovery registry for pluggable strategies.
-
-### Core Components
-
-```python
-# Strategy ABC
-class Strategy(ABC):
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        pass
-    
-    @abstractmethod
-    def evaluate_entries(self, context: StrategyContext) -> List[EntrySignal]:
-        pass
-    
-    @abstractmethod
-    def manage_exits(self, context: StrategyContext) -> List[ExitAction]:
-        pass
-
-# Strategy Context
-@dataclass
-class StrategyContext:
-    data_provider: DataFrameProvider  # Protocol for data access
-    sim_date: date                    # Backtest: simulation date; Paper: today
-    positions: Dict[str, Position]
-    cash: float
-    equity: float
-    risk_config: Optional[RiskConfig]
-    
-    # Helper methods (delegated to data_provider)
-    def get_bars(self, ticker: str, lookback_days: int = 200) -> Optional[pd.DataFrame]
-    def get_current_price(self, ticker: str) -> Optional[float]
-```
-
-### Strategy Registry
-
-Strategies auto-register via decorator:
-
-```python
-STRATEGY_REGISTRY: Dict[str, Type[Strategy]] = {}
-
-def register_strategy(name: str):
-    """Decorator to auto-register strategy classes."""
-    
-# Usage
-@register_strategy('vcp_large_cap')
-class VCPBreakoutStrategy(Strategy):
-    ...
-
-# Retrieve strategy
-strategy = get_strategy('vcp_large_cap')
-```
-
-### Composite Strategy
-
-Run multiple strategies together with configurable modes:
-
-```python
-class CompositeStrategy(Strategy):
-    """Run multiple strategies together.
-    
-    Modes:
-    - 'union' (OR): Enter if ANY strategy signals
-    - 'intersection' (AND): Enter only if ALL strategies agree
-    """
-```
-
-**Exit Conflict Resolution:**
-1. Any `EXIT` → EXIT (safety first)
-2. All `HOLD` → HOLD
-3. Multiple `UPDATE_STOP` → Tightest stop wins (highest for long positions)
-
-### Data Isolation Principle
-
-**Backtest Data Isolation:** Backtest code must NOT import yfinance. All data must be provided via `DataFrameProvider`:
-
-```python
-# Correct: Uses provided data
-def _get_sector(self, ticker: str) -> str:
-    # Uses watchlist_df sector column, returns 'Unknown' if not available
-    return 'Unknown'
-
-# Incorrect: Network call during backtest
-import yfinance as yf  # NOT ALLOWED in backtest code
-```
-
----
-
 ## MA Convergence Detection
 
 **Status:** Implemented (v0.6.1.0)
@@ -300,15 +205,6 @@ Default momentum strategy using Stage 2 scoring system.
 | Position Sizing | Triple constraint (account risk, position cap, cash) |
 | Exit Logic | Delegated to ExitEngine.evaluate_exit_action() |
 
-### VCPBreakoutStrategy
-
-VCP breakout strategy with configurable profiles.
-
-| Profile | Dollar Volume | Min Shares |
-|---------|---------------|------------|
-| Large-cap | $80M+ | 1M+ |
-| High-octane | $20M+ | 400K+ |
-
 ---
 
 ## Migration Guide
@@ -344,27 +240,6 @@ def evaluate_exit_action(self, position, price):
         action=ExitActionType.HOLD,
         reason="HOLD"
     )
-```
-
-### Migrating to Strategy ABC (v0.6.1.0)
-
-**Before (backtest-specific):**
-```python
-from traderlib.backtest.strategy import Strategy
-
-def evaluate_entries(self, sim_date, positions, data_provider, equity):
-    # ...
-```
-
-**After (unified interface):**
-```python
-from traderlib.strategies import Strategy, StrategyContext
-
-def evaluate_entries(self, context: StrategyContext):
-    # Access data via context
-    bars = context.get_bars(context.sim_date)
-    price = context.get_current_price(ticker)
-    # ...
 ```
 
 ### Backtest Data Isolation

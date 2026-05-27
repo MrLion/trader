@@ -24,7 +24,6 @@ from traderlib.backtest.engine import BacktestEngine, BacktestConfig, BacktestPr
 from traderlib.backtest.execution import ExecutionConfig
 from traderlib.backtest.report import BacktestReporter
 from traderlib.backtest.strategy import Stage2MomentumStrategy, BacktestStrategyContext
-from traderlib.strategies import get_strategy, list_strategies, StrategyContext
 from traderlib.paper_exits import ExitEngine
 from traderlib.risk_config import RiskConfigManager
 
@@ -279,12 +278,6 @@ def _get_profit_target_details(profit_mode: str, risk_details: dict) -> list:
     return lines
 
 
-_AVAILABLE_STRATEGIES = list_strategies()
-_STRATEGY_HELP = (
-    'Strategy to use (default: stage2_momentum). Available: '
-    f'{", ".join(_AVAILABLE_STRATEGIES) if _AVAILABLE_STRATEGIES else "stage2_momentum only"}'
-)
-
 parser = argparse.ArgumentParser(description='Run backtest with configurable strategy')
 parser.add_argument('--start', required=True, help='Start date (YYYY-MM-DD)')
 parser.add_argument('--end', required=True, help='End date (YYYY-MM-DD)')
@@ -300,7 +293,7 @@ parser.add_argument('--dry-run', action='store_true', help='Validate config with
 parser.add_argument('--no-save', action='store_true', help='Skip saving backtest results to disk (for quick testing)')
 parser.add_argument('--alpaca-mode', choices=['data-only', 'paper'], default='data-only',
                     help='Alpaca connection mode (default: data-only — data endpoint only, no trading client)')
-parser.add_argument('--strategy', default='stage2_momentum', help=_STRATEGY_HELP)
+parser.add_argument('--strategy', default='stage2_momentum', help='Deprecated. Only stage2_momentum is supported.')
 
 
 def main():
@@ -392,31 +385,16 @@ def main():
     risk_config = RiskConfigManager(profile=args.risk_profile).get_config()
     exit_engine = ExitEngine(risk_config=risk_config)
 
-    # Initialize strategy - support both legacy and registered strategies
-    strategy = None
-    if args.strategy == 'stage2_momentum':
-        strategy = Stage2MomentumStrategy(
-            exit_engine=exit_engine,
-            watchlist_tickers=args.tickers,
-            watchlist_df=watchlist_df,
-            risk_config=risk_config,
-            execution_config=exec_config,
-        )
-    else:
-        # Try to load from registry
-        # VCP strategies only accept risk_config and profile
-        strategy_kwargs = {
-            'risk_config': risk_config,
-            'watchlist_tickers': args.tickers,
-            'watchlist_df': watchlist_df,
-        }
-        strategy = get_strategy(args.strategy, **strategy_kwargs)
-        if strategy is None:
-            available = list_strategies()
-            print(f"Error: Unknown strategy '{args.strategy}'")
-            print(f"Available strategies: {', '.join(available) if available else 'none registered'}")
-            print("Use --strategy stage2_momentum for default behavior")
-            sys.exit(1)
+    # Initialize strategy
+    if args.strategy != 'stage2_momentum':
+        print(f"⚠️  --strategy is deprecated; only stage2_momentum is supported")
+    strategy = Stage2MomentumStrategy(
+        exit_engine=exit_engine,
+        watchlist_tickers=args.tickers,
+        watchlist_df=watchlist_df,
+        risk_config=risk_config,
+        execution_config=exec_config,
+    )
 
     print(f"Using strategy: {strategy.name}")
 

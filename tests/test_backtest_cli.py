@@ -59,7 +59,7 @@ class TestArgparse:
             "--trades",
             "--dry-run",
             "--alpaca-mode", "paper",
-            "--strategy", "vcp_large_cap",
+            "--strategy", "stage2_momentum",
         ]
         with patch.object(sys, "argv", test_args):
             args = backtest.parser.parse_args()
@@ -73,7 +73,7 @@ class TestArgparse:
         assert args.trades is True
         assert args.dry_run is True
         assert args.alpaca_mode == "paper"
-        assert args.strategy == "vcp_large_cap"
+        assert args.strategy == "stage2_momentum"
 
     def test_missing_required_args_exits(self):
         test_args = ["backtest.py", "--start", "2024-01-01"]

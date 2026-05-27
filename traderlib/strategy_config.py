@@ -7,7 +7,7 @@ settings in risk_config.yaml.
 Usage:
     from traderlib.strategy_config import load_strategy_config, get_param
 
-    cfg = load_strategy_config('vcp_large_cap')
+    cfg = load_strategy_config('stage2_momentum')
     trail_ma = get_param(cfg, 'exit', 'phase2_trail_ma', default=20)
 """
 
@@ -26,8 +26,7 @@ def load_strategy_config(strategy_name: str) -> Optional[Dict[str, Any]]:
     risk_config defaults gracefully.
 
     Args:
-        strategy_name: Strategy identifier, e.g. 'vcp_large_cap',
-                       'vcp_high_octane', 'stage2_momentum'.
+        strategy_name: Strategy identifier, e.g. 'stage2_momentum'.
 
     Returns:
         Parsed YAML dict, or None if the file is missing.

@@ -21,7 +21,7 @@ class TestLoadStrategyConfig:
         with TemporaryDirectory() as td:
             config_dir = Path(td) / "config" / "strategies"
             config_dir.mkdir(parents=True)
-            config_file = config_dir / "vcp_large_cap.yaml"
+            config_file = config_dir / "stage2_momentum.yaml"
             config_file.write_text("""
 entry:
   min_score: 70
@@ -33,7 +33,7 @@ exit:
             original_dir = sc._CONFIG_DIR
             try:
                 sc._CONFIG_DIR = config_dir
-                cfg = load_strategy_config("vcp_large_cap")
+                cfg = load_strategy_config("stage2_momentum")
                 assert cfg is not None
                 assert cfg["entry"]["min_score"] == 70
                 assert cfg["exit"]["phase2_trail_ma"] == 20

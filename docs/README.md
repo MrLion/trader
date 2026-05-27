@@ -12,7 +12,6 @@ Organized by task and user type.
 | Learn the trading methodology | [METHODOLOGY.md](METHODOLOGY.md) |
 | Run my first scan | [Entry Signals](entry_signals/TIER_SCORING.md) |
 | Configure risk parameters | [RISK_GUIDE.md](RISK_GUIDE.md) |
-| Write a strategy plugin | [Strategy Overview](strategies/OVERVIEW.md) |
 | Troubleshoot issues | [Runbooks](runbooks/) |
 
 ---
@@ -48,9 +47,7 @@ Organized by task and user type.
 
 | Document | Purpose |
 |----------|---------|
-| [Strategy Overview](strategies/OVERVIEW.md) | Strategy plugin architecture, registry, CompositeStrategy |
 | [VCP Patterns](patterns/VCP.md) | VCP detection algorithm, progression validation |
-| [VCP Breakout](strategies/VCP_BREAKOUT.md) | VCP breakout strategy (large-cap and high-octane profiles) |
 | [Universe Filtering](universe/DYNAMIC_FILTERING.md) | Dynamic universe building, funnel filtering, ETF exclusion |
 
 ### Development
@@ -86,11 +83,6 @@ Organized by task and user type.
 1. [METHODOLOGY.md](METHODOLOGY.md) — Stage 2 methodology
 2. [RISK_GUIDE.md](RISK_GUIDE.md) — Risk configuration
 3. [Trend Screener](trend_screener/USER_GUIDE.md) — Discovery tool
-
-### For Strategy Authors
-1. [Strategy Overview](strategies/OVERVIEW.md) — Plugin architecture
-2. [VCP Breakout](strategies/VCP_BREAKOUT.md) — Example strategy
-3. [ARCHITECTURE.md](ARCHITECTURE.md) — System design
 
 ### For Developers
 1. [DEVELOPMENT.md](DEVELOPMENT.md) — Development setup

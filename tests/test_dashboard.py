@@ -2,8 +2,11 @@
 """Tests for traderlib.dashboard."""
 
 import sys
+import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "traderlib"))
 
@@ -128,6 +131,63 @@ class TestDashboard:
              patch("traderlib.dashboard.os.isatty", return_value=True):
             d = Dashboard(enabled=True)
             assert d.enabled is False
+
+
+class TestDashboardFrozenIndicator(unittest.TestCase):
+    def test_header_shows_frozen_when_market_closed(self):
+        """Dashboard header should indicate frozen data when market != OPEN."""
+        try:
+            from traderlib.dashboard import Dashboard
+        except ImportError:
+            self.skipTest("rich not installed")
+
+        with patch('traderlib.dashboard.Live'):
+            d = Dashboard(enabled=True)
+            d._last_update_time = pd.Timestamp('2024-01-15 16:00:00')
+
+            state = {
+                'market_status': 'CLOSED',
+                'mode': 'PAPER',
+                'regime': 'NEUTRAL',
+                'vix': 16.4,
+                'ws_connected': True,
+                'api_requests': 12,
+                'api_max': 500,
+            }
+
+            header = d._header(state)
+            header_text = str(header)
+
+            self.assertIn('Data frozen since', header_text)
+            self.assertIn('16:00:00', header_text)
+            d.stop()
+
+    def test_header_no_frozen_when_market_open(self):
+        """Dashboard header should NOT show frozen indicator when market is OPEN."""
+        try:
+            from traderlib.dashboard import Dashboard
+        except ImportError:
+            self.skipTest("rich not installed")
+
+        with patch('traderlib.dashboard.Live'):
+            d = Dashboard(enabled=True)
+            d._last_update_time = pd.Timestamp('2024-01-15 10:30:00')
+
+            state = {
+                'market_status': 'OPEN',
+                'mode': 'PAPER',
+                'regime': 'NEUTRAL',
+                'vix': 16.4,
+                'ws_connected': True,
+                'api_requests': 12,
+                'api_max': 500,
+            }
+
+            header = d._header(state)
+            header_text = str(header)
+
+            self.assertNotIn('Data frozen since', header_text)
+            d.stop()
 
 
 class TestDashboardFallback:

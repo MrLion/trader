@@ -73,7 +73,6 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 - Analysis: `ticker_analyzer.py`, `pivot_detection.py`, `vcp_utils.py`, `stage2_utils.py`
 - Exits: `trailing_exits.py`
 - Universe & validation: `universe_builder.py`, `validation.py`
-- Strategy plugins: `strategies/` (strategy implementations)
 - Backtesting: `backtest/` (data_provider, engine, execution, state, strategy, report)
 
 **Configuration (`config/`):**
@@ -109,9 +108,11 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 
 ### Core Logic & Workflow
 The system follows a strict trading operating rhythm:
-1. **Pre-Market:** Regime check $\rightarrow$ Calendar check $\rightarrow$ Gap scan $\rightarrow$ Watchlist review $\rightarrow$ Portfolio heat check.
-2. **Market Hours:** Execution per entry protocol (Pivot, Volume, Market confirmation).
-3. **Post-Market:** Trade logging $\rightarrow$ New scans $\rightarrow$ Breadth logging.
+1. **Pre-Market:** Regime check $\rightarrow$ Calendar check $\rightarrow$ Gap scan (sector-enriched via universe cache) $\rightarrow$ Watchlist review $\rightarrow$ Portfolio heat check (sector exposure from resolved sectors).
+2. **Market Hours:** Execution per entry protocol (Pivot, Volume, Market confirmation). New entries carry sector from `SectorResolver` (watchlist → universe → FMP fallback).
+3. **Post-Market:** Trade logging $\rightarrow$ New scans (sector-enriched CSV/HTML output) $\rightarrow$ Breadth logging.
+
+**Sector data flow:** Universe CSVs (`data/universes/*.csv`) now carry a `Sector` column populated at build time via FMP API. `SectorResolver` provides unified lookup across `entry_signals`, `trend_screener`, `paper_engine`, `dashboard`, and `backtest`. No per-scan API calls — sectors resolve from cache or universe CSV.
 
 ### Technical Dependencies
 
@@ -145,13 +146,13 @@ The project uses a 5-digit version format: `WW.XX.YY.ZZ`
 | Position | Meaning | When to Bump |
 |----------|---------|--------------|
 | `WW` | Super release | Major architectural shifts, huge milestones, generational changes |
-| `XX` | Major release | Significant features, breaking API changes, major subsystem launches |
-| `YY` | Minor release | New functionality, enhancements, substantial improvements |
-| `ZZ` | Patch | Bug fixes, chores, tests, docs, sporadic improvements |
+| `XX` | Major release | Epics, major subsystem launches |
+| `YY` | Minor release | New functionality, new features |
+| `ZZ` | Patch | Bug fixes, chores, tests, docs, improvements |
 
 **Examples:**
-- `0.6.12.1` → `0.6.12.2` — Bug fix, test addition, or chore
-- `0.6.12.0` → `0.6.13.0` — New feature or enhancement
+- `0.6.12.1` → `0.6.12.2` — Bug fix, chore, or improvement
+- `0.6.12.0` → `0.6.13.0` — New feature
 - `0.6.0.0` → `0.7.0.0` — Major release (e.g., live trading, web dashboard)
 - `0.9.0.0` → `1.0.0.0` — Super release (production-ready, stable API)
 

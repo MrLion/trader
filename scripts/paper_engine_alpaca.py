@@ -31,10 +31,6 @@ from traderlib.order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
 from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
-from traderlib.strategies import (
-    Strategy, StrategyContext, get_strategy, list_strategies,
-    EntrySignal as StrategyEntrySignal, ExitAction as StrategyExitAction
-)
 from traderlib.backtest.data_provider import DataFrameProvider
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 from traderlib.sector_resolver import SectorResolver
@@ -71,7 +67,7 @@ class AlpacaDataProviderAdapter:
 class AlpacaPaperEngine:
     """Paper trading engine using Alpaca for real-time data and execution."""
 
-    def __init__(self, mode: str = 'paper', risk_profile: str = None, strategy: str = 'default', dashboard=None):
+    def __init__(self, mode: str = 'paper', risk_profile: str = None, dashboard=None):
         print("🔌 Initializing Alpaca client...")
 
         # Mode-specific data directory for state isolation
@@ -101,8 +97,6 @@ class AlpacaPaperEngine:
         # Earnings calendar — gates entries and forces exits before earnings events
         self.earnings_calendar = EarningsCalendar()
 
-        # Strategy plugin (default uses legacy entry logic)
-        self.strategy = self._load_strategy(strategy)
         self.data_provider = AlpacaDataProviderAdapter(self.alpaca)
 
         self.running = False
@@ -149,63 +143,10 @@ class AlpacaPaperEngine:
                 self.dashboard = None
 
         print(f"✅ Engine ready - Mode: {mode.upper()}")
-        if self.strategy:
-            print(f"🎯 Strategy: {self.strategy.name}")
         print(f"📋 Pending orders: {self.order_manager.get_pending_count()}")
 
         # Print risk summary
         self.risk_manager.print_summary()
-
-    def _load_strategy(self, strategy_name: str) -> Optional[Strategy]:
-        """Load strategy by name from registry."""
-        if strategy_name == 'default':
-            return None  # Use legacy logic
-
-        strategy = get_strategy(strategy_name, risk_config=self.risk_config)
-        if strategy is None:
-            available = list_strategies()
-            print(f"⚠️  Strategy '{strategy_name}' not found. Available: {available}")
-            print(f"   Using default entry logic")
-            return None
-
-        print(f"✅ Strategy loaded: {strategy_name}")
-        return strategy
-
-    def _build_context(self) -> StrategyContext:
-        """Build unified strategy context."""
-        from datetime import date
-
-        # Get SPY data
-        spy_data = None
-        spy_current = None
-        try:
-            spy_data = self.alpaca.get_bars('SPY', limit=130)
-            spy_current = self.alpaca.get_current_price('SPY')
-        except Exception as e:
-            print(f"   ⚠️  _build_context: SPY data unavailable ({e}) — strategy context degraded")
-            TradingExceptionHandler.log_exception(
-                "build_context_spy", e,
-                severity=TradingExceptionHandler.WARNING, ticker='SPY'
-            )
-
-        # Convert positions to Position objects
-        positions = {
-            ticker: pos.position if hasattr(pos, 'position') else pos
-            for ticker, pos in self.state.positions.items()
-        }
-
-        return StrategyContext(
-            data_provider=self.data_provider,
-            sim_date=date.today(),
-            spy_data=spy_data,
-            spy_current=spy_current,
-            vix_current=None,  # Could fetch from VIX ticker
-            positions=positions,
-            cash=self.state.cash,
-            equity=self.state.get_equity(),
-            day_pnl=self.state.get_day_pnl(),
-            risk_config=self.risk_config,
-        )
 
     def _migrate_old_layout(self) -> None:
         """Migrate old flat data files into mode-specific subdirectory (one-time)."""
@@ -893,58 +834,12 @@ class AlpacaPaperEngine:
         if signal.should_exit:
             await self._execute_exit(ticker, signal)
 
-    async def _process_exit_action(self, action: StrategyExitAction):
-        """Apply a strategy ExitAction to local state.
-
-        Bridges the unified ExitAction (strategy plugin output) to the paper
-        engine's legacy ExitSignal / state mutation path.
-
-        EXIT        → convert to ExitSignal and call _execute_exit.
-        UPDATE_STOP → ratchet stop upward (never down); persist exit_phase.
-        HOLD        → no-op.
-        """
-        from traderlib.strategies import ExitActionType as EAT
-
-        ticker = action.ticker
-        if ticker not in self.state.positions:
-            return
-
-        position = self.state.positions[ticker]
-        phase = (action.metadata or {}).get('exit_phase') if action.metadata else None
-        phase_badge = f' [{phase}]' if phase else ''
-
-        if action.action == EAT.EXIT:
-            signal = ExitSignal(
-                should_exit=True,
-                reason=action.reason,
-                exit_price=action.exit_price or position.stop_price,
-                r_multiple=action.r_multiple or 0.0,
-            )
-            print(f"   🛑 {ticker}: EXIT{phase_badge} — {action.reason}")
-            await self._execute_exit(ticker, signal)
-
-        elif action.action == EAT.UPDATE_STOP and action.new_stop_price is not None:
-            new_stop  = action.new_stop_price
-            stop_type = action.new_stop_type or 'TRAIL'
-            # Only ratchet upward — never lower the stop
-            if new_stop > position.stop_price:
-                position.stop_price        = new_stop
-                position.current_stop_type = stop_type
-                self.state.update_stop(ticker, new_stop, stop_type, exit_phase=phase)
-                print(
-                    f"   📈 {ticker}: Stop → ${new_stop:.2f} ({stop_type})"
-                    f"{phase_badge}  R={action.r_multiple:.1f}"
-                )
-
-        # HOLD → nothing to do
-
     async def _check_exits(self):
         """Check all open positions for exits.
 
         Priority order:
         1. Earnings exits — always fire regardless of strategy.
-        2. Strategy plugin (if loaded) — manage_exits() returns ExitAction list.
-        3. Legacy ExitEngine path — used when no strategy plugin is active.
+        2. Legacy ExitEngine path.
         """
         if not self.running:
             return
@@ -966,18 +861,7 @@ class AlpacaPaperEngine:
                 print(f"   📅 {ticker}: Exiting before earnings — EARNINGS_EXIT")
                 await self._execute_exit(ticker, earnings_signal)
 
-        # ── 2. Strategy plugin exits ───────────────────────────────────────
-        if (self.strategy and hasattr(self.strategy, 'manage_exits')
-                and self.risk_config.strategy.manage_exits):
-            context = self._build_context()
-            actions = self.strategy.manage_exits(context)
-            for action in actions:
-                if action.ticker not in self.state.positions:
-                    continue  # already exited above
-                await self._process_exit_action(action)
-            return
-
-        # ── 3. Legacy ExitEngine path ──────────────────────────────────────
+        # ── 2. Legacy ExitEngine path ──────────────────────────────────────
         for ticker in list(self.state.positions.keys()):
             if ticker not in self.state.positions:
                 continue  # already exited above
@@ -1713,8 +1597,6 @@ def main():
                         help='Risk profile from config (conservative, aggressive, tight_stops)')
     parser.add_argument('--risk-summary', action='store_true',
                         help='Print risk configuration and exit')
-    parser.add_argument('--strategy', type=str, default='default',
-                        help='Strategy plugin to use (default: use legacy entry logic)')
     args = parser.parse_args()
 
     # If just printing risk summary, skip dashboard — Live screen captures print output
@@ -1793,7 +1675,7 @@ def main():
                     print("   Market is now open. Starting engine...\n")
 
             # Run the engine (blocks until market closes or user stops)
-            engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, strategy=args.strategy, dashboard=dashboard)
+            engine = AlpacaPaperEngine(mode=args.mode, risk_profile=args.risk_profile, dashboard=dashboard)
             result = asyncio.run(engine.run())
             # Engine stopped — restore default signal handling for wait loop
             engine._cleanup()

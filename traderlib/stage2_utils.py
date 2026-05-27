@@ -269,6 +269,8 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
     """
     Calculate entry attractiveness score (0-100) using updated thresholds for 10-point system.
 
+    Max breakdown: Stage2=25 + Risk=25 + Proximity=25 + Momentum=15 + RS=10 = 100.
+
     Args:
         stage2_score: Stage 2 score (0-10)
         risk_pct: Risk percentage
@@ -283,28 +285,24 @@ def get_entry_score(stage2_score: int, risk_pct: float, dist_to_pivot: float,
     """
     entry_score = 0
 
-    # Stage 2 score component (30 pts max) — scaled for 10-point system
+    # Stage 2 score component (25 pts max) — scaled for 10-point system
     if stage2_score >= 9:    # Excellent  (90%+)
-        entry_score += 30
-    elif stage2_score >= 8:  # Very good  (80%+)
         entry_score += 25
-    elif stage2_score >= 7:  # Good       (70%+)
+    elif stage2_score >= 8:  # Very good  (80%+)
         entry_score += 20
-    elif stage2_score >= 6:  # Fair       (60%+)
+    elif stage2_score >= 7:  # Good       (70%+)
         entry_score += 15
-    elif stage2_score >= 5:  # Weak       (50%+)
+    elif stage2_score >= 6:  # Fair       (60%+)
         entry_score += 10
-    elif stage2_score >= 4:  # Minimal    (40%+)
+    elif stage2_score >= 5:  # Weak       (50%+)
         entry_score += 5
 
-    # Risk % component (30 pts max)
+    # Risk % component (25 pts max)
     if risk_pct < 10:
-        entry_score += 30
+        entry_score += 25
     elif risk_pct < 15:
-        entry_score += 20
+        entry_score += 15
     elif risk_pct < 20:
-        entry_score += 10
-    elif risk_pct < 25:
         entry_score += 5
 
     # Proximity to pivot component (25 pts max) - symmetric (within ±10%)
