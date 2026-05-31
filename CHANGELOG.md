@@ -1,3 +1,23 @@
+## [0.6.19.1] — 2026-05-31 — Fix — Sync Merge Position State + Minimal Audit Logging
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:260-331`** — Sync loop now **merges** existing positions instead of replacing them. Previously, `_sync_with_alpaca()` destroyed `initial_stop_price`, `entry_date`, and `scale_out_history` by creating a brand new `Position` object. The merge path updates only mutable fields (`shares`, `stop_price`, `target_price`, `current_stop_type`, `entry_price`, `initial_risk`) while preserving immutable entry facts.
+
+### Added
+- **`traderlib/paper_state.py`** — Minimal audit logging at state chokepoints:
+  - `STATE_LOAD` / `STATE_LOAD_EMPTY` / `STATE_LOAD_FAIL` — logs position count, file size, and load errors on engine startup
+  - `STATE_SAVE_VERIFY` / `STATE_SAVE_VERIFY_FAIL` — lightweight post-save count verification
+  - `INTEGRITY_TRADE_LOG` — cross-references trade log `ENTRY`/`EXIT` counts against loaded positions to detect missing tickers
+- **`traderlib/trading_exceptions.py`** — `log_operational()` class method for non-exception state events (sync merge, new position, integrity warnings).
+- **`tests/test_paper_engine_sync.py`** — Proves `initial_stop_price` survives sync merge and object identity is preserved.
+- **`tests/test_paper_state_logging.py`** — Tests for `STATE_LOAD`, `STATE_SAVE_VERIFY`, and `INTEGRITY_TRADE_LOG` emissions.
+
+### Changed
+- **`docs/superpowers/specs/2026-05-30-operational-state-logging-design.md`** — Marked as implemented.
+- **`docs/superpowers/plans/2026-05-30-sync-merge-audit-logging-plan.md`** — Marked as implemented.
+
+---
+
 ## [0.6.19.0] — 2026-05-26 — Refactor — Remove VCP Strategy Plugin System
 
 ### Removed
