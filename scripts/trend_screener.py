@@ -631,7 +631,7 @@ Examples:
     parser.add_argument('--show-ma-data', action='store_true',
                         help='Display MA values and cluster details')
     parser.add_argument('--top', type=int, default=20,
-                        help='Show top N per grade (default: 20)')
+                        help='Show top N results (default: 20)')
     # Export
     parser.add_argument('--export', '-e', choices=['csv', 'json', 'html', 'none'], default='none',
                         help='Export full analysis (default: none)')
