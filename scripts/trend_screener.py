@@ -33,12 +33,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.paper_exits import ExitEngine
 from traderlib.stage2_utils import (
-    calculate_stage2_score,
     get_stage2_details,
     calculate_volume_metrics,
 )
 from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
-from traderlib.risk_config import RiskConfigManager
 from traderlib.universe_builder import UniverseBuilder
 from traderlib.sector_resolver import SectorResolver
 
@@ -290,13 +288,11 @@ class TrendScreener:
         self._filter_counts = {}
         results = []
         total = len(tickers)
-        min_conv = filters.get('min_convergence_score')
-        conv_label = str(min_conv) if min_conv is not None else 'disabled'
 
         print(f"Scanning {total} tickers with {profile} profile...")
         price_display = filters.get('min_price')
         price_label = f"${price_display}" if price_display is not None else 'disabled'
-        print(f"  Filters: min_price={price_label}, min_conv_score={conv_label}")
+        print(f"  Filters: min_price={price_label}")
 
         try:
             from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn, TimeRemainingColumn
@@ -350,16 +346,13 @@ class TrendScreener:
             elif key == 'liquidity':
                 val = filters.get('min_volume_shares')
                 return f'liquidity (≥{val/1e6:.1f}M vol)' if val is not None else 'liquidity'
-            elif key == 'convergence':
-                val = filters.get('min_convergence_score')
-                return f'conv score (≥{val})' if val is not None else 'conv score'
             elif key == 'passed':
                 return 'passed'
             return key
 
         breakdown_order = ['data', 'price', 'price_vs_10ma', 'stage2',
                            'ma_stack_short', 'ma_stack_long', 'rs_near_high',
-                           'liquidity', 'convergence', 'passed']
+                           'liquidity', 'passed']
         print(f"\n  Filter breakdown:")
         for key in breakdown_order:
             count = self._filter_counts.get(key, 0)
@@ -370,19 +363,15 @@ class TrendScreener:
 
         return results
 
-    def rank_results(self, results: List[Dict], rank_by: str = 'convergence') -> List[Dict]:
+    def rank_results(self, results: List[Dict], rank_by: str = 'setup') -> List[Dict]:
         """Sort results by specified criteria."""
         if not results:
             return []
 
-        if rank_by == 'convergence':
-            return sorted(results, key=lambda x: (x['convergence_score'], x['cluster_size']), reverse=True)
-
-        elif rank_by == 'setup':
+        if rank_by == 'setup':
             return sorted(results, key=lambda x: (
                 not x['entry_ready'],
                 x['proximity_pct'],
-                -x['convergence_score']
             ))
 
         elif rank_by == 'rs':
@@ -396,12 +385,10 @@ class TrendScreener:
         results: List[Dict],
         show_ma_data: bool = False,
         top: int = 20,
-        show_score_stats: bool = False,
         context: Optional[Dict] = None,
-        hide_grade_c: bool = False,
         entry_mode: str = 'any',
     ):
-        """Print formatted results table using Rich, grouped by convergence grade."""
+        """Print formatted results table using Rich."""
         try:
             from rich.console import Console
             from rich.table import Table
@@ -414,11 +401,6 @@ class TrendScreener:
         if not results:
             print("\nNo results found matching criteria.")
             return
-
-        if show_score_stats:
-            scores = [r['convergence_score'] for r in results]
-            print(f"\n  Score distribution (no threshold applied):")
-            print(f"    Range: {min(scores):.0f} – {max(scores):.0f}   Mean: {sum(scores)/len(scores):.1f}")
 
         # Run context header
         if context and use_rich:
@@ -439,15 +421,11 @@ class TrendScreener:
                   f"Universe: {context.get('universe_size', '?'):,}  |  "
                   f"Ranked by: {context.get('rank_by', '?')}")
 
-        grade_a = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade A"]
-        grade_b = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade B"]
-        grade_c = [r for r in results if get_convergence_grade(r['convergence_score']) == "Grade C"]
-
         show_entry_col = entry_mode != 'any'
 
         def _make_table(grade_name: str, icon: str, row_style: str) -> Table:
             table = Table(
-                title=f"{icon} {grade_name}",
+                title=f"{icon} Top {top} {grade_name}",
                 title_style=f"bold {row_style}",
                 show_header=True,
                 header_style="bold",
@@ -457,9 +435,6 @@ class TrendScreener:
             table.add_column("Ticker", style=row_style, no_wrap=True)
             table.add_column("Price", justify="right")
             table.add_column("Stage2", justify="right")
-            table.add_column("Score", justify="right")
-            table.add_column("MAs", justify="right")
-            table.add_column("MA Stop%", justify="right")
             table.add_column("To Pivot", justify="right")
             table.add_column("Vol Ratio", justify="right")
             if show_entry_col:
@@ -476,9 +451,6 @@ class TrendScreener:
                     r['ticker'],
                     f"${r['price']:.2f}",
                     str(r['stage2_score']),
-                    str(r['convergence_score']),
-                    str(r['cluster_size']),
-                    f"{r['ma_risk_pct']:.1f}%",
                     f"{r['proximity_pct']:.1f}%",
                     f"{r['volume_ratio']:.1f}x",
                 ]
@@ -497,17 +469,16 @@ class TrendScreener:
             if not group:
                 return
             print(f"\n{icon} {grade_name} — {len(group)} candidates")
-            print(f"{'=' * 110}")
-            header = (f"{'Ticker':<8} {'Price':>8} {'Stage2':>6} {'Score':>5} {'MAs':>4} "
-                      f"{'MA Stop%':>8} {'To Pivot':>8} {'Vol Ratio':>9}")
+            print(f"{'=' * 80}")
+            header = (f"{'Ticker':<8} {'Price':>8} {'Stage2':>6} "
+                      f"{'To Pivot':>8} {'Vol Ratio':>9}")
             if show_entry_col:
                 header += f" {'Entry':>6}"
             print(header)
-            print('-' * 110)
+            print('-' * 80)
             for r in group[:top]:
                 row = (f"{r['ticker']:<8} ${r['price']:>7.2f} {r['stage2_score']:>6} "
-                       f"{r['convergence_score']:>5} {r['cluster_size']:>4} "
-                       f"{r['ma_risk_pct']:>7.1f}% {r['proximity_pct']:>7.1f}% "
+                       f"{r['proximity_pct']:>7.1f}% "
                        f"{r['volume_ratio']:>8.1f}x")
                 if show_entry_col:
                     row += f" {'READY' if r['entry_ready'] else 'WAIT':>6}"
@@ -516,29 +487,16 @@ class TrendScreener:
                 print(f"\n   ... and {len(group) - top} more")
 
         if use_rich:
-            _print_group_rich(grade_a, "Grade A — Excellent MA Support", "🟢", "green", "green")
-            _print_group_rich(grade_b, "Grade B — Developing Convergence", "🟡", "yellow", "yellow")
-            if not hide_grade_c:
-                _print_group_rich(grade_c, "Grade C — Monitor", "⚪", "dim", "white")
+            _print_group_rich(results, "Candidates", "📊", "white", "white")
         else:
-            _print_group_plain(grade_a, "Grade A — Excellent MA Support", "🟢")
-            _print_group_plain(grade_b, "Grade B — Developing Convergence", "🟡")
-            if not hide_grade_c:
-                _print_group_plain(grade_c, "Grade C — Monitor", "⚪")
+            _print_group_plain(results, "Candidates", "📊")
 
-        # Summary line
-        if hide_grade_c and grade_c:
-            c_note = f" | Grade C: {len(grade_c)} (use --hide-grade-c to hide all)"
-            c_note = f" | Grade C: {len(grade_c)} (hidden — rerun with --no-hide-grade-c to show)"
-        else:
-            c_note = f" | Grade C: {len(grade_c)}"
-        summary = (f"\nTotal: {len(results)} | Grade A: {len(grade_a)} | "
-                   f"Grade B: {len(grade_b)}{c_note}")
+        summary = f"\nTotal: {len(results)} candidates"
         if use_rich:
             console.rule(style="dim")
             console.print(summary)
         else:
-            print(f"\n{'=' * 110}")
+            print(f"\n{'=' * 80}")
             print(summary)
 
     def export_results(
@@ -608,7 +566,7 @@ def main():
         epilog="""
 Examples:
   # Discovery mode
-  python3 %(prog)s --profile large-cap --rank-by convergence --top 20
+  python3 %(prog)s --profile large-cap --rank-by setup --top 20
 
   # Rank watchlist by entry readiness
   python3 %(prog)s --ticker-file data/watchlist.csv --rank-by setup --entry-mode pivot
@@ -618,9 +576,6 @@ Examples:
 
   # Export to backtest pipeline
   python3 %(prog)s --profile large-cap --export-watchlist scans/watchlist_today.csv
-
-  # Quality-tiered discovery (only Grade A+)
-  python3 %(prog)s --profile large-cap --min-convergence-score 60
         """
     )
 
@@ -654,14 +609,6 @@ Examples:
                         help='Universe profile from config (default: large-cap). '
                              'Add custom profiles as YAML blocks in screener_config.yaml.')
 
-    # Convergence scoring — None = disabled (rank only, don't filter)
-    parser.add_argument('--min-convergence-score', type=int, default=None,
-                        help='Filter min convergence score (default: from profile config; null in config = disabled)')
-    parser.add_argument('--cluster-spread-pct', type=float, default=None,
-                        help='Max cluster spread %% (default=adaptive, e.g. 0.05 for tight 5%%)')
-    parser.add_argument('--min-cluster-size', type=int, default=1,
-                        help='Min MAs in cluster (default: 1)')
-
     # Entry timing
     parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pivot', 'volume'], default='any',
                         help='Entry timing mode (default: any)')
@@ -679,17 +626,12 @@ Examples:
                         help='Detect and display VCP pattern (sets --entry-mode vcp)')
 
     # Ranking and display
-    parser.add_argument('--rank-by', choices=['convergence', 'setup', 'rs'], default='convergence',
-                        help='Sort criteria (default: convergence)')
+    parser.add_argument('--rank-by', choices=['setup', 'rs'], default='setup',
+                        help='Sort criteria (default: setup)')
     parser.add_argument('--show-ma-data', action='store_true',
                         help='Display MA values and cluster details')
     parser.add_argument('--top', type=int, default=20,
                         help='Show top N per grade (default: 20)')
-    parser.add_argument('--hide-grade-c', action='store_true', default=False,
-                        help='Hide Grade C results (default: shown; use --hide-grade-c to suppress)')
-    parser.add_argument('--no-hide-grade-c', dest='hide_grade_c', action='store_false',
-                        help='Show Grade C results (default)')
-
     # Export
     parser.add_argument('--export', '-e', choices=['csv', 'json', 'html', 'none'], default='none',
                         help='Export full analysis (default: none)')
@@ -719,7 +661,6 @@ Examples:
     effective_min_dollar_vol = args.min_volume_dollar if args.min_volume_dollar is not None else profile_cfg.get('min_dollar_volume')
     effective_min_share_vol = args.min_volume_shares if args.min_volume_shares is not None else profile_cfg.get('min_share_volume')
     effective_min_stage2 = profile_cfg.get('min_stage2_score')
-    effective_min_conv = args.min_convergence_score if '--min-convergence-score' in _explicit else profile_cfg.get('min_convergence_score')
 
     # Load tickers from explicit sources first
     tickers = []
@@ -800,9 +741,6 @@ Examples:
         'exclude_etfs': args.exclude_etfs,
         'min_volume_dollar': effective_min_dollar_vol,
         'min_volume_shares': effective_min_share_vol,
-        'min_convergence_score': effective_min_conv,
-        'cluster_spread_pct': args.cluster_spread_pct,
-        'min_cluster_size': args.min_cluster_size,
         'entry_mode': entry_mode,
         'pivot_proximity': args.pivot_proximity,
         'min_volume_ratio': args.min_volume_ratio,
@@ -822,8 +760,6 @@ Examples:
         active_filters.append("MA-long")
     if effective_rs_near_high is not None:
         active_filters.append(f"RS≤{effective_rs_near_high:.0f}%")
-    if effective_min_conv is not None:
-        active_filters.append(f"conv≥{effective_min_conv}")
 
     context = {
         'profile': args.profile,
@@ -835,7 +771,7 @@ Examples:
     import time
     screener = TrendScreener()
 
-    print(f"\n📈 Scanning for MA convergence setups...")
+    print(f"\n📈 Scanning for trending setups...")
     start_scan = time.time()
     results = screener.scan(tickers, filters, profile=args.profile)
     scan_time = time.time() - start_scan
@@ -843,15 +779,11 @@ Examples:
 
     ranked = screener.rank_results(results, rank_by=args.rank_by)
 
-    show_score_stats = effective_min_conv is None
-
     screener.display_results(
         ranked,
         show_ma_data=args.show_ma_data,
         top=args.top,
-        show_score_stats=show_score_stats,
         context=context,
-        hide_grade_c=args.hide_grade_c,
         entry_mode=entry_mode,
     )
 
