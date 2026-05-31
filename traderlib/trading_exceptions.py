@@ -149,6 +149,29 @@ class TradingExceptionHandler:
             logger.info(msg)
 
     @classmethod
+    def log_operational(cls, operation: str, level: str = "info", **context):
+        """Log an operational event (not an exception).
+
+        Used for state transitions, sync events, and integrity checks.
+        Wrapped in try/except so logging failure never crashes the engine.
+        """
+        try:
+            context_str = f" | context: {context}" if context else ""
+            msg = f"[{operation}]{context_str}"
+
+            logger = logging.getLogger('trading')
+            if level == "critical":
+                logger.critical(msg)
+            elif level == "error":
+                logger.error(msg)
+            elif level == "warning":
+                logger.warning(msg)
+            else:
+                logger.info(msg)
+        except Exception:
+            pass  # Logging must never crash the engine
+
+    @classmethod
     def get_metrics(cls) -> Dict[str, Any]:
         """Get exception metrics for monitoring/alerting."""
         return {

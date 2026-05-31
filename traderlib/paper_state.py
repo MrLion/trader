@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 
+from traderlib.trading_exceptions import TradingExceptionHandler
+
 
 def _atomic_write_json(filepath: Path, data: dict) -> None:
     """Write JSON atomically using temp file + rename.
@@ -215,22 +217,8 @@ class PaperState:
         self._logger = logging.getLogger('trading')
 
     def _log_operational(self, operation: str, level: str = "info", **kwargs):
-        """Log operational event without raising exception.
-        Wrapped in try/except so logging failure never crashes the engine.
-        """
-        try:
-            logger = self._logger
-            msg = f"[{operation}] " + ", ".join(f"{k}={v}" for k, v in kwargs.items())
-            if level == "critical":
-                logger.critical(msg)
-            elif level == "error":
-                logger.error(msg)
-            elif level == "warning":
-                logger.warning(msg)
-            else:
-                logger.info(msg)
-        except Exception:
-            pass  # Logging must never crash the engine
+        """Delegate to TradingExceptionHandler for consistent logging."""
+        TradingExceptionHandler.log_operational(operation, level, **kwargs)
 
     def _load_state(self):
         """Load positions from disk and daily tracker."""
