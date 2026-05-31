@@ -1,3 +1,23 @@
+## [0.6.19.2] — 2026-05-31 — Fix — Remove Non-Functional Convergence Scoring
+
+### Removed
+- **`scripts/trend_screener.py`** — Removed convergence scoring and grade grouping. The scoring formula was mathematically incompatible with momentum filters, producing zero Grade A results across all profiles. Grade A/B/C grouping and convergence score columns removed from output.
+- **CLI args removed:** `--min-convergence-score`, `--cluster-spread-pct`, `--min-cluster-size`, `--hide-grade-c`, `--rank-by convergence`
+- **`config/screener_config.yaml`** — Removed `min_convergence_score` from large_cap and high_octane profiles
+- **`config/strategies/example_trailing.yaml`** — Removed `min_convergence_score` reference
+- **`tests/test_trend_screener.py`** — Removed convergence-specific tests; ranking tests rewritten for `setup` and `rs` criteria
+
+### Changed
+- **Default ranking** changed from `convergence` to `setup` (entry-ready stocks first, then proximity, then Stage 2 score)
+- **`setup_type` label** changed from `'convergence'` to `'trend'` when no VCP/pivot is detected
+- **Output format** is now a single ranked table instead of Grade A/B/C groups
+
+### Preserved
+- `calculate_convergence_score()` and `get_convergence_grade()` remain in `traderlib/stage2_utils.py` for use by `entry_signals.py` and other single-ticker analysis tools
+- `tests/test_ma_convergence.py` unchanged
+
+---
+
 ## [0.6.19.1] — 2026-05-31 — Fix — Sync Merge Position State + Minimal Audit Logging
 
 ### Fixed
