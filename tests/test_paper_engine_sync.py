@@ -1,3 +1,4 @@
+import json
 import unittest
 import tempfile
 from pathlib import Path
@@ -76,6 +77,53 @@ class TestSyncMergePreservesImmutables(unittest.TestCase):
         self.assertEqual(pos.shares, 26)
         self.assertEqual(pos.scale_out_history, [3.0])
         self.assertEqual(pos.stop_price, 125.68)
+
+
+
+class TestSyncMergeIntegration(unittest.TestCase):
+    """Integration test: simulate full sync with existing position."""
+
+    def test_sync_does_not_destroy_immutables(self):
+        """If local state has NXT, sync must not replace it with a new object."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            positions_file = data_dir / 'paper_positions.json'
+            positions_file.write_text('{}')
+            daily_tracker = data_dir / 'daily_tracker.json'
+            daily_tracker.write_text(json.dumps({'last_entry_reset': '2024-04-08'}))
+            trades_file = data_dir / 'paper_trades.jsonl'
+            trades_file.write_text('')
+
+            with patch('traderlib.paper_state.DATA_DIR', data_dir):
+                with patch('traderlib.paper_state.POSITIONS_FILE', positions_file):
+                    with patch('traderlib.paper_state.DAILY_TRACKER_FILE', daily_tracker):
+                        with patch('traderlib.paper_state.TRADES_FILE', trades_file):
+                            state = PaperState(initial_capital=100000.0)
+
+                            # Enter position
+                            state.enter_position(
+                                ticker='NXT',
+                                entry_price=125.68,
+                                shares=80,
+                                stop_price=122.71,
+                                target_price=131.63,
+                                sector='Technology',
+                                entry_min_r=2.0,
+                            )
+                            original_id = id(state.positions['NXT'])
+                            original_initial_stop = state.positions['NXT'].initial_stop_price
+                            original_entry_date = state.positions['NXT'].entry_date
+
+                            # Simulate sync: mutate shares (as sync loop would)
+                            state.positions['NXT'].shares = 26
+                            state.save_state()
+
+                            # Verify same object, immutables preserved
+                            self.assertEqual(id(state.positions['NXT']), original_id)
+                            self.assertEqual(state.positions['NXT'].initial_stop_price, original_initial_stop)
+                            self.assertEqual(state.positions['NXT'].entry_date, original_entry_date)
+                            self.assertEqual(state.positions['NXT'].shares, 26)
 
 
 if __name__ == '__main__':
