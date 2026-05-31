@@ -399,10 +399,62 @@ class PaperState:
 
         Uses atomic writes to prevent corruption if process crashes.
         FINDING-009: Concurrent file writes protection.
+        FINDING-014: Post-save verification to detect state loss.
         """
-        # Save positions atomically
+        memory_count = len(self.positions)
         positions_dict = {ticker: pos.to_dict() for ticker, pos in self.positions.items()}
         _atomic_write_json(self.positions_file, positions_dict)
+
+        # Post-save verification: read back and compare counts
+        try:
+            with open(self.positions_file, 'r') as f:
+                written_data = json.load(f)
+            if not isinstance(written_data, dict):
+                self._log_operational(
+                    "STATE_SAVE_VERIFY_FAIL", "error",
+                    path=str(self.positions_file),
+                    error_type="FormatError",
+                    error_msg=f"Expected dict, got {type(written_data).__name__}",
+                )
+                return
+            file_count = len(written_data)
+            file_size = self.positions_file.stat().st_size
+
+            if file_count != memory_count:
+                memory_tickers = set(self.positions.keys())
+                file_tickers = set(written_data.keys())
+                missing = list(memory_tickers - file_tickers)
+                self._log_operational(
+                    "STATE_SAVE_VERIFY_FAIL", "warning",
+                    path=str(self.positions_file),
+                    memory_count=memory_count,
+                    file_count=file_count,
+                    missing_tickers=missing,
+                    file_size=file_size,
+                )
+            else:
+                self._log_operational(
+                    "STATE_SAVE_VERIFY", "info",
+                    path=str(self.positions_file),
+                    position_count=memory_count,
+                    file_size=file_size,
+                )
+        except json.JSONDecodeError as e:
+            self._log_operational(
+                "STATE_SAVE_VERIFY_FAIL", "error",
+                path=str(self.positions_file),
+                memory_count=memory_count,
+                error_type="JSONDecodeError",
+                error_msg=str(e),
+            )
+        except Exception as e:
+            self._log_operational(
+                "STATE_SAVE_VERIFY_FAIL", "warning",
+                path=str(self.positions_file),
+                memory_count=memory_count,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
 
         # Save daily tracker atomically
         self._save_daily_tracker()
