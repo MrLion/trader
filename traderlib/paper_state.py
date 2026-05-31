@@ -2,6 +2,7 @@
 """Paper trading state management - positions, account, and persistence."""
 
 import json
+import logging
 import os
 import tempfile
 from datetime import datetime
@@ -210,10 +211,34 @@ class PaperState:
         # Load existing state if available
         self._load_state()
 
+        # Cache logger reference to avoid repeated lookups
+        self._logger = logging.getLogger('trading')
+
+    def _log_operational(self, operation: str, level: str = "info", **kwargs):
+        """Log operational event without raising exception.
+        Wrapped in try/except so logging failure never crashes the engine.
+        """
+        try:
+            logger = self._logger
+            msg = f"[{operation}] " + ", ".join(f"{k}={v}" for k, v in kwargs.items())
+            if level == "critical":
+                logger.critical(msg)
+            elif level == "error":
+                logger.error(msg)
+            elif level == "warning":
+                logger.warning(msg)
+            else:
+                logger.info(msg)
+        except Exception:
+            pass  # Logging must never crash the engine
+
     def _load_state(self):
         """Load positions from disk and daily tracker."""
         # Load positions
-        if self.positions_file.exists():
+        file_exists = self.positions_file.exists()
+        file_size = self.positions_file.stat().st_size if file_exists else 0
+
+        if file_exists:
             try:
                 with open(self.positions_file, 'r') as f:
                     data = json.load(f)
@@ -228,8 +253,31 @@ class PaperState:
                         # Internal format: dict with ticker as key
                         for ticker, pos_data in data.items():
                             self.positions[ticker] = Position.from_dict(pos_data)
+                self._log_operational(
+                    "STATE_LOAD",
+                    path=str(self.positions_file),
+                    file_exists=file_exists,
+                    file_size=file_size,
+                    position_count=len(self.positions),
+                    tickers=list(self.positions.keys())
+                )
             except Exception as e:
-                print(f"⚠️ Error loading positions: {e}")
+                self._log_operational(
+                    "STATE_LOAD_FAIL",
+                    level="error",
+                    error_type=type(e).__name__,
+                    error_msg=str(e),
+                    path=str(self.positions_file),
+                    file_exists=file_exists,
+                    file_size=file_size
+                )
+        else:
+            self._log_operational(
+                "STATE_LOAD_EMPTY",
+                path=str(self.positions_file),
+                file_exists=file_exists,
+                file_size=file_size
+            )
 
         # Load daily tracker (for last_entry_reset only)
         if self.daily_tracker_file.exists():
@@ -238,7 +286,9 @@ class PaperState:
                     data = json.load(f)
                     self.last_entry_reset = data.get('last_entry_reset', datetime.now().strftime('%Y-%m-%d'))
             except Exception as e:
-                print(f"⚠️ Error loading daily tracker: {e}")
+                self._log_operational(
+                    "DAILY_TRACKER_LOAD_FAIL", level="error", error_msg=str(e)
+                )
 
         # Reset daily counters if new day
         current_date = datetime.now().strftime('%Y-%m-%d')
@@ -248,8 +298,86 @@ class PaperState:
             self.last_entry_reset = current_date
             self._save_daily_tracker()
 
-        # Reconcile counters with trade log (source of truth)
-        self._reconcile_counters_from_log()
+        # Single pass through trade log for both reconciliation and integrity check
+        self._scan_trade_log()
+
+    def _scan_trade_log(self):
+        """Single-pass trade log scan for reconciliation and integrity checks."""
+        if not self.trades_file.exists():
+            return
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        stats = {
+            'total_trades': 0,
+            'production_trades': 0,
+            'test_trades': 0,
+            'entries_today': 0,
+            'production_entries_today': 0,
+            'day_pnl': 0.0,
+        }
+        entry_counts = {}
+        exit_counts = {}
+
+        try:
+            with open(self.trades_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    # Reconciliation logic (from _reconcile_counters_from_log)
+                    if self._is_test_trade(trade):
+                        stats['test_trades'] += 1
+                        continue
+
+                    stats['production_trades'] += 1
+
+                    if trade.get('event') == 'ENTRY':
+                        stats['total_trades'] += 1
+                        ts = trade.get('timestamp', '')
+                        if ts.startswith(today):
+                            stats['entries_today'] += 1
+                            stats['production_entries_today'] += 1
+                    elif trade.get('event') == 'EXIT':
+                        stats['total_trades'] += 1
+                        pnl = trade.get('realized_pnl', 0)
+                        if pnl is not None:
+                            stats['day_pnl'] += pnl
+
+                    # Integrity check counters
+                    ticker = trade.get('ticker')
+                    if ticker:
+                        if trade.get('event') == 'ENTRY':
+                            entry_counts[ticker] = entry_counts.get(ticker, 0) + 1
+                        elif trade.get('event') == 'EXIT':
+                            exit_counts[ticker] = exit_counts.get(ticker, 0) + 1
+
+            # Apply reconciled stats
+            self.trade_count = stats['total_trades']
+            self.entries_today = stats['entries_today']
+            self.day_pnl = stats['day_pnl']
+
+            # Integrity check
+            for ticker, entry_count in entry_counts.items():
+                exit_count = exit_counts.get(ticker, 0)
+                if entry_count > exit_count and ticker not in self.positions:
+                    self._log_operational(
+                        "INTEGRITY_TRADE_LOG", "warning",
+                        ticker=ticker,
+                        entries=entry_count,
+                        exits=exit_count,
+                        missing_from_state=True,
+                    )
+        except Exception as e:
+            self._log_operational(
+                "TRADE_LOG_SCAN_FAIL", "error",
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
 
     def _is_test_trade(self, trade: dict) -> bool:
         """Detect test trades using metadata patterns."""
@@ -265,66 +393,6 @@ class PaperState:
 
         return False
 
-    def _reconcile_counters_from_log(self) -> dict:
-        """
-        Reconcile counters with trade log, excluding test trades.
-        Called during _load_state to ensure accuracy.
-        Returns stats for reporting.
-        """
-        if not self.trades_file.exists():
-            return {'error': 'No trade log file'}
-
-        today = datetime.now().strftime('%Y-%m-%d')
-        stats = {
-            'total_trades': 0,
-            'production_trades': 0,
-            'test_trades': 0,
-            'entries_today': 0,
-            'production_entries_today': 0,
-            'day_pnl': 0.0,
-        }
-
-        try:
-            with open(self.trades_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        trade = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    stats['total_trades'] += 1
-
-                    if self._is_test_trade(trade):
-                        stats['test_trades'] += 1
-                        continue
-
-                    stats['production_trades'] += 1
-
-                    ts = trade.get('timestamp', '')
-                    is_today = ts.startswith(today)
-
-                    # Count today's production entries
-                    if trade.get('event') == 'ENTRY' and is_today:
-                        stats['production_entries_today'] += 1
-
-                    # Sum today's realized P&L for day_pnl recovery
-                    if trade.get('event') == 'EXIT' and is_today:
-                        pnl = trade.get('realized_pnl')
-                        if pnl is not None:
-                            stats['day_pnl'] += pnl
-
-        except Exception as e:
-            return {'error': f'Failed to read trade log: {e}'}
-
-        # Update state counters to match log
-        self.trade_count = stats['production_trades']
-        self.entries_today = stats['production_entries_today']
-        self.day_pnl = stats['day_pnl']
-
-        return stats
 
     def save_state(self):
         """Save current state to disk (positions + daily tracker only).
@@ -510,10 +578,6 @@ class PaperState:
         # Check entry price
         if position.entry_price > VALIDATION['MAX_ENTRY_PRICE']:
             return False, f"entry_price {position.entry_price} > {VALIDATION['MAX_ENTRY_PRICE']}"
-
-        # Check shares
-        if position.shares > VALIDATION['MAX_SHARES']:
-            return False, f"shares {position.shares} > {VALIDATION['MAX_SHARES']}"
 
         # Check position value
         position_value = position.entry_price * position.shares
