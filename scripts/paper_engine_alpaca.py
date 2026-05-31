@@ -222,8 +222,8 @@ class AlpacaPaperEngine:
             if sync_result['added']:
                 for pos in sync_result['added']:
                     ticker = pos['ticker']
-                    print(f"📥 Syncing {ticker} position from Alpaca")
 
+                    # Shared field resolution for both merge and create paths
                     # Get sector via unified resolver (watchlist -> universe -> FMP)
                     sector = sector_resolver.resolve(ticker)
 
@@ -233,7 +233,7 @@ class AlpacaPaperEngine:
                     target_price = pos['avg_price'] * 1.1
 
                     r_mult = 2.0  # Default risk multiple before watchlist lookup
-                    
+
                     # Try to get proper stop from watchlist
                     try:
                         if watchlist_df is not None:
@@ -243,7 +243,8 @@ class AlpacaPaperEngine:
                                 if pd.notna(stop_val) and stop_val > 0:
                                     stop_price = float(stop_val)
                                     # Recalculate target based on actual stop
-                                    risk = pos['avg_price'] - stop_price; r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
+                                    risk = pos['avg_price'] - stop_price
+                                    r_mult = self.risk_config.profit_target.min_r_multiple if self.risk_config else 2.0
                                     target_price = pos['avg_price'] + (r_mult * risk) if risk > 0 else pos['avg_price'] * 1.05
                                     print(f"   🎯 {ticker}: Stop ${stop_price:.2f} from watchlist")
                     except Exception as e:
@@ -256,6 +257,62 @@ class AlpacaPaperEngine:
                     if stop_price == pos['avg_price'] * 0.95:
                         print(f"   ⚠️  {ticker}: No watchlist stop found - marking UNSYNCED")
 
+                    new_stop_type = 'UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD'
+
+                    # Defensive: ticker may have been added locally since sync_positions ran,
+                    # or load_state may have recovered it from trade log. Merge if exists.
+                    if ticker in self.state.positions:
+                        # MERGE path: update existing position
+                        existing = self.state.positions[ticker]
+                        old_shares = existing.shares
+                        old_stop = existing.stop_price
+                        existing.shares = pos['qty']
+                        existing.entry_price = pos['avg_price']
+                        existing.stop_price = stop_price
+                        existing.target_price = target_price
+                        existing.current_stop_type = new_stop_type
+                        existing.sector = sector
+                        if existing.stop_price and existing.stop_price > 0:
+                            existing.initial_risk = (existing.entry_price - existing.stop_price) * existing.shares
+                        # Preserve entry_min_r when target was recalculated from a watchlist-derived stop
+                        if new_stop_type != 'UNSYNCED':
+                            existing.entry_min_r = r_mult
+                        self.state.save_state()
+                        print(
+                            f"   🔄 {ticker}: Sync merge — shares {old_shares}→{pos['qty']}, "
+                            f"stop ${old_stop:.2f}→${stop_price:.2f}"
+                        )
+                        try:
+                            TradingExceptionHandler.log_exception(
+                                "sync_merge",
+                                Exception("Sync merge"),
+                                severity=TradingExceptionHandler.INFO,
+                                ticker=ticker,
+                                old_shares=old_shares,
+                                new_shares=pos['qty'],
+                                old_stop=old_stop,
+                                new_stop=stop_price,
+                                initial_stop=existing.initial_stop_price,
+                                entry_date=existing.entry_date,
+                            )
+                        except Exception:
+                            pass
+                        continue
+
+                    # CREATE path: new position
+                    print(f"📥 Syncing {ticker} position from Alpaca (new)")
+                    try:
+                        TradingExceptionHandler.log_exception(
+                            "sync_new",
+                            Exception("Sync new"),
+                            severity=TradingExceptionHandler.WARNING,
+                            ticker=ticker,
+                            data_source="Alpaca",
+                            initial_stop=stop_price,
+                            entry_date=datetime.now().isoformat(),
+                        )
+                    except Exception:
+                        pass
                     position = Position(
                         ticker=ticker,
                         status='OPEN',
@@ -266,11 +323,12 @@ class AlpacaPaperEngine:
                         target_price=target_price,
                         initial_risk=(pos['avg_price'] - stop_price) * pos['qty'] if stop_price else 0,
                         sector=sector,
-                        current_stop_type='UNSYNCED' if stop_price == pos['avg_price'] * 0.95 else 'HARD',
+                        current_stop_type=new_stop_type,
                         initial_stop_price=stop_price,  # FINDING-013: Immutable initial stop
                         entry_min_r=r_mult,
                     )
                     self.state.positions[ticker] = position
+                    self.state.save_state()
 
             if sync_result['removed']:
                 for ticker in sync_result['removed']:
