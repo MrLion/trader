@@ -11,6 +11,7 @@
 - **Default ranking** changed from `convergence` to `setup` (entry-ready stocks first, then proximity, then Stage 2 score)
 - **`setup_type` label** changed from `'convergence'` to `'trend'` when no VCP/pivot is detected
 - **Output format** is now a single ranked table instead of Grade A/B/C groups
+- **Default export** changed to CSV (`--export csv`). Results are saved to `scans/trend_screen_YYYYMMDD.csv` automatically. Use `--export none` to opt out.
 
 ### Preserved
 - `calculate_convergence_score()` and `get_convergence_grade()` remain in `traderlib/stage2_utils.py` for use by `entry_signals.py` and other single-ticker analysis tools
