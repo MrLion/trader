@@ -85,5 +85,4 @@ universe:
 # =============================================================================
 entry:
   min_stage2_score: 6
-  min_convergence_score: 50
   max_pivot_proximity_pct: 5.0
