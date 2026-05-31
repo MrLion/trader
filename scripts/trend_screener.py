@@ -35,10 +35,7 @@ from traderlib.paper_exits import ExitEngine
 from traderlib.stage2_utils import (
     calculate_stage2_score,
     get_stage2_details,
-    calculate_convergence_score,
     calculate_volume_metrics,
-    calculate_ma_support_stop,
-    get_convergence_grade,
 )
 from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
 from traderlib.risk_config import RiskConfigManager
@@ -207,37 +204,6 @@ class TrendScreener:
             self._record_rejection('liquidity')
             return None
 
-        # === CONVERGENCE SCORING ===
-
-        try:
-            high_low = hist['High'] - hist['Low']
-            high_close = abs(hist['High'] - hist['Close'].shift())
-            low_close = abs(hist['Low'] - hist['Close'].shift())
-            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            atr = tr.rolling(window=14).mean().iloc[-1]
-            atr_stop = current - (2 * atr)
-        except:
-            atr_stop = current * 0.93
-
-        cluster_spread = filters.get('cluster_spread_pct')
-        if cluster_spread is None:
-            cluster_spread = 0.15
-        min_cluster = filters.get('min_cluster_size', 1)
-
-        conv_score = calculate_convergence_score(
-            current,
-            s2_details,
-            atr_stop=atr_stop,
-            cluster_spread_pct=cluster_spread,
-            min_cluster_size=min_cluster
-        )
-
-        # null/None = disabled (rank only, don't filter)
-        min_conv_score = filters.get('min_convergence_score')
-        if min_conv_score is not None and conv_score['score'] < min_conv_score:
-            self._record_rejection('convergence')
-            return None
-
         # === ENTRY TIMING ===
 
         entry_mode = filters.get('entry_mode', 'any')
@@ -285,23 +251,15 @@ class TrendScreener:
 
         if entry_mode == 'any' and not entry_ready:
             entry_ready = True
-            setup_type = 'convergence'
+            setup_type = 'trend'
             proximity_pct = abs(price_vs_10ma)
 
         # === COMPILE RESULT ===
-
-        ma_cluster = conv_score.get('cluster_data', {})
 
         result = {
             'ticker': ticker,
             'price': round(current, 2),
             'stage2_score': s2_details['score'],
-            'convergence_score': conv_score['score'],
-            'cluster_size': ma_cluster.get('cluster_size', 0),
-            'cluster_spread_pct': ma_cluster.get('cluster_spread_pct', 0),
-            'ma_risk_pct': conv_score.get('ma_risk_pct', 0),
-            'atr_risk_pct': conv_score.get('atr_risk_pct', 0),
-            'risk_improvement_pct': conv_score['components']['risk_improvement'],
             'setup_type': setup_type,
             'entry_ready': entry_ready,
             'proximity_pct': round(proximity_pct, 2),
