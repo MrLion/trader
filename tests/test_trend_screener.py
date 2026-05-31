@@ -3,7 +3,7 @@
 Covers:
 1. TrendScreener initialization
 2. MarketSurge filter logic
-3. Convergence scoring integration
+3. Volume metrics integration
 4. Entry timing detection (VCP, pivot, volume)
 5. Result ranking
 6. Profile-specific parameters (large-cap vs high-octane)
@@ -17,7 +17,7 @@ from unittest.mock import Mock, MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from traderlib.stage2_utils import calculate_convergence_score, calculate_volume_metrics
+from traderlib.stage2_utils import calculate_volume_metrics
 from traderlib.vcp_utils import detect_vcp_pattern
 
 
@@ -128,47 +128,6 @@ class TestMarketSurgeFilters(unittest.TestCase):
         self.assertGreater(ma150, ma200)
 
 
-class TestConvergenceFilters(unittest.TestCase):
-    """Tests for convergence scoring in screener."""
-
-    def test_convergence_score_calculation(self):
-        """Should calculate convergence score correctly."""
-        current_price = 150.0
-        # Tight MA cluster for good convergence score
-        s2_details = {
-            'ma10': 148.0,
-            'ma20': 147.5,
-            'ma50': 147.0,
-            'ma150': 145.0,
-            'ma200': 143.0,
-        }
-
-        result = calculate_convergence_score(current_price, s2_details)
-
-        self.assertIsNotNone(result)
-        self.assertIn('score', result)
-        self.assertIn('components', result)
-        self.assertIn('cluster_data', result)
-        # With tight cluster (3+ MAs within 5%), score should be decent
-        self.assertGreaterEqual(result['score'], 30)
-
-    def test_convergence_score_invalid_when_no_cluster(self):
-        """Should return low score when no MA cluster found."""
-        current_price = 100.0
-        s2_details = {
-            'ma10': 150.0,
-            'ma20': 140.0,
-            'ma50': 130.0,
-            'ma150': 120.0,
-            'ma200': 110.0,
-        }
-
-        result = calculate_convergence_score(current_price, s2_details)
-        # Returns dict with score=0 when no cluster found
-        self.assertEqual(result['score'], 0)
-        self.assertEqual(result['cluster_data']['cluster_size'], 0)
-
-
 class TestVolumeMetrics(unittest.TestCase):
     """Tests for volume metric calculations."""
 
@@ -232,42 +191,29 @@ class TestResultRanking(unittest.TestCase):
         self.sample_results = [
             {
                 'ticker': 'AAPL',
-                'convergence_score': 75,
-                'cluster_size': 4,
+                'stage2_score': 7,
                 'entry_ready': True,
                 'proximity_pct': 2.5,
                 'rs_from_high': 3.0,
             },
             {
                 'ticker': 'MSFT',
-                'convergence_score': 60,
-                'cluster_size': 3,
+                'stage2_score': 5,
                 'entry_ready': False,
                 'proximity_pct': 5.0,
                 'rs_from_high': 1.5,
             },
             {
                 'ticker': 'GOOGL',
-                'convergence_score': 85,
-                'cluster_size': 5,
+                'stage2_score': 8,
                 'entry_ready': True,
                 'proximity_pct': 1.0,
                 'rs_from_high': 4.0,
             },
         ]
 
-    def test_rank_by_convergence(self):
-        """Should sort by convergence score descending."""
-        from scripts.trend_screener import TrendScreener
-
-        screener = TrendScreener.__new__(TrendScreener)
-        ranked = screener.rank_results(self.sample_results.copy(), rank_by='convergence')
-
-        scores = [r['convergence_score'] for r in ranked]
-        self.assertEqual(scores, sorted(scores, reverse=True))
-
     def test_rank_by_setup(self):
-        """Should prioritize entry-ready tickers."""
+        """Should prioritize entry-ready tickers, then proximity."""
         from scripts.trend_screener import TrendScreener
 
         screener = TrendScreener.__new__(TrendScreener)
@@ -277,9 +223,21 @@ class TestResultRanking(unittest.TestCase):
         ready_tickers = [r['ticker'] for r in ranked if r['entry_ready']]
         not_ready = [r['ticker'] for r in ranked if not r['entry_ready']]
 
-        self.assertIn('AAPL', ready_tickers)
-        self.assertIn('GOOGL', ready_tickers)
-        self.assertIn('MSFT', not_ready)
+        self.assertEqual(ready_tickers, ['GOOGL', 'AAPL'])
+        self.assertEqual(not_ready, ['MSFT'])
+
+    def test_rank_by_setup_sorts_entry_ready_first(self):
+        """Entry-ready tickers should always appear before non-ready."""
+        from scripts.trend_screener import TrendScreener
+
+        screener = TrendScreener.__new__(TrendScreener)
+        results = [
+            {'ticker': 'NOT_READY', 'stage2_score': 8, 'entry_ready': False, 'proximity_pct': 1.0},
+            {'ticker': 'READY', 'stage2_score': 6, 'entry_ready': True, 'proximity_pct': 3.0},
+        ]
+        ranked = screener.rank_results(results, rank_by='setup')
+        assert ranked[0]['ticker'] == 'READY'
+        assert ranked[1]['ticker'] == 'NOT_READY'
 
     def test_rank_by_rs(self):
         """Should sort by RS from high ascending."""
