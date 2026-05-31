@@ -633,8 +633,8 @@ Examples:
     parser.add_argument('--top', type=int, default=20,
                         help='Show top N results (default: 20)')
     # Export
-    parser.add_argument('--export', '-e', choices=['csv', 'json', 'html', 'none'], default='none',
-                        help='Export full analysis (default: none)')
+    parser.add_argument('--export', '-e', choices=['csv', 'json', 'html', 'none'], default='csv',
+                        help='Export full analysis (default: csv)')
     parser.add_argument('--export-path', help='Export file path')
     parser.add_argument('--export-watchlist', metavar='PATH',
                         help='Export Ticker-only CSV for backtest.py --watchlist')
