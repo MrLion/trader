@@ -685,10 +685,18 @@ Examples:
         if args.refresh:
             print("   Force refresh: bypassing cache")
 
+        def make_progress(update):
+            # Caller owns formatting — library provides raw message only
+            print(f"    {update['message']}")
+
         try:
             start_build = time.time()
             builder = UniverseBuilder()
-            result = builder.load_universe(profile=args.profile.replace('-', '_'), force_refresh=args.refresh)
+            result = builder.load_universe(
+                profile=args.profile.replace('-', '_'),
+                force_refresh=args.refresh,
+                progress_callback=make_progress
+            )
             build_time = time.time() - start_build
 
             print(f"\n📊 Universe Funnel:")
