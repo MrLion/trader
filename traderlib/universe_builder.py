@@ -26,6 +26,22 @@ from alpaca.data.enums import Adjustment
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.trading_exceptions import TradingExceptionHandler
 
+from typing import TypedDict, Callable
+
+
+class ProgressUpdate(TypedDict):
+    """Raw progress update emitted by library code. Callers decide how to render."""
+    step: str          # 'prices' | 'liquidity' | 'sectors'
+    current: int
+    total: int
+    message: str
+
+
+ProgressCallback = Callable[[ProgressUpdate], None]
+
+PROGRESS_STEP_PRICES = "prices"
+PROGRESS_STEP_LIQUIDITY = "liquidity"
+
 
 @dataclass
 class UniverseResult:
