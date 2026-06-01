@@ -507,8 +507,8 @@ class TrendScreener:
     ) -> str:
         """Export results to file."""
         if not path:
-            date_str = datetime.now().strftime('%Y%m%d')
-            path = f"scans/trend_screen_{date_str}.{format}"
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            path = f"scans/trend_screen_{ts}.{format}"
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
