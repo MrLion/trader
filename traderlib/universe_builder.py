@@ -17,7 +17,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, date
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, TypedDict, Callable
 
 import pandas as pd
 import yaml
@@ -25,8 +25,6 @@ from alpaca.data.enums import Adjustment
 
 from traderlib.alpaca_client import AlpacaClient
 from traderlib.trading_exceptions import TradingExceptionHandler
-
-from typing import TypedDict, Callable
 
 
 class ProgressUpdate(TypedDict):
@@ -217,14 +215,15 @@ class UniverseBuilder:
             )
             return []
 
-    def _get_current_prices(self, tickers: List[str]) -> Dict[str, float]:
+    def _get_current_prices(self, tickers: List[str],
+                            progress_callback: Optional[ProgressCallback] = None) -> Dict[str, float]:
         """Get current prices for a list of tickers with batching and rate limiting."""
         prices = {}
         batch_size = 100  # Safe batch size to avoid 414 errors
-        total_batches = (len(tickers) + batch_size - 1) // batch_size
+        total = len(tickers)
 
         # Process in batches
-        for i, batch_start in enumerate(range(0, len(tickers), batch_size)):
+        for batch_start in range(0, len(tickers), batch_size):
             batch = tickers[batch_start:batch_start + batch_size]
             try:
                 batch_prices = self.alpaca.get_latest_prices_batch(batch)
@@ -233,6 +232,13 @@ class UniverseBuilder:
                         prices[k] = v
             except Exception:
                 # Fallback for this batch: fetch individually
+                if progress_callback:
+                    progress_callback({
+                        "step": PROGRESS_STEP_PRICES,
+                        "current": batch_start + len(batch),
+                        "total": total,
+                        "message": f"Batch failed — falling back to {len(batch)} individual fetches"
+                    })
                 for ticker in batch:
                     try:
                         price = self.alpaca.get_latest_price(ticker)
@@ -241,8 +247,13 @@ class UniverseBuilder:
                     except Exception:
                         pass
 
-            # Rate limiting: wait if needed between batches
-            # (paid tier: 10000/min handles rapid-fire requests; no artificial delays needed)
+            if progress_callback:
+                progress_callback({
+                    "step": PROGRESS_STEP_PRICES,
+                    "current": min(batch_start + batch_size, total),
+                    "total": total,
+                    "message": f"Fetching prices {min(batch_start + batch_size, total)}/{total}"
+                })
 
         return prices
 
