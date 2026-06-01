@@ -685,18 +685,68 @@ Examples:
         if args.refresh:
             print("   Force refresh: bypassing cache")
 
-        def make_progress(update):
-            # Caller owns formatting — library provides raw message only
-            print(f"    {update['message']}")
-
         try:
             start_build = time.time()
             builder = UniverseBuilder()
-            result = builder.load_universe(
-                profile=args.profile.replace('-', '_'),
-                force_refresh=args.refresh,
-                progress_callback=make_progress
-            )
+
+            try:
+                from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn, TimeRemainingColumn
+
+                with Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    MofNCompleteColumn(),
+                    TextColumn("•"),
+                    TimeRemainingColumn(),
+                    transient=False,
+                ) as progress:
+                    prices_task = progress.add_task("Fetching prices...", total=1)
+                    liquidity_task = progress.add_task("Computing liquidity...", total=1)
+                    sectors_task = progress.add_task("Fetching sectors...", total=1)
+
+                    def make_progress(update):
+                        step = update.get("step", "")
+                        current = update.get("current", 0)
+                        total = update.get("total", 0)
+                        if step == "prices":
+                            progress.update(
+                                prices_task,
+                                completed=current,
+                                total=total,
+                                description=f"Fetching prices {current}/{total}",
+                            )
+                        elif step == "liquidity":
+                            progress.update(
+                                liquidity_task,
+                                completed=current,
+                                total=total,
+                                description=f"Computing liquidity {current}/{total}",
+                            )
+                        elif step == "sectors":
+                            progress.update(
+                                sectors_task,
+                                completed=current,
+                                total=total,
+                                description=f"Fetching sectors {current}/{total}",
+                            )
+
+                    result = builder.load_universe(
+                        profile=args.profile.replace('-', '_'),
+                        force_refresh=args.refresh,
+                        progress_callback=make_progress,
+                    )
+
+            except ImportError:
+
+                def make_progress(update):
+                    print(f"    {update['message']}")
+
+                result = builder.load_universe(
+                    profile=args.profile.replace('-', '_'),
+                    force_refresh=args.refresh,
+                    progress_callback=make_progress,
+                )
+
             build_time = time.time() - start_build
 
             print(f"\n📊 Universe Funnel:")
