@@ -4,7 +4,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 _FMP_BASE = "https://financialmodelingprep.com/stable"
 _REQUEST_TIMEOUT = 5
+PROGRESS_STEP_SECTORS = "sectors"
 
 
 class ThreadSafeRateLimiter:
@@ -102,7 +103,8 @@ class SectorResolver:
     ) -> Dict[str, str]:
         return {t: self.resolve(t, universe_path) for t in tickers}
 
-    def prefetch_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
+    def prefetch_from_fmp(self, tickers: List[str],
+                          progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, str]:
         """Batch-fetch sectors from FMP and populate cache.
 
         Retries up to 3 times on HTTP 429 (rate limit) with exponential backoff.
@@ -152,11 +154,32 @@ class SectorResolver:
         results: Dict[str, str] = {}
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(fetch_one, t) for t in tickers]
+            completed = 0
+            total = len(tickers)
+            last_emit = _time.time()
             for future in futures:
                 t, s = future.result()
+                completed += 1
                 results[t] = s
                 if s != "Unknown":
                     self._cache[t] = s
+                if progress_callback and (_time.time() - last_emit > 2.0):
+                    progress_callback({
+                        "step": PROGRESS_STEP_SECTORS,
+                        "current": completed,
+                        "total": total,
+                        "message": f"Fetching sectors {completed}/{total}"
+                    })
+                    last_emit = _time.time()
+
+        # Final emit
+        if progress_callback:
+            progress_callback({
+                "step": PROGRESS_STEP_SECTORS,
+                "current": total,
+                "total": total,
+                "message": f"Resolved sectors for {total} tickers"
+            })
 
         # Sequential cleanup pass — stragglers that 429'd despite retries
         unknowns = [t for t, s in results.items() if s == "Unknown"]
