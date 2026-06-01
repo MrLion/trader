@@ -1,3 +1,18 @@
+## [0.6.19.3] — 2026-05-31 — Improvement — Discovery Progress Indicators
+
+### Added
+- **`traderlib/universe_builder.py`** — Optional `progress_callback` parameter on all slow I/O methods (`_get_current_prices`, `_compute_dollar_volumes`, `_fetch_sectors_from_fmp`, `build_universe`, `load_universe`). Callback receives a `ProgressUpdate` TypedDict (`step`, `current`, `total`, `message`). Library emits raw updates; callers decide how to render.
+- **`traderlib/sector_resolver.py`** — `PROGRESS_STEP_SECTORS` constant and time-throttled progress callback in `prefetch_from_fmp()`. Emits every 2 seconds during 1,300-ticker FMP batch to avoid log spam while keeping users informed during tail latency.
+- **`scripts/trend_screener.py`** — Discovery mode now prints indented progress lines (`    Fetching prices X/Y`, `    Computing liquidity X/Y`, `    Fetching sectors X/Y`) during the 4+ minute pipeline. No dead silence.
+- **`tests/test_universe_builder.py`** — `TestProgressCallback` with 3 tests verifying callback invocation at unit level (`_get_current_prices`, `_compute_dollar_volumes`) and integration level (`build_universe` propagation).
+
+### Design
+- `ProgressUpdate` TypedDict avoids brittle positional arguments and is extensible (add `eta_seconds` later without breaking callers).
+- All callback parameters default to `None`; existing callers (paper engine, backtest, tests) require zero changes.
+- Fallback notices when Alpaca batch/chunk fails provide visibility during slower individual fetches.
+
+---
+
 ## [0.6.19.2] — 2026-05-31 — Fix — Remove Non-Functional Convergence Scoring
 
 ### Removed
