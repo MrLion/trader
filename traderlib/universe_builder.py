@@ -257,7 +257,8 @@ class UniverseBuilder:
 
         return prices
 
-    def _compute_dollar_volumes(self, tickers: List[str], lookback_days: int) -> Dict[str, float]:
+    def _compute_dollar_volumes(self, tickers: List[str], lookback_days: int,
+                                progress_callback: Optional[ProgressCallback] = None) -> Dict[str, float]:
         """Compute average daily dollar volume for multiple tickers.
 
         Processes in chunks of 500 to avoid URL-length limits on large universes.
@@ -277,6 +278,7 @@ class UniverseBuilder:
         end = datetime.now()
         start = end - timedelta(days=lookback_days)
         chunk_size = 500
+        total = len(tickers)
 
         for chunk_start in range(0, len(tickers), chunk_size):
             chunk = tickers[chunk_start:chunk_start + chunk_size]
@@ -308,6 +310,21 @@ class UniverseBuilder:
                         dvol = self._compute_dollar_volume_single(ticker, lookback_days)
                         if dvol:
                             results[ticker] = dvol
+                if progress_callback:
+                    progress_callback({
+                        "step": PROGRESS_STEP_LIQUIDITY,
+                        "current": chunk_start + len(chunk),
+                        "total": total,
+                        "message": f"Chunk failed — fell back to {len(chunk)} individual fetches"
+                    })
+
+            if progress_callback:
+                progress_callback({
+                    "step": PROGRESS_STEP_LIQUIDITY,
+                    "current": min(chunk_start + chunk_size, total),
+                    "total": total,
+                    "message": f"Computing liquidity {min(chunk_start + chunk_size, total)}/{total}"
+                })
 
         return results
 
