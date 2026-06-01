@@ -341,7 +341,8 @@ class UniverseBuilder:
         except Exception:
             return None
 
-    def _fetch_sectors_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
+    def _fetch_sectors_from_fmp(self, tickers: List[str],
+                                  progress_callback: Optional[ProgressCallback] = None) -> Dict[str, str]:
         """Fetch sector data from FMP for a list of tickers.
 
         Delegates to SectorResolver.prefetch_from_fmp to avoid
@@ -350,9 +351,10 @@ class UniverseBuilder:
         from traderlib.sector_resolver import SectorResolver
 
         resolver = SectorResolver()
-        return resolver.prefetch_from_fmp(tickers)
+        return resolver.prefetch_from_fmp(tickers, progress_callback=progress_callback)
 
-    def build_universe(self, profile: str, force_refresh: bool = False) -> UniverseResult:
+    def build_universe(self, profile: str, force_refresh: bool = False,
+                       progress_callback: Optional[ProgressCallback] = None) -> UniverseResult:
         """
         Build universe with prefilter pipeline.
 
@@ -428,7 +430,7 @@ class UniverseBuilder:
         # Extract tickers from assets
         tickers_to_check = [getattr(a, 'symbol', None) for a in filtered if getattr(a, 'symbol', None)]
         print(f"  Fetching current prices for {len(tickers_to_check)} tickers...")
-        current_prices = self._get_current_prices(tickers_to_check)
+        current_prices = self._get_current_prices(tickers_to_check, progress_callback)
         print(f"  Received prices for {len(current_prices)} tickers")
 
         # Filter by price using fetched prices
@@ -447,7 +449,7 @@ class UniverseBuilder:
         tickers_for_dvol = [getattr(a, 'symbol', None) for a in filtered_with_price if getattr(a, 'symbol', None)]
 
         # Batch compute dollar volumes (single API call for all tickers)
-        dollar_volumes = self._compute_dollar_volumes(tickers_for_dvol, lookback_days)
+        dollar_volumes = self._compute_dollar_volumes(tickers_for_dvol, lookback_days, progress_callback)
 
         # Filter by dollar volume (min and optional max)
         max_dvol = profile_config.get('max_dollar_volume')
@@ -465,7 +467,7 @@ class UniverseBuilder:
 
         # STEP 5: Fetch sectors for validated tickers
         print(f"  Fetching sectors for {len(validated)} tickers from FMP...")
-        sectors = self._fetch_sectors_from_fmp(validated)
+        sectors = self._fetch_sectors_from_fmp(validated, progress_callback)
         resolved = sum(1 for s in sectors.values() if s != "Unknown")
         print(f"  Resolved sectors for {resolved}/{len(validated)} tickers")
 
@@ -499,7 +501,8 @@ class UniverseBuilder:
         default_profile = self.config.get('default', 'large_cap')
         return self.config.get(profile, self.config.get(default_profile, {}))
 
-    def load_universe(self, profile: str = None, force_refresh: bool = False) -> UniverseResult:
+    def load_universe(self, profile: str = None, force_refresh: bool = False,
+                       progress_callback: Optional[ProgressCallback] = None) -> UniverseResult:
         """
         Load or build universe for profile.
 
@@ -513,4 +516,4 @@ class UniverseBuilder:
         if profile is None:
             profile = self.config.get('default', 'large_cap')
 
-        return self.build_universe(profile, force_refresh)
+        return self.build_universe(profile, force_refresh, progress_callback)
