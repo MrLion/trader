@@ -1,3 +1,27 @@
+## [0.6.19.6] — 2026-06-07 — Improvement — Test Coverage Gaps
+
+### Added
+- **`tests/test_paths.py`** — 4 new contract tests:
+  - `test_data_dir_treats_empty_env_var_as_unset` — empty `PAPER_TRADING_DATA_DIR` falls through to default
+  - `test_data_dir_returns_relative_env_var_verbatim` — relative env value returned as `Path('...')` (not absolute)
+  - `test_data_dir_normalizes_trailing_slash` — `Path('/tmp/x/')` is equivalent to `Path('/tmp/x')`
+  - `test_project_root_contains_traderlib_dir` — pins the invariant `(project_root() / 'traderlib' / 'paths.py').exists()`, replacing a tautological test that recomputed the helper's own implementation
+- **`tests/test_isolation_check.py`** — 4 new self-tests:
+  - `test_diff_detects_deleted_file` — exercises the previously-untested `DELETED` branch in `_diff_snapshots`
+  - `test_diff_message_includes_marker_advisory_and_data_path` — pins the developer-facing error message format (must mention `@pytest.mark.allow_production_writes`, `--no-isolation-check`, and `data/`)
+  - `test_snapshot_with_missing_data_dir_is_noop` — fresh-clone scenario where `data/` does not exist
+  - `test_allow_production_writes_marker_is_recognized_by_pytest` — pins the marker name + registration contract. **Known limitation documented in the docstring:** the conftest's session-scope safety fixture does NOT currently check this marker; the per-test opt-out is a no-op.
+- **`tests/test_trading_exceptions.py`** — 2 new invariants:
+  - `test_ensure_logger_init_flag_flips_exactly_once_under_contention` — 64 racing threads assert `_logger_initialized` flips False→True exactly once
+  - `test_ensure_logger_idempotent_after_first_init` — second direct call to `_ensure_logger()` doesn't add handlers
+
+### Notes
+- Test impact: **+10 passing tests**. 28 failures unchanged (same 18 pre-existing + 10 environmental, both unrelated to this fix).
+- All 5 gaps surfaced by the third review pass are addressed.
+- The `allow_production_writes` marker remains a known dead-code opt-out until a follow-up makes the conftest fixture function-scope (or pairs it with a function-scope fixture) that reads the marker via `request.node.get_closest_marker(...)` and short-circuits.
+
+---
+
 ## [0.6.19.5] — 2026-06-07 — Fix — Post-Review Hardening Fixes
 
 ### Fixed
