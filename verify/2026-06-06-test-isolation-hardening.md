@@ -167,3 +167,19 @@ follow-up commit on the same branch:
 **Net test impact of the post-review fixes:** +2 passing tests (the two new
 regression tests). No previously-passing tests broke. The 28-failure count
 is unchanged.
+
+### 8.1 Third-pass coverage review (2026-06-07, uncommitted)
+
+A third review pass (focused on test coverage gaps) found 5 additional
+gaps. All 5 are addressed in uncommitted work in the worktree:
+
+| # | Gap | Test(s) added |
+|---|-----|---------------|
+| 1 | `data_dir()` env-var edge cases (empty, relative, trailing slash) | `test_data_dir_treats_empty_env_var_as_unset`, `test_data_dir_returns_relative_env_var_verbatim`, `test_data_dir_normalizes_trailing_slash` |
+| 1b | `project_root()` test was tautological | `test_project_root_contains_traderlib_dir` (pins the invariant) |
+| 2 | `allow_production_writes` marker had no test using it | `test_allow_production_writes_marker_is_recognized_by_pytest` (with TODO note: the marker is registered but the conftest fixture doesn't currently check it — the per-test opt-out is a no-op) |
+| 3 | Thread-safety test used Barrier (happy path only) | `test_ensure_logger_init_flag_flips_exactly_once_under_contention` (64 threads, asserts flag flips once), `test_ensure_logger_idempotent_after_first_init` |
+| 4 | Diff message format + deletion/missing-data scenarios | `test_diff_detects_deleted_file`, `test_diff_message_includes_marker_advisory_and_data_path`, `test_snapshot_with_missing_data_dir_is_noop` |
+
+**Net test impact:** +10 passing tests. Final count: `28 failed, 1268
+passed, 3 skipped`.

@@ -70,3 +70,66 @@ def test_project_root_resolves_symlinks():
     # If the implementation ever drops .resolve(), this assertion still passes
     # for non-symlinked layouts but the property would be broken for symlinks.
     assert project_root().is_absolute()
+
+
+# --- Coverage gap fixes (post-review, 2026-06-07) --------------------------
+
+def test_data_dir_treats_empty_env_var_as_unset(tmp_path, monkeypatch):
+    """PAPER_TRADING_DATA_DIR='' falls through to the default.
+
+    A CI shell that exports an empty string is functionally equivalent to
+    unset. The helper uses ``if env_value:`` (truthy check), so empty
+    string returns the default project_root/data. This pins the behavior
+    so a future change to ``if env_value is not None:`` doesn't silently
+    redirect empty-string setups to Path('').
+    """
+    monkeypatch.setenv("PAPER_TRADING_DATA_DIR", "")
+    monkeypatch.setattr("traderlib.paths.project_root", lambda: tmp_path)
+    assert data_dir() == tmp_path / "data"
+
+
+def test_data_dir_returns_relative_env_var_verbatim(tmp_path, monkeypatch):
+    """A relative PAPER_TRADING_DATA_DIR is returned as Path('...') (relative).
+
+    The helper does not call .resolve() or abspath on the env value. If
+    a test or CI script sets ``PAPER_TRADING_DATA_DIR=data``, data_dir()
+    returns ``Path('data')`` — a relative path resolved against CWD.
+    This is a footgun: CWD-relative writes can pollute unrelated
+    directories. The test pins the relaxed contract; any change to
+    absolute-path enforcement must update this test and the docs.
+    """
+    monkeypatch.setattr("traderlib.paths.project_root", lambda: tmp_path)
+    monkeypatch.setenv("PAPER_TRADING_DATA_DIR", "data")
+    result = data_dir()
+    assert result == Path("data")
+    assert not result.is_absolute()
+
+
+def test_data_dir_normalizes_trailing_slash(tmp_path, monkeypatch):
+    """Trailing slash on the env var is normalized away by Path().
+
+    Path('/tmp/x/') is equivalent to Path('/tmp/x'). The helper
+    constructs ``Path(env_value)`` and inherits pathlib's normalization.
+    """
+    target = tmp_path / "with_slash"
+    monkeypatch.setenv("PAPER_TRADING_DATA_DIR", str(target) + "/")
+    assert data_dir() == target
+
+
+def test_project_root_contains_traderlib_dir():
+    """project_root() is 'the directory that contains traderlib/'.
+
+    The existing tautological tests (test_project_root_does_not_depend_on_env_var
+    and test_project_root_resolves_symlinks) recompute the helper's own
+    implementation. This test pins the **invariant** instead: the returned
+    path must contain the traderlib package. If a future contributor moves
+    traderlib/paths.py to a different depth (e.g., traderlib/utils/paths.py),
+    the helper's ``Path(__file__).resolve().parent.parent`` would no longer
+    point at the repo root, and this test would fail.
+    """
+    root = project_root()
+    assert (root / "traderlib" / "paths.py").exists(), (
+        f"project_root() returned {root}, but {root}/traderlib/paths.py "
+        "does not exist. The helper may have been moved or the path "
+        "computation may be wrong."
+    )

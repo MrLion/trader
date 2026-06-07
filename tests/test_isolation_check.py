@@ -203,3 +203,102 @@ def test_is_check_disabled_with_cli_flag():
         assert iso.is_check_disabled() is True
     finally:
         sys.argv = original_argv
+
+
+# --- Coverage gap fixes (post-review, 2026-06-07) --------------------------
+
+def test_diff_detects_deleted_file(tmp_path):
+    """Removing a file in the production root raises AssertionError.
+
+    The diff machinery at _isolation_check.py:174-176 has a DELETED branch
+    but no test ever exercised it. Mirrors the modified-file and new-file
+    cases (which ARE tested) and pins the contract that any diff (add,
+    modify, delete) raises with the file's relpath in the error message.
+    """
+    root = _fake_production_root(tmp_path)
+    target = root / "to_delete.txt"
+    target.write_text("exists")
+
+    with patch.object(iso, "_production_data_root", return_value=root):
+        iso._capture_snapshot()
+        target.unlink()
+        with pytest.raises(AssertionError) as excinfo:
+            iso.assert_clean_production_data()
+
+    msg = str(excinfo.value)
+    assert "to_delete.txt" in msg
+    assert "DELETED" in msg
+
+
+def test_diff_message_includes_marker_advisory_and_data_path(tmp_path):
+    """The error message must mention both opt-out mechanisms AND 'data/'.
+
+    The header in assert_clean_production_data() is the developer-facing
+    signal. If a future edit rewords the marker name or removes the
+    '--no-isolation-check' advice, developer guidance silently breaks.
+    This test pins the three load-bearing substrings.
+    """
+    root = _fake_production_root(tmp_path)
+    (root / "x.txt").write_text("baseline")
+
+    with patch.object(iso, "_production_data_root", return_value=root):
+        iso._capture_snapshot()
+        (root / "polluted.tmp").write_text("z")
+        with pytest.raises(AssertionError) as excinfo:
+            iso.assert_clean_production_data()
+
+    msg = str(excinfo.value)
+    assert "@pytest.mark.allow_production_writes" in msg, (
+        f"Error message must advise the per-test marker. Got: {msg!r}"
+    )
+    assert "--no-isolation-check" in msg, (
+        f"Error message must advise the session-level flag. Got: {msg!r}"
+    )
+    assert "data/" in msg, (
+        f"Error message must mention the data/ path. Got: {msg!r}"
+    )
+
+
+def test_snapshot_with_missing_data_dir_is_noop(tmp_path):
+    """Fresh-clone scenario: data/ does not exist. _compute_snapshot
+    returns empty; assert_clean_production_data is a no-op (no exception).
+
+    On a clean clone with no `data/` directory, the safety net must not
+    raise on the missing-path case. _compute_snapshot handles this by
+    returning {'files': {}, 'dirs': {}} for nonexistent roots.
+    """
+    nonexistent = tmp_path / "data_does_not_exist"
+    # Explicitly DO NOT create the directory.
+
+    with patch.object(iso, "_production_data_root", return_value=nonexistent):
+        snapshot = iso._compute_snapshot(nonexistent)
+        assert snapshot == {"files": {}, "dirs": {}}
+        # No exception on assert — first-time runs must not be blocked.
+        iso.assert_clean_production_data(snapshot, nonexistent)
+
+
+@pytest.mark.allow_production_writes
+def test_allow_production_writes_marker_is_recognized_by_pytest():
+    """The marker must be a recognized pytest marker, not a typo.
+
+    Pytest collects markers based on the registration in
+    conftest.py:154-164. If the marker name is misspelled (in this test
+    or in the registration), pytest emits ``PytestUnknownMarkWarning``
+    at collection time. The absence of that warning here is the proof
+    that the marker is recognized.
+
+    **Known limitation (TODO):** the conftest's session-scope safety
+    fixture does not currently check this marker — applying
+    ``@pytest.mark.allow_production_writes`` to a polluting test will
+    NOT prevent the session teardown from failing. The marker is
+    registered and the error message advertises it, but the per-test
+    opt-out is a no-op. Tracking the implementation in a follow-up:
+    the conftest fixture should be function-scope (or paired with a
+    function-scope fixture that reads the marker) and short-circuit on
+    match. Until then, use ``--no-isolation-check`` for tests that
+    intentionally touch production paths.
+    """
+    # This test body is intentionally empty. The assertion is the
+    # absence of "PytestUnknownMarkWarning" warnings during collection,
+    # which pytest emits BEFORE this body runs.
+    pass

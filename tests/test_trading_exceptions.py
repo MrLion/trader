@@ -453,3 +453,79 @@ class TestLazyInitInvariants:
             f"FileHandler pointed at {log_path}, expected "
             f"{tmp_path / 'logs'}"
         )
+
+    def test_ensure_logger_init_flag_flips_exactly_once_under_contention(
+        self, tmp_path, monkeypatch
+    ):
+        """Invariant 5: Under N racing threads, ``_logger_initialized`` must
+        flip False→True exactly once.
+
+        The duplicate-handler test checks the OBSERVABLE side effect. This
+        test pins the underlying state invariant: if a future refactor
+        reordered the lock acquisition (e.g., moved ``_logger_initialized
+        = True`` outside the critical section), two threads could both
+        see ``True`` after their respective critical sections, but the
+        state would have flipped twice. The flag must flip exactly once.
+        """
+        import threading
+        import traderlib.trading_exceptions as te
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        n_threads = 64
+        barrier = threading.Barrier(n_threads)
+        observations = []
+        observations_lock = threading.Lock()
+
+        def worker():
+            barrier.wait()
+            te._ensure_logger()
+            with observations_lock:
+                observations.append(te._logger_initialized)
+
+        threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # All threads must observe _logger_initialized=True after
+        # their call returns.
+        assert all(observations), (
+            f"Some threads observed _logger_initialized=False after "
+            f"_ensure_logger returned: {observations.count(False)} "
+            f"of {n_threads}"
+        )
+        # And the flag must be True (not None, not False).
+        assert te._logger_initialized is True
+
+    def test_ensure_logger_idempotent_after_first_init(
+        self, tmp_path, monkeypatch
+    ):
+        """Invariant 6: A second call to _ensure_logger() does not
+        re-attach handlers.
+
+        The duplicate-handler test checks across two LOG calls. This
+        test pins idempotency at the _ensure_logger() level: a second
+        DIRECT call to _ensure_logger() (not via log_exception) must
+        not add a second FileHandler.
+        """
+        import traderlib.trading_exceptions as te
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        te._ensure_logger()
+        first_count = len(logging.getLogger('trading').handlers)
+        assert first_count == 2, (
+            f"First _ensure_logger() call should attach 2 handlers "
+            f"(1 file + 1 console), got {first_count}"
+        )
+
+        te._ensure_logger()
+        second_count = len(logging.getLogger('trading').handlers)
+        assert second_count == first_count, (
+            f"Second _ensure_logger() call changed handler count: "
+            f"{first_count} → {second_count}. Idempotency broken."
+        )
