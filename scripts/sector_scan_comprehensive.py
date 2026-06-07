@@ -20,9 +20,10 @@ from rich.progress import (
 )
 
 from traderlib import calculate_stage2_score
+from traderlib.paths import data_dir, project_root
 
 # Load ETF universe from categorized config file
-_CONFIG_PATH = Path(__file__).parent.parent / "config" / "sector_etfs.yaml"
+_CONFIG_PATH = project_root() / "config" / "sector_etfs.yaml"
 with open(_CONFIG_PATH) as _f:
     _ETF_CONFIG = yaml.safe_load(_f)
 
@@ -123,8 +124,9 @@ def run_comprehensive_scan(top_n: int = 10):
     for i, row in enumerate(sorted_by_score):
         row['overall_rank'] = i + 1
     
-    # Save to CSV
-    output_file = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/scans/{scan_date}_sector_scan.csv")
+    # Save to CSV. Scans are generated output, not user state — they live at
+    # the project root alongside `reports/`, not under `data/`.
+    output_file = project_root() / 'scans' / f"{scan_date}_sector_scan.csv"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
     with open(output_file, 'w', newline='') as f:

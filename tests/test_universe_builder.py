@@ -458,3 +458,84 @@ class TestSectorEnrichment:
         loaded = builder._load_cached(csv_path)
         assert loaded is not None
         assert loaded.sectors == {"AAPL": "Technology", "MSFT": "Technology"}
+
+
+class TestProgressCallback:
+    """Test progress callback invocation in slow methods."""
+
+    def test_get_current_prices_emits_progress(self, builder, mock_alpaca):
+        mock_alpaca.get_latest_prices_batch.return_value = {"AAPL": 150.0}
+        updates = []
+
+        def callback(update):
+            updates.append(update)
+
+        builder._get_current_prices(["AAPL"], progress_callback=callback)
+        assert len(updates) == 1
+        assert updates[0]["step"] == "prices"
+        assert updates[0]["current"] == 1
+        assert updates[0]["total"] == 1
+        assert "Fetching prices" in updates[0]["message"]
+
+    def test_compute_dollar_volumes_emits_progress(self, builder, mock_alpaca):
+        """Test that _compute_dollar_volumes emits progress updates."""
+        # Create mock bars that AlpacaClient would return
+        mock_bar = Mock()
+        mock_bar.close = 100.0
+        mock_bar.volume = 1_000_000
+        mock_bars = [mock_bar] * 20  # 20 bars
+
+        # Mock the data_client.get_stock_bars response
+        mock_response = Mock()
+        mock_response.data = {"AAPL": mock_bars}
+        mock_alpaca.data_client.get_stock_bars.return_value = mock_response
+
+        updates = []
+
+        def callback(update):
+            updates.append(update)
+
+        result = builder._compute_dollar_volumes(["AAPL"], 60, progress_callback=callback)
+        assert len(updates) == 1
+        assert updates[0]["step"] == "liquidity"
+        assert updates[0]["current"] == 1
+        assert updates[0]["total"] == 1
+        assert "Computing liquidity" in updates[0]["message"]
+        assert "AAPL" in result
+
+    def test_build_universe_propagates_callback(self, builder, mock_alpaca):
+        """Test that build_universe forwards callback to slow methods."""
+        assets = [
+            _make_asset("AAPL", name="Apple Inc", marginable=True),
+        ]
+        updates = []
+
+        def callback(update):
+            updates.append(update)
+
+        def mock_get_prices(tickers, progress_callback=None):
+            if progress_callback:
+                progress_callback({"step": "prices", "current": 1, "total": 1, "message": "Fetching prices"})
+            return {"AAPL": 150.0}
+
+        def mock_compute_dvol(tickers, lookback, progress_callback=None):
+            if progress_callback:
+                progress_callback({"step": "liquidity", "current": 1, "total": 1, "message": "Computing liquidity"})
+            return {"AAPL": 100_000_000}
+
+        def mock_fetch_sectors(tickers, progress_callback=None):
+            if progress_callback:
+                progress_callback({"step": "sectors", "current": 1, "total": 1, "message": "Fetching sectors"})
+            return {"AAPL": "Technology"}
+
+        with patch.object(builder, "_fetch_assets", return_value=assets):
+            with patch.object(builder, "_get_current_prices", side_effect=mock_get_prices):
+                with patch.object(builder, "_compute_dollar_volumes", side_effect=mock_compute_dvol):
+                    with patch.object(builder, "_fetch_sectors_from_fmp", side_effect=mock_fetch_sectors):
+                        result = builder.build_universe("large_cap", progress_callback=callback)
+
+        # Should receive at least prices and liquidity updates
+        steps = [u["step"] for u in updates]
+        assert "prices" in steps
+        assert "liquidity" in steps
+        assert "sectors" in steps

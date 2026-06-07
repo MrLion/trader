@@ -8,43 +8,68 @@ This module provides centralized, severity-aware exception logging.
 import logging
 import logging.handlers
 import functools
+import threading
 from pathlib import Path
 from typing import Callable, Optional, Any, Dict
 from datetime import datetime
 
-# Log file directory - use project root relative path
-PROJECT_ROOT = Path(__file__).parent.parent
-LOG_DIR = PROJECT_ROOT / 'data' / 'logs'
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / 'trading_exceptions.log'
+from traderlib.paths import data_dir
 
 # Configure logger
 logger = logging.getLogger('trading')
 logger.setLevel(logging.INFO)
 
-# Prevent duplicate handlers if module is reloaded
-if not logger.handlers:
-    # File handler with daily rotation (keep 30 days of logs)
-    file_handler = logging.handlers.TimedRotatingFileHandler(
-        LOG_FILE,
-        when='midnight',
-        interval=1,
-        backupCount=30,
-        utc=False
-    )
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    ))
-    logger.addHandler(file_handler)
+# Lazy-init guard. Importing this module must create no files and attach no
+# handlers. The first call to _ensure_logger() resolves data_dir() (which reads
+# PAPER_TRADING_DATA_DIR), creates the logs/ subdir under it, and attaches the
+# FileHandler. The flag ensures idempotency: multiple callers in the same
+# process share the same handler.
+_logger_initialized = False
+_logger_lock = threading.Lock()
 
-    # Console handler (still show in terminal)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    ))
-    logger.addHandler(console_handler)
+
+def _ensure_logger() -> None:
+    """Attach the rotating file handler and console handler to ``logger``.
+
+    Runs once, lazily. Resolves the log directory via :func:`data_dir` so the
+    ``PAPER_TRADING_DATA_DIR`` env var (set by the test conftest) is honored.
+    Thread-safe: a lock + double-checked flag prevents two threads racing on
+    the first call from attaching duplicate handlers.
+    """
+    global _logger_initialized
+    if _logger_initialized:
+        return
+    with _logger_lock:
+        if _logger_initialized:  # double-check after acquiring lock
+            return
+
+        log_dir = data_dir() / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / 'trading_exceptions.log'
+
+        # File handler with daily rotation (keep 30 days of logs)
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            log_file,
+            when='midnight',
+            interval=1,
+            backupCount=30,
+            utc=False
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        ))
+        logger.addHandler(file_handler)
+
+        # Console handler (still show in terminal)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        ))
+        logger.addHandler(console_handler)
+
+        _logger_initialized = True
 
 
 class TradingExceptionHandler:
@@ -87,6 +112,7 @@ class TradingExceptionHandler:
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    _ensure_logger()
                     # Track metrics
                     cls._exception_counts[operation] = cls._exception_counts.get(operation, 0) + 1
                     cls._last_exception_time = datetime.now()
@@ -133,6 +159,7 @@ class TradingExceptionHandler:
 
         Use this when you need custom handling but still want logging.
         """
+        _ensure_logger()
         cls._exception_counts[operation] = cls._exception_counts.get(operation, 0) + 1
         cls._last_exception_time = datetime.now()
 
@@ -156,10 +183,10 @@ class TradingExceptionHandler:
         Wrapped in try/except so logging failure never crashes the engine.
         """
         try:
+            _ensure_logger()
             context_str = f" | context: {context}" if context else ""
             msg = f"[{operation}]{context_str}"
 
-            logger = logging.getLogger('trading')
             if level == "critical":
                 logger.critical(msg)
             elif level == "error":

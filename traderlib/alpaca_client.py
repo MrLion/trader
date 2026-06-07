@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 from alpaca.data.historical import StockHistoricalDataClient
 
 # Load .env from project root — this is the canonical credential source
-PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import project_root
+PROJECT_ROOT = project_root()
 load_dotenv(PROJECT_ROOT / '.env')
 
 from websockets.exceptions import ConnectionClosed
@@ -106,8 +107,7 @@ class AlpacaClient:
         from pathlib import Path
 
         config_paths = [
-            Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/screener_config.yaml'),
-            PROJECT_ROOT / 'config' / 'screener_config.yaml',
+            project_root() / 'config' / 'screener_config.yaml',
             Path('config/screener_config.yaml'),
         ]
 

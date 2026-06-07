@@ -13,6 +13,8 @@ from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 
+from traderlib.paths import data_dir as _data_dir
+
 
 def _atomic_write_json(filepath: Path, data: dict) -> None:
     """Write JSON atomically using temp file + rename.
@@ -141,12 +143,11 @@ class OrderManager:
         # Position tracking
         self.expected_positions: Dict[str, int] = {}  # Shares we expect to have
 
-        # Persistence - configurable via environment variable for testing
+        # Persistence - resolved via traderlib.paths so PAPER_TRADING_DATA_DIR is honored
         if data_dir is not None:
             self.data_dir = data_dir
         else:
-            default_data_dir = Path(__file__).resolve().parent.parent / 'data'
-            self.data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', str(default_data_dir)))
+            self.data_dir = _data_dir()
         self.orders_file = self.data_dir / 'orders.json'
 
         # Order storm protection - TPS limiting

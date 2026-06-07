@@ -17,14 +17,29 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, date
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, TypedDict, Callable
 
 import pandas as pd
 import yaml
 from alpaca.data.enums import Adjustment
 
 from traderlib.alpaca_client import AlpacaClient
+from traderlib.paths import data_dir, project_root
 from traderlib.trading_exceptions import TradingExceptionHandler
+
+
+class ProgressUpdate(TypedDict):
+    """Raw progress update emitted by library code. Callers decide how to render."""
+    step: str          # 'prices' | 'liquidity' | 'sectors'
+    current: int
+    total: int
+    message: str
+
+
+ProgressCallback = Callable[[ProgressUpdate], None]
+
+PROGRESS_STEP_PRICES = "prices"
+PROGRESS_STEP_LIQUIDITY = "liquidity"
 
 
 @dataclass
@@ -54,7 +69,7 @@ class UniverseBuilder:
     """Build and cache stock universes from Alpaca with prefilter pipeline."""
 
     CACHE_TTL_HOURS = 4  # Refresh every 4 hours during market hours
-    UNIVERSES_DIR = Path(__file__).parent.parent / 'data' / 'universes'
+    UNIVERSES_DIR = data_dir() / 'universes'
 
     def __init__(self, config_path: Optional[Path] = None):
         """
@@ -64,7 +79,7 @@ class UniverseBuilder:
             config_path: Path to screener_config.yaml (default: config/screener_config.yaml)
         """
         if config_path is None:
-            config_path = Path(__file__).parent.parent / 'config' / 'screener_config.yaml'
+            config_path = project_root() / 'config' / 'screener_config.yaml'
 
         self.config_path = config_path
         self.config = self._load_config()
@@ -201,14 +216,15 @@ class UniverseBuilder:
             )
             return []
 
-    def _get_current_prices(self, tickers: List[str]) -> Dict[str, float]:
+    def _get_current_prices(self, tickers: List[str],
+                            progress_callback: Optional[ProgressCallback] = None) -> Dict[str, float]:
         """Get current prices for a list of tickers with batching and rate limiting."""
         prices = {}
         batch_size = 100  # Safe batch size to avoid 414 errors
-        total_batches = (len(tickers) + batch_size - 1) // batch_size
+        total = len(tickers)
 
         # Process in batches
-        for i, batch_start in enumerate(range(0, len(tickers), batch_size)):
+        for batch_start in range(0, len(tickers), batch_size):
             batch = tickers[batch_start:batch_start + batch_size]
             try:
                 batch_prices = self.alpaca.get_latest_prices_batch(batch)
@@ -217,6 +233,13 @@ class UniverseBuilder:
                         prices[k] = v
             except Exception:
                 # Fallback for this batch: fetch individually
+                if progress_callback:
+                    progress_callback({
+                        "step": PROGRESS_STEP_PRICES,
+                        "current": batch_start + len(batch),
+                        "total": total,
+                        "message": f"Batch failed — falling back to {len(batch)} individual fetches"
+                    })
                 for ticker in batch:
                     try:
                         price = self.alpaca.get_latest_price(ticker)
@@ -225,12 +248,18 @@ class UniverseBuilder:
                     except Exception:
                         pass
 
-            # Rate limiting: wait if needed between batches
-            # (paid tier: 10000/min handles rapid-fire requests; no artificial delays needed)
+            if progress_callback:
+                progress_callback({
+                    "step": PROGRESS_STEP_PRICES,
+                    "current": min(batch_start + batch_size, total),
+                    "total": total,
+                    "message": f"Fetching prices {min(batch_start + batch_size, total)}/{total}"
+                })
 
         return prices
 
-    def _compute_dollar_volumes(self, tickers: List[str], lookback_days: int) -> Dict[str, float]:
+    def _compute_dollar_volumes(self, tickers: List[str], lookback_days: int,
+                                progress_callback: Optional[ProgressCallback] = None) -> Dict[str, float]:
         """Compute average daily dollar volume for multiple tickers.
 
         Processes in chunks of 500 to avoid URL-length limits on large universes.
@@ -250,6 +279,7 @@ class UniverseBuilder:
         end = datetime.now()
         start = end - timedelta(days=lookback_days)
         chunk_size = 500
+        total = len(tickers)
 
         for chunk_start in range(0, len(tickers), chunk_size):
             chunk = tickers[chunk_start:chunk_start + chunk_size]
@@ -281,6 +311,21 @@ class UniverseBuilder:
                         dvol = self._compute_dollar_volume_single(ticker, lookback_days)
                         if dvol:
                             results[ticker] = dvol
+                if progress_callback:
+                    progress_callback({
+                        "step": PROGRESS_STEP_LIQUIDITY,
+                        "current": chunk_start + len(chunk),
+                        "total": total,
+                        "message": f"Chunk failed — fell back to {len(chunk)} individual fetches"
+                    })
+
+            if progress_callback:
+                progress_callback({
+                    "step": PROGRESS_STEP_LIQUIDITY,
+                    "current": min(chunk_start + chunk_size, total),
+                    "total": total,
+                    "message": f"Computing liquidity {min(chunk_start + chunk_size, total)}/{total}"
+                })
 
         return results
 
@@ -297,7 +342,8 @@ class UniverseBuilder:
         except Exception:
             return None
 
-    def _fetch_sectors_from_fmp(self, tickers: List[str]) -> Dict[str, str]:
+    def _fetch_sectors_from_fmp(self, tickers: List[str],
+                                  progress_callback: Optional[ProgressCallback] = None) -> Dict[str, str]:
         """Fetch sector data from FMP for a list of tickers.
 
         Delegates to SectorResolver.prefetch_from_fmp to avoid
@@ -306,9 +352,10 @@ class UniverseBuilder:
         from traderlib.sector_resolver import SectorResolver
 
         resolver = SectorResolver()
-        return resolver.prefetch_from_fmp(tickers)
+        return resolver.prefetch_from_fmp(tickers, progress_callback=progress_callback)
 
-    def build_universe(self, profile: str, force_refresh: bool = False) -> UniverseResult:
+    def build_universe(self, profile: str, force_refresh: bool = False,
+                       progress_callback: Optional[ProgressCallback] = None) -> UniverseResult:
         """
         Build universe with prefilter pipeline.
 
@@ -384,7 +431,7 @@ class UniverseBuilder:
         # Extract tickers from assets
         tickers_to_check = [getattr(a, 'symbol', None) for a in filtered if getattr(a, 'symbol', None)]
         print(f"  Fetching current prices for {len(tickers_to_check)} tickers...")
-        current_prices = self._get_current_prices(tickers_to_check)
+        current_prices = self._get_current_prices(tickers_to_check, progress_callback)
         print(f"  Received prices for {len(current_prices)} tickers")
 
         # Filter by price using fetched prices
@@ -403,7 +450,7 @@ class UniverseBuilder:
         tickers_for_dvol = [getattr(a, 'symbol', None) for a in filtered_with_price if getattr(a, 'symbol', None)]
 
         # Batch compute dollar volumes (single API call for all tickers)
-        dollar_volumes = self._compute_dollar_volumes(tickers_for_dvol, lookback_days)
+        dollar_volumes = self._compute_dollar_volumes(tickers_for_dvol, lookback_days, progress_callback)
 
         # Filter by dollar volume (min and optional max)
         max_dvol = profile_config.get('max_dollar_volume')
@@ -421,7 +468,7 @@ class UniverseBuilder:
 
         # STEP 5: Fetch sectors for validated tickers
         print(f"  Fetching sectors for {len(validated)} tickers from FMP...")
-        sectors = self._fetch_sectors_from_fmp(validated)
+        sectors = self._fetch_sectors_from_fmp(validated, progress_callback)
         resolved = sum(1 for s in sectors.values() if s != "Unknown")
         print(f"  Resolved sectors for {resolved}/{len(validated)} tickers")
 
@@ -455,7 +502,8 @@ class UniverseBuilder:
         default_profile = self.config.get('default', 'large_cap')
         return self.config.get(profile, self.config.get(default_profile, {}))
 
-    def load_universe(self, profile: str = None, force_refresh: bool = False) -> UniverseResult:
+    def load_universe(self, profile: str = None, force_refresh: bool = False,
+                       progress_callback: Optional[ProgressCallback] = None) -> UniverseResult:
         """
         Load or build universe for profile.
 
@@ -469,4 +517,4 @@ class UniverseBuilder:
         if profile is None:
             profile = self.config.get('default', 'large_cap')
 
-        return self.build_universe(profile, force_refresh)
+        return self.build_universe(profile, force_refresh, progress_callback)

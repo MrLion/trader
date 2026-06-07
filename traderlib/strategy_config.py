@@ -16,7 +16,9 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-_CONFIG_DIR = Path(__file__).parent.parent / 'config' / 'strategies'
+from traderlib.paths import project_root
+
+_CONFIG_DIR = project_root() / 'config' / 'strategies'
 
 
 def load_strategy_config(strategy_name: str) -> Optional[Dict[str, Any]]:

@@ -22,9 +22,10 @@ from traderlib import calculate_stage2_score, get_entry_score, get_stage2_detail
 from traderlib.stage2_utils import calculate_ma_support_stop
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.earnings_calendar import EarningsCalendar
+from traderlib.paths import data_dir, project_root
 
-# Report output directory
-REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
+# Report output directory - resolved via traderlib.paths
+REPORTS_DIR = project_root() / 'reports'
 
 
 def _format_earnings_badge(days: int | None) -> str:
@@ -877,7 +878,7 @@ def generate_html_report(report_data, output_path):
 
 def load_watchlist():
     """Load watchlist from CSV with current prices, entry score, and earnings data"""
-    watchlist_path = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
+    watchlist_path = data_dir() / 'watchlist.csv'
 
     if not watchlist_path.exists():
         return None
@@ -1014,9 +1015,10 @@ def load_watchlist():
     return results
 
 def load_comprehensive_scan():
-    """Load comprehensive sector scan from CSV"""
+    """Load comprehensive sector scan from CSV. Scans are generated output,
+    not user state — they live at the project root alongside `reports/`."""
     today = datetime.now().strftime('%Y-%m-%d')
-    scan_file = Path(f"/Users/mintmrlion/.openclaw/workspaces/trader/scans/{today}_sector_scan.csv")
+    scan_file = project_root() / 'scans' / f"{today}_sector_scan.csv"
     
     if not scan_file.exists():
         print(f"⚠️ No scan found for {today}")

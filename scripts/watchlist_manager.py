@@ -87,9 +87,13 @@ import yfinance as yf
 
 from traderlib import calculate_stage2_score
 from traderlib.validation import validate_ticker, EMOJI_CHECK, EMOJI_CROSS, EMOJI_WARN, EMOJI_INFO
+from traderlib.paths import data_dir, project_root
 
-WATCHLIST_PATH = '/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv'
-SCAN_DIR = '/Users/mintmrlion/.openclaw/workspaces/trader/scans'
+# Watchlist and scan paths - resolved via traderlib.paths
+# Scans are generated output, not user state — they live at the project root
+# alongside `reports/`, not under `data/`. See CLAUDE.md "Repository Layout".
+WATCHLIST_PATH = str(data_dir() / 'watchlist.csv')
+SCAN_DIR = str(project_root() / 'scans')
 
 def load_watchlist():
     """Load existing watchlist or create new."""
@@ -248,7 +252,7 @@ def list_watchlist():
     # Load portfolio positions to check overlap
     import json
     from pathlib import Path
-    portfolio_file = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/paper_positions.json')
+    portfolio_file = data_dir() / 'paper_positions.json'
     portfolio_tickers = set()
     if portfolio_file.exists():
         try:

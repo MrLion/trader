@@ -8,8 +8,10 @@ import sys
 # Add scripts to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from traderlib.alpaca_client import AlpacaClient
+from traderlib.paths import data_dir
 
-DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+# Data paths - resolved via traderlib.paths
+DATA_DIR = data_dir()
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
 
@@ -92,12 +94,12 @@ def sync():
         }
 
         # Save to files
-        data_dir = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+        data_dir_path = data_dir()
 
-        with open(data_dir / 'paper_positions.json', 'w') as f:
+        with open(data_dir_path / 'paper_positions.json', 'w') as f:
             json.dump(positions, f, indent=2)
 
-        with open(data_dir / 'daily_tracker.json', 'w') as f:
+        with open(data_dir_path / 'daily_tracker.json', 'w') as f:
             json.dump(daily_tracker, f, indent=2)
 
         print(f"✅ Successfully synced: {len(positions)} positions.")

@@ -1,3 +1,93 @@
+## [0.6.19.6] — 2026-06-07 — Improvement — Test Coverage Gaps
+
+### Added
+- **`tests/test_paths.py`** — 4 new contract tests:
+  - `test_data_dir_treats_empty_env_var_as_unset` — empty `PAPER_TRADING_DATA_DIR` falls through to default
+  - `test_data_dir_returns_relative_env_var_verbatim` — relative env value returned as `Path('...')` (not absolute)
+  - `test_data_dir_normalizes_trailing_slash` — `Path('/tmp/x/')` is equivalent to `Path('/tmp/x')`
+  - `test_project_root_contains_traderlib_dir` — pins the invariant `(project_root() / 'traderlib' / 'paths.py').exists()`, replacing a tautological test that recomputed the helper's own implementation
+- **`tests/test_isolation_check.py`** — 4 new self-tests:
+  - `test_diff_detects_deleted_file` — exercises the previously-untested `DELETED` branch in `_diff_snapshots`
+  - `test_diff_message_includes_marker_advisory_and_data_path` — pins the developer-facing error message format (must mention `@pytest.mark.allow_production_writes`, `--no-isolation-check`, and `data/`)
+  - `test_snapshot_with_missing_data_dir_is_noop` — fresh-clone scenario where `data/` does not exist
+  - `test_allow_production_writes_marker_is_recognized_by_pytest` — pins the marker name + registration contract. **Known limitation documented in the docstring:** the conftest's session-scope safety fixture does NOT currently check this marker; the per-test opt-out is a no-op.
+- **`tests/test_trading_exceptions.py`** — 2 new invariants:
+  - `test_ensure_logger_init_flag_flips_exactly_once_under_contention` — 64 racing threads assert `_logger_initialized` flips False→True exactly once
+  - `test_ensure_logger_idempotent_after_first_init` — second direct call to `_ensure_logger()` doesn't add handlers
+
+### Notes
+- Test impact: **+10 passing tests**. 28 failures unchanged (same 18 pre-existing + 10 environmental, both unrelated to this fix).
+- All 5 gaps surfaced by the third review pass are addressed.
+- The `allow_production_writes` marker remains a known dead-code opt-out until a follow-up makes the conftest fixture function-scope (or pairs it with a function-scope fixture) that reads the marker via `request.node.get_closest_marker(...)` and short-circuits.
+
+---
+
+## [0.6.19.5] — 2026-06-07 — Fix — Post-Review Hardening Fixes
+
+### Fixed
+- **`scripts/entry_signals.py:34`**, **`scripts/sector_scan_comprehensive.py:129`**, **`scripts/premarket_report.py:1021`**, **`scripts/watchlist_manager.py:96`** — `scans/` directory location regression. The 0.6.19.4 migration moved these to `data_dir() / 'scans'` (i.e. `<project>/data/scans/`), but `scripts/mcstock_scraper.py:516, 536` and the existing docs (`CLAUDE.md`, `TOOLS.md`) reference `<project>/scans/`. Reverted to `project_root() / 'scans'` so all 5 scripts and the docs agree. Generated scan output now lives at the project root alongside `reports/`, not under user-data `data/`.
+- **`traderlib/trading_exceptions.py:183`** — Removed dead `logger = logging.getLogger('trading')` rebind inside `log_operational`. It shadowed the module-level `logger` (same name → no-op) and obscured intent.
+- **`traderlib/trading_exceptions.py:29-69`** — Thread-safety bug in `_ensure_logger()`. Pre-fix, two threads racing on the first call would both pass the `if _logger_initialized` check, both attach a FileHandler + StreamHandler, and produce duplicate log lines. Added `threading.Lock` + double-checked flag.
+- **`tests/conftest.py:167-205`** and **`tests/_isolation_check.py:246-289`** — Safety-net bypass on last-test reset. The session fixture stored its baseline in the module-level `_snapshot` cache. If a `test_isolation_check.py` self-test ran LAST in the session, its post-yield `iso.reset_for_testing()` would clear the cache, and the conftest teardown's `assert_clean_production_data()` would see `None` and silently no-op. The conftest now holds the session baseline in a local closure; `assert_clean_production_data()` accepts explicit `snapshot` and `root` parameters so the safety net fires even if a self-test resets the cache.
+
+### Changed
+- **`verify/2026-06-06-test-isolation-hardening.md`** — Corrected the snapshot count (was "47 files across 5 subdirs", actual: **458 files across 4 top-level subdirs** + nested). Added section 8 documenting the post-review fixes.
+
+### Added
+- **`tests/test_trading_exceptions.py::TestLazyInitInvariants::test_ensure_logger_is_thread_safe`** — New regression test. 16 threads race through a `threading.Barrier` into `_ensure_logger()`; asserts exactly 2 handlers (1 file + 1 console) attach and the file handler points at the expected tmp dir.
+- **`tests/test_isolation_check.py::test_explicit_snapshot_survives_module_cache_reset`** — New regression test. Captures a snapshot via the conftest's path, calls `reset_for_testing()` to clear the module cache, pollutes the root, then calls `assert_clean_production_data(snapshot, root)` with explicit args. Asserts pollution is caught.
+
+### Notes
+- Test impact: **+2 passing** (the new regression tests). 28 failures unchanged (18 pre-existing + 10 environmental, both unrelated to this fix).
+- Per CLAUDE.md, the version bump and changelog entry were made; commit and push await explicit user authorization.
+
+---
+
+## [0.6.19.4] — 2026-06-06 — Improvement — Test Isolation Hardening
+
+### Added
+- **`traderlib/paths.py`** — Single source of truth for filesystem paths. Two functions: `project_root()` (fixed, follows symlinks via `.resolve()`) and `data_dir()` (honors `PAPER_TRADING_DATA_DIR` env var, no caching, no side effects, no `mkdir`).
+- **`tests/test_paths.py`** — 6 contract tests pinning the helper's behavior: env var unset, env var set, project_root isolation, no side effects, env re-read on every call, symlink resolution.
+- **`tests/conftest.py`** — Session-scope autouse fixture that snapshots `<project_root>/data/` at session start and asserts it is unchanged at teardown. Catches test pollution of production data.
+- **`tests/_isolation_check.py`** — Helper module implementing the snapshot + diff logic. Reachable via `--no-isolation-check` CLI flag and `allow_production_writes` pytest marker.
+- **`tests/test_isolation_check.py`** — 4 self-tests pinning the safety-net fixture's contract.
+- **`tests/test_no_hardcoded_paths.py`** — 2 grep-as-test verifying no `Path(__file__).parent.parent` or hardcoded `/Users/mintmrlion` paths remain in production code.
+- **`tests/test_no_import_writes.py`** — 3 subprocess-based tests verifying `import traderlib.trading_exceptions` creates no files and attaches no handlers.
+- **`verify/2026-06-06-test-isolation-hardening.md`** — Baseline verification report: pytest summary, conftest safety-net output, grep result, timestamp check, production `data/` git-clean.
+
+### Changed
+- **`traderlib/trading_exceptions.py`** — Lazy initialization. The module previously attached a `FileHandler` and called `mkdir` at import time, causing every test import to write to `data/logs/trading_exceptions.log`. Now `_ensure_logger()` runs at the start of `log_and_continue`, `log_exception`, and `log_operational` — only the first call touches the filesystem. Subsequent calls reuse the same handler set (verified by handler-count invariant).
+- **20 files in `traderlib/` and `scripts/`** — Migrated to `traderlib.paths.data_dir()` from a mix of `Path(__file__).parent.parent / 'data'`, `os.environ.get('PAPER_TRADING_DATA_DIR')`, and hardcoded `/Users/mintmrlion/...` absolute paths. Notable: `order_manager.py` aliased import as `_data_dir` to avoid parameter shadowing; `sync_state.py` renamed local var to `data_dir_path`; `paper_engine_alpaca.py` uses module-level `DATA_DIR` constant; `clean_test_trades.py` `DEFAULT_DATA_DIR` removed. (Total production touch: 24 modified + 1 new `traderlib/paths.py` = 25 production files; "20" referred to the subset that had a hardcoded `/Users/mintmrlion/...` path.)
+- **`tests/test_paper_portfolio.py`** — Updated `test_default_data_dir` to use `traderlib.paths.data_dir()` after `DEFAULT_DATA_DIR` removal.
+- **`TOOLS.md`** — Added `paths.py` row to library table; new "Test Isolation" section documenting the helper, conftest safety net, marker, and CLI flag.
+- **`CLAUDE.md`** — Added `paths.py` to the core library list; expanded the "Tests" section with the isolation guarantee.
+
+### Fixed
+- **Test pollution of production data (May 6, 2026 incident class).** Test runs can no longer write to `data/positions.json`, `data/trades.jsonl`, or `data/logs/trading_exceptions.log`. The conftest safety net fails the run loudly if any test mutates production data, with a per-file diff in the assertion error.
+- **Eager-init bug in `traderlib.trading_exceptions`.** Importing the module previously triggered `mkdir(parents=True, exist_ok=True)` and `addHandler(FileHandler(...))` unconditionally. The 30-day-rotating handler is now attached on first use only.
+
+### Notes
+- The migration introduced **+14 passing tests** (8 sector-resolver / ticker-analyzer tests that were previously broken now pass; 6 new isolation tests added) and **+10 environmental failures** (worktree is missing `.env`, so tests that import API keys directly fail; same behavior on a clean clone of `main`).
+- 18 pre-existing test failures are unchanged. They are unrelated to the migration and remain as separate work.
+- Per CLAUDE.md, the version bump and changelog entry were made; commit, push, and tag await explicit user authorization.
+
+---
+
+## [0.6.19.3] — 2026-05-31 — Improvement — Discovery Progress Indicators
+
+### Added
+- **`traderlib/universe_builder.py`** — Optional `progress_callback` parameter on all slow I/O methods (`_get_current_prices`, `_compute_dollar_volumes`, `_fetch_sectors_from_fmp`, `build_universe`, `load_universe`). Callback receives a `ProgressUpdate` TypedDict (`step`, `current`, `total`, `message`). Library emits raw updates; callers decide how to render.
+- **`traderlib/sector_resolver.py`** — `PROGRESS_STEP_SECTORS` constant and time-throttled progress callback in `prefetch_from_fmp()`. Emits every 2 seconds during 1,300-ticker FMP batch to avoid log spam while keeping users informed during tail latency.
+- **`scripts/trend_screener.py`** — Discovery mode now prints indented progress lines (`    Fetching prices X/Y`, `    Computing liquidity X/Y`, `    Fetching sectors X/Y`) during the 4+ minute pipeline. No dead silence.
+- **`tests/test_universe_builder.py`** — `TestProgressCallback` with 3 tests verifying callback invocation at unit level (`_get_current_prices`, `_compute_dollar_volumes`) and integration level (`build_universe` propagation).
+
+### Design
+- `ProgressUpdate` TypedDict avoids brittle positional arguments and is extensible (add `eta_seconds` later without breaking callers).
+- All callback parameters default to `None`; existing callers (paper engine, backtest, tests) require zero changes.
+- Fallback notices when Alpaca batch/chunk fails provide visibility during slower individual fetches.
+
+---
+
 ## [0.6.19.2] — 2026-05-31 — Fix — Remove Non-Functional Convergence Scoring
 
 ### Removed

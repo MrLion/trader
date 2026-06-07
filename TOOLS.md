@@ -1070,6 +1070,7 @@ The core trading library (`traderlib/`) provides reusable components used by all
 | `rate_limiter.py` | `RateLimiter` (200 req/min with exponential backoff + circuit breaker); `APIHealthMonitor` for Alpaca/yfinance failover; thread-safe |
 | `trading_exceptions.py` | `TradingExceptionHandler` centralized logging with severity (CRITICAL/WARNING/INFO); `@critical`/`@error`/`@warning` decorators; `APIKeyError` with actionable messages; daily-rotating file handler |
 | `validation.py` | Ticker validation (`validate_ticker`, `validate_tickers`, `is_valid_ticker`); `NO_COLOR` env var support; color/emoji constants for CLI output |
+| `paths.py` | Single source of truth for filesystem paths: `project_root()` (fixed) and `data_dir()` (honors `PAPER_TRADING_DATA_DIR` env var, no caching, no side effects). Use in all production code that needs to locate `data/`. |
 | `backtest/` | Subpackage: `data_provider.py`, `execution.py`, `state.py`, `strategy.py`, `engine.py`, `report.py` (see Backtesting Engine section) |
 
 ### Key Imports
@@ -1151,6 +1152,66 @@ All state files live in `data/`. Written by traderlib modules and scripts.
 Backup files are auto-created before cleanup operations:
 - `data/paper_trades.jsonl.backup` — Created by `clean_test_trades.py`
 - `data/watchlist_backup_*.csv` — Timestamped backups from `watchlist_manager.py`
+
+---
+
+## Test Isolation
+
+Pytest runs are **provably safe for production data**. Two layers protect `data/`:
+
+### 1. Centralized Path Helper
+
+All production code that needs to locate `data/` imports from `traderlib.paths`:
+
+```python
+from traderlib.paths import data_dir, project_root
+DATA_DIR = data_dir()  # honors PAPER_TRADING_DATA_DIR; falls back to <project_root>/data
+```
+
+`data_dir()` is **side-effect-free** (no `mkdir`, no caching) and reads the
+env var on every call. Tests set `PAPER_TRADING_DATA_DIR=<tmp_path>` to
+redirect all writes to a throwaway directory.
+
+### 2. Conftest Safety Net
+
+A session-scope autouse fixture in `tests/conftest.py` snapshots
+`<project_root>/data/` at session start and asserts it is unchanged at
+teardown. **Any test that mutates production data fails the run** with a
+clear diff message:
+
+```
+AssertionError: Test run modified production data/. ...
+data/_pollution_test.tmp: NEW FILE created
+```
+
+To opt out for a specific test (e.g., one that intentionally creates a
+fixture file in `data/`), mark it:
+
+```python
+@pytest.mark.allow_production_writes
+def test_that_creates_real_files():
+    ...
+```
+
+Or disable the safety net for an entire run:
+
+```bash
+pytest --no-isolation-check
+```
+
+### Markers and Flags
+
+| Name | Scope | Purpose |
+|------|-------|---------|
+| `allow_production_writes` | per-test | Skip the isolation check for a test that intentionally writes to `data/` |
+| `--no-isolation-check` | CLI flag | Skip the safety net for an entire `pytest` run (e.g., debugging) |
+
+### Verification
+
+Baseline measurements recorded in `verify/2026-06-06-test-isolation-hardening.md`:
+pytest summary, conftest safety-net line, grep result (`0` matches for
+`Path(__file__).parent.parent` in production code), and timestamp check
+(`data/logs/trading_exceptions.log` mtime unchanged after a test run).
 
 ---
 
