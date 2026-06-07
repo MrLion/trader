@@ -1,3 +1,24 @@
+## [0.6.19.5] — 2026-06-07 — Fix — Post-Review Hardening Fixes
+
+### Fixed
+- **`scripts/entry_signals.py:34`**, **`scripts/sector_scan_comprehensive.py:129`**, **`scripts/premarket_report.py:1021`**, **`scripts/watchlist_manager.py:96`** — `scans/` directory location regression. The 0.6.19.4 migration moved these to `data_dir() / 'scans'` (i.e. `<project>/data/scans/`), but `scripts/mcstock_scraper.py:516, 536` and the existing docs (`CLAUDE.md`, `TOOLS.md`) reference `<project>/scans/`. Reverted to `project_root() / 'scans'` so all 5 scripts and the docs agree. Generated scan output now lives at the project root alongside `reports/`, not under user-data `data/`.
+- **`traderlib/trading_exceptions.py:183`** — Removed dead `logger = logging.getLogger('trading')` rebind inside `log_operational`. It shadowed the module-level `logger` (same name → no-op) and obscured intent.
+- **`traderlib/trading_exceptions.py:29-69`** — Thread-safety bug in `_ensure_logger()`. Pre-fix, two threads racing on the first call would both pass the `if _logger_initialized` check, both attach a FileHandler + StreamHandler, and produce duplicate log lines. Added `threading.Lock` + double-checked flag.
+- **`tests/conftest.py:167-205`** and **`tests/_isolation_check.py:246-289`** — Safety-net bypass on last-test reset. The session fixture stored its baseline in the module-level `_snapshot` cache. If a `test_isolation_check.py` self-test ran LAST in the session, its post-yield `iso.reset_for_testing()` would clear the cache, and the conftest teardown's `assert_clean_production_data()` would see `None` and silently no-op. The conftest now holds the session baseline in a local closure; `assert_clean_production_data()` accepts explicit `snapshot` and `root` parameters so the safety net fires even if a self-test resets the cache.
+
+### Changed
+- **`verify/2026-06-06-test-isolation-hardening.md`** — Corrected the snapshot count (was "47 files across 5 subdirs", actual: **458 files across 4 top-level subdirs** + nested). Added section 8 documenting the post-review fixes.
+
+### Added
+- **`tests/test_trading_exceptions.py::TestLazyInitInvariants::test_ensure_logger_is_thread_safe`** — New regression test. 16 threads race through a `threading.Barrier` into `_ensure_logger()`; asserts exactly 2 handlers (1 file + 1 console) attach and the file handler points at the expected tmp dir.
+- **`tests/test_isolation_check.py::test_explicit_snapshot_survives_module_cache_reset`** — New regression test. Captures a snapshot via the conftest's path, calls `reset_for_testing()` to clear the module cache, pollutes the root, then calls `assert_clean_production_data(snapshot, root)` with explicit args. Asserts pollution is caught.
+
+### Notes
+- Test impact: **+2 passing** (the new regression tests). 28 failures unchanged (18 pre-existing + 10 environmental, both unrelated to this fix).
+- Per CLAUDE.md, the version bump and changelog entry were made; commit and push await explicit user authorization.
+
+---
+
 ## [0.6.19.4] — 2026-06-06 — Improvement — Test Isolation Hardening
 
 ### Added
