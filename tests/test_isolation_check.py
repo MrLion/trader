@@ -137,6 +137,43 @@ def test_diff_detects_new_file(tmp_path):
     assert "NEW FILE" in msg
 
 
+def test_explicit_snapshot_survives_module_cache_reset(tmp_path):
+    """The conftest's explicit-snapshot path must catch pollution even
+    after a self-test calls ``reset_for_testing()``.
+
+    Reproduces the race: a test runs late in the session, calls
+    ``reset_for_testing()`` (clearing the module-level cache), and then
+    pollution occurs. The OLD ``assert_clean_production_data()`` would
+    see the empty cache and silently no-op. The NEW signature accepts
+    explicit ``snapshot`` and ``root`` parameters so the conftest's
+    session-scope reference is independent of the module-level cache.
+    """
+    root = _fake_production_root(tmp_path)
+    (root / "clean.txt").write_text("ok")
+
+    with patch.object(iso, "_production_data_root", return_value=root):
+        # Capture the way the conftest does: via the underscored helpers
+        # into a local variable, NOT into the module-level cache.
+        captured_snapshot = iso._compute_snapshot(root)
+        captured_root = root
+
+        # Simulate a self-test that resets the module cache after
+        # session start (e.g., the last test in the session is a
+        # test_isolation_check self-test).
+        iso.reset_for_testing()
+
+        # Now pollute the root.
+        (root / "post_reset_pollution.tmp").write_text("x")
+
+        # The conftest's path: pass snapshot+root explicitly. Must
+        # raise even though the module-level cache is empty.
+        with pytest.raises(AssertionError) as excinfo:
+            iso.assert_clean_production_data(captured_snapshot, captured_root)
+
+    msg = str(excinfo.value)
+    assert "post_reset_pollution.tmp" in msg
+
+
 def test_is_check_disabled_with_cli_flag():
     """is_check_disabled() reflects sys.argv membership of the flag.
 

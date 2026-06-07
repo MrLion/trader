@@ -87,11 +87,13 @@ import yfinance as yf
 
 from traderlib import calculate_stage2_score
 from traderlib.validation import validate_ticker, EMOJI_CHECK, EMOJI_CROSS, EMOJI_WARN, EMOJI_INFO
-from traderlib.paths import data_dir
+from traderlib.paths import data_dir, project_root
 
 # Watchlist and scan paths - resolved via traderlib.paths
+# Scans are generated output, not user state — they live at the project root
+# alongside `reports/`, not under `data/`. See CLAUDE.md "Repository Layout".
 WATCHLIST_PATH = str(data_dir() / 'watchlist.csv')
-SCAN_DIR = str(data_dir() / 'scans')
+SCAN_DIR = str(project_root() / 'scans')
 
 def load_watchlist():
     """Load existing watchlist or create new."""

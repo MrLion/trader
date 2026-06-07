@@ -124,8 +124,9 @@ def run_comprehensive_scan(top_n: int = 10):
     for i, row in enumerate(sorted_by_score):
         row['overall_rank'] = i + 1
     
-    # Save to CSV
-    output_file = data_dir() / 'scans' / f"{scan_date}_sector_scan.csv"
+    # Save to CSV. Scans are generated output, not user state — they live at
+    # the project root alongside `reports/`, not under `data/`.
+    output_file = project_root() / 'scans' / f"{scan_date}_sector_scan.csv"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
     with open(output_file, 'w', newline='') as f:

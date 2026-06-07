@@ -395,3 +395,61 @@ class TestLazyInitInvariants:
             f"{[type(h).__name__ for h in trading_logger.handlers]}. "
             "_ensure_logger is not idempotent."
         )
+
+    def test_ensure_logger_is_thread_safe(self, tmp_path, monkeypatch):
+        """Invariant 4: Concurrent first-call to _ensure_logger attaches
+        handlers exactly once, even when N threads race.
+
+        Pre-fix, ``_ensure_logger()`` read the ``_logger_initialized``
+        flag, set up handlers, and set the flag in three separate
+        steps with no lock. Two threads passing the initial ``if`` check
+        would both attach a file handler + a stream handler, producing
+        4 handlers (2 file + 2 console) and 2x log output. With the
+        lock + double-check pattern, exactly 2 handlers attach even
+        under heavy contention.
+        """
+        import threading
+        import traderlib.trading_exceptions as te
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        n_threads = 16
+        barrier = threading.Barrier(n_threads)
+        results = []
+
+        def worker():
+            # All threads wait at the barrier, then race through
+            # _ensure_logger simultaneously.
+            barrier.wait()
+            te._ensure_logger()
+
+        threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        trading_logger = logging.getLogger('trading')
+        handler_count = len(trading_logger.handlers)
+        assert handler_count == 2, (
+            f"Expected 2 handlers after {n_threads} racing threads, "
+            f"got {handler_count}: "
+            f"{[type(h).__name__ for h in trading_logger.handlers]}. "
+            "_ensure_logger is not thread-safe."
+        )
+
+        # And the file log should still be attached to the correct
+        # tmp directory.
+        file_handlers = [
+            h for h in trading_logger.handlers
+            if isinstance(h, logging.handlers.TimedRotatingFileHandler)
+        ]
+        assert len(file_handlers) == 1, (
+            f"Expected exactly 1 FileHandler, got {len(file_handlers)}"
+        )
+        log_path = Path(file_handlers[0].baseFilename)
+        assert log_path.parent == tmp_path / "logs", (
+            f"FileHandler pointed at {log_path}, expected "
+            f"{tmp_path / 'logs'}"
+        )

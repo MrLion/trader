@@ -174,19 +174,30 @@ def _isolation_check_session(request):
     and raises :class:`AssertionError` with a diff report if anything
     changed. The failure is reported as a session-level teardown error
     and fails the entire test run.
+
+    The snapshot is stored in a local closure, not in the module-level
+    cache, so a subsequent ``reset_for_testing()`` call from a self-test
+    in ``tests/test_isolation_check.py`` cannot retroactively disable
+    the safety net (issue: snapshot reset between tests could otherwise
+    cause the last self-test to clear the baseline before teardown).
     """
     disabled = _isolation_check.is_check_disabled()
+    session_snapshot = None
+    session_root = None
     if disabled:
         print("[isolation_check] Disabled via --no-isolation-check")
     else:
-        _isolation_check._capture_snapshot()
+        session_root = _isolation_check._production_data_root()
+        session_snapshot = _isolation_check._compute_snapshot(session_root)
         print("[isolation_check] Production data snapshot captured")
 
     yield
 
-    if not disabled:
+    if not disabled and session_snapshot is not None and session_root is not None:
         try:
-            _isolation_check.assert_clean_production_data()
+            _isolation_check.assert_clean_production_data(
+                session_snapshot, session_root
+            )
         except AssertionError as exc:
             # Re-raise so pytest reports this as a teardown failure.
             # The message is the joined diff lines emitted by

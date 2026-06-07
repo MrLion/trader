@@ -24,12 +24,14 @@ from traderlib.sector_resolver import SectorResolver
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker, validate_tickers
-from traderlib.paths import data_dir
+from traderlib.paths import data_dir, project_root
 
 # Configurable paths - resolved via traderlib.paths
 DATA_DIR = data_dir()
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
-SCANS_DIR = DATA_DIR / 'scans'
+# Scans are generated output, not user state — they live at the project root
+# alongside `reports/`, not under `data/`. See CLAUDE.md "Repository Layout".
+SCANS_DIR = project_root() / 'scans'
 
 # ---------------------------------------------------------------------------
 # Display constants & formatting helpers

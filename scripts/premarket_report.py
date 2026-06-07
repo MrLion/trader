@@ -1015,9 +1015,10 @@ def load_watchlist():
     return results
 
 def load_comprehensive_scan():
-    """Load comprehensive sector scan from CSV"""
+    """Load comprehensive sector scan from CSV. Scans are generated output,
+    not user state — they live at the project root alongside `reports/`."""
     today = datetime.now().strftime('%Y-%m-%d')
-    scan_file = data_dir() / 'scans' / f"{today}_sector_scan.csv"
+    scan_file = project_root() / 'scans' / f"{today}_sector_scan.csv"
     
     if not scan_file.exists():
         print(f"⚠️ No scan found for {today}")

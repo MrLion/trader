@@ -243,22 +243,37 @@ def _capture_snapshot() -> Dict[str, object]:
     return _snapshot
 
 
-def assert_clean_production_data() -> None:
+def assert_clean_production_data(
+    snapshot: Optional[Dict[str, object]] = None,
+    root: Optional[Path] = None,
+) -> None:
     """Walk ``data/`` again and raise :class:`AssertionError` if changed.
 
-    If no snapshot was captured (e.g., the session fixture never ran,
-    or ``--no-isolation-check`` was passed), this is a no-op. We do
-    not raise on a missing snapshot — that would mask the
-    intent of the flag.
+    Two calling conventions:
+
+    1. **With explicit args** (used by the session conftest): the caller
+       passes the snapshot it captured at session start and the root it
+       snapshotted. This decouples the conftest's baseline from the
+       module-level cache, so a subsequent ``reset_for_testing()`` call
+       from a self-test cannot retroactively disable the safety net.
+    2. **No args** (legacy / used by self-tests): falls back to the
+       module-level cache. If the cache is empty (no snapshot captured
+       this process, or it was reset), this is a no-op — we do not raise
+       on a missing snapshot, since ``--no-isolation-check`` is a
+       legitimate way to opt out.
     """
-    if _snapshot is None:
+    if snapshot is None:
+        # Legacy path: use module-level cache. The cache may be None
+        # (e.g., --no-isolation-check was passed, or a self-test reset
+        # it after the session teardown started). Silent no-op matches
+        # the documented contract.
+        snapshot = _snapshot
+    if root is None:
+        root = _production_root
+    if snapshot is None or root is None:
         return
-    if _production_root is None:
-        # Defensive: _capture_snapshot should have set both. If not,
-        # the fixture contract was broken; we bail rather than guess.
-        return
-    after = _compute_snapshot(_production_root)
-    diffs = _diff_snapshots(_snapshot, after)
+    after = _compute_snapshot(root)
+    diffs = _diff_snapshots(snapshot, after)
     if diffs:
         header = (
             "Test run modified production data/. The following changes "

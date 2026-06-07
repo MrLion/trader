@@ -16,7 +16,7 @@ and that the path-resolution migration is complete.
 Run from the worktree root with `python3 -m pytest`:
 
 ```
-28 failed, 1256 passed, 3 skipped, 1 warning, 1 error in 15.54s
+28 failed, 1258 passed, 3 skipped, 1 warning in 15.67s
 ```
 
 Main-branch baseline (pre-refactor, for reference):
@@ -27,16 +27,16 @@ Main-branch baseline (pre-refactor, for reference):
 
 Net effect of the refactor:
 
-- **+14 passing tests** (8 sector-resolver / ticker-analyzer tests that were
+- **+16 passing tests** (8 sector-resolver / ticker-analyzer tests that were
   previously broken now pass; 6 new isolation-check / no-hardcoded-paths /
-  no-import-writes tests added).
-- **+10 new failures** — all environmental: `.env` file is gitignored and is
+  no-import-writes tests added; 2 new regression tests for the
+  thread-safety + cache-reset-bypass fixes).
+- **+2 net failures** — all environmental: `.env` file is gitignored and is
   not present in this worktree, so tests that import it directly cannot find
   `ALPACA_API_KEY` / `FMP_API_KEY`. These fail the same way on a clean clone
   of `main` and are **not** caused by the migration.
-- **18 pre-existing failures unchanged** in content (different file paths but
-  same root causes as the main baseline: import path issues, missing fixtures,
-  pre-existing test bugs).
+- **28 = 18 pre-existing failures (unchanged in content) + 10 environmental.**
+  No new test failures were introduced by the migration.
 
 > Note: The exact count of pre-existing failures (26) may shift by a few as
 > the 10 environmental failures are resolved by adding `.env` to the
@@ -54,8 +54,10 @@ recent run:
 [isolation_check] Production data unchanged
 ```
 
-The snapshot covered **47 files across 5 subdirectories** of `data/` and
-reported **0 changes**. The safety net was also exercised by manual pollution
+The snapshot covered **458 files across 4 top-level subdirectories** of `data/`
+(`backtests/`, `earnings_cache/`, `logs/`, `universes/`) plus all nested
+subdirectories (e.g., per-backtest-run timestamped subdirs) and reported
+**0 changes**. The safety net was also exercised by manual pollution
 (`data/_pollution_test.tmp`) and produced:
 
 ```
@@ -144,3 +146,24 @@ These items are documented in the plan as explicitly out of scope and are
 - `data/paper_positions.json.backup` cleanup (separate work).
 - Dashboard UX work (separate plan).
 - `sys.path.insert` calls in `scripts/` (separate workstream).
+
+---
+
+## 8. Post-Review Fixes (2026-06-07)
+
+The PR was reviewed by three independent agents (behavior regressions,
+test coverage, plan compliance). Six HIGH-severity findings were fixed in a
+follow-up commit on the same branch:
+
+| # | Finding | Fix |
+|---|---------|-----|
+| H1 | `scans/` directory location regression (4 files) | Reverted to `project_root() / 'scans'` so the location matches `mcstock_scraper.py` and existing docs |
+| H2 | Safety-net bypass on last-test reset (conftest's module-level cache could be cleared by a self-test) | Refactored: conftest now holds the snapshot in a local closure; `assert_clean_production_data()` accepts explicit `snapshot` + `root` parameters. New regression test: `test_explicit_snapshot_survives_module_cache_reset` |
+| H3 | Race in `_ensure_logger()` (no lock) | Added `threading.Lock` + double-checked flag. New regression test: `test_ensure_logger_is_thread_safe` (16 racing threads) |
+| H4 | "20 files migrated" count was wrong (actual: 25) | Updated CHANGELOG entry to clarify that "20" referred to the hardcoded-`/Users/mintmrlion` subset |
+| H5 | Dead `logger = logging.getLogger('trading')` rebind in `log_operational` (line 183) | Removed; module-level `logger` is already the same name |
+| H6 | Verify report's "47 files across 5 subdirs" was wrong (actual: 458 files, 4 top-level subdirs + nested) | Updated with the real count, captured from the safety net's own snapshot |
+
+**Net test impact of the post-review fixes:** +2 passing tests (the two new
+regression tests). No previously-passing tests broke. The 28-failure count
+is unchanged.
