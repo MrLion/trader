@@ -32,9 +32,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-# Default data paths
-DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
-DATA_DIR = Path(__file__).parent.parent / 'data'
+from traderlib.paths import data_dir
+
+# Default data paths - resolved via traderlib.paths
+DATA_DIR = data_dir()
 TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 
 

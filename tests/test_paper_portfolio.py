@@ -455,10 +455,16 @@ class TestDataPaths:
     """Test data path configuration."""
 
     def test_default_data_dir(self):
-        """Test default data directory is a Path object."""
-        # DEFAULT_DATA_DIR should be a Path instance
-        from paper_portfolio import DEFAULT_DATA_DIR
-        assert isinstance(DEFAULT_DATA_DIR, Path)
+        """Test default data directory resolves to a Path object via the helper.
+
+        `DEFAULT_DATA_DIR` was removed during the test-isolation refactor
+        (plan ``2026-06-06-test-isolation-hardening.md``). The replacement
+        is the ``traderlib.paths.data_dir()`` helper, which honors
+        ``PAPER_TRADING_DATA_DIR`` if set and falls back to
+        ``<project_root>/data`` otherwise.
+        """
+        from traderlib.paths import data_dir
+        assert isinstance(data_dir(), Path)
 
     def test_env_override(self, tmp_path):
         """Test environment variable override in _get_data_dir."""

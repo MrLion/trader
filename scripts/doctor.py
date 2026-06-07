@@ -10,8 +10,10 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
+from traderlib.paths import project_root
+
 # Project root
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = project_root()
 
 
 def colorize(text: str, color: str = '') -> str:

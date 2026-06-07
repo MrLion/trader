@@ -16,7 +16,8 @@ import pandas as pd
 import yaml
 
 # Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import data_dir, project_root
+PROJECT_ROOT = project_root()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from traderlib.backtest.data_provider import AlpacaDataProvider, DictDataProvider
@@ -70,7 +71,7 @@ def _save_backtest_results(
     Returns the path to the created folder.
     """
     if backtests_dir is None:
-        backtests_dir = PROJECT_ROOT / 'data' / 'backtests'
+        backtests_dir = data_dir() / 'backtests'
 
     # Ensure directory exists
     backtests_dir.mkdir(parents=True, exist_ok=True)

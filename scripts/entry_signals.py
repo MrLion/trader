@@ -24,11 +24,12 @@ from traderlib.sector_resolver import SectorResolver
 from traderlib.ticker_analyzer import TickerAnalyzer, TickerAnalysis
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker, validate_tickers
+from traderlib.paths import data_dir
 
-# Configurable paths
-DATA_DIR = Path(__file__).parent.parent / 'data'
+# Configurable paths - resolved via traderlib.paths
+DATA_DIR = data_dir()
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
-SCANS_DIR = Path(__file__).parent.parent / 'scans'
+SCANS_DIR = DATA_DIR / 'scans'
 
 # ---------------------------------------------------------------------------
 # Display constants & formatting helpers

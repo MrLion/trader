@@ -228,3 +228,170 @@ class TestLoggerConfiguration:
         # File may or may not exist depending on test order
         # Just verify the path is valid
         assert log_file.parent.exists()
+
+
+# =============================================================================
+# Test Isolation Hardening — Task 2 invariants
+# =============================================================================
+# These tests pin the lazy-init behavior of traderlib.trading_exceptions:
+#
+#   1. Importing the module creates no files and attaches no handlers.
+#   2. The first log call creates the log file under data_dir() / 'logs',
+#      which honors PAPER_TRADING_DATA_DIR — so tests that set the env var
+#      to a tmp dir never touch production data/logs/.
+#   3. Multiple log calls in the same process attach exactly one FileHandler
+#      and one StreamHandler (idempotent), not a growing stack of duplicates.
+# =============================================================================
+
+
+# Resolve production paths for the no-pollution assertions.
+_TEST_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROD_LOG_FILE = _TEST_PROJECT_ROOT / 'data' / 'logs' / 'trading_exceptions.log'
+
+
+def _reset_lazy_logger_state():
+    """Reset the module-level lazy-init flag and detach all handlers.
+
+    The lazy-init guard ``_logger_initialized`` is a module-level boolean
+    that flips to True on the first ``_ensure_logger()`` call and stays
+    True for the rest of the process. The handler list on the ``trading``
+    logger is process-wide too. To make the new invariants testable in
+    isolation, this helper resets both, so each test sees a clean
+    "not yet initialized" state.
+    """
+    import traderlib.trading_exceptions as te
+
+    te._logger_initialized = False
+    trading_logger = logging.getLogger('trading')
+    for handler in list(trading_logger.handlers):
+        trading_logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+
+class TestLazyInitInvariants:
+    """Pin the three lazy-init invariants for trading_exceptions."""
+
+    def test_log_exception_creates_file_under_data_dir(
+        self, tmp_path, monkeypatch
+    ):
+        """Invariant 1: First log call creates the file at data_dir()/logs/.
+
+        With PAPER_TRADING_DATA_DIR set to a tmp dir, calling log_exception
+        must create a file at ``<tmp>/logs/trading_exceptions.log`` and
+        must not raise.
+        """
+        import traderlib.trading_exceptions as te
+        from traderlib.paths import data_dir
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        # The tmp dir is empty — data_dir() points there.
+        assert data_dir() == tmp_path
+
+        te.TradingExceptionHandler.log_exception(
+            'lazy_init_test', ValueError('x')
+        )
+
+        expected_file = tmp_path / 'logs' / 'trading_exceptions.log'
+        assert expected_file.exists(), (
+            f"Expected log file at {expected_file} after first log call. "
+            "The lazy initializer must create the log file on first use."
+        )
+
+    def test_log_exception_does_not_touch_production_log_file(
+        self, tmp_path, monkeypatch
+    ):
+        """Invariant 2: The production log file is never written.
+
+        With PAPER_TRADING_DATA_DIR set to a tmp dir (via monkeypatch), a
+        log_exception call must write ONLY to ``<tmp>/logs/`` and never
+        to ``<project_root>/data/logs/trading_exceptions.log``.
+        """
+        import traderlib.trading_exceptions as te
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        # Snapshot the production log file's state before the log call.
+        pre_exists = _PROD_LOG_FILE.exists()
+        if pre_exists:
+            pre_mtime = _PROD_LOG_FILE.stat().st_mtime
+            pre_size = _PROD_LOG_FILE.stat().st_size
+        else:
+            pre_mtime = None
+            pre_size = None
+
+        te.TradingExceptionHandler.log_exception(
+            'isolation_check', ValueError('boom')
+        )
+
+        # The file under tmp should exist.
+        tmp_log = tmp_path / 'logs' / 'trading_exceptions.log'
+        assert tmp_log.exists()
+
+        # The production file must not have been created or modified.
+        post_exists = _PROD_LOG_FILE.exists()
+        if not pre_exists:
+            assert not post_exists, (
+                f"Production log file {_PROD_LOG_FILE} was created by a "
+                "log_exception call under a tmp data dir. The lazy "
+                "initializer must respect PAPER_TRADING_DATA_DIR."
+            )
+        else:
+            post_mtime = _PROD_LOG_FILE.stat().st_mtime
+            post_size = _PROD_LOG_FILE.stat().st_size
+            # Allow a 1.0s mtime tolerance for filesystem clock skew.
+            assert abs(post_mtime - pre_mtime) < 1.0, (
+                f"Production log file mtime changed: pre={pre_mtime}, "
+                f"post={post_mtime}. Lazy init leaked a write."
+            )
+            assert post_size == pre_size, (
+                f"Production log file size changed: pre={pre_size}, "
+                f"post={post_size}. Lazy init leaked a write."
+            )
+
+    def test_log_exception_does_not_attach_duplicate_handlers(
+        self, tmp_path, monkeypatch
+    ):
+        """Invariant 3: Two log calls attach handlers once, not twice.
+
+        Calling log_exception repeatedly in the same process must result
+        in exactly one FileHandler and one StreamHandler on the 'trading'
+        logger — not a growing stack of duplicates on every call.
+        """
+        import traderlib.trading_exceptions as te
+
+        _reset_lazy_logger_state()
+        monkeypatch.setenv('PAPER_TRADING_DATA_DIR', str(tmp_path))
+
+        te.TradingExceptionHandler.log_exception(
+            'dup_test_1', ValueError('first')
+        )
+        te.TradingExceptionHandler.log_exception(
+            'dup_test_2', ValueError('second')
+        )
+
+        trading_logger = logging.getLogger('trading')
+        # We expect exactly one FileHandler and one StreamHandler
+        # (the FileHandler from _ensure_logger plus the console handler).
+        handler_count = len(trading_logger.handlers)
+        assert handler_count == 2, (
+            f"Expected 2 handlers (1 file + 1 console) after two log "
+            f"calls, got {handler_count}: "
+            f"{[type(h).__name__ for h in trading_logger.handlers]}. "
+            "_ensure_logger must be idempotent."
+        )
+
+        # And one more call should not grow the list.
+        te.TradingExceptionHandler.log_exception(
+            'dup_test_3', ValueError('third')
+        )
+        assert len(trading_logger.handlers) == 2, (
+            f"Handler list grew after a third log call: "
+            f"{[type(h).__name__ for h in trading_logger.handlers]}. "
+            "_ensure_logger is not idempotent."
+        )

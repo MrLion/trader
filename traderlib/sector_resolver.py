@@ -10,7 +10,9 @@ import pandas as pd
 
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import project_root
+
+_PROJECT_ROOT = project_root()
 
 logger = logging.getLogger(__name__)
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 
+from traderlib.paths import data_dir
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 
@@ -37,15 +38,11 @@ def _atomic_write_json(filepath: Path, data: dict) -> None:
             pass
         raise
 
-# Data paths - configurable via environment variable for testing
-DEFAULT_ROOT_DATA_DIR = Path.home() / '.openclaw/workspaces/trader/data'
-ROOT_DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_ROOT_DATA_DIR))
-
-# Backward-compatible aliases for scripts/tests that import these directly
-DATA_DIR = ROOT_DATA_DIR
-POSITIONS_FILE = ROOT_DATA_DIR / 'paper_positions.json'
-DAILY_TRACKER_FILE = ROOT_DATA_DIR / 'daily_tracker.json'
-TRADES_FILE = ROOT_DATA_DIR / 'paper_trades.jsonl'
+# Data paths - resolved via traderlib.paths so PAPER_TRADING_DATA_DIR is honored
+DATA_DIR = data_dir()
+POSITIONS_FILE = DATA_DIR / 'paper_positions.json'
+DAILY_TRACKER_FILE = DATA_DIR / 'daily_tracker.json'
+TRADES_FILE = DATA_DIR / 'paper_trades.jsonl'
 
 # Trading limits - configurable via environment variables
 MAX_SECTOR_POSITIONS = int(os.environ.get('MAX_SECTOR_POSITIONS', '3'))

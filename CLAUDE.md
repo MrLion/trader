@@ -73,6 +73,7 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 - Analysis: `ticker_analyzer.py`, `pivot_detection.py`, `vcp_utils.py`, `stage2_utils.py`
 - Exits: `trailing_exits.py`
 - Universe & validation: `universe_builder.py`, `validation.py`
+- Paths: `paths.py` (single source of truth for `project_root()` and `data_dir()`; use this in all production code that needs to locate `data/`)
 - Backtesting: `backtest/` (data_provider, engine, execution, state, strategy, report)
 
 **Configuration (`config/`):**
@@ -99,6 +100,7 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 **Tests (`tests/`):**
 - 70+ test files covering: backtest, paper engine, order lifecycle, exits, risk config
 - Integration tests, unit tests, fixtures
+- **Test isolation:** A conftest session-scope autouse fixture snapshots `data/` and fails the run if any test mutates production data. Tests that need to write to `data/` redirect via `PAPER_TRADING_DATA_DIR=<tmp_path>` or mark with `@pytest.mark.allow_production_writes`. Run with `--no-isolation-check` to disable. See TOOLS.md "Test Isolation" section for details.
 
 **Key Reference Files:**
 - `AGENTS.MD` — Trading playbook, daily rhythm, sector reference

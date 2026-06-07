@@ -10,7 +10,9 @@ import os
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import project_root
+
+PROJECT_ROOT = project_root()
 ENV_FILE = PROJECT_ROOT / '.env'
 
 # Legacy JSON path (migration source only)

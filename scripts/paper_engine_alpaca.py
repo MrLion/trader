@@ -29,6 +29,7 @@ from traderlib.paper_state import PaperState, Position
 from traderlib.paper_exits import ExitEngine, ExitSignal, ExitAction, ExitActionType
 from traderlib.order_manager import OrderManager, OrderStatus
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
+from traderlib.paths import data_dir, project_root
 from traderlib.risk_config import RiskConfigManager, calculate_position_size_with_constraints
 from traderlib.trading_exceptions import TradingExceptionHandler, critical, error, warning
 from traderlib.backtest.data_provider import DataFrameProvider
@@ -38,9 +39,8 @@ from traderlib.sector_resolver import SectorResolver
 # FINDING-007: Weekend/holiday market hours
 from traderlib.market_hours import market_hours, is_market_open, is_trading_day, next_market_open, format_market_status
 
-# Configurable paths - uses environment variable for testing
-DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
-DATA_DIR = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
+# Configurable paths - resolved via traderlib.paths so PAPER_TRADING_DATA_DIR is honored
+DATA_DIR = data_dir()
 WATCHLIST_PATH = DATA_DIR / 'watchlist.csv'
 
 # Market hours (Eastern Time)
@@ -71,8 +71,8 @@ class AlpacaPaperEngine:
         print("🔌 Initializing Alpaca client...")
 
         # Mode-specific data directory for state isolation
-        root_data_dir = Path(os.environ.get('PAPER_TRADING_DATA_DIR', 
-                            Path(__file__).resolve().parent.parent / 'data'))
+        # Use module-level DATA_DIR so test patches on paper_engine_alpaca.DATA_DIR take effect
+        root_data_dir = DATA_DIR
         self.mode = mode
         self.mode_data_dir = root_data_dir / mode
         self.mode_data_dir.mkdir(parents=True, exist_ok=True)
@@ -81,7 +81,7 @@ class AlpacaPaperEngine:
         self._migrate_old_layout()
 
         # Mode-specific risk config path
-        config_path = Path(__file__).resolve().parent.parent / 'config' / mode / 'risk_config.yaml'
+        config_path = project_root() / 'config' / mode / 'risk_config.yaml'
         self.risk_manager = RiskConfigManager(config_path=config_path, profile=risk_profile)
         self.risk_config = self.risk_manager.get_config()
 
@@ -1580,9 +1580,8 @@ def _load_post_market_state(mode: str = "paper"):
     """
     import json
     from pathlib import Path
-    # Resolve data dir relative to repo root (script is in scripts/)
-    repo_root = Path(__file__).parent.parent
-    positions_file = repo_root / 'data' / mode / 'positions.json'
+    # Resolve data dir via traderlib.paths (honors PAPER_TRADING_DATA_DIR)
+    positions_file = data_dir() / mode / 'positions.json'
     if not positions_file.exists():
         return None
     try:

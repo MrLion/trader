@@ -17,12 +17,13 @@ import pandas as pd
 # Add scripts directory to path for local imports
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from traderlib.paths import data_dir
 from traderlib.trading_exceptions import TradingExceptionHandler
 from traderlib.validation import validate_ticker
 from traderlib.sector_resolver import SectorResolver
 
-# Data paths - configurable via environment variable for testing
-DEFAULT_DATA_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data')
+# Data paths - resolved via traderlib.paths so PAPER_TRADING_DATA_DIR is honored
+DATA_DIR = data_dir()
 
 # Constants
 DEFAULT_INITIAL_CAPITAL = 100000.0
@@ -31,11 +32,10 @@ DEFAULT_INITIAL_CAPITAL = 100000.0
 def _get_data_dir(mode: str = "paper") -> Path:
     """Resolve mode-specific data directory.
 
-    paper -> ~/.openclaw/workspaces/trader/data/paper/
-    live  -> ~/.openclaw/workspaces/trader/data/live/
+    paper -> <data_dir>/paper/
+    live  -> <data_dir>/live/
     """
-    base = Path(os.environ.get('PAPER_TRADING_DATA_DIR', DEFAULT_DATA_DIR))
-    return base / mode
+    return data_dir() / mode
 
 
 def format_et_timestamp(dt: datetime = None) -> str:

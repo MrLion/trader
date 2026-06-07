@@ -24,6 +24,7 @@ import yaml
 from alpaca.data.enums import Adjustment
 
 from traderlib.alpaca_client import AlpacaClient
+from traderlib.paths import data_dir, project_root
 from traderlib.trading_exceptions import TradingExceptionHandler
 
 
@@ -68,7 +69,7 @@ class UniverseBuilder:
     """Build and cache stock universes from Alpaca with prefilter pipeline."""
 
     CACHE_TTL_HOURS = 4  # Refresh every 4 hours during market hours
-    UNIVERSES_DIR = Path(__file__).parent.parent / 'data' / 'universes'
+    UNIVERSES_DIR = data_dir() / 'universes'
 
     def __init__(self, config_path: Optional[Path] = None):
         """
@@ -78,7 +79,7 @@ class UniverseBuilder:
             config_path: Path to screener_config.yaml (default: config/screener_config.yaml)
         """
         if config_path is None:
-            config_path = Path(__file__).parent.parent / 'config' / 'screener_config.yaml'
+            config_path = project_root() / 'config' / 'screener_config.yaml'
 
         self.config_path = config_path
         self.config = self._load_config()

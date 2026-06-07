@@ -1,3 +1,33 @@
+## [0.6.19.4] — 2026-06-06 — Improvement — Test Isolation Hardening
+
+### Added
+- **`traderlib/paths.py`** — Single source of truth for filesystem paths. Two functions: `project_root()` (fixed, follows symlinks via `.resolve()`) and `data_dir()` (honors `PAPER_TRADING_DATA_DIR` env var, no caching, no side effects, no `mkdir`).
+- **`tests/test_paths.py`** — 6 contract tests pinning the helper's behavior: env var unset, env var set, project_root isolation, no side effects, env re-read on every call, symlink resolution.
+- **`tests/conftest.py`** — Session-scope autouse fixture that snapshots `<project_root>/data/` at session start and asserts it is unchanged at teardown. Catches test pollution of production data.
+- **`tests/_isolation_check.py`** — Helper module implementing the snapshot + diff logic. Reachable via `--no-isolation-check` CLI flag and `allow_production_writes` pytest marker.
+- **`tests/test_isolation_check.py`** — 4 self-tests pinning the safety-net fixture's contract.
+- **`tests/test_no_hardcoded_paths.py`** — 2 grep-as-test verifying no `Path(__file__).parent.parent` or hardcoded `/Users/mintmrlion` paths remain in production code.
+- **`tests/test_no_import_writes.py`** — 3 subprocess-based tests verifying `import traderlib.trading_exceptions` creates no files and attaches no handlers.
+- **`verify/2026-06-06-test-isolation-hardening.md`** — Baseline verification report: pytest summary, conftest safety-net output, grep result, timestamp check, production `data/` git-clean.
+
+### Changed
+- **`traderlib/trading_exceptions.py`** — Lazy initialization. The module previously attached a `FileHandler` and called `mkdir` at import time, causing every test import to write to `data/logs/trading_exceptions.log`. Now `_ensure_logger()` runs at the start of `log_and_continue`, `log_exception`, and `log_operational` — only the first call touches the filesystem. Subsequent calls reuse the same handler set (verified by handler-count invariant).
+- **20 files in `traderlib/` and `scripts/`** — Migrated to `traderlib.paths.data_dir()` from a mix of `Path(__file__).parent.parent / 'data'`, `os.environ.get('PAPER_TRADING_DATA_DIR')`, and hardcoded `/Users/mintmrlion/...` absolute paths. Notable: `order_manager.py` aliased import as `_data_dir` to avoid parameter shadowing; `sync_state.py` renamed local var to `data_dir_path`; `paper_engine_alpaca.py` uses module-level `DATA_DIR` constant; `clean_test_trades.py` `DEFAULT_DATA_DIR` removed.
+- **`tests/test_paper_portfolio.py`** — Updated `test_default_data_dir` to use `traderlib.paths.data_dir()` after `DEFAULT_DATA_DIR` removal.
+- **`TOOLS.md`** — Added `paths.py` row to library table; new "Test Isolation" section documenting the helper, conftest safety net, marker, and CLI flag.
+- **`CLAUDE.md`** — Added `paths.py` to the core library list; expanded the "Tests" section with the isolation guarantee.
+
+### Fixed
+- **Test pollution of production data (May 6, 2026 incident class).** Test runs can no longer write to `data/positions.json`, `data/trades.jsonl`, or `data/logs/trading_exceptions.log`. The conftest safety net fails the run loudly if any test mutates production data, with a per-file diff in the assertion error.
+- **Eager-init bug in `traderlib.trading_exceptions`.** Importing the module previously triggered `mkdir(parents=True, exist_ok=True)` and `addHandler(FileHandler(...))` unconditionally. The 30-day-rotating handler is now attached on first use only.
+
+### Notes
+- The migration introduced **+14 passing tests** (8 sector-resolver / ticker-analyzer tests that were previously broken now pass; 6 new isolation tests added) and **+10 environmental failures** (worktree is missing `.env`, so tests that import API keys directly fail; same behavior on a clean clone of `main`).
+- 18 pre-existing test failures are unchanged. They are unrelated to the migration and remain as separate work.
+- Per CLAUDE.md, the version bump and changelog entry were made; commit, push, and tag await explicit user authorization.
+
+---
+
 ## [0.6.19.3] — 2026-05-31 — Improvement — Discovery Progress Indicators
 
 ### Added

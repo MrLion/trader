@@ -11,6 +11,8 @@ from typing import Optional, Dict
 
 import yaml
 
+from traderlib.paths import project_root
+
 
 class RateLimiter:
     """Track API calls and enforce rate limits with backoff.
@@ -243,13 +245,9 @@ class APIHealthMonitor:
 def _load_rate_limiter_config() -> Dict:
     """Load rate limiter configuration from screener_config.yaml."""
     config_paths = [
-        Path('/Users/mintmrlion/.openclaw/workspaces/trader/config/screener_config.yaml'),
+        project_root() / 'config' / 'screener_config.yaml',
         Path('config/screener_config.yaml'),
     ]
-
-    # Try to load from project root relative to this file
-    project_root = Path(__file__).parent.parent
-    config_paths.insert(0, project_root / 'config' / 'screener_config.yaml')
 
     for config_path in config_paths:
         if config_path.exists():

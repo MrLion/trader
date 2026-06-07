@@ -250,8 +250,8 @@ class RiskConfigManager:
 
     def _default_config_path(self) -> Path:
         """Get default config path relative to repo root."""
-        repo_root = Path(__file__).parent.parent
-        return repo_root / "config" / "risk_config.yaml"
+        from traderlib.paths import project_root
+        return project_root() / "config" / "risk_config.yaml"
 
     def _load_config(self) -> RiskConfig:
         """Load configuration from YAML with optional profile overlay."""

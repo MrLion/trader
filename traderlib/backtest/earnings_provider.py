@@ -14,6 +14,8 @@ from typing import Optional
 
 import requests
 
+from traderlib.paths import data_dir
+
 
 @dataclass
 class EarningsRecord:
@@ -53,7 +55,7 @@ class HistoricalEarningsProvider:
 
         # Set up cache directory
         if cache_dir is None:
-            cache_dir = Path(__file__).parent.parent.parent / "data" / "earnings_cache"
+            cache_dir = data_dir() / 'earnings_cache'
         self._cache_dir = Path(cache_dir)
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 

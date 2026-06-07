@@ -4,6 +4,10 @@ import os
 import tempfile
 import shutil
 
+# Local test-only helper. Imported at the top so the rest of the file
+# can refer to the session-scope fixture and the marker registration.
+import tests._isolation_check as _isolation_check
+
 # =============================================================================
 # TEST DATA ISOLATION: Prevent tests from writing to production data/
 # =============================================================================
@@ -111,3 +115,82 @@ def clean_test_data():
     test_positions.write_text('{}')
     test_account.write_text('{"initial_capital": 100000.0, "cash": 100000.0, "equity": 100000.0}')
     test_trades.write_text('')
+
+
+# =============================================================================
+# Test Isolation Hardening — Task 4: production-data safety net
+# =============================================================================
+# A session-scope autouse fixture that snapshots the production data/ tree
+# at session start and asserts it is unchanged at session teardown. Any
+# test that writes to data/ (directly or via a module that resolves a
+# hardcoded production path) will fail the entire session.
+#
+# Opt-out mechanisms:
+#   - @pytest.mark.allow_production_writes — register the test as
+#     intentionally touching production paths.
+#   - pytest --no-isolation-check — ad-hoc CLI escape hatch for
+#     debugging. The flag is checked in tests/_isolation_check.py.
+# =============================================================================
+
+
+def pytest_addoption(parser):
+    """Register custom command-line options with pytest's argparse.
+
+    ``--no-isolation-check`` is a debug escape hatch that lets a
+    developer skip the production-data safety net. We must register
+    it here so pytest's argparse does not reject the flag with
+    "unrecognized arguments". The actual gating logic lives in
+    :func:`tests._isolation_check.is_check_disabled`, which inspects
+    ``sys.argv`` at conftest-load time.
+    """
+    parser.addoption(
+        "--no-isolation-check",
+        action="store_true",
+        default=False,
+        help="Skip the production-data isolation check (debug hatch).",
+    )
+
+
+def pytest_configure(config):
+    """Register custom markers with pytest.
+
+    Called once at pytest startup. Without this, any test marked with
+    ``@pytest.mark.allow_production_writes`` would emit a "unknown
+    marker" warning.
+    """
+    config.addinivalue_line(
+        "markers",
+        "allow_production_writes: opt a test out of the production-data isolation check",
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolation_check_session(request):
+    """Snapshot production data/ at session start, verify at teardown.
+
+    This fixture runs once per ``pytest`` invocation. On session start,
+    it captures a baseline snapshot of ``<project_root>/data/`` (if the
+    check is not disabled). On session finish, it walks the tree again
+    and raises :class:`AssertionError` with a diff report if anything
+    changed. The failure is reported as a session-level teardown error
+    and fails the entire test run.
+    """
+    disabled = _isolation_check.is_check_disabled()
+    if disabled:
+        print("[isolation_check] Disabled via --no-isolation-check")
+    else:
+        _isolation_check._capture_snapshot()
+        print("[isolation_check] Production data snapshot captured")
+
+    yield
+
+    if not disabled:
+        try:
+            _isolation_check.assert_clean_production_data()
+        except AssertionError as exc:
+            # Re-raise so pytest reports this as a teardown failure.
+            # The message is the joined diff lines emitted by
+            # assert_clean_production_data().
+            raise exc
+        else:
+            print("[isolation_check] Production data unchanged")

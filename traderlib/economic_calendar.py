@@ -24,7 +24,8 @@ import requests
 
 # Load .env from project root if available
 from dotenv import load_dotenv
-_PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import project_root
+_PROJECT_ROOT = project_root()
 load_dotenv(_PROJECT_ROOT / '.env')
 
 logger = logging.getLogger(__name__)

@@ -75,7 +75,9 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (if it exists)
-PROJECT_ROOT = Path(__file__).parent.parent
+from traderlib.paths import project_root
+
+PROJECT_ROOT = project_root()
 load_dotenv(PROJECT_ROOT / '.env')
 
 # Configuration

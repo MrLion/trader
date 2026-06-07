@@ -24,9 +24,11 @@ import yfinance as yf
 
 from traderlib import calculate_stage2_score, get_entry_score, get_stage2_details
 from traderlib.stage2_utils import calculate_ma_support_stop
+from traderlib.paths import data_dir, project_root
 
-REPORTS_DIR = Path('/Users/mintmrlion/.openclaw/workspaces/trader/reports')
-WATCHLIST_PATH = Path('/Users/mintmrlion/.openclaw/workspaces/trader/data/watchlist.csv')
+# Report and watchlist paths - resolved via traderlib.paths
+REPORTS_DIR = project_root() / 'reports'
+WATCHLIST_PATH = data_dir() / 'watchlist.csv'
 
 def load_watchlist():
     """Load watchlist from CSV."""
