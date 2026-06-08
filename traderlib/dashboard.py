@@ -235,8 +235,12 @@ class Dashboard:
         return Text.assemble(*parts)
 
     def _stats(self, state: Dict[str, Any]) -> Text:
-        equity = float(state.get("equity") or 0.0)
+        # Account value = cash + equity (market value of open positions).
+        # The engine sends "equity" meaning position market value, and "cash"
+        # meaning cash on hand. Account value is their sum.
         cash = float(state.get("cash") or 0.0)
+        equity = float(state.get("equity") or 0.0)
+        account_value = cash + equity
         day_pnl = float(state.get("day_pnl") or 0.0)
         unreal = float(state.get("unrealized_pnl") or 0.0)
         open_pos = state.get("open_positions", 0)
@@ -257,7 +261,7 @@ class Dashboard:
         # YTD percent is dimmed; the YTD value itself is colored green/red.
         arrow = "▲" if day_pnl >= 0 else "▼"
         lines = [
-            f"  [bold white]ACCOUNT VALUE[/] [bold white]${equity:>12,.2f}[/]  "
+            f"  [bold white]ACCOUNT VALUE[/] [bold white]${account_value:>12,.2f}[/]  "
             f"[bold {day_color}]DAY P&L {arrow} ${day_pnl:>+10,.2f}[/]  "
             f"[bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]",
             f"  [dim]CASH          ${cash:>12,.2f}           UNREALIZED    ${unreal:>+10,.2f}          OPEN      {open_pos}[/]",

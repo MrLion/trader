@@ -80,13 +80,16 @@ class TestDashboard:
             assert isinstance(renderable, Group)
             d.stop()
 
-    def test_stats_shows_equity_and_day_pnl(self, mock_state):
+    def test_stats_shows_account_value_and_day_pnl(self, mock_state):
+        # Account value = cash + equity (positions market value) per the
+        # canonical formula. mock_state has cash=45200, equity=103420.50,
+        # so the rendered ACCOUNT VALUE must be 148,620.50.
         with patch("traderlib.dashboard.Live"), \
              patch("traderlib.dashboard.os.isatty", return_value=True):
             d = Dashboard(enabled=True)
             stats = d._stats(mock_state)
             text = str(stats)
-            assert "$  103,420.50" in text
+            assert "$  148,620.50" in text
             assert "▲ $   +420.50" in text
             d.stop()
 

@@ -1,3 +1,13 @@
+## [0.6.19.8] — 2026-06-07 — Fix — Dashboard ACCOUNT VALUE = Cash + Equity
+
+### Fixed
+- **`traderlib/dashboard.py:_stats`** — The top-line "ACCOUNT VALUE" was rendering `state["equity"]` directly, but the engine's `equity` field is the market value of open positions, not the total account. The formula is `account value = cash + equity (positions)`. The dashboard now computes the sum and displays the result as ACCOUNT VALUE, so the label matches the number.
+
+### Changed
+- **`tests/test_dashboard.py::test_stats_shows_equity_and_day_pnl`** — Renamed to `test_stats_shows_account_value_and_day_pnl` and updated the expected value to reflect the corrected formula. mock_state has `cash=45200, equity=103420.50`, so the rendered ACCOUNT VALUE is now `148,620.50` (was `103,420.50`).
+
+---
+
 ## [0.6.19.7] — 2026-06-07 — Improvement — Dashboard UX (Height-Tiered, Sparkline, Lifetime)
 
 ### Added
