@@ -237,6 +237,11 @@ class Dashboard:
     def _stats(self, state: Dict[str, Any]) -> Text:
         equity = float(state.get("equity") or 0.0)
         cash = float(state.get("cash") or 0.0)
+        # positions_value is cash + equity decomposition. Falls back to
+        # (equity - cash) if not provided by the engine.
+        positions_value = float(
+            state.get("positions_value") or max(0.0, equity - cash)
+        )
         day_pnl = float(state.get("day_pnl") or 0.0)
         unreal = float(state.get("unrealized_pnl") or 0.0)
         open_pos = state.get("open_positions", 0)
@@ -252,16 +257,17 @@ class Dashboard:
         heat_pct, heat_bar = self._heat_gauge(state)
         heat_color = "green" if heat_pct < 3.0 else "yellow" if heat_pct < 5.0 else "red"
 
-        # Visual hierarchy: ACCOUNT VALUE + DAY P&L bold and large; YTD next to DAY P&L
-        # (semantic pairing: both are "how much did the account move" quantities).
-        # YTD percent is dimmed; the YTD value itself is colored green/red.
+        # Top line shows the full account-value decomposition:
+        # Cash + Positions = Total. This makes the relationship visible at a
+        # glance instead of leaving the user to infer it from the second row.
         arrow = "▲" if day_pnl >= 0 else "▼"
         lines = [
             f"  [bold white]ACCOUNT VALUE[/] [bold white]${equity:>12,.2f}[/]  "
+            f"[dim]= cash ${cash:>+10,.0f} + pos ${positions_value:>+10,.0f}[/]  "
             f"[bold {day_color}]DAY P&L {arrow} ${day_pnl:>+10,.2f}[/]  "
             f"[bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]",
-            f"  [dim]CASH          ${cash:>12,.2f}           UNREALIZED    ${unreal:>+10,.2f}          OPEN      {open_pos}[/]",
-            f"  [dim]PENDING       {pending:>12}          HEAT        [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%[/]",
+            f"  [dim]UNREALIZED    ${unreal:>+10,.2f}          OPEN         {open_pos}              PENDING     {pending}[/]",
+            f"  [dim]HEAT          [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%[/]",
         ]
         return Text.from_markup("\n".join(lines))
 

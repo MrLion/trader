@@ -1,3 +1,17 @@
+## [0.6.19.8] — 2026-06-07 — Fix — Dashboard ACCOUNT VALUE Was Showing Cash Only
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:1326`** — `_print_status` was reading `stats.get("cash", 0.0)` and labeling the result as the "equity" in `state_data`. That meant the dashboard's "ACCOUNT VALUE" line was the **cash** component only, not the total. The engine has the correct total — `PaperState.get_equity()` returns `cash + market_value_of_positions` — but the print-status method was throwing it away. Now reads `stats.get("equity", 0.0)`, which is the true account value.
+
+### Added
+- **`scripts/paper_engine_alpaca.py:1415`** — New `positions_value` field in `state_data` (computed as `equity - cash`, clamped to ≥ 0). Gives the dashboard a clean three-way split: cash, positions, total — so the relationship is visible at a glance.
+- **`traderlib/dashboard.py:_stats`** — Top line now shows the decomposition explicitly: `ACCOUNT VALUE $X = cash $X + pos $X · DAY P&L · YTD`. Moved UNREALIZED/OPEN/PENDING to the second line and HEAT to the third so the math is on the most prominent row.
+
+### Notes
+- The displayed number on the ACCOUNT VALUE line is the same as before **only when you have no open positions**. With positions, you'll now see a higher number that includes the market value of your holdings. If you had positions open and the previous "ACCOUNT VALUE" looked like cash, that was the bug — and this is the correction.
+
+---
+
 ## [0.6.19.7] — 2026-06-07 — Improvement — Dashboard UX (Height-Tiered, Sparkline, Lifetime)
 
 ### Added

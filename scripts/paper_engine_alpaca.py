@@ -1323,7 +1323,13 @@ class AlpacaPaperEngine:
         """Print current status — dashboard mode or fallback."""
         prices = self._get_current_prices_map()
         stats = self.state.get_stats(prices)
-        account_value = stats.get("cash", 0.0)
+        # Account value = Cash + market value of open positions.
+        # PaperState.get_equity() returns exactly this (cash + sum of price*shares).
+        # Earlier versions read stats["cash"] here, which made the dashboard show
+        # only the cash component, hiding the position-side of the account.
+        account_value = stats.get("equity", 0.0)
+        cash = stats.get("cash", 0.0)
+        positions_value = max(0.0, account_value - cash)
         unrealized_pnl = 0.0
         positions_data = {}
 
@@ -1403,8 +1409,12 @@ class AlpacaPaperEngine:
 
         state_data = {
             "mode": self.mode,
+            # Account value = cash + market value of open positions.
+            # Send the components explicitly so the dashboard can render a
+            # Cash + Positions breakdown alongside the total.
             "equity": account_value,
-            "cash": stats.get("cash", 0.0),
+            "cash": cash,
+            "positions_value": positions_value,
             "day_pnl": stats.get("day_pnl", 0.0),
             "unrealized_pnl": unrealized_pnl,
             "open_positions": len(self.state.positions),
