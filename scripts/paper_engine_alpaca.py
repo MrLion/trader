@@ -1372,23 +1372,8 @@ class AlpacaPaperEngine:
         today_stats = self._get_today_trade_stats()
 
         # Compute market regime for dashboard
-        regime = "UNKNOWN"
-        try:
-            spy_hist = self.alpaca.get_historical_bars("SPY")
-            if spy_hist is not None and len(spy_hist) >= 50:
-                spy_current = float(spy_hist["Close"].iloc[-1])
-                spy_50ma = float(spy_hist["Close"].tail(50).mean())
-                spy_200ma = float(spy_hist["Close"].tail(200).mean()) if len(spy_hist) >= 200 else spy_50ma
-                if spy_current > spy_50ma > spy_200ma and (vix_current or 0) < 20:
-                    regime = "BULL"
-                elif spy_current > spy_50ma and (vix_current or 0) < 25:
-                    regime = "BULL"
-                elif spy_current < spy_50ma and (vix_current or 0) > 25:
-                    regime = "BEAR"
-                else:
-                    regime = "NEUTRAL"
-        except Exception:
-            pass
+        spy_hist = self.alpaca.get_historical_bars("SPY")
+        regime = _compute_regime(spy_hist, vix_current)
 
         # T1: Lazy pre-fetch on first status print. Subsequent prints in the
         # same day hit the in-memory cache; the next day triggers a refetch.
@@ -1760,42 +1745,132 @@ class AlpacaPaperEngine:
 
 
 
+def _compute_regime(spy_hist, vix=None):
+    """
+    Compute market regime from SPY historical bars using 50-day SMA crossover.
+
+    Args:
+        spy_hist: DataFrame from get_historical_bars("SPY") with Close column
+        vix: Optional VIX value. If None, VIX gates are skipped (price-only logic).
+
+    Returns:
+        "BULL", "BEAR", "NEUTRAL", or "UNKNOWN" (if < 50 bars)
+    """
+    if spy_hist is None or len(spy_hist) < 50:
+        return "UNKNOWN"
+    try:
+        spy_current = float(spy_hist["Close"].iloc[-1])
+        spy_50ma = float(spy_hist["Close"].tail(50).mean())
+        spy_200ma = float(spy_hist["Close"].tail(200).mean()) if len(spy_hist) >= 200 else spy_50ma
+        if spy_current > spy_50ma > spy_200ma and (vix or 0) < 20:
+            return "BULL"
+        elif spy_current > spy_50ma and (vix or 0) < 25:
+            return "BULL"
+        elif spy_current < spy_50ma and (vix or 0) > 25:
+            return "BEAR"
+        else:
+            return "NEUTRAL"
+    except Exception:
+        return "UNKNOWN"
+
 def _load_post_market_state(mode: str = "paper"):
     """Load saved positions and fetch closing prices for post-market summary.
 
+    Uses Alpaca API for account data, prices, portfolio history, and SPY bars.
+    Falls back to yfinance if all 4 API calls fail.
+
     Args:
         mode: 'paper' or 'live' — reads from data/{mode}/positions.json
+
+    Returns:
+        Dict with keys: cash, equity, unrealized_pnl, day_pnl, open_positions,
+        pending_orders, positions, today_stats, ytd_pnl, ytd_pnl_pct,
+        equity_30d, equity_all, lifetime_trade_count, regime, market_status,
+        vix, ws_connected, api_requests, api_max, next_scan_seconds,
+        market_close_seconds, mode
     """
     import json
     from pathlib import Path
+    from datetime import datetime
+
     # Resolve data dir via traderlib.paths (honors PAPER_TRADING_DATA_DIR)
-    positions_file = data_dir() / mode / 'positions.json'
-    if not positions_file.exists():
-        return None
-    try:
-        with open(positions_file, 'r') as f:
-            positions = json.load(f)
-    except Exception:
-        return None
-    if not positions:
-        return None
-    # Fetch closing prices via yfinance
-    import yfinance as yf
+    base_dir = data_dir() / mode
+    positions_file = base_dir / 'positions.json'
+    trades_file = base_dir / 'trades.jsonl'
+    today_str = datetime.now().strftime('%Y-%m-%d')
+
+    # --- Load positions from disk ---
+    positions = {}
+    if positions_file.exists():
+        try:
+            with open(positions_file, 'r') as f:
+                positions = json.load(f)
+        except Exception:
+            positions = {}
+
+    # --- Create AlpacaClient (import inside function for circular import safety) ---
+    from traderlib.alpaca_client import AlpacaClient
+    alpaca = AlpacaClient(mode=mode)
+
+    # --- Wrapped API calls: each returns None on failure ---
+    def _safe_get_account():
+        try:
+            return alpaca.get_account()
+        except Exception:
+            return None
+
+    def _safe_latest_prices(tickers):
+        try:
+            return alpaca.get_latest_prices_batch(tickers)
+        except Exception:
+            return None
+
+    def _safe_portfolio_hist():
+        try:
+            return alpaca.get_portfolio_history(period='YTD', timeframe='1D')
+        except Exception:
+            return None
+
+    def _safe_spy_hist():
+        try:
+            return alpaca.get_historical_bars("SPY")
+        except Exception:
+            return None
+
+    # --- Execute all 4 API calls ---
+    account_data = _safe_get_account()
     tickers = list(positions.keys())
+    latest_prices = _safe_latest_prices(tickers) if tickers else None
+    portfolio_hist = _safe_portfolio_hist()
+    spy_hist = _safe_spy_hist()
+
+    api_failures = sum(
+        1 for x in [account_data, (latest_prices or {}) if tickers else {}, portfolio_hist, spy_hist]
+        if (x is None) or (isinstance(x, dict) and not x)
+    )
+
+    # --- Fallback: yfinance only if ALL 4 calls failed ---
+    all_api_failed = api_failures >= 4
     prices = {}
-    try:
-        data = yf.download(tickers, period='1d', progress=False, threads=True) if len(tickers) > 1 else yf.Ticker(tickers[0]).history(period='1d')
-        if len(tickers) == 1:
-            prices[tickers[0]] = float(data['Close'].iloc[-1]) if not data.empty else None
-        else:
-            for t in tickers:
-                try:
-                    prices[t] = float(data['Close'][t].iloc[-1])
-                except Exception:
-                    prices[t] = None
-    except Exception:
-        prices = {}
-    # Build positions_data
+    if all_api_failed or (tickers and latest_prices is None):
+        import yfinance as yf
+        if tickers:
+            try:
+                data = yf.download(tickers, period='1d', progress=False, threads=True) if len(tickers) > 1 else yf.Ticker(tickers[0]).history(period='1d')
+                if len(tickers) == 1:
+                    prices[tickers[0]] = float(data['Close'].iloc[-1]) if not data.empty else None
+                else:
+                    for t in tickers:
+                        try:
+                            prices[t] = float(data['Close'][t].iloc[-1])
+                        except Exception:
+                            prices[t] = None
+            except Exception:
+                pass
+    elif latest_prices:
+        prices = latest_prices
+
+    # --- Build positions_data (Alpaca prices preferred, then yfinance, then entry_price) ---
     positions_data = {}
     total_unreal = 0.0
     total_value = 0.0
@@ -1816,10 +1891,128 @@ def _load_post_market_state(mode: str = "paper"):
             'current_stop_type': pos.get('current_stop_type', 'HARD'),
             'sector': pos.get('sector', 'Unknown'),
         }
+
+    # --- Cash & equity from account API, fallback to position-based estimate ---
+    cash = 0.0
+    equity = total_value
+    if account_data:
+        cash = float(account_data.get('cash', 0.0))
+        equity = float(account_data.get('equity', total_value))
+
+    # --- Today stats from EXIT events in trades.jsonl ---
+    day_pnl = 0.0
+    today_stats = {"wins": 0, "losses": 0, "total_pnl": 0.0, "avg_r": 0.0}
+    if trades_file.exists():
+        wins = 0
+        losses = 0
+        total_pnl = 0.0
+        total_r = 0.0
+        try:
+            with open(trades_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if trade.get("event") != "EXIT":
+                        continue
+                    ts = trade.get("timestamp", "")
+                    if not ts.startswith(today_str):
+                        continue
+                    pnl = float(trade.get("realized_pnl", 0.0))
+                    total_pnl += pnl
+                    if pnl >= 0:
+                        wins += 1
+                    else:
+                        losses += 1
+                    risk = float(trade.get("initial_risk", 0.0) or trade.get("initial_risk_amount", 0.0))
+                    if risk > 0:
+                        total_r += pnl / risk
+                    else:
+                        entry = float(trade.get("entry_price", 0))
+                        stop = float(trade.get("initial_stop_price") or trade.get("stop_price") or 0)
+                        shares = float(trade.get("shares", 0))
+                        risk = (entry - stop) * shares if entry > stop > 0 and shares > 0 else 0
+                        if risk > 0:
+                            total_r += pnl / risk
+            total = wins + losses
+            today_stats = {
+                "wins": wins,
+                "losses": losses,
+                "total_pnl": total_pnl,
+                "avg_r": total_r / total if total > 0 else 0.0,
+            }
+            day_pnl = total_pnl
+        except Exception:
+            pass
+
+    # --- Lifetime trade count (all EXIT events) ---
+    lifetime_trade_count = 0
+    if trades_file.exists():
+        try:
+            with open(trades_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if trade.get("event") == "EXIT":
+                        lifetime_trade_count += 1
+        except Exception:
+            pass
+
+    # --- YTD P&L from portfolio history or trade log fallback ---
+    ytd_pnl = 0.0
+    ytd_pnl_pct = 0.0
+    if portfolio_hist:
+        pl_list = portfolio_hist.get("profit_loss", [])
+        pl_pct_list = portfolio_hist.get("profit_loss_pct", [])
+        if pl_list:
+            ytd_pnl = float(pl_list[-1])
+        if pl_pct_list:
+            ytd_pnl_pct = float(pl_pct_list[-1])
+    else:
+        # Fallback: sum realized_pnl from all 2026 EXIT events
+        try:
+            if trades_file.exists():
+                with open(trades_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            trade = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if trade.get("event") == "EXIT":
+                            ts = trade.get("timestamp", "")
+                            if ts.startswith("2026-"):
+                                ytd_pnl += float(trade.get("realized_pnl", 0.0))
+        except Exception:
+            pass
+
+    # --- Equity time series ---
+    equity_30d = None
+    equity_all = None
+    if portfolio_hist:
+        eq_list = portfolio_hist.get("equity", [])
+        if eq_list:
+            equity_all = list(eq_list)
+            equity_30d = list(eq_list[-22:]) if len(eq_list) >= 22 else list(eq_list)
+
+    # --- Regime from SPY bars ---
+    regime = _compute_regime(spy_hist)
+
     return {
-        'equity': total_value,  # approximate, cash not persisted
-        'cash': 0.0,
-        'day_pnl': 0.0,
+        'cash': cash,
+        'equity': equity,
+        'day_pnl': day_pnl,
         'unrealized_pnl': total_unreal,
         'open_positions': len(positions),
         'pending_orders': 0,
@@ -1831,6 +2024,14 @@ def _load_post_market_state(mode: str = "paper"):
         'api_max': None,
         'next_scan_seconds': 0,
         'market_close_seconds': None,
+        'today_stats': today_stats,
+        'ytd_pnl': ytd_pnl,
+        'ytd_pnl_pct': ytd_pnl_pct,
+        'equity_30d': equity_30d,
+        'equity_all': equity_all,
+        'lifetime_trade_count': lifetime_trade_count,
+        'regime': regime,
+        'mode': mode,
     }
 
 

@@ -260,10 +260,14 @@ class Dashboard:
         # (semantic pairing: both are "how much did the account move" quantities).
         # YTD percent is dimmed; the YTD value itself is colored green/red.
         arrow = "▲" if day_pnl >= 0 else "▼"
+        ytd_fragment = (
+            f"  [bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]"
+            if ytd_pnl != 0.0
+            else ""
+        )
         lines = [
             f"  [bold white]ACCOUNT VALUE[/] [bold white]${account_value:>12,.2f}[/]  "
-            f"[bold {day_color}]DAY P&L {arrow} ${day_pnl:>+10,.2f}[/]  "
-            f"[bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]",
+            f"[bold {day_color}]DAY P&L {arrow} ${day_pnl:>+10,.2f}[/]{ytd_fragment}",
             f"  [dim]CASH          ${cash:>12,.2f}           UNREALIZED    ${unreal:>+10,.2f}          OPEN      {open_pos}[/]",
             f"  [dim]PENDING       {pending:>12}          HEAT        [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%[/]",
         ]

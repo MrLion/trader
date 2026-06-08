@@ -1,3 +1,18 @@
+## [0.6.19.9] — 2026-06-08 — Fix — Post-Market Dashboard Shows Real Account Data
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:_load_post_market_state`** — Rewrote the standalone function to fetch real data from Alpaca instead of fabricating numbers. The function now creates its own `AlpacaClient`, makes 4 API calls (get_account, get_latest_prices_batch, get_portfolio_history, get_historical_bars), and reads `trades.jsonl` for trade statistics. Each field falls back independently on failure. (Fixes: CASH $0.00, ACCOUNT VALUE = positions only, DAY P&L $0.00, YTD $0.0%, TODAY: no closed trades yet, Total Trades: 0)
+- **`scripts/paper_engine_alpaca.py:_print_status`** — Extracted inline regime detection into `_compute_regime(spy_hist, vix)` helper at module level, now callable from both the open-market and post-market paths.
+- **`traderlib/dashboard.py:_stats`** — YTD line is hidden when `ytd_pnl` is $0 (indicates fallback failure or no data), avoiding a misleading "YTD $0 (+0.0%)" display.
+
+### Added
+- **`tests/test_post_market_state.py`** — 12 tests covering Alpaca data sourcing, trade log integration, fallback paths, regime detection, and missing-file edge cases.
+
+### Changed
+- **`tests/test_dashboard.py`** — Added `test_dashboard_ytd_hidden_when_zero` to verify YTD omission.
+
+---
+
 ## [0.6.19.8] — 2026-06-07 — Fix — Dashboard ACCOUNT VALUE = Cash + Equity
 
 ### Fixed

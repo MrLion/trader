@@ -477,6 +477,17 @@ class TestDashboardAccountValueYtd:
             assert "YTD" in plain
             d.stop()
 
+    def test_dashboard_ytd_hidden_when_zero(self, mock_state):
+        """Test 12: YTD fragment is empty when ytd_pnl == 0.0."""
+        mock_state["ytd_pnl"] = 0.0
+        mock_state["ytd_pnl_pct"] = 0.0
+        with patch("traderlib.dashboard.Live"), \
+             patch("traderlib.dashboard.os.isatty", return_value=True):
+            d = Dashboard(enabled=True)
+            text = str(d._stats(mock_state))
+            assert "YTD" not in text
+            d.stop()
+
 
 @pytest.mark.skipif(not _HAS_RICH, reason="rich not installed")
 class TestDashboardEquitySparkline:
