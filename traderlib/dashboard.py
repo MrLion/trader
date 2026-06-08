@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """TUI Dashboard for paper engine using rich."""
 
+import json
 import os
 import threading
 import time
 from collections import deque
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+from traderlib.paths import data_dir
 
 try:
     from rich.console import Console, Group
@@ -94,15 +98,43 @@ class Dashboard:
             self.live.update(self._render())
 
     def _render(self, state: Optional[Dict[str, Any]] = None) -> Any:
-        """Build the full dashboard renderable."""
+        """Build the full dashboard renderable.
+
+        Reads self.console.height and gates optional sections by tier:
+          - < 24 rows: header, stats, footer (minimum)
+          - 24-34 rows: header, stats, today, positions capped at 6, footer
+          - 35-49 rows: header, stats, today, positions capped at 10, activity capped at 5,
+                        sparkline, footer
+          - >= 50 rows: header, stats, today, all positions, all activity, sparkline,
+                        sectors, footer; post-market adds closed-trades + lifetime panel
+
+        The market-state conditional is applied per tier: post-market replaces
+        activity with closed trades and adds the lifetime panel.
+        """
         if not _HAS_RICH:
             return ""
 
         state = state or self._last_state or {}
         width = getattr(self.console, "width", 80) if self.console else 80
+        height = getattr(self.console, "height", 24) if self.console else 24
         rule = Text("─" * width, style="dim")
         positions_rule = Text("─" * width, style="dim")
-        return Group(
+        is_post = state.get("market_status") == "POST"
+
+        if height < 24:
+            # Minimum view: header, stats, footer only
+            return Group(
+                rule,
+                self._header(state),
+                rule,
+                self._stats(state),
+                rule,
+                self._footer(state),
+                rule,
+            )
+
+        # Tier 24+ always has: header, stats, today, positions (capped or full)
+        parts: list = [
             rule,
             self._header(state),
             rule,
@@ -110,15 +142,42 @@ class Dashboard:
             rule,
             self._today_summary(state),
             positions_rule,
-            self._positions(state),
-            positions_rule,
-            self._activity(),
-            rule,
-            self._sector_exposure(state),
-            rule,
-            self._footer(state),
-            rule,
-        )
+        ]
+
+        if height < 35:
+            # 24-34: positions capped at 6, no activity / sparkline / sectors
+            parts.append(self._positions(state, max_rows=6))
+        elif height < 50:
+            # 35-49: positions capped at 10, activity capped at 5, sparkline,
+            # but no sectors, no closed trades, no lifetime panel
+            parts.append(self._positions(state, max_rows=10))
+            parts.append(positions_rule)
+            if is_post:
+                parts.append(self._closed_trades(max_events=5))
+            else:
+                parts.append(self._activity(max_events=5))
+            parts.append(rule)
+            parts.append(self._equity_sparkline(state))
+        else:
+            # 50+: full layout — all positions, all activity/closed-trades,
+            # sparkline, sectors, lifetime panel (post-market only)
+            parts.append(self._positions(state))
+            parts.append(positions_rule)
+            if is_post:
+                parts.append(self._closed_trades())
+                parts.append(rule)
+                parts.append(self._lifetime_stats(state))
+            else:
+                parts.append(self._activity())
+            parts.append(rule)
+            parts.append(self._equity_sparkline(state))
+            parts.append(rule)
+            parts.append(self._sector_exposure(state))
+
+        parts.append(rule)
+        parts.append(self._footer(state))
+        parts.append(rule)
+        return Group(*parts)
 
     def _header(self, state: Dict[str, Any]) -> Text:
         now = datetime.now().strftime("%H:%M:%S")
@@ -182,18 +241,25 @@ class Dashboard:
         unreal = float(state.get("unrealized_pnl") or 0.0)
         open_pos = state.get("open_positions", 0)
         pending = state.get("pending_orders", 0)
+        ytd_pnl = float(state.get("ytd_pnl", 0.0) or 0.0)
+        ytd_pnl_pct = float(state.get("ytd_pnl_pct", 0.0) or 0.0)
 
         day_color = "green" if day_pnl >= 0 else "red"
         unreal_color = "green" if unreal >= 0 else "red"
+        ytd_color = "green" if ytd_pnl >= 0 else "red"
 
         # Portfolio heat calculation
         heat_pct, heat_bar = self._heat_gauge(state)
         heat_color = "green" if heat_pct < 3.0 else "yellow" if heat_pct < 5.0 else "red"
 
-        # Visual hierarchy: equity + day P&L bold and large; rest dimmed
+        # Visual hierarchy: ACCOUNT VALUE + DAY P&L bold and large; YTD next to DAY P&L
+        # (semantic pairing: both are "how much did the account move" quantities).
+        # YTD percent is dimmed; the YTD value itself is colored green/red.
         arrow = "▲" if day_pnl >= 0 else "▼"
         lines = [
-            f"  [bold white]EQUITY[/]      [bold white]${equity:>12,.2f}[/]          [bold {day_color}]DAY P&L     {arrow} ${day_pnl:>+10,.2f}[/]",
+            f"  [bold white]ACCOUNT VALUE[/] [bold white]${equity:>12,.2f}[/]  "
+            f"[bold {day_color}]DAY P&L {arrow} ${day_pnl:>+10,.2f}[/]  "
+            f"[bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]",
             f"  [dim]CASH          ${cash:>12,.2f}           UNREALIZED    ${unreal:>+10,.2f}          OPEN      {open_pos}[/]",
             f"  [dim]PENDING       {pending:>12}          HEAT        [{heat_color}]{heat_bar}[/{heat_color}]   {heat_pct:.1f}%[/]",
         ]
@@ -242,11 +308,11 @@ class Dashboard:
         line = (
             f"  [white]TODAY:[/]  {wins}W / {losses}L  |  "
             f"[{pnl_color}]${total_pnl:>+,.0f}[/{pnl_color}]  |  "
-            f"avg {avg_r:+.1f}R  |  {win_rate:.0f}% WR"
+            f"avg {avg_r:+.2f}R  |  {win_rate:.0f}% WR"
         )
         return Text.from_markup(line)
 
-    def _positions(self, state: Dict[str, Any]) -> Table:
+    def _positions(self, state: Dict[str, Any], max_rows: Optional[int] = None) -> Table:
         positions = state.get("positions", {})
         tbl = Table(
             box=None,
@@ -269,6 +335,8 @@ class Dashboard:
         sep = Text("─" * 14, style="dim")
         tbl.add_row(sep, sep, sep, sep, sep, sep, sep)
 
+        # Build per-ticker records so we can sort by |unreal| desc when truncating
+        records = []
         for ticker, pos in positions.items():
             entry = float(pos.get("entry_price") or 0)
             current_price = pos.get("current_price")
@@ -289,6 +357,25 @@ class Dashboard:
             risk_per_share = entry - effective_stop if entry > effective_stop > 0 else 0
             r_mult = unreal / (risk_per_share * shares) if risk_per_share > 0 and shares > 0 else 0.0
 
+            records.append({
+                "ticker": ticker,
+                "entry": entry,
+                "current": current,
+                "stop": stop,
+                "ptype": ptype,
+                "unreal": unreal,
+                "r_mult": r_mult,
+                "abs_unreal": abs(unreal),
+            })
+
+        # When max_rows is set and we have more positions than that, sort by
+        # |unreal| desc and take the top N (most informative when truncating).
+        truncated = max_rows is not None and len(records) > max_rows
+        if truncated:
+            records = sorted(records, key=lambda r: r["abs_unreal"], reverse=True)[:max_rows]
+
+        for rec in records:
+            r_mult = rec["r_mult"]
             # Row color based on R-level
             if r_mult < 0:
                 row_style = "red"
@@ -299,25 +386,30 @@ class Dashboard:
             else:
                 row_style = "bold green"
 
-            cur_color = "green" if current >= entry else "red"
-            unreal_color = "green" if unreal >= 0 else "red"
+            cur_color = "green" if rec["current"] >= rec["entry"] else "red"
+            unreal_color = "green" if rec["unreal"] >= 0 else "red"
 
             tbl.add_row(
-                Text(ticker, style=row_style),
-                Text(f"{entry:.2f}", style=row_style),
-                Text(f"{current:.2f}", style=cur_color),
-                Text(f"{stop:.2f}", style=row_style),
-                Text(ptype, style=row_style),
-                Text(f"{unreal:+.2f}", style=unreal_color),
+                Text(rec["ticker"], style=row_style),
+                Text(f"{rec['entry']:.2f}", style=row_style),
+                Text(f"{rec['current']:.2f}", style=cur_color),
+                Text(f"{rec['stop']:.2f}", style=row_style),
+                Text(rec["ptype"], style=row_style),
+                Text(f"{rec['unreal']:+.2f}", style=unreal_color),
                 Text(f"{r_mult:+.1f}R", style=row_style),
             )
+
+        if truncated:
+            hidden = len(positions) - max_rows
+            more_text = Text(f"+{hidden} more positions", style="dim italic")
+            tbl.add_row(more_text, "", "", "", "", "", "")
 
         if not positions:
             tbl.add_row("--", "--", "--", "--", "--", "--", "--")
 
         return tbl
 
-    def _activity(self) -> Text:
+    def _activity(self, max_events: Optional[int] = None) -> Text:
         if not self.events:
             return Text("  No events yet", style="dim")
 
@@ -334,12 +426,15 @@ class Dashboard:
             "STOP": "yellow",
             "SKIP": "dim",
             "ERROR": "red",
-            "WARN": "yellow",
+            "WARN":  "yellow",
         }
 
+        # Default cap is 10 when caller doesn't specify (preserves existing behavior)
+        cap = max_events if max_events is not None else 10
+        event_list = list(self.events)[:cap]
+        truncated = max_events is not None and len(self.events) > cap
+
         lines = []
-        # Show last 10 events in single-column chronological flow
-        event_list = list(self.events)[:10]
         for evt in event_list:
             etype = evt.get("type", "UNKNOWN")
             icon = icons.get(etype, " ")
@@ -348,8 +443,18 @@ class Dashboard:
             ticker = evt.get("ticker", "")
             detail = evt.get("detail", "")
             pnl = evt.get("pnl")
+            r_mult = evt.get("r_multiple")
             pnl_str = f"  [{color}]{pnl:+.0f}[/{color}]" if pnl is not None else ""
-            lines.append(f"  [{color}]{icon}[/{color}] {ts}  [{color}]{etype:<6}[/{color}]  {ticker:<6}  {detail}{pnl_str}")
+            # Append R-multiple suffix to exit/stop/scale lines when present
+            r_suffix = ""
+            if etype in ("EXIT", "STOP", "SCALE") and r_mult is not None:
+                r_color = "red" if r_mult < 0 else "yellow" if r_mult < 1 else "green"
+                r_suffix = f" ([{r_color}]{r_mult:+.1f}R[/{r_color}])"
+            lines.append(f"  [{color}]{icon}[/{color}] {ts}  [{color}]{etype:<6}[/{color}]  {ticker:<6}  {detail}{pnl_str}{r_suffix}")
+
+        if truncated:
+            hidden = len(self.events) - cap
+            lines.append(f"  [dim italic]+{hidden} more events[/dim italic]")
 
         return Text.from_markup("\n".join(lines))
 
@@ -372,7 +477,7 @@ class Dashboard:
                 sector = resolver.resolve(ticker)
             resolved_sectors[ticker] = sector
             current = float(pos.get("current_price") or pos.get("entry_price", 0))
-            shares = int(pos.get("shares", 0))
+            shares = int(pos.get("shares") or 0)
             sector_values[sector] = sector_values.get(sector, 0.0) + current * shares
 
         # Sort by value descending
@@ -387,6 +492,159 @@ class Dashboard:
             lines.append(f"  {sector:<14} [{bar}]  {pct:>5.1f}% ({pos_count} pos)")
 
         return Text.from_markup("\n".join(lines))
+
+    def _equity_sparkline(self, state: Dict[str, Any]) -> Text:
+        """30-cell Unicode block sparkline of equity_30d with a $NNN.NK label.
+
+        Scaled to the min/max of the equity series. Pads on the left with
+        ░ when fewer than 30 points are available. Empty series -> a flat
+        30-cell ░ line with '--' as the value.
+        """
+        cells = 30
+        equity = list(state.get("equity_30d") or [])
+
+        if not equity or len(equity) < 2:
+            line = "  [dim]" + "░" * cells + "[/dim]  [dim]--[/dim]"
+            return Text.from_markup(line)
+
+        # Scale to min/max using 8 block levels (▁▂▃▄▅▆▇█)
+        blocks = "▁▂▃▄▅▆▇█"
+        lo, hi = min(equity), max(equity)
+        if hi == lo:
+            scaled = "▅" * len(equity)  # flat -> middle block
+        else:
+            scaled = "".join(
+                blocks[min(len(blocks) - 1, int((v - lo) / (hi - lo) * (len(blocks) - 1)))]
+                for v in equity
+            )
+
+        # Pad on the left if fewer than 30 points
+        if len(scaled) < cells:
+            scaled = "░" * (cells - len(scaled)) + scaled
+
+        # Value label: $NNN.NK for < $1M, $N.NNM for >= $1M
+        current = equity[-1]
+        if current >= 1_000_000:
+            label = f"${current/1_000_000:.1f}M"
+        else:
+            label = f"${current/1_000:.1f}K"
+        label = f"  [white]EQUITY (30D)[/]  {scaled}  [bold white]{label}[/]"
+        return Text.from_markup(label)
+
+    def _closed_trades(self, max_events: Optional[int] = None) -> Text:
+        """Post-market: today's closed trades from the on-disk trade log.
+
+        Reads data/paper/trades.jsonl on demand (live data, not pre-fetched).
+        Filters to today's EXIT / STOP / SCALE events with an exit_price set,
+        sorts by timestamp descending, and renders as
+        `icon HH:MM  TYPE  TICKER  entry->exit  pnl`.
+
+        Caps at max_events and appends '+N more closed trades' when truncated.
+        """
+        today = datetime.now().strftime("%Y-%m-%d")
+        # Mode-scoped via data_dir() so PAPER_TRADING_DATA_DIR and per-mode
+        # subdirectories are honored (paper/ vs live/).
+        log_path = data_dir() / 'paper' / 'trades.jsonl'
+        if not log_path.exists():
+            return Text("  [dim]No closed trades today[/]")
+
+        rows = []
+        try:
+            with open(log_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if trade.get("event") not in ("EXIT", "STOP", "SCALE"):
+                        continue
+                    ts = trade.get("timestamp", "")
+                    if not ts.startswith(today):
+                        continue
+                    if not trade.get("exit_price"):
+                        continue
+                    rows.append(trade)
+        except Exception:
+            return Text("  [dim]No closed trades today[/]")
+
+        if not rows:
+            return Text("  [dim]No closed trades today[/]")
+
+        # Most recent first
+        rows.sort(key=lambda t: t.get("timestamp", ""), reverse=True)
+
+        cap = max_events if max_events is not None else len(rows)
+        visible = rows[:cap]
+        truncated = max_events is not None and len(rows) > cap
+
+        icons = {"EXIT": "x", "STOP": "*", "SCALE": ">"}
+        lines = ["  [bold white]CLOSED TRADES[/]"]
+        for trade in visible:
+            etype = trade.get("event", "EXIT")
+            icon = icons.get(etype, " ")
+            ts = trade.get("timestamp", "")[11:16]  # HH:MM
+            ticker = trade.get("ticker", "")
+            entry = float(trade.get("entry_price", 0) or 0)
+            exit_price = float(trade.get("exit_price", 0) or 0)
+            pnl = float(trade.get("realized_pnl", 0) or 0)
+            pnl_color = "green" if pnl >= 0 else "red"
+            price_str = f"${entry:.2f}->${exit_price:.2f}"
+            lines.append(
+                f"  [{pnl_color}]{icon}[/{pnl_color}] {ts}  "
+                f"[{pnl_color}]{etype:<6}[/{pnl_color}]  {ticker:<6}  {price_str}  "
+                f"[{pnl_color}]{pnl:+.0f}[/{pnl_color}]"
+            )
+
+        if truncated:
+            hidden = len(rows) - cap
+            lines.append(f"  [dim italic]+{hidden} more closed trades[/dim italic]")
+
+        return Text.from_markup("\n".join(lines))
+
+    def _lifetime_stats(self, state: Dict[str, Any]) -> Text:
+        """Post-market 50-row only: Sharpe / Max DD / Total Trades.
+
+        Computes Sharpe + Max DD via StatsCalculator.lifetime_stats(equity_all).
+        Total Trades is read directly from state. Below the 30-point threshold,
+        Sharpe and Max DD are shown as '--'. Total Trades is always shown.
+        """
+        equity_all = list(state.get("equity_all") or [])
+        lifetime_count = int(state.get("lifetime_trade_count", 0) or 0)
+
+        try:
+            from traderlib.stats_calculator import lifetime_stats
+            stats = lifetime_stats(equity_all)
+        except Exception:
+            stats = {"sharpe": None, "max_dd": None}
+
+        sharpe = stats.get("sharpe")
+        max_dd = stats.get("max_dd")
+
+        if sharpe is None:
+            sharpe_str = "--"
+        else:
+            # Clamp to a sensible display range — extreme values come from
+            # tiny sample sizes or volatile periods and are noise, not signal.
+            sharpe_clamped = max(-9.99, min(9.99, sharpe))
+            sharpe_str = f"{sharpe_clamped:.2f}"
+        if max_dd is None:
+            max_dd_str = "--"
+        else:
+            # Max DD is bounded [0, 1] in fractional form; clamp anyway to
+            # defend against NaN/inf in pathological edge cases.
+            max_dd_clamped = max(0.0, min(1.0, max_dd))
+            max_dd_str = f"{max_dd_clamped * 100:.1f}%"
+
+        line = (
+            f"  [bold white]LIFETIME[/]  "
+            f"Sharpe: [white]{sharpe_str}[/]  "
+            f"Max DD: [white]{max_dd_str}[/]  "
+            f"Total Trades: [white]{lifetime_count}[/]"
+        )
+        return Text.from_markup(line)
 
     def _footer(self, state: Dict[str, Any]) -> Text:
         # Live countdown from target time

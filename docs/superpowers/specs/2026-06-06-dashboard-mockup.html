@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Mockups</title>
+<style>
+  body { background: #1a1a1a; color: #ccc; font-family: system-ui, sans-serif; margin: 24px; }
+  h2 { color: #e5e7eb; margin: 32px 0 12px; }
+  .subtitle { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
+  .terminal-mockup {
+    background: #0c0c0c;
+    color: #eee;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    padding: 12px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: pre;
+    border: 1px solid #2a2a2a;
+    min-height: 120px;
+  }
+  .bold { font-weight: bold; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+  .yellow { color: #facc15; }
+  .dim { color: #6b7280; }
+  .blue { color: #60a5fa; }
+  .orange { color: #fb923c; }
+  .cyan { color: #22d3ee; }
+  .panel-title { color: #9ca3af; font-weight: bold; }
+  .value { color: #e5e7eb; font-weight: bold; }
+  .cutoff { color: #6b7280; font-style: italic; }
+  .size-tag {
+    color: #4ade80;
+    background: #14532d;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+  .postmarket-tag {
+    color: #facc15;
+    background: #422006;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+  hr { border-color: #333; margin: 32px 0; }
+</style>
+
+<h2>Dashboard Mockups &mdash; Matching <code>dashboard.py</code> Patterns</h2>
+<p class="subtitle">Same section structure, header format, stats layout, activity icons, and rules as the current dashboard. Responsive to terminal height.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 24-ROW MARKET OPEN -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="size-tag">24 ROWS &mdash; MARKET OPEN</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">14:32:17</span> ET    <span class="bold green">MARKET OPEN</span>    <span class="bold green">BULL</span>    VIX <span class="yellow">22.4</span>    WS: <span class="green">connected</span>    API: <span class="dim">12/200</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$3,179.00          OPEN      12</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">███░░░░░░░</span>   <span class="dim">1.8%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.45R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(6 of 12)</span>
+
+  <span class="bold">TICKER  ENTRY     CURRENT   STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="yellow">AMD</span>      <span class="yellow">98.50</span>    <span class="green">101.20</span>     <span class="yellow">95.00</span>    <span class="yellow">5</span>      <span class="green">+$270</span>  <span class="yellow">+0.8R</span>
+  <span class="green">META</span>    <span class="green">485.00</span>    <span class="green">492.00</span>    <span class="green">478.00</span>    <span class="green">T</span>      <span class="green">+$350</span>  <span class="green">+1.2R</span>
+  <span class="yellow">GOOGL</span>   <span class="yellow">142.00</span>    <span class="green">145.30</span>    <span class="yellow">140.00</span>    <span class="yellow">B</span>      <span class="green">+$198</span>  <span class="yellow">+0.7R</span>
+  <span class="cutoff">  +6 more positions</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Next scan: <span class="bold">23s</span>    Market closes in: <span class="bold">1h 28m</span>    WebSocket: <span class="green">connected</span>    Rate limit: <span class="dim">12/200</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 35-ROW MARKET OPEN -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="size-tag">35 ROWS &mdash; MARKET OPEN</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">14:32:17</span> ET    <span class="bold green">MARKET OPEN</span>    <span class="bold green">BULL</span>    VIX <span class="yellow">22.4</span>    WS: <span class="green">connected</span>    API: <span class="dim">12/200</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$3,179.00          OPEN      12</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">███░░░░░░░</span>   <span class="dim">1.8%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.45R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(10 of 12)</span>
+
+  <span class="bold">TICKER  ENTRY     CURRENT   STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="yellow">AMD</span>      <span class="yellow">98.50</span>    <span class="green">101.20</span>     <span class="yellow">95.00</span>    <span class="yellow">5</span>      <span class="green">+$270</span>  <span class="yellow">+0.8R</span>
+  <span class="green">META</span>    <span class="green">485.00</span>    <span class="green">492.00</span>    <span class="green">478.00</span>    <span class="green">T</span>      <span class="green">+$350</span>  <span class="green">+1.2R</span>
+  <span class="yellow">GOOGL</span>   <span class="yellow">142.00</span>    <span class="green">145.30</span>    <span class="yellow">140.00</span>    <span class="yellow">B</span>      <span class="green">+$198</span>  <span class="yellow">+0.7R</span>
+  <span class="red">TSLA</span>    <span class="red">245.00</span>     <span class="red">243.20</span>    <span class="red">240.00</span>    <span class="red">H</span>       <span class="red">-$180</span>   <span class="red">-0.6R</span>
+  <span class="green">CRM</span>     <span class="green">285.00</span>    <span class="green">291.00</span>    <span class="green">280.00</span>    <span class="green">T</span>      <span class="green">+$240</span>  <span class="green">+0.8R</span>
+  <span class="yellow">AMZN</span>    <span class="yellow">178.00</span>    <span class="green">181.50</span>    <span class="yellow">175.00</span>    <span class="yellow">5</span>      <span class="green">+$175</span>  <span class="yellow">+0.5R</span>
+  <span class="yellow">NFLX</span>    <span class="yellow">620.00</span>    <span class="green">625.00</span>    <span class="yellow">610.00</span>    <span class="yellow">H</span>      <span class="green">+$250</span>  <span class="yellow">+0.4R</span>
+  <span class="cutoff">  +2 more positions</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">ACTIVITY</span> <span class="dim">(5 of 17 events)</span>
+
+  <span class="dim">  x</span> 14:31  <span class="red">SCALE   TSLA              -$120   -0.4R</span>
+  <span class="dim">  x</span> 14:28  <span class="green">SCALE   META              +$290   +1.0R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   GOOGL             +$155   +0.7R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   AAPL              +$250   +1.0R</span>
+  <span class="dim">  +</span> 13:52  <span class="cyan">ENTRY   AAPL    long</span>
+  <span class="cutoff">  +12 more events</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">EQUITY (30D)</span>
+  <span class="green">▁▂▃▅▆▇████▇▆▅▃▂▁▁▂▃▄▆▇█▇▅▃▂</span>  <span class="value">$124.9K</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Next scan: <span class="bold">23s</span>    Market closes in: <span class="bold">1h 28m</span>    WebSocket: <span class="green">connected</span>    Rate limit: <span class="dim">12/200</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 50-ROW MARKET OPEN -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="size-tag">50 ROWS &mdash; MARKET OPEN</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">14:32:17</span> ET    <span class="bold green">MARKET OPEN</span>    <span class="bold green">BULL</span>    VIX <span class="yellow">22.4</span>    WS: <span class="green">connected</span>    API: <span class="dim">12/200</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$3,179.00          OPEN      12</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">███░░░░░░░</span>   <span class="dim">1.8%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.45R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(all 12)</span>
+
+  <span class="bold">TICKER  ENTRY     CURRENT   STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="yellow">AMD</span>      <span class="yellow">98.50</span>    <span class="green">101.20</span>     <span class="yellow">95.00</span>    <span class="yellow">5</span>      <span class="green">+$270</span>  <span class="yellow">+0.8R</span>
+  <span class="green">META</span>    <span class="green">485.00</span>    <span class="green">492.00</span>    <span class="green">478.00</span>    <span class="green">T</span>      <span class="green">+$350</span>  <span class="green">+1.2R</span>
+  <span class="yellow">GOOGL</span>   <span class="yellow">142.00</span>    <span class="green">145.30</span>    <span class="yellow">140.00</span>    <span class="yellow">B</span>      <span class="green">+$198</span>  <span class="yellow">+0.7R</span>
+  <span class="red">TSLA</span>    <span class="red">245.00</span>     <span class="red">243.20</span>    <span class="red">240.00</span>    <span class="red">H</span>       <span class="red">-$180</span>   <span class="red">-0.6R</span>
+  <span class="green">CRM</span>     <span class="green">285.00</span>    <span class="green">291.00</span>    <span class="green">280.00</span>    <span class="green">T</span>      <span class="green">+$240</span>  <span class="green">+0.8R</span>
+  <span class="yellow">AMZN</span>    <span class="yellow">178.00</span>    <span class="green">181.50</span>    <span class="yellow">175.00</span>    <span class="yellow">5</span>      <span class="green">+$175</span>  <span class="yellow">+0.5R</span>
+  <span class="yellow">NFLX</span>    <span class="yellow">620.00</span>    <span class="green">625.00</span>    <span class="yellow">610.00</span>    <span class="yellow">H</span>      <span class="green">+$250</span>  <span class="yellow">+0.4R</span>
+  <span class="yellow">PYPL</span>     <span class="yellow">68.00</span>    <span class="green">70.50</span>     <span class="yellow">66.00</span>    <span class="yellow">B</span>      <span class="green">+$125</span>  <span class="yellow">+0.6R</span>
+  <span class="yellow">UBER</span>     <span class="yellow">72.00</span>    <span class="green">74.30</span>     <span class="yellow">70.00</span>    <span class="yellow">T</span>      <span class="green">+$115</span>  <span class="yellow">+0.5R</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">ACTIVITY</span> <span class="dim">(all 17 events)</span>
+
+  <span class="dim">  x</span> 14:31  <span class="red">SCALE   TSLA              -$120   -0.4R</span>
+  <span class="dim">  x</span> 14:28  <span class="green">SCALE   META              +$290   +1.0R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   GOOGL             +$155   +0.7R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   AAPL              +$250   +1.0R</span>
+  <span class="dim">  +</span> 13:52  <span class="cyan">ENTRY   AAPL    long</span>
+  <span class="dim">  +</span> 13:48  <span class="cyan">ENTRY   AMD     long</span>
+  <span class="dim">  x</span> 13:45  <span class="green">SCALE   NVDA              +$200   +0.8R</span>
+  <span class="dim">  x</span> 13:00  <span class="green">SCALE   MSFT              +$100   +0.5R</span>
+  <span class="dim">  +</span> 12:45  <span class="cyan">ENTRY   NVDA    long</span>
+  <span class="dim">  +</span> 12:30  <span class="cyan">ENTRY   MSFT    long</span>
+  <span class="dim">  *</span> 11:45  <span class="red">STOP    INTC              -$140   -0.9R</span>
+  <span class="dim">  x</span> 11:30  <span class="green">SCALE   CRM               +$240   +0.9R</span>
+  <span class="dim">  +</span> 10:15  <span class="cyan">ENTRY   AMZN    long</span>
+  <span class="dim">  +</span> 10:00  <span class="cyan">ENTRY   NFLX    long</span>
+  <span class="dim">  +</span> 09:45  <span class="cyan">ENTRY   PYPL    long</span>
+  <span class="dim">  +</span> 09:30  <span class="cyan">ENTRY   UBER    long</span>
+  <span class="dim">  +</span> 09:00  <span class="cyan">ENTRY   GOOGL   long</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">EQUITY (30D)</span>
+  <span class="green">▁▂▃▅▆▇████▇▆▅▃▂▁▁▂▃▄▆▇█▇▅▃▂</span>  <span class="value">$124.9K</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">TODAY STATS</span>
+  Win Rate: <span class="bold">75.0%</span>    Avg R: <span class="bold">+0.45R</span>    Win/Loss: <span class="bold">3.8</span>
+
+  <span class="panel-title">SECTORS</span>
+  Technology  [<span class="green">█████░░░░░</span>]  <span class="dim">12.5%  (2 pos)</span>
+  Healthcare  [<span class="orange">███░░░░░░░</span>]   <span class="dim">7.3%  (1 pos)</span>
+  Financials  [<span class="blue">██░░░░░░░░</span>]   <span class="dim">4.1%  (1 pos)</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Next scan: <span class="bold">23s</span>    Market closes in: <span class="bold">1h 28m</span>    WebSocket: <span class="green">connected</span>    Rate limit: <span class="dim">12/200</span>
+</div>
+
+<hr>
+
+<h2>Post-Market</h2>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 24-ROW POST-MARKET -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="postmarket-tag">24 ROWS &mdash; POST-MARKET</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">16:05:32</span> ET    <span class="bold yellow">POST-MARKET SUMMARY</span>    <span class="bold yellow">NEUTRAL</span>    VIX <span class="yellow">21.8</span>    WS: <span class="red">disconnected</span>    API: <span class="dim">0/200</span>  |  <span class="bold red">Data frozen since 16:00:00</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$2,811.00          OPEN       9</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">██░░░░░░░░</span>   <span class="dim">1.2%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.66R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(3 of 9)</span>
+
+  <span class="bold">TICKER  ENTRY     CLOSE     STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="cutoff">  +6 more positions</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Market closed. Next open: <span class="bold">09:30 ET</span> tomorrow.  WebSocket: <span class="red">disconnected</span>    Rate limit: <span class="dim">0/200</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 35-ROW POST-MARKET -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="postmarket-tag">35 ROWS &mdash; POST-MARKET</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">16:05:32</span> ET    <span class="bold yellow">POST-MARKET SUMMARY</span>    <span class="bold yellow">NEUTRAL</span>    VIX <span class="yellow">21.8</span>    WS: <span class="red">disconnected</span>    API: <span class="dim">0/200</span>  |  <span class="bold red">Data frozen since 16:00:00</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$2,811.00          OPEN       9</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">██░░░░░░░░</span>   <span class="dim">1.2%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.66R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(6 of 9)</span>
+
+  <span class="bold">TICKER  ENTRY     CLOSE     STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="yellow">AMD</span>      <span class="yellow">98.50</span>    <span class="green">101.20</span>     <span class="yellow">95.00</span>    <span class="yellow">5</span>      <span class="green">+$270</span>  <span class="yellow">+0.8R</span>
+  <span class="green">CRM</span>     <span class="green">285.00</span>    <span class="green">291.00</span>    <span class="green">280.00</span>    <span class="green">T</span>      <span class="green">+$240</span>  <span class="green">+0.8R</span>
+  <span class="yellow">AMZN</span>    <span class="yellow">178.00</span>    <span class="green">181.50</span>    <span class="yellow">175.00</span>    <span class="yellow">5</span>      <span class="green">+$175</span>  <span class="yellow">+0.5R</span>
+  <span class="cutoff">  +3 more positions</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">CLOSED TRADES</span> <span class="dim">(4 of 8)</span>
+
+  <span class="dim">  *</span> 15:58  <span class="red">STOP    TSLA    245.00→243.20    -$180   -0.6R</span>
+  <span class="dim">  x</span> 15:45  <span class="green">EXIT    META    485.00→492.00    +$560   +2.0R</span>
+  <span class="dim">  x</span> 15:30  <span class="green">EXIT    GOOGL   142.00→145.30    +$330   +1.6R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   AAPL    187.50→190.00    +$250   +1.0R</span>
+  <span class="cutoff">  +4 more closed trades</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">EQUITY (30D)</span>
+  <span class="green">▁▂▃▅▆▇████▇▆▅▃▂▁▁▂▃▄▆▇█▇▅▃▂</span>  <span class="value">$124.9K</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Market closed. Next open: <span class="bold">09:30 ET</span> tomorrow.  WebSocket: <span class="red">disconnected</span>    Rate limit: <span class="dim">0/200</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- 50-ROW POST-MARKET -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="postmarket-tag">50 ROWS &mdash; POST-MARKET</div>
+<div class="terminal-mockup">
+<span class="blue">  PAPER ENGINE</span>    <span class="bold">16:05:32</span> ET    <span class="bold yellow">POST-MARKET SUMMARY</span>    <span class="bold yellow">NEUTRAL</span>    VIX <span class="yellow">21.8</span>    WS: <span class="red">disconnected</span>    API: <span class="dim">0/200</span>  |  <span class="bold red">Data frozen since 16:00:00</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">ACCOUNT VALUE</span>   <span class="value">$124,892.34</span>          <span class="bold">DAY P&amp;L</span>     <span class="bold green">▲ +$1,247</span>          <span class="bold">YTD</span>     <span class="bold green">▲ +$15,340</span> <span class="green">(+15.3%)</span>
+  <span class="dim">CASH              $8,234.00           UNREALIZED    +$2,811.00          OPEN       9</span>
+  <span class="dim">PENDING               0          HEAT</span>        <span class="green">██░░░░░░░░</span>   <span class="dim">1.2%</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="bold">TODAY:</span>  <span class="bold">6W / 2L</span>  |  <span class="green">+$1,247</span>  |  avg <span class="green">+0.66R</span>  |  <span class="bold">75%</span> WR
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">POSITIONS</span> <span class="dim">(all 9)</span>
+
+  <span class="bold">TICKER  ENTRY     CLOSE     STOP      TYPE   UNREAL       R</span>
+  <span class="dim">──────  ─────     ───────   ────      ────   ──────  ─────</span>
+  <span class="bold green">AAPL</span>    <span class="bold green">187.50</span>    <span class="green">192.30</span>    <span class="bold green">185.00</span>    <span class="bold green">H</span>      <span class="green">+$960</span>  <span class="bold green">+2.4R</span>
+  <span class="green">NVDA</span>    <span class="green">125.00</span>    <span class="green">128.50</span>    <span class="green">121.00</span>    <span class="green">T</span>      <span class="green">+$420</span>  <span class="green">+1.4R</span>
+  <span class="green">MSFT</span>    <span class="green">412.00</span>    <span class="green">415.20</span>    <span class="green">408.00</span>    <span class="green">B</span>      <span class="green">+$256</span>  <span class="green">+0.9R</span>
+  <span class="yellow">AMD</span>      <span class="yellow">98.50</span>    <span class="green">101.20</span>     <span class="yellow">95.00</span>    <span class="yellow">5</span>      <span class="green">+$270</span>  <span class="yellow">+0.8R</span>
+  <span class="green">CRM</span>     <span class="green">285.00</span>    <span class="green">291.00</span>    <span class="green">280.00</span>    <span class="green">T</span>      <span class="green">+$240</span>  <span class="green">+0.8R</span>
+  <span class="yellow">AMZN</span>    <span class="yellow">178.00</span>    <span class="green">181.50</span>    <span class="yellow">175.00</span>    <span class="yellow">5</span>      <span class="green">+$175</span>  <span class="yellow">+0.5R</span>
+  <span class="yellow">NFLX</span>    <span class="yellow">620.00</span>    <span class="green">625.00</span>    <span class="yellow">610.00</span>    <span class="yellow">H</span>      <span class="green">+$250</span>  <span class="yellow">+0.4R</span>
+  <span class="yellow">PYPL</span>     <span class="yellow">68.00</span>    <span class="green">70.50</span>     <span class="yellow">66.00</span>    <span class="yellow">B</span>      <span class="green">+$125</span>  <span class="yellow">+0.6R</span>
+  <span class="yellow">UBER</span>     <span class="yellow">72.00</span>    <span class="green">74.30</span>     <span class="yellow">70.00</span>    <span class="yellow">T</span>      <span class="green">+$115</span>  <span class="yellow">+0.5R</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">CLOSED TRADES</span> <span class="dim">(all 8)</span>
+
+  <span class="dim">  *</span> 15:58  <span class="red">STOP    TSLA    245.00→243.20    -$180   -0.6R</span>
+  <span class="dim">  x</span> 15:45  <span class="green">EXIT    META    485.00→492.00    +$560   +2.0R</span>
+  <span class="dim">  x</span> 15:30  <span class="green">EXIT    GOOGL   142.00→145.30    +$330   +1.6R</span>
+  <span class="dim">  x</span> 14:15  <span class="green">SCALE   AAPL    187.50→190.00    +$250   +1.0R</span>
+  <span class="dim">  x</span> 13:45  <span class="green">SCALE   NVDA    125.00→127.00    +$200   +0.8R</span>
+  <span class="dim">  x</span> 13:00  <span class="green">SCALE   MSFT    412.00→414.00    +$100   +0.5R</span>
+  <span class="dim">  *</span> 11:45  <span class="red">STOP    INTC     32.50→ 31.80    -$140   -0.9R</span>
+  <span class="dim">  x</span> 11:30  <span class="green">SCALE   CRM     285.00→291.00    +$240   +0.9R</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">EQUITY (30D)</span>
+  <span class="green">▁▂▃▅▆▇████▇▆▅▃▂▁▁▂▃▄▆▇█▇▅▃▂</span>  <span class="value">$124.9K</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  <span class="panel-title">LIFETIME STATS</span>
+  Win Rate:    <span class="bold">62.3%</span>          Avg R:      <span class="bold">+0.9R</span>
+  Sharpe:      <span class="bold">1.42</span>           Max DD:     <span class="bold">-8.4%</span>
+  Profit Factor: <span class="bold">1.9</span>          Expectancy: <span class="bold">+0.4R</span>
+  Total Trades: <span class="bold">847</span>
+
+  <span class="panel-title">SECTORS</span>
+  Technology  [<span class="green">█████░░░░░</span>]  <span class="dim">12.5%  (2 pos)</span>
+  Healthcare  [<span class="orange">███░░░░░░░</span>]   <span class="dim">7.3%  (1 pos)</span>
+  Financials  [<span class="blue">██░░░░░░░░</span>]   <span class="dim">4.1%  (1 pos)</span>
+
+<span class="dim">────────────────────────────────────────────────────────────────────────────────</span>
+
+  Market closed. Next open: <span class="bold">09:30 ET</span> tomorrow.  WebSocket: <span class="red">disconnected</span>    Rate limit: <span class="dim">0/200</span>
+</div>
+
+</body>
+</html>

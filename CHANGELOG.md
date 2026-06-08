@@ -1,3 +1,30 @@
+## [0.6.19.7] — 2026-06-07 — Improvement — Dashboard UX (Height-Tiered, Sparkline, Lifetime)
+
+### Added
+- **`traderlib/dashboard.py`** — Height-tiered responsive render: short (24-row) terminals see equity, positions, today summary, and activity; medium (35-row) adds today's closed trades; full (50-row) adds the lifetime panel (Sharpe / Max DD / Total Trades). The dashboard adapts to whatever terminal size you give it.
+- **`traderlib/dashboard.py`** — New top line: `ACCOUNT VALUE $X  DAY P&L ▲ $X  YTD $X (+X.X%)`. YTD is sourced from Alpaca's portfolio history so it matches your account, not a local cache.
+- **`traderlib/dashboard.py`** — 30-cell Unicode block sparkline (`▁▂▃▄▅▆▇█`) of last 30 daily equity points, with a `K`/`M` shorthand current-value label.
+- **`traderlib/dashboard.py`** — Post-market closed-trades section. Reads `data/paper/trades.jsonl` for today's EXIT/STOP/SCALE rows and renders `icon HH:MM TYPE TICKER entry->exit pnl`. Capped with a `+N more` overflow line.
+- **`traderlib/dashboard.py`** — Lifetime panel (post-market 50-row only): `Sharpe / Max DD / Total Trades`. Sharpe and Max DD show `--` until 30+ equity points are available; Total Trades is always shown.
+- **`traderlib/dashboard.py`** — Row caps on positions and activity. Long lists scroll instead of pushing the rest of the dashboard off-screen. `+N more positions` / `+N more events` overflow indicators.
+- **`traderlib/dashboard.py`** — `avg_r` precision tightened to 2 decimals (was 1). Activity log rows now include the trade's R-multiple.
+- **`traderlib/stats_calculator.py`** (new) — `StatsCalculator.lifetime_stats(equities)` returning `{sharpe, max_dd}`. Annualizes Sharpe with `sqrt(252)`, uses sample std dev. Returns `None` for both metrics below the 30-point threshold.
+- **`traderlib/alpaca_client.py`** — `get_portfolio_history(period, timeframe)` method. The SDK returns lists (not scalars); this method normalizes the response.
+- **`scripts/paper_engine_alpaca.py`** — Engine pre-fetches portfolio history at startup (YTD + 30D + all-time) and persists to `data/{mode}/portfolio_history.json` for cross-process reuse. Refetches on date roll; falls back to previous in-memory cache on Alpaca failure.
+- **`scripts/paper_engine_alpaca.py`** — `_count_lifetime_exits()` counts EXIT events from the trade log, with test-trade filtering so test runs do not pollute lifetime stats.
+- **`scripts/paper_engine_alpaca.py`** — Five new `state_data` fields wired into `_print_status`: `ytd_pnl`, `ytd_pnl_pct`, `equity_30d`, `equity_all`, `lifetime_trade_count`.
+- **`traderlib/paths.py`** (new) — `data_dir()` and `project_root()` centralization. `data_dir()` honors the `PAPER_TRADING_DATA_DIR` env var so test runs never touch production data.
+- **`tests/test_dashboard.py`** — 24 new tests covering row caps, height tiers, account value/YTD, equity sparkline, closed trades, and lifetime stats (32 tests total in this file).
+- **`tests/test_stats_calculator.py`** (new) — 14 tests for Sharpe / Max DD / threshold behavior.
+- **`tests/test_paper_engine_prefetch.py`** (new) — 10 tests for engine pre-fetch (first call, date roll, Alpaca failure fallback, lifetime exit counting).
+
+### Design
+- Pre-fetch happens at engine startup, not on every dashboard refresh, so the dashboard renders instantly and the API gets a single batch call per day.
+- Failures (Alpaca down, malformed payload) degrade gracefully: empty defaults, previous cache, or `--` for incomplete metrics. No crashes.
+- The trade log path uses `data_dir() / 'paper' / 'trades.jsonl'`, so per-mode isolation is automatic and tests can route to a temp dir via `PAPER_TRADING_DATA_DIR`.
+
+---
+
 ## [0.6.19.3] — 2026-05-31 — Improvement — Discovery Progress Indicators
 
 ### Added
