@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from alpaca.data.historical import StockHistoricalDataClient
 
 # Load .env from project root — this is the canonical credential source
+# Uses traderlib.paths so PAPER_TRADING_DATA_DIR / symlinks are handled.
 from traderlib.paths import project_root
 PROJECT_ROOT = project_root()
 load_dotenv(PROJECT_ROOT / '.env')
@@ -108,6 +109,7 @@ class AlpacaClient:
 
         config_paths = [
             project_root() / 'config' / 'screener_config.yaml',
+            PROJECT_ROOT / 'config' / 'screener_config.yaml',
             Path('config/screener_config.yaml'),
         ]
 
@@ -164,6 +166,61 @@ class AlpacaClient:
             health_monitor.mark_failure('alpaca')
             self.api_error_count += 1
             raise
+
+    def get_portfolio_history(self, period: str = '1M', timeframe: str = '1D') -> Optional[Dict]:
+        """Get portfolio equity history from Alpaca.
+
+        Wraps `TradingClient.get_portfolio_history()`. The response fields
+        `equity`, `profit_loss`, and `profit_loss_pct` are **lists** with one
+        value per period point (per the `alpaca.trading.models.PortfolioHistory`
+        SDK shape). Period P&L is the *last element* of the list.
+
+        Args:
+            period: '1D' | '1W' | '1M' | '3M' | '6M' | '1A' | 'all' | 'YTD'.
+            timeframe: '1D' (daily bars) is what the dashboard consumes.
+
+        Returns:
+            Dict with keys `equity`, `profit_loss`, `profit_loss_pct` (all
+            `List[float]`), `timestamp` (List[int]), `base_value` (Optional[float]),
+            `timeframe` (str), or None on failure.
+        """
+        if not self.rate_limiter.can_make_request():
+            return None
+        try:
+            from alpaca.trading.requests import GetPortfolioHistoryRequest
+            self.rate_limiter.record_request()
+            request = GetPortfolioHistoryRequest(period=period, timeframe=timeframe)
+            response = self.trading_client.get_portfolio_history(request)
+            self.rate_limiter.record_success()
+            health_monitor.mark_success('alpaca')
+            self.api_error_count = 0
+            return {
+                'timestamp': list(response.timestamp or []),
+                'equity': list(response.equity or []),
+                'profit_loss': list(response.profit_loss or []),
+                'profit_loss_pct': list(response.profit_loss_pct or []),
+                'base_value': response.base_value,
+                'timeframe': response.timeframe,
+            }
+        except APIError as e:
+            self.rate_limiter.record_error(is_rate_limit=e.status_code == 429)
+            health_monitor.mark_failure('alpaca')
+            self.api_error_count += 1
+            if e.status_code in (401, 403):
+                raise APIKeyError(
+                    "Alpaca",
+                    f"Authentication failed ({e.status_code}). Keys may be invalid or expired."
+                ) from e
+            return None
+        except Exception as e:
+            health_monitor.mark_failure('alpaca')
+            self.api_error_count += 1
+            TradingExceptionHandler.log_exception(
+                "alpaca_portfolio_history", e,
+                severity=TradingExceptionHandler.WARNING,
+                period=period, timeframe=timeframe,
+            )
+            return None
 
     def get_assets(self, status: str = 'active', asset_class: str = 'us_equity') -> List:
         """

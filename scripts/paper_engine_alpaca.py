@@ -124,6 +124,21 @@ class AlpacaPaperEngine:
         # Rebuild cooldown state from trade log after restart
         self._rebuild_cooldown_state()
 
+        # T1: Pre-fetch portfolio history for YTD, equity sparkline, lifetime stats.
+        # Persisted to data/{mode}/portfolio_history.json (mode-scoped via data_dir()).
+        # Lazy: populated on first _print_status or explicit call, so test
+        # fixtures can mock get_portfolio_history before any fetch happens.
+        self._portfolio_history_path = self.mode_data_dir / 'portfolio_history.json'
+        self._portfolio_cache: Optional[Dict] = None
+        self._lifetime_trade_count: int = 0
+        try:
+            self._count_lifetime_exits()
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "engine_prefetch", e,
+                severity=TradingExceptionHandler.WARNING,
+            )
+
         # Market data
         self.spy_data = None
 
@@ -1375,6 +1390,17 @@ class AlpacaPaperEngine:
         except Exception:
             pass
 
+        # T1: Lazy pre-fetch on first status print. Subsequent prints in the
+        # same day hit the in-memory cache; the next day triggers a refetch.
+        if self._portfolio_cache is None:
+            try:
+                self._prefetch_portfolio_data()
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "prefetch_in_print_status", e,
+                    severity=TradingExceptionHandler.WARNING,
+                )
+
         state_data = {
             "mode": self.mode,
             "equity": account_value,
@@ -1394,6 +1420,12 @@ class AlpacaPaperEngine:
             "cooldowns": active_cooldowns,
             "today_stats": today_stats,
             "regime": regime,
+            # T1: Pre-fetched portfolio history fields (flat keys)
+            "ytd_pnl": (self._portfolio_cache or {}).get("ytd_pnl", 0.0),
+            "ytd_pnl_pct": (self._portfolio_cache or {}).get("ytd_pnl_pct", 0.0),
+            "equity_30d": (self._portfolio_cache or {}).get("equity_30d", []),
+            "equity_all": (self._portfolio_cache or {}).get("equity_all", []),
+            "lifetime_trade_count": self._lifetime_trade_count,
         }
 
         self._last_state_data = state_data
@@ -1464,6 +1496,162 @@ class AlpacaPaperEngine:
         print(f"📡 API: {rl['requests_in_window']}/{rl['max_requests']} requests/min ({rl_pct:.0f}%) | Circuit: {circuit}", flush=True)
         print(f"📋 Pending Orders: {state['pending_orders']}", flush=True)
         print(f"{'='*60}", flush=True)
+
+    def _prefetch_portfolio_data(self) -> Dict[str, Any]:
+        """T1: Pre-fetch portfolio history once per day.
+
+        Returns a flat dict with four keys: ``ytd_pnl``, ``ytd_pnl_pct``,
+        ``equity_30d`` (list[float]), and ``equity_all`` (list[float]).
+        Caches in-memory by date so repeat calls within the same day are
+        free. On Alpaca failure, returns the previous in-memory cache, or
+        empty defaults on first-call failure.
+        """
+        today = datetime.now().strftime('%Y-%m-%d')
+
+        # Cache hit: return previous day's data if we already fetched today
+        if (self._portfolio_cache
+                and self._portfolio_cache.get('date') == today
+                and self._portfolio_cache.get('ytd_pnl') is not None):
+            return {
+                'ytd_pnl': self._portfolio_cache['ytd_pnl'],
+                'ytd_pnl_pct': self._portfolio_cache['ytd_pnl_pct'],
+                'equity_30d': self._portfolio_cache['equity_30d'],
+                'equity_all': self._portfolio_cache['equity_all'],
+            }
+
+        if not self.alpaca or not getattr(self.alpaca, 'get_portfolio_history', None):
+            return self._portfolio_cache or {
+                'ytd_pnl': 0.0, 'ytd_pnl_pct': 0.0,
+                'equity_30d': [], 'equity_all': [],
+            }
+
+        ytd_pnl = 0.0
+        ytd_pnl_pct = 0.0
+        equity_30d: List[float] = []
+        equity_all: List[float] = []
+
+        try:
+            ytd = self.alpaca.get_portfolio_history(period='YTD', timeframe='1D') or {}
+            pl = ytd.get('profit_loss') or []
+            pl_pct = ytd.get('profit_loss_pct') or []
+            if pl:
+                ytd_pnl = float(pl[-1])
+            if pl_pct:
+                ytd_pnl_pct = float(pl_pct[-1])
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "prefetch_ytd", e, severity=TradingExceptionHandler.WARNING,
+            )
+
+        try:
+            m1 = self.alpaca.get_portfolio_history(period='1M', timeframe='1D') or {}
+            equity_30d = [float(x) for x in (m1.get('equity') or [])]
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "prefetch_1m", e, severity=TradingExceptionHandler.WARNING,
+            )
+
+        try:
+            all_hist = self.alpaca.get_portfolio_history(period='all', timeframe='1M') or {}
+            equity_all = [float(x) for x in (all_hist.get('equity') or [])]
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "prefetch_all", e, severity=TradingExceptionHandler.WARNING,
+            )
+
+        # If every call failed (or returned no data) and we have a previous
+        # good cache, surface the previous values rather than zeros. The
+        # dashboard needs stable numbers across the day.
+        fetch_failed = (
+            ytd_pnl == 0.0 and ytd_pnl_pct == 0.0
+            and not equity_30d and not equity_all
+        )
+        if fetch_failed and self._portfolio_cache:
+            return {
+                'ytd_pnl': self._portfolio_cache.get('ytd_pnl', 0.0),
+                'ytd_pnl_pct': self._portfolio_cache.get('ytd_pnl_pct', 0.0),
+                'equity_30d': self._portfolio_cache.get('equity_30d', []),
+                'equity_all': self._portfolio_cache.get('equity_all', []),
+            }
+
+        cache = {
+            'date': today,
+            'ytd_pnl': ytd_pnl,
+            'ytd_pnl_pct': ytd_pnl_pct,
+            'equity_30d': equity_30d,
+            'equity_all': equity_all,
+        }
+        # Only cache successful fetches (ytd_pnl computed or all three calls
+        # produced data). Caching a 0/empty failure would short-circuit the
+        # whole day, hiding recovery when the API comes back up.
+        fetch_succeeded = (
+            ytd_pnl != 0.0 or ytd_pnl_pct != 0.0
+            or equity_30d or equity_all
+        )
+        if fetch_succeeded:
+            self._portfolio_cache = cache
+
+            # Persist for cross-process reuse (mode-scoped via data_dir())
+            try:
+                self._portfolio_history_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self._portfolio_history_path, 'w') as f:
+                    json.dump(cache, f, default=str)
+            except Exception as e:
+                TradingExceptionHandler.log_exception(
+                    "prefetch_persist", e, severity=TradingExceptionHandler.WARNING,
+                )
+
+        # Strip the cache-internal 'date' key from the return so callers
+        # get a clean public schema (test contract is the four public keys).
+        return {
+            'ytd_pnl': ytd_pnl,
+            'ytd_pnl_pct': ytd_pnl_pct,
+            'equity_30d': equity_30d,
+            'equity_all': equity_all,
+        }
+
+    def _count_lifetime_exits(self) -> int:
+        """T1: Count closed trades (EXIT events) from the trade log.
+
+        Reads ``self.state.trades_file`` (one JSON object per line) and
+        counts rows whose ``event`` field is ``EXIT``. Filters test trades
+        via :meth:`_is_test_trade` so test runs do not pollute lifetime
+        stats. Returns 0 if the file is missing or unreadable.
+        """
+        if not self.state.trades_file or not self.state.trades_file.exists():
+            self._lifetime_trade_count = 0
+            return 0
+        try:
+            count = 0
+            with open(self.state.trades_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    if row.get('event') != 'EXIT':
+                        continue
+                    if self._is_test_trade(row):
+                        continue
+                    count += 1
+            self._lifetime_trade_count = count
+            return count
+        except Exception as e:
+            TradingExceptionHandler.log_exception(
+                "lifetime_count", e, severity=TradingExceptionHandler.WARNING,
+            )
+            self._lifetime_trade_count = 0
+            return 0
+
+    def _is_test_trade(self, row: Dict) -> bool:
+        """Heuristic: a trade is a test trade if it carries a ``_test_`` flag
+        or was emitted by a test process (no real account binding)."""
+        return bool(row.get('_test_')) or row.get('source') == 'test'
 
     async def run(self):
         """Main event loop."""
