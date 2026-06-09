@@ -1,3 +1,13 @@
+## [0.6.19.10] — 2026-06-08 — Improvement — Simplify post-market state code
+
+### Changed
+- **`scripts/paper_engine_alpaca.py:_load_post_market_state`** — Merged 3 separate trades.jsonl scans (today_stats, lifetime count, YTD fallback) into a single file pass. Replaced brittle `api_failures >= 4` counter with direct boolean check.
+- **`traderlib/dashboard.py:_stats`** — YTD sentinel changed from `ytd_pnl != 0.0` to `ytd_pnl is not None`, so a genuine $0 YTD is shown while absent data is hidden.
+- **`tests/test_post_market_state.py`** — Updated YTD assertions to expect `None` (not `0.0`) when no data is available.
+- **`tests/test_dashboard.py`** — Added `test_dashboard_ytd_shows_when_zero_real`; renamed YTD-hidden test to reflect None sentinel.
+
+---
+
 ## [0.6.19.9] — 2026-06-08 — Fix — Post-Market Dashboard Shows Real Account Data
 
 ### Fixed

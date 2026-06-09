@@ -1844,13 +1844,13 @@ def _load_post_market_state(mode: str = "paper"):
     portfolio_hist = _safe_portfolio_hist()
     spy_hist = _safe_spy_hist()
 
-    api_failures = sum(
-        1 for x in [account_data, (latest_prices or {}) if tickers else {}, portfolio_hist, spy_hist]
-        if (x is None) or (isinstance(x, dict) and not x)
+    # --- All-Alpaca-fallback check (simplified: direct boolean, no counter) ---
+    all_api_failed = (
+        account_data is None
+        and (not tickers or latest_prices is None)
+        and portfolio_hist is None
+        and spy_hist is None
     )
-
-    # --- Fallback: yfinance only if ALL 4 calls failed ---
-    all_api_failed = api_failures >= 4
     prices = {}
     if all_api_failed or (tickers and latest_prices is None):
         import yfinance as yf
@@ -1899,14 +1899,12 @@ def _load_post_market_state(mode: str = "paper"):
         cash = float(account_data.get('cash', 0.0))
         equity = float(account_data.get('equity', total_value))
 
-    # --- Today stats from EXIT events in trades.jsonl ---
+    # --- Single pass over trades.jsonl for today_stats, lifetime count, and YTD fallback ---
     day_pnl = 0.0
     today_stats = {"wins": 0, "losses": 0, "total_pnl": 0.0, "avg_r": 0.0}
+    lifetime_trade_count = 0
+    ytd_pnl_fallback = 0.0
     if trades_file.exists():
-        wins = 0
-        losses = 0
-        total_pnl = 0.0
-        total_r = 0.0
         try:
             with open(trades_file, 'r') as f:
                 for line in f:
@@ -1919,56 +1917,47 @@ def _load_post_market_state(mode: str = "paper"):
                         continue
                     if trade.get("event") != "EXIT":
                         continue
+                    lifetime_trade_count += 1
                     ts = trade.get("timestamp", "")
-                    if not ts.startswith(today_str):
-                        continue
                     pnl = float(trade.get("realized_pnl", 0.0))
-                    total_pnl += pnl
-                    if pnl >= 0:
-                        wins += 1
-                    else:
-                        losses += 1
-                    risk = float(trade.get("initial_risk", 0.0) or trade.get("initial_risk_amount", 0.0))
-                    if risk > 0:
-                        total_r += pnl / risk
-                    else:
-                        entry = float(trade.get("entry_price", 0))
-                        stop = float(trade.get("initial_stop_price") or trade.get("stop_price") or 0)
-                        shares = float(trade.get("shares", 0))
-                        risk = (entry - stop) * shares if entry > stop > 0 and shares > 0 else 0
+                    # Today's EXIT events → today_stats / day_pnl
+                    if ts.startswith(today_str):
+                        day_pnl += pnl
+                        wins = today_stats.get("wins", 0)
+                        losses = today_stats.get("losses", 0)
+                        total_r = today_stats.get("_total_r", 0.0)
+                        if pnl >= 0:
+                            wins += 1
+                        else:
+                            losses += 1
+                        risk = float(trade.get("initial_risk", 0.0) or trade.get("initial_risk_amount", 0.0))
                         if risk > 0:
                             total_r += pnl / risk
-            total = wins + losses
-            today_stats = {
-                "wins": wins,
-                "losses": losses,
-                "total_pnl": total_pnl,
-                "avg_r": total_r / total if total > 0 else 0.0,
-            }
-            day_pnl = total_pnl
+                        else:
+                            entry = float(trade.get("entry_price", 0))
+                            stop = float(trade.get("initial_stop_price") or trade.get("stop_price") or 0)
+                            shares = float(trade.get("shares", 0))
+                            risk = (entry - stop) * shares if entry > stop > 0 and shares > 0 else 0
+                            if risk > 0:
+                                total_r += pnl / risk
+                        today_stats = {
+                            "wins": wins,
+                            "losses": losses,
+                            "total_pnl": day_pnl,
+                            "avg_r": total_r / (wins + losses) if (wins + losses) > 0 else 0.0,
+                            "_total_r": total_r,
+                        }
+                    # YTD fallback: sum realized_pnl from all 2026 EXIT events
+                    if ts.startswith("2026-"):
+                        ytd_pnl_fallback += pnl
         except Exception:
             pass
-
-    # --- Lifetime trade count (all EXIT events) ---
-    lifetime_trade_count = 0
-    if trades_file.exists():
-        try:
-            with open(trades_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        trade = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if trade.get("event") == "EXIT":
-                        lifetime_trade_count += 1
-        except Exception:
-            pass
+    # Strip internal accumulator from today_stats before returning
+    if "_total_r" in today_stats:
+        del today_stats["_total_r"]
 
     # --- YTD P&L from portfolio history or trade log fallback ---
-    ytd_pnl = 0.0
+    ytd_pnl = None  # None = no data; dashboard hides this
     ytd_pnl_pct = 0.0
     if portfolio_hist:
         pl_list = portfolio_hist.get("profit_loss", [])
@@ -1977,25 +1966,8 @@ def _load_post_market_state(mode: str = "paper"):
             ytd_pnl = float(pl_list[-1])
         if pl_pct_list:
             ytd_pnl_pct = float(pl_pct_list[-1])
-    else:
-        # Fallback: sum realized_pnl from all 2026 EXIT events
-        try:
-            if trades_file.exists():
-                with open(trades_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            trade = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if trade.get("event") == "EXIT":
-                            ts = trade.get("timestamp", "")
-                            if ts.startswith("2026-"):
-                                ytd_pnl += float(trade.get("realized_pnl", 0.0))
-        except Exception:
-            pass
+    elif ytd_pnl_fallback != 0.0:
+        ytd_pnl = ytd_pnl_fallback
 
     # --- Equity time series ---
     equity_30d = None

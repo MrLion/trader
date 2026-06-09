@@ -245,12 +245,12 @@ class Dashboard:
         unreal = float(state.get("unrealized_pnl") or 0.0)
         open_pos = state.get("open_positions", 0)
         pending = state.get("pending_orders", 0)
-        ytd_pnl = float(state.get("ytd_pnl", 0.0) or 0.0)
+        ytd_pnl = state.get("ytd_pnl") if state.get("ytd_pnl") is not None else None
         ytd_pnl_pct = float(state.get("ytd_pnl_pct", 0.0) or 0.0)
 
         day_color = "green" if day_pnl >= 0 else "red"
         unreal_color = "green" if unreal >= 0 else "red"
-        ytd_color = "green" if ytd_pnl >= 0 else "red"
+        ytd_color = "green" if (ytd_pnl or 0) >= 0 else "red"
 
         # Portfolio heat calculation
         heat_pct, heat_bar = self._heat_gauge(state)
@@ -262,7 +262,7 @@ class Dashboard:
         arrow = "▲" if day_pnl >= 0 else "▼"
         ytd_fragment = (
             f"  [bold {ytd_color}]YTD ${ytd_pnl:>+10,.0f}[/] [dim]({ytd_pnl_pct:+.1f}%)[/]"
-            if ytd_pnl != 0.0
+            if ytd_pnl is not None
             else ""
         )
         lines = [

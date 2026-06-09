@@ -371,7 +371,7 @@ class TestAllAlpacaFailureFallback:
         assert state["cash"] == 0.0  # no account data, so falls back
         assert state["regime"] == "UNKNOWN"
         assert state["today_stats"]["total_pnl"] == 0.0
-        assert state["ytd_pnl"] == 0.0
+        assert state["ytd_pnl"] is None  # no portfolio hist and no YTD fallback trades
         assert state["equity_30d"] is None
         assert state["equity_all"] is None
 

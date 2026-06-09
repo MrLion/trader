@@ -477,15 +477,27 @@ class TestDashboardAccountValueYtd:
             assert "YTD" in plain
             d.stop()
 
-    def test_dashboard_ytd_hidden_when_zero(self, mock_state):
-        """Test 12: YTD fragment is empty when ytd_pnl == 0.0."""
-        mock_state["ytd_pnl"] = 0.0
+    def test_dashboard_ytd_hidden_when_none(self, mock_state):
+        """Test 12: YTD fragment is empty when ytd_pnl is None (no data)."""
+        mock_state["ytd_pnl"] = None
         mock_state["ytd_pnl_pct"] = 0.0
         with patch("traderlib.dashboard.Live"), \
              patch("traderlib.dashboard.os.isatty", return_value=True):
             d = Dashboard(enabled=True)
             text = str(d._stats(mock_state))
             assert "YTD" not in text
+            d.stop()
+
+    def test_dashboard_ytd_shows_when_zero_real(self, mock_state):
+        """YTD shows $+0 when ytd_pnl is legitimately 0.0 (not None)."""
+        mock_state["ytd_pnl"] = 0.0
+        mock_state["ytd_pnl_pct"] = 0.0
+        with patch("traderlib.dashboard.Live"), \
+             patch("traderlib.dashboard.os.isatty", return_value=True):
+            d = Dashboard(enabled=True)
+            text = str(d._stats(mock_state))
+            assert "YTD" in text
+            assert "+0" in text  # show $0, don't hide it
             d.stop()
 
 
