@@ -1894,10 +1894,13 @@ def _load_post_market_state(mode: str = "paper"):
 
     # --- Cash & equity from account API, fallback to position-based estimate ---
     cash = 0.0
-    equity = total_value
+    equity = total_value  # position-only market value (fallback if account API fails)
     if account_data:
         cash = float(account_data.get('cash', 0.0))
-        equity = float(account_data.get('equity', total_value))
+        total_equity = float(account_data.get('equity', total_value))
+        # Alpaca's equity = cash + positions. The dashboard computes
+        # account_value = cash + equity, so we store position-only value.
+        equity = total_equity - cash
 
     # --- Single pass over trades.jsonl for today_stats, lifetime count, and YTD fallback ---
     day_pnl = 0.0
@@ -1968,6 +1971,14 @@ def _load_post_market_state(mode: str = "paper"):
             ytd_pnl_pct = float(pl_pct_list[-1])
     elif ytd_pnl_fallback != 0.0:
         ytd_pnl = ytd_pnl_fallback
+        # Derive YTD pct from current Alpaca equity and trade log P&L.
+        # starting_equity = current_total_equity - ytd_pnl
+        if account_data:
+            total_equity = float(account_data.get('equity', 0))
+            if total_equity > 0:
+                start_equity = total_equity - ytd_pnl
+                if start_equity > 0:
+                    ytd_pnl_pct = (ytd_pnl / start_equity) * 100
 
     # --- Equity time series ---
     equity_30d = None

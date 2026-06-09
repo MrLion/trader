@@ -1,3 +1,14 @@
+## [0.6.19.11] — 2026-06-09 — Fix — Post-market double-counted cash in ACCOUNT VALUE, YTD pct fallback
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:_load_post_market_state`** — Alpaca's `get_account()` returns `equity` as total value (cash + positions). The dashboard computes `ACCOUNT VALUE = cash + equity`, so storing Alpaca's total equity caused cash to be counted twice (reported $159K vs actual $107K). Now subtracts cash to store position-only equity.
+- **`scripts/paper_engine_alpaca.py:_load_post_market_state`** — When `get_portfolio_history()` fails, YTD pct stayed 0.0% even though YTD dollar value was correctly computed from the trade log. Now derives YTD pct from current Alpaca equity.
+
+### Changed
+- **`tests/test_post_market_state.py`** — Updated equity assertion to reflect new position-only convention.
+
+---
+
 ## [0.6.19.10] — 2026-06-08 — Improvement — Simplify post-market state code
 
 ### Changed

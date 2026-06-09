@@ -137,7 +137,7 @@ class TestCashEquityFromAlpaca:
         state = _load_post_market_state("paper")
 
         assert state["cash"] == 54200.0
-        assert state["equity"] == 110500.0
+        assert state["equity"] == 56300.0  # Alpaca equity - cash = 110500 - 54200
 
 
 class TestPositionPricesFromAlpaca:
