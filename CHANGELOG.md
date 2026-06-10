@@ -1,3 +1,13 @@
+## [0.6.19.15] — 2026-06-10 — Fix — Seed dashboard event log from disk on restart
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — After engine restart, today's closed
+  trades were missing from the activity panel because events only lived in
+  memory. Now seeds the dashboard event log from on-disk `trades.jsonl` on
+  startup so today's exits appear immediately.
+
+---
+
 ## [0.6.19.14] — 2026-06-10 — Fix — YTD trade-log fallback gated on wrong condition
 
 ### Fixed

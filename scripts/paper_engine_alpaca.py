@@ -160,8 +160,53 @@ class AlpacaPaperEngine:
         print(f"✅ Engine ready - Mode: {mode.upper()}")
         print(f"📋 Pending orders: {self.order_manager.get_pending_count()}")
 
+        # Seed dashboard event log with today's closed trades from disk
+        if self.dashboard:
+            self._seed_dashboard_events()
+
         # Print risk summary
         self.risk_manager.print_summary()
+
+    def _seed_dashboard_events(self) -> None:
+        """Seed the dashboard event log with today's closed trades from disk.
+
+        On engine restart, in-memory events are empty. This reads the persisted
+        trade log so the activity panel shows today's exits immediately.
+        """
+        if not self.dashboard:
+            return
+        trades_path = self.mode_data_dir / 'trades.jsonl'
+        if not trades_path.exists():
+            return
+        today = datetime.now().strftime('%Y-%m-%d')
+        try:
+            with open(trades_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        trade = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    event = trade.get("event", "")
+                    if event not in ("EXIT", "STOP"):
+                        continue
+                    ts = trade.get("timestamp", "")
+                    if not ts.startswith(today):
+                        continue
+                    ticker = trade.get("ticker", "")
+                    exit_price = trade.get("exit_price") or 0
+                    pnl = float(trade.get("realized_pnl") or 0)
+                    self.dashboard.events.append({
+                        "type": event,
+                        "timestamp": ts[11:19],
+                        "ticker": ticker,
+                        "detail": f"Seed from log — ${exit_price:.2f}",
+                        "pnl": pnl,
+                    })
+        except Exception:
+            pass
 
     def _migrate_old_layout(self) -> None:
         """Migrate old flat data files into mode-specific subdirectory (one-time)."""
