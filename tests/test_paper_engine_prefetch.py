@@ -17,11 +17,20 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from paper_engine_alpaca import AlpacaPaperEngine  # noqa: E402
+
+
+def _make_spy_bars(count: int, current_price: float = 510.0) -> pd.DataFrame:
+    """Build a synthetic SPY dataframe for regime testing."""
+    start_price = current_price - 50
+    prices = [start_price + (current_price - start_price) * i / max(count - 1, 1)
+              for i in range(count)]
+    return pd.DataFrame({"Close": prices})
 
 
 # -----------------------------------------------------------------------------
@@ -182,6 +191,11 @@ class TestPrefetchPortfolioData:
 
     def test_alpaca_failure_first_call_returns_empty_defaults(self, engine, alpaca_with_portfolio):
         """If the very first call fails, return empty defaults (not raise)."""
+        from traderlib.paths import data_dir
+        tf = data_dir() / engine.mode / 'trades.jsonl'
+        if tf.exists():
+            tf.write_text('')
+
         alpaca_with_portfolio.get_portfolio_history.side_effect = Exception("network down")
 
         result = engine._prefetch_portfolio_data()
@@ -194,6 +208,11 @@ class TestPrefetchPortfolioData:
 
     def test_empty_profit_loss_list_defaults_to_zero(self, engine, alpaca_with_portfolio):
         """Empty profit_loss / profit_loss_pct lists (edge case) default to 0.0."""
+        from traderlib.paths import data_dir
+        tf = data_dir() / engine.mode / 'trades.jsonl'
+        if tf.exists():
+            tf.write_text('')
+
         empty_ytd = {
             "timestamp": [],
             "equity": [],
@@ -291,6 +310,7 @@ class TestPrintStatusWiresPortfolioFields:
             "wins": 0, "losses": 0, "total_pnl": 0.0, "avg_r": 0.0
         })
         alpaca_with_portfolio.is_ws_healthy.return_value = True
+        alpaca_with_portfolio.get_historical_bars.return_value = _make_spy_bars(60, 510.0)
 
         # Pre-fetch returns synthetic data
         alpaca_with_portfolio.get_portfolio_history.side_effect = [

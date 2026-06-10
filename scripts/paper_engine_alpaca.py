@@ -1551,13 +1551,49 @@ class AlpacaPaperEngine:
             ytd_pnl == 0.0 and ytd_pnl_pct == 0.0
             and not equity_30d and not equity_all
         )
-        if fetch_failed and self._portfolio_cache:
-            return {
-                'ytd_pnl': self._portfolio_cache.get('ytd_pnl', 0.0),
-                'ytd_pnl_pct': self._portfolio_cache.get('ytd_pnl_pct', 0.0),
-                'equity_30d': self._portfolio_cache.get('equity_30d', []),
-                'equity_all': self._portfolio_cache.get('equity_all', []),
-            }
+        if fetch_failed:
+            # Surface previous cache if available — stable numbers across the day
+            if self._portfolio_cache:
+                return {
+                    'ytd_pnl': self._portfolio_cache.get('ytd_pnl', 0.0),
+                    'ytd_pnl_pct': self._portfolio_cache.get('ytd_pnl_pct', 0.0),
+                    'equity_30d': self._portfolio_cache.get('equity_30d', []),
+                    'equity_all': self._portfolio_cache.get('equity_all', []),
+                }
+
+            # No cache and no API data: try trade-log fallback for YTD
+            try:
+                trades_path = data_dir() / self.mode / 'trades.jsonl'
+                if trades_path.exists():
+                    ytd_fb = 0.0
+                    with open(trades_path, 'r') as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                trade = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+                            if trade.get("event") == "EXIT":
+                                ts = trade.get("timestamp", "")
+                                if ts.startswith("2026-"):
+                                    ytd_fb += float(trade.get("realized_pnl", 0.0))
+                    if ytd_fb != 0.0:
+                        ytd_pnl = ytd_fb
+                        # Derive pct from current Alpaca equity
+                        try:
+                            acct = self.alpaca.get_account()
+                            total_equity = float(acct.get('equity', 0))
+                            if total_equity > 0:
+                                start_equity = total_equity - ytd_fb
+                                if start_equity > 0:
+                                    ytd_pnl_pct = (ytd_fb / start_equity) * 100
+                        except Exception:
+                            pass
+                        fetch_succeeded = True
+            except Exception:
+                pass
 
         cache = {
             'date': today,

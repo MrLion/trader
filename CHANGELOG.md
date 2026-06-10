@@ -1,4 +1,15 @@
-## [0.6.19.11] — 2026-06-09 — Fix — Post-market double-counted cash in ACCOUNT VALUE, YTD pct fallback
+## [0.6.19.13] — 2026-06-09 — Fix — Open market YTD always $0 when portfolio history API unavailable
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:_prefetch_portfolio_data`** — Added trade-log fallback for YTD P&L when Alpaca portfolio history API fails (same pattern as post-market path). Derives YTD pct from current Alpaca equity.
+- **`scripts/paper_engine_alpaca.py:_print_status`** — ACCOUNT VALUE no longer double-counts cash (same fix as post-market v0.6.19.11, applied to open-market path).
+
+### Changed
+- **`tests/test_paper_engine_prefetch.py`** — Added `_make_spy_bars` helper, SPY bar mock in `test_print_status_includes_portfolio_fields`, and trade-log cleanup in YTD-zero tests to isolate from test ordering.
+
+---
+
+## [0.6.19.12] — 2026-06-09 — Fix — Open market ACCOUNT VALUE double-counted cash
 
 ### Fixed
 - **`scripts/paper_engine_alpaca.py:_load_post_market_state`** — Alpaca's `get_account()` returns `equity` as total value (cash + positions). The dashboard computes `ACCOUNT VALUE = cash + equity`, so storing Alpaca's total equity caused cash to be counted twice (reported $159K vs actual $107K). Now subtracts cash to store position-only equity.
