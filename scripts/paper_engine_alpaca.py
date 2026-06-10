@@ -1388,7 +1388,7 @@ class AlpacaPaperEngine:
 
         state_data = {
             "mode": self.mode,
-            "equity": account_value,
+            "equity": account_value - stats.get("cash", 0.0),  # position-only; dashboard adds cash
             "cash": stats.get("cash", 0.0),
             "day_pnl": stats.get("day_pnl", 0.0),
             "unrealized_pnl": unrealized_pnl,
