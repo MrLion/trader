@@ -1,3 +1,10 @@
+## [0.6.19.14] — 2026-06-10 — Fix — YTD trade-log fallback gated on wrong condition
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py:_prefetch_portfolio_data`** — The trade-log fallback was gated on ALL portfolio history calls failing (`fetch_failed`). The 1M and 'all' calls succeed (providing sparkline data), so YTD was the only one failing and the condition was never met. Now gates on YTD specifically: if YTD from Alpaca is 0.0 or None, the trade-log fallback runs regardless of whether other calls succeeded.
+
+---
+
 ## [0.6.19.13] — 2026-06-09 — Fix — Open market YTD always $0 when portfolio history API unavailable
 
 ### Fixed

@@ -1544,16 +1544,12 @@ class AlpacaPaperEngine:
                 "prefetch_all", e, severity=TradingExceptionHandler.WARNING,
             )
 
-        # If every call failed (or returned no data) and we have a previous
-        # good cache, surface the previous values rather than zeros. The
-        # dashboard needs stable numbers across the day.
-        fetch_failed = (
-            ytd_pnl == 0.0 and ytd_pnl_pct == 0.0
-            and not equity_30d and not equity_all
-        )
-        if fetch_failed:
+        # If YTD from Alpaca is zero/empty (API returned None or empty lists),
+        # try trade-log fallback before accepting the zero.
+        ytd_from_api = ytd_pnl != 0.0 or ytd_pnl_pct != 0.0
+        if not ytd_from_api:
             # Surface previous cache if available — stable numbers across the day
-            if self._portfolio_cache:
+            if self._portfolio_cache and self._portfolio_cache.get('ytd_pnl') not in (0.0, None):
                 return {
                     'ytd_pnl': self._portfolio_cache.get('ytd_pnl', 0.0),
                     'ytd_pnl_pct': self._portfolio_cache.get('ytd_pnl_pct', 0.0),
