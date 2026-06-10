@@ -1,10 +1,14 @@
-## [0.6.19.15] — 2026-06-10 — Fix — Seed dashboard event log from disk on restart
+## [0.6.19.15] — 2026-06-10 — Fix — Dashboard activity panel empty after restart
 
 ### Fixed
-- **`scripts/paper_engine_alpaca.py`** — After engine restart, today's closed
-  trades were missing from the activity panel because events only lived in
-  memory. Now seeds the dashboard event log from on-disk `trades.jsonl` on
-  startup so today's exits appear immediately.
+- **`scripts/paper_engine_alpaca.py:_seed_dashboard_events`** — After engine
+  restart, today's trades were missing from the activity panel because events
+  only lived in memory. Now seeds ENTRY, EXIT, and scale-out events from the
+  on-disk trade log on startup.
+- **`scripts/paper_engine_alpaca.py`** — Live engine `log_event()` calls for
+  EXIT and scale-out now include the exit reason (e.g. `[STOP_HIT]`,
+  `[SCALE_OUT_3.0R]`) in the detail field for consistent format across events
+  and across live vs seeded paths.
 
 ---
 

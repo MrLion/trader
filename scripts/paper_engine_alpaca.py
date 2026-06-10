@@ -190,20 +190,22 @@ class AlpacaPaperEngine:
                     except json.JSONDecodeError:
                         continue
                     event = trade.get("event", "")
-                    if event not in ("EXIT", "STOP"):
+                    if event not in ("ENTRY", "EXIT", "STOP"):
                         continue
                     ts = trade.get("timestamp", "")
                     if not ts.startswith(today):
                         continue
                     ticker = trade.get("ticker", "")
-                    exit_price = trade.get("exit_price") or 0
-                    pnl = float(trade.get("realized_pnl") or 0)
                     self.dashboard.events.append({
                         "type": event,
                         "timestamp": ts[11:19],
                         "ticker": ticker,
-                        "detail": f"Seed from log — ${exit_price:.2f}",
-                        "pnl": pnl,
+                        "detail": (f"Scale-out {int(trade.get('shares', 0))} @ ${trade.get('exit_price'):.2f} [{trade.get('exit_reason', '?')}]"
+                                   if event in ("EXIT", "STOP") and (trade.get('exit_reason') or '').startswith('SCALE_OUT')
+                                   else f"${trade.get('exit_price'):.2f} [{trade.get('exit_reason', '?')}]"
+                                   if event in ("EXIT", "STOP") else
+                                   f"${float(trade.get('entry_price') or 0):.2f} x{int(trade.get('shares', 0))}"),
+                        **({"pnl": float(trade.get("realized_pnl") or 0)} if event in ("EXIT", "STOP") else {}),
                     })
         except Exception:
             pass
@@ -745,7 +747,7 @@ class AlpacaPaperEngine:
                 "type": "EXIT",
                 "timestamp": datetime.now().strftime("%H:%M:%S"),
                 "ticker": order.ticker,
-                "detail": f"Scale-out {shares_sold} @ ${fill_price:.2f}",
+                "detail": f"Scale-out {shares_sold} @ ${fill_price:.2f} [{order.reason}]",
                 "pnl": realized_pnl,
             })
 
@@ -1336,7 +1338,7 @@ class AlpacaPaperEngine:
                                     "type": "EXIT",
                                     "timestamp": datetime.now().strftime("%H:%M:%S"),
                                     "ticker": order.ticker,
-                                    "detail": f"${fill_price:.2f}",
+                                    "detail": f"${fill_price:.2f} [{order.reason}]",
                                     "pnl": position.realized_pnl,
                                 })
 
