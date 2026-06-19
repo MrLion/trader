@@ -324,8 +324,8 @@ class TrendScreener:
 
         print(f"Scanning {total} tickers with {profile} profile...")
         price_display = filters.get('min_price')
-        price_label = f"${price_display}" if price_display is not None else 'disabled'
-        print(f"  Filters: min_price={price_label}")
+        price_label = f"min price ≥ ${price_display}" if price_display is not None else 'price filter disabled'
+        print(f"  Filters: {price_label}")
 
         try:
             from rich.progress import Progress, BarColumn, TextColumn, MofNCompleteColumn, TimeRemainingColumn
