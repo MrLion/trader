@@ -1,3 +1,17 @@
+## [0.6.19.16] — 2026-06-19 — Improvement — Pocket pivot entry mode in trend screener
+
+### Added
+- **`scripts/trend_screener.py`** — New `--entry-mode pocket` uses the shared `traderlib.pivot_detection.detect_pivot(..., technique='pocket_pivot')` library. When a pocket pivot is detected within `--pivot-proximity`, the result is marked `entry_ready=True` with `setup_type='pocket'`.
+- **`scripts/trend_screener.py`** — Result dict now includes `has_pocket_pivot` and `pocket_pivot_price` for downstream CSV/HTML consumers.
+
+### Changed
+- **`scripts/trend_screener.py`** — `--entry-mode any` now tries actionable setups in priority order (VCP → pocket pivot → 20-day range pivot → volume spike) before falling back to `setup_type='trend'`. Previously it only tried the 20-day pivot and immediately fell back to trend, which was user-unfriendly and caused valid pocket-pivot stocks to be labeled "No Setup".
+- **`scripts/trend_screener.py`** — Cleaned up stale module and class docstrings that still referred to the removed "MA convergence" feature.
+- **`tests/test_trend_screener.py`** — Added `TestPocketPivotEntryMode` covering pocket-pivot detection, proximity gating, any-mode priority, and trend fallback.
+- **`plans/add-pocket-pivot-to-trend-screener.md`** — Updated to document the Option B `any`-mode redesign.
+
+---
+
 ## [0.6.19.15] — 2026-06-10 — Fix — Dashboard activity panel empty after restart
 
 ### Fixed

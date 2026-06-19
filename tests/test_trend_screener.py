@@ -311,5 +311,173 @@ class TestTrendScreenerSector:
         assert result["sector"] == "Technology"
 
 
+# Make TrendScreener available at module level for decorator-based patching.
+TrendScreener = None
+
+
+class TestPocketPivotEntryMode(unittest.TestCase):
+    """Tests for --entry-mode pocket and any-mode priority logic."""
+
+    @patch('scripts.trend_screener.AlpacaClient', MockAlpacaClient)
+    def setUp(self):
+        import scripts.trend_screener as ts
+        global TrendScreener
+        self.ts = ts
+        self.screener = ts.TrendScreener(mode='paper')
+        TrendScreener = ts.TrendScreener
+
+    def _make_pocket_pivot_df(self, current_close: float = None) -> pd.DataFrame:
+        """Build a DataFrame where the most recent day is a pocket pivot.
+
+        The last day is an up-day with volume well above prior down-day volume.
+        The prior 10 days include explicit down-days so the detector can
+        compare volume. Price is kept within 5%% of the pocket pivot close unless
+        *current_close* overrides it.
+        """
+        n_days = 220
+        dates = pd.date_range(start='2024-01-01', periods=n_days, freq='D')
+        base = 100.0
+
+        # Strong, steady uptrend so MAs stack and Stage 2 score is high.
+        closes = [base + i * 0.15 for i in range(n_days)]
+        highs = [c * 1.02 for c in closes]
+        lows = [c * 0.98 for c in closes]
+        opens = [c * 0.99 for c in closes]
+        volumes = [1_000_000] * n_days
+
+        # Plant a few down-days in the prior 10 bars with normal volume so the
+        # last up-day can exceed their volume and qualify as a pocket pivot.
+        for idx in range(n_days - 10, n_days - 1):
+            closes[idx] = closes[idx - 1] - 0.10
+        # Last day: strong up-day with volume spike.
+        closes[-1] = closes[-2] + 2.0
+        volumes[-1] = 5_000_000
+
+        if current_close is not None:
+            closes[-1] = current_close
+            highs[-1] = current_close * 1.02
+            lows[-1] = current_close * 0.98
+            opens[-1] = current_close * 0.99
+
+        return pd.DataFrame({
+            'Open': opens,
+            'High': highs,
+            'Low': lows,
+            'Close': closes,
+            'Volume': volumes,
+        }, index=dates)
+
+    def _make_no_setup_df(self) -> pd.DataFrame:
+        """Build a DataFrame with no specific entry setup."""
+        n_days = 220
+        dates = pd.date_range(start='2024-01-01', periods=n_days, freq='D')
+        # Strong uptrend, then a flat top for the last 20 days before a sudden
+        # drop in the final 3 days. The 20-day high stays up near the peak while
+        # current price is well below it, so neither a range pivot nor a pocket
+        # pivot is within proximity.
+        base = 100.0
+        closes = [base + i * 0.05 for i in range(n_days)]
+        peak = closes[n_days - 4]
+        # Last 3 days: sharp drop to ~12%% below peak.
+        drop_level = peak * 0.88
+        for i in range(n_days - 3, n_days):
+            closes[i] = drop_level
+        highs = [c * 1.01 for c in closes]
+        lows = [c * 0.99 for c in closes]
+        opens = [c * 0.995 for c in closes]
+        volumes = [1_000_000] * n_days
+        return pd.DataFrame({
+            'Open': opens,
+            'High': highs,
+            'Low': lows,
+            'Close': closes,
+            'Volume': volumes,
+        }, index=dates)
+
+    def test_pocket_mode_finds_pocket_pivot(self):
+        """Pocket mode should mark entry_ready and setup_type='pocket'."""
+        df = self._make_pocket_pivot_df()
+        with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
+            with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
+                with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
+                    result = self.screener._analyze_ticker(
+                        'POCKET',
+                        {'entry_mode': 'pocket', 'stack_short': False, 'stack_long': False},
+                        'large-cap'
+                    )
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result['entry_ready'])
+        self.assertEqual(result['setup_type'], 'pocket')
+        self.assertTrue(result['has_pocket_pivot'])
+        self.assertIsNotNone(result['pocket_pivot_price'])
+
+    def test_pocket_mode_not_ready_when_far_from_pivot(self):
+        """Pocket mode should not mark entry_ready if price is more than 5%% below the pivot."""
+        df = self._make_pocket_pivot_df()
+        # Override the current close to 90.00 while forcing detect_pivot to see a
+        # pocket pivot at 100.00. Proximity = (100 - 90) / 100 = 10% > 5%.
+        df.loc[df.index[-1], 'Close'] = 90.0
+        df.loc[df.index[-1], 'High'] = 91.0
+        df.loc[df.index[-1], 'Low'] = 89.0
+        df.loc[df.index[-1], 'Open'] = 89.5
+        from traderlib.pivot_detection import PivotSignal
+        forced_signal = PivotSignal(
+            ticker='POCKET_FAR',
+            pivot_price=100.0,
+            pivot_type='pocket_pivot',
+            confidence=0.8,
+            stop_price=95.0,
+            target_price=110.0,
+            entry_mode='immediate',
+        )
+        with patch('scripts.trend_screener.detect_pivot', return_value=forced_signal):
+            with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
+                with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
+                    with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
+                        result = self.screener._analyze_ticker(
+                            'POCKET_FAR',
+                            {'entry_mode': 'pocket', 'stack_short': False, 'stack_long': False},
+                            'large-cap'
+                        )
+
+        self.assertIsNotNone(result)
+        self.assertFalse(result['entry_ready'])
+        self.assertTrue(result['has_pocket_pivot'])
+        self.assertEqual(result['pocket_pivot_price'], 100.0)
+
+    def test_any_mode_prefers_pocket_pivot_over_trend(self):
+        """Any mode should find the pocket pivot before falling back to trend."""
+        df = self._make_pocket_pivot_df()
+        with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
+            with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
+                with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
+                    result = self.screener._analyze_ticker(
+                        'POCKET_ANY',
+                        {'entry_mode': 'any', 'stack_short': False, 'stack_long': False},
+                        'large_cap'
+                    )
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result['entry_ready'])
+        self.assertEqual(result['setup_type'], 'pocket')
+
+    def test_any_mode_falls_back_to_trend_when_no_setup(self):
+        """Any mode should fall back to setup_type='trend' when no specific setup exists."""
+        df = self._make_no_setup_df()
+        with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
+            with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
+                with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
+                    result = self.screener._analyze_ticker(
+                        'NO_SETUP',
+                        {'entry_mode': 'any', 'stack_short': False, 'stack_long': False},
+                        'large_cap'
+                    )
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result['entry_ready'])
+        self.assertEqual(result['setup_type'], 'trend')
+
+
 if __name__ == '__main__':
     unittest.main()

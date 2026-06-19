@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Trend Screener with MA Convergence Detection.
+"""Trend Screener.
 
 Standalone discovery tool combining MarketSurge-style trend filters
-with MA convergence detection. Outputs ranked CSV for watchlist population.
+with setup-readiness ranking. Outputs ranked CSV for watchlist population.
 
 Usage:
-    # Discovery mode - find stocks with MA convergence
-    python3 scripts/trend_screener.py --profile large-cap --rank-by convergence
+    # Discovery mode - find trending stocks
+    python3 scripts/trend_screener.py --profile large-cap --top 20
 
     # Entry timing - rank existing watchlist by setup readiness
     python3 scripts/trend_screener.py --ticker-file data/watchlist.csv --rank-by setup --entry-mode pivot
@@ -37,12 +37,13 @@ from traderlib.stage2_utils import (
     calculate_volume_metrics,
 )
 from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
+from traderlib.pivot_detection import detect_pivot
 from traderlib.universe_builder import UniverseBuilder
 from traderlib.sector_resolver import SectorResolver
 
 
 class TrendScreener:
-    """Trend screener with MA convergence detection."""
+    """Trend screener with setup-readiness ranking."""
 
     def __init__(self, mode: str = 'paper'):
         self.alpaca = AlpacaClient(mode=mode)
@@ -210,8 +211,14 @@ class TrendScreener:
         proximity_pct = 100.0
         volume_ratio = vol_metrics['volume_ratio']
         vcp_data = None
+        has_pocket_pivot = False
+        pocket_pivot_price = None
 
-        if entry_mode == 'vcp':
+        max_proximity = filters.get('pivot_proximity', 5.0)
+
+        def _try_vcp() -> bool:
+            """Try VCP pattern. Returns True if a valid setup is found."""
+            nonlocal entry_ready, setup_type, proximity_pct, vcp_data
             vcp_pattern = detect_vcp_pattern(
                 hist,
                 min_contractions=filters.get('vcp_min_contractions', 2),
@@ -220,32 +227,68 @@ class TrendScreener:
             )
             if vcp_pattern.valid:
                 pivot_proximity = ((vcp_pattern.pivot_high - current) / vcp_pattern.pivot_high) * 100
-                max_proximity = filters.get('pivot_proximity', 5.0)
                 if pivot_proximity <= max_proximity and vcp_pattern.volume_declining:
                     entry_ready = True
                     setup_type = 'vcp'
                     proximity_pct = pivot_proximity
                     vcp_data = format_vcp_summary(vcp_pattern)
+                    return True
+            return False
 
-        elif entry_mode in ['pivot', 'any']:
+        def _try_pocket_pivot() -> bool:
+            """Try pocket pivot detection. Returns True if a valid setup is found."""
+            nonlocal entry_ready, setup_type, proximity_pct, has_pocket_pivot, pocket_pivot_price
+            signal = detect_pivot(ticker, hist, technique='pocket_pivot')
+            if signal is not None:
+                pocket_pivot_price = signal.pivot_price
+                has_pocket_pivot = True
+                pivot_proximity = ((signal.pivot_price - current) / signal.pivot_price) * 100
+                if pivot_proximity <= max_proximity:
+                    entry_ready = True
+                    setup_type = 'pocket'
+                    proximity_pct = pivot_proximity
+                    return True
+            return False
+
+        def _try_range_pivot() -> bool:
+            """Try 20-day range high pivot. Returns True if a valid setup is found."""
+            nonlocal entry_ready, setup_type, proximity_pct
             pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
             if pivot_data_simple['valid']:
                 pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
-                max_proximity = filters.get('pivot_proximity', 5.0)
                 if pivot_proximity <= max_proximity:
                     entry_ready = True
                     setup_type = 'pivot'
                     proximity_pct = pivot_proximity
+                    return True
+            return False
 
-        if entry_mode == 'volume':
+        def _try_volume_pivot() -> bool:
+            """Try volume spike near a 20-day range high. Returns True if valid."""
+            nonlocal entry_ready, setup_type, proximity_pct
             if volume_ratio >= filters.get('min_volume_ratio', 1.5):
                 pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
                 if pivot_data_simple['valid']:
                     pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
-                    if pivot_proximity <= filters.get('pivot_proximity', 5.0):
+                    if pivot_proximity <= max_proximity:
                         entry_ready = True
                         setup_type = 'volume'
                         proximity_pct = pivot_proximity
+                        return True
+            return False
+
+        if entry_mode == 'vcp':
+            _try_vcp()
+        elif entry_mode == 'pocket':
+            _try_pocket_pivot()
+        elif entry_mode == 'pivot':
+            _try_range_pivot()
+        elif entry_mode == 'volume':
+            _try_volume_pivot()
+        elif entry_mode == 'any':
+            # Try setups in quality order: VCP -> pocket pivot -> range pivot -> volume.
+            # Volume is last because it is a weaker confirmation than a dedicated setup.
+            _try_vcp() or _try_pocket_pivot() or _try_range_pivot() or _try_volume_pivot()
 
         if entry_mode == 'any' and not entry_ready:
             entry_ready = True
@@ -270,6 +313,8 @@ class TrendScreener:
             'ma150': round(s2_details.get('ma150', 0), 2) if 'ma150' in s2_details else None,
             'ma200': round(s2_details['ma200'], 2),
             'vcp_data': vcp_data,
+            'has_pocket_pivot': has_pocket_pivot,
+            'pocket_pivot_price': round(pocket_pivot_price, 2) if pocket_pivot_price is not None else None,
         }
 
         result['sector'] = self.sector_resolver.resolve(ticker)
@@ -610,8 +655,8 @@ Examples:
                              'Add custom profiles as YAML blocks in screener_config.yaml.')
 
     # Entry timing
-    parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pivot', 'volume'], default='any',
-                        help='Entry timing mode (default: any)')
+    parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pocket', 'pivot', 'volume'], default='any',
+                        help='Entry timing mode (default: any; any tries vcp, pocket, pivot, volume in order)')
     parser.add_argument('--pivot-proximity', type=float, default=5,
                         help='Max %% from pivot (default: 5)')
     parser.add_argument('--min-volume-ratio', type=float, default=1.5,
