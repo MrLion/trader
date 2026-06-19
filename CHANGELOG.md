@@ -1,3 +1,17 @@
+## [0.6.19.17] — 2026-06-19 — Fix — Pocket pivot as signal overlay, VCP removed, rich HTML export restored
+
+### Fixed
+- **`scripts/trend_screener.py`** — Pocket pivot no longer overrides the primary `setup_type` in `--entry-mode any`. It is detected separately and rendered as a `pocket $price` signal badge, matching the original scan design. The primary setup priority in `any` mode is restored to 20-day range pivot → volume spike → trend fallback.
+- **`scripts/trend_screener.py`** — Restored the rich interactive HTML export (filters, summary cards, grouped sections, detail rows with MA stack) that had been replaced by the plain pandas `to_html()` output.
+- **`scripts/trend_screener.py`** — Removed all remaining VCP references now that VCP has been retired from the project: dropped `--entry-mode vcp`, `--detect-vcp`, VCP-specific CLI args, VCP filter logic, and VCP styling from the HTML export.
+
+### Changed
+- **`scripts/trend_screener.py`** — Result dict now includes `pivot_price` (the relevant buy point for the selected setup) to power the HTML "Buy Point" column.
+- **`tests/test_trend_screener.py`** — Renamed `test_any_mode_prefers_pocket_pivot_over_trend` to `test_any_mode_detects_pocket_pivot_as_signal_overlay` and updated assertions to reflect that `any` mode keeps pocket pivot as a signal, not the primary setup. Removed obsolete VCP-specific tests.
+- **`plans/add-pocket-pivot-to-trend-screener.md`** — Updated to document signal-overlay behavior, VCP retirement, and rich HTML export.
+
+---
+
 ## [0.6.19.16] — 2026-06-19 — Improvement — Pocket pivot entry mode in trend screener
 
 ### Added

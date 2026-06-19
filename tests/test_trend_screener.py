@@ -4,7 +4,7 @@ Covers:
 1. TrendScreener initialization
 2. MarketSurge filter logic
 3. Volume metrics integration
-4. Entry timing detection (VCP, pivot, volume)
+4. Entry timing detection (pocket, pivot, volume, trend)
 5. Result ranking
 6. Profile-specific parameters (large-cap vs high-octane)
 """
@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 
 from traderlib.stage2_utils import calculate_volume_metrics
-from traderlib.vcp_utils import detect_vcp_pattern
 
 
 class MockAlpacaClient:
@@ -149,21 +148,6 @@ class TestVolumeMetrics(unittest.TestCase):
         self.assertIn(metrics['volume_trend'], ['increasing', 'decreasing', 'stable', 'unknown'])
 
 
-class TestVCPPatternDetection(unittest.TestCase):
-    """Tests for VCP pattern detection in screener."""
-
-    def test_vcp_detection_returns_valid_result(self):
-        """Should detect VCP patterns."""
-        df = make_uptrend_df(150)
-        pattern = detect_vcp_pattern(df, min_contractions=2)
-
-        self.assertIsInstance(pattern.valid, bool)
-
-        if pattern.valid:
-            self.assertGreater(pattern.pivot_high, 0)
-            self.assertGreater(pattern.stop_low, 0)
-
-
 class TestProfileParameters(unittest.TestCase):
     """Tests for large-cap vs high-octane profiles."""
 
@@ -252,14 +236,6 @@ class TestResultRanking(unittest.TestCase):
 
 class TestEntryTimingModes(unittest.TestCase):
     """Tests for entry timing modes."""
-
-    def test_vcp_entry_mode(self):
-        """VCP mode should check for valid VCP pattern."""
-        df = make_uptrend_df(150)
-        pattern = detect_vcp_pattern(df, min_contractions=2)
-
-        # Should return boolean validity
-        self.assertIsInstance(pattern.valid, bool)
 
     def test_pivot_entry_mode(self):
         """Pivot mode should check proximity to pivot."""
@@ -446,8 +422,8 @@ class TestPocketPivotEntryMode(unittest.TestCase):
         self.assertTrue(result['has_pocket_pivot'])
         self.assertEqual(result['pocket_pivot_price'], 100.0)
 
-    def test_any_mode_prefers_pocket_pivot_over_trend(self):
-        """Any mode should find the pocket pivot before falling back to trend."""
+    def test_any_mode_detects_pocket_pivot_as_signal_overlay(self):
+        """Any mode should detect pocket pivot as a signal, not the primary setup."""
         df = self._make_pocket_pivot_df()
         with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
             with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
@@ -460,7 +436,9 @@ class TestPocketPivotEntryMode(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertTrue(result['entry_ready'])
-        self.assertEqual(result['setup_type'], 'pocket')
+        self.assertNotEqual(result['setup_type'], 'pocket')
+        self.assertTrue(result['has_pocket_pivot'])
+        self.assertIsNotNone(result['pocket_pivot_price'])
 
     def test_any_mode_falls_back_to_trend_when_no_setup(self):
         """Any mode should fall back to setup_type='trend' when no specific setup exists."""

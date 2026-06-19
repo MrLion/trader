@@ -36,7 +36,6 @@ from traderlib.stage2_utils import (
     get_stage2_details,
     calculate_volume_metrics,
 )
-from traderlib.vcp_utils import detect_vcp_pattern, format_vcp_summary
 from traderlib.pivot_detection import detect_pivot
 from traderlib.universe_builder import UniverseBuilder
 from traderlib.sector_resolver import SectorResolver
@@ -210,90 +209,79 @@ class TrendScreener:
         setup_type = 'none'
         proximity_pct = 100.0
         volume_ratio = vol_metrics['volume_ratio']
-        vcp_data = None
         has_pocket_pivot = False
         pocket_pivot_price = None
+        pivot_price = None
 
         max_proximity = filters.get('pivot_proximity', 5.0)
 
-        def _try_vcp() -> bool:
-            """Try VCP pattern. Returns True if a valid setup is found."""
-            nonlocal entry_ready, setup_type, proximity_pct, vcp_data
-            vcp_pattern = detect_vcp_pattern(
-                hist,
-                min_contractions=filters.get('vcp_min_contractions', 2),
-                reversal_threshold=filters.get('vcp_reversal_threshold', 0.05),
-                require_volume_dry_up=filters.get('vcp_require_volume', True)
-            )
-            if vcp_pattern.valid:
-                pivot_proximity = ((vcp_pattern.pivot_high - current) / vcp_pattern.pivot_high) * 100
-                if pivot_proximity <= max_proximity and vcp_pattern.volume_declining:
-                    entry_ready = True
-                    setup_type = 'vcp'
-                    proximity_pct = pivot_proximity
-                    vcp_data = format_vcp_summary(vcp_pattern)
-                    return True
-            return False
+        # Pre-compute 20-day range pivot once; it is reused by range, volume,
+        # and trend-fallback logic.
+        pivot_data_20d = self._detect_pivot(hist, lookback_days=20)
+        range20_high = pivot_data_20d['pivot_high'] if pivot_data_20d['valid'] else None
 
-        def _try_pocket_pivot() -> bool:
-            """Try pocket pivot detection. Returns True if a valid setup is found."""
-            nonlocal entry_ready, setup_type, proximity_pct, has_pocket_pivot, pocket_pivot_price
-            signal = detect_pivot(ticker, hist, technique='pocket_pivot')
-            if signal is not None:
-                pocket_pivot_price = signal.pivot_price
-                has_pocket_pivot = True
-                pivot_proximity = ((signal.pivot_price - current) / signal.pivot_price) * 100
-                if pivot_proximity <= max_proximity:
-                    entry_ready = True
-                    setup_type = 'pocket'
-                    proximity_pct = pivot_proximity
-                    return True
+        # Always detect pocket pivot as a signal overlay, regardless of entry mode.
+        pocket_signal = detect_pivot(ticker, hist, technique='pocket_pivot')
+        if pocket_signal is not None:
+            pocket_pivot_price = pocket_signal.pivot_price
+            has_pocket_pivot = True
+
+        def _try_pocket_pivot_setup() -> bool:
+            """Use the pre-detected pocket pivot signal as the primary setup."""
+            nonlocal entry_ready, setup_type, proximity_pct
+            if pocket_signal is None:
+                return False
+            pivot_proximity = ((pocket_signal.pivot_price - current) / pocket_signal.pivot_price) * 100
+            if pivot_proximity <= max_proximity:
+                entry_ready = True
+                setup_type = 'pocket'
+                proximity_pct = pivot_proximity
+                return True
             return False
 
         def _try_range_pivot() -> bool:
             """Try 20-day range high pivot. Returns True if a valid setup is found."""
-            nonlocal entry_ready, setup_type, proximity_pct
-            pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
-            if pivot_data_simple['valid']:
-                pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
+            nonlocal entry_ready, setup_type, proximity_pct, pivot_price
+            if pivot_data_20d['valid']:
+                pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
                 if pivot_proximity <= max_proximity:
                     entry_ready = True
                     setup_type = 'pivot'
                     proximity_pct = pivot_proximity
+                    pivot_price = round(pivot_data_20d['pivot_high'], 2)
                     return True
             return False
 
         def _try_volume_pivot() -> bool:
             """Try volume spike near a 20-day range high. Returns True if valid."""
-            nonlocal entry_ready, setup_type, proximity_pct
-            if volume_ratio >= filters.get('min_volume_ratio', 1.5):
-                pivot_data_simple = self._detect_pivot(hist, lookback_days=20)
-                if pivot_data_simple['valid']:
-                    pivot_proximity = ((pivot_data_simple['pivot_high'] - current) / pivot_data_simple['pivot_high']) * 100
-                    if pivot_proximity <= max_proximity:
-                        entry_ready = True
-                        setup_type = 'volume'
-                        proximity_pct = pivot_proximity
-                        return True
+            nonlocal entry_ready, setup_type, proximity_pct, pivot_price
+            if volume_ratio >= filters.get('min_volume_ratio', 1.5) and pivot_data_20d['valid']:
+                pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
+                if pivot_proximity <= max_proximity:
+                    entry_ready = True
+                    setup_type = 'volume'
+                    proximity_pct = pivot_proximity
+                    pivot_price = round(pivot_data_20d['pivot_high'], 2)
+                    return True
             return False
 
-        if entry_mode == 'vcp':
-            _try_vcp()
-        elif entry_mode == 'pocket':
-            _try_pocket_pivot()
+        if entry_mode == 'pocket':
+            _try_pocket_pivot_setup()
         elif entry_mode == 'pivot':
             _try_range_pivot()
         elif entry_mode == 'volume':
             _try_volume_pivot()
         elif entry_mode == 'any':
-            # Try setups in quality order: VCP -> pocket pivot -> range pivot -> volume.
-            # Volume is last because it is a weaker confirmation than a dedicated setup.
-            _try_vcp() or _try_pocket_pivot() or _try_range_pivot() or _try_volume_pivot()
+            # Primary setup priority: 20-day range -> volume. Pocket pivot is
+            # detected separately as a signal overlay, not a primary setup type.
+            _try_range_pivot() or _try_volume_pivot()
 
         if entry_mode == 'any' and not entry_ready:
             entry_ready = True
             setup_type = 'trend'
             proximity_pct = abs(price_vs_10ma)
+            if range20_high:
+                pivot_price = round(range20_high, 2)
 
         # === COMPILE RESULT ===
 
@@ -312,9 +300,9 @@ class TrendScreener:
             'ma50': round(s2_details['ma50'], 2),
             'ma150': round(s2_details.get('ma150', 0), 2) if 'ma150' in s2_details else None,
             'ma200': round(s2_details['ma200'], 2),
-            'vcp_data': vcp_data,
             'has_pocket_pivot': has_pocket_pivot,
             'pocket_pivot_price': round(pocket_pivot_price, 2) if pocket_pivot_price is not None else None,
+            'pivot_price': pivot_price,
         }
 
         result['sector'] = self.sector_resolver.resolve(ticker)
@@ -569,29 +557,278 @@ class TrendScreener:
                 json.dump(results, f, indent=2, default=str)
 
         elif format == 'html':
-            df = pd.DataFrame(results)
-            html = df.to_html(index=False, classes='table table-striped')
-            with open(path, 'w') as f:
-                f.write(f"""
-<!DOCTYPE html>
+            return self._export_html(results, path)
+
+        print(f"Exported {len(results)} results to {path}")
+        return path
+
+    def _export_html(self, results: List[Dict], path: str) -> str:
+        """Export results to a rich, interactive HTML file."""
+        now = datetime.now().strftime('%Y-%m-%d %H:%M ET')
+        total = len(results)
+
+        def fmt_dollar_vol(value: float) -> str:
+            if value >= 1e9:
+                return f"${value/1e9:.1f}B"
+            if value >= 1e6:
+                return f"${value/1e6:.0f}M"
+            return f"${value:,.0f}"
+
+        def proximity_class(prox: float) -> str:
+            if abs(prox) <= 2.0:
+                return "prox-close"
+            if abs(prox) <= 5.0:
+                return "prox-near"
+            return "prox-far"
+
+        def vol_class(ratio: float) -> str:
+            if ratio >= 1.5:
+                return "vol-high"
+            if ratio >= 0.8:
+                return "vol-ok"
+            return "vol-low"
+
+        def stage2_dots(score: int) -> str:
+            dots = "".join(
+                f'<span class="s2-dot {"on" if i < score else "off"}"></span>'
+                for i in range(10)
+            )
+            return f'<div class="s2-dots">{dots}</div>'
+
+        def setup_badges(r: Dict) -> str:
+            setup = r.get('setup_type', 'none')
+            badge_class = {
+                'pivot': 'badge-pivot',
+                'volume': 'badge-volume',
+                'trend': 'badge-trend',
+                'pocket': 'badge-pocket',
+            }.get(setup, 'badge-none')
+            html = f'<span class="badge {badge_class}">{setup}</span>'
+            if r.get('has_pocket_pivot'):
+                pp_price = r.get('pocket_pivot_price')
+                label = f"pocket ${pp_price:.2f}" if pp_price else "pocket"
+                html += f' <span class="signal-badge signal-pocket">{label}</span>'
+            return html
+
+        def row_data_attrs(r: Dict) -> str:
+            return (
+                f'data-range20d="{"1" if r.get("setup_type") == "pivot" else "0"}" '
+                f'data-volume="{"1" if r.get("setup_type") == "volume" else "0"}" '
+                f'data-pocket="{"1" if r.get("has_pocket_pivot") else "0"}"'
+            )
+
+        def ma_row(r: Dict) -> str:
+            ma150 = r.get('ma150')
+            ma150_html = (
+                f'<span class="ma-item">MA150: <span>${ma150:.2f}</span></span>'
+                if ma150 else ""
+            )
+            return (
+                f'<div class="ma-stack">'
+                f'<span class="ma-item">MA10: <span>${r["ma10"]:.2f}</span></span>'
+                f'<span class="ma-item">MA20: <span>${r["ma20"]:.2f}</span></span>'
+                f'<span class="ma-item">MA50: <span>${r["ma50"]:.2f}</span></span>'
+                f'{ma150_html}'
+                f'<span class="ma-item">MA200: <span>${r["ma200"]:.2f}</span></span>'
+                f'</div>'
+            )
+
+        def ticker_row(r: Dict, section_class: str) -> str:
+            buy_point = r.get('pivot_price')
+            buy_point_html = f"${buy_point:.2f}" if buy_point else "—"
+            prox = r['proximity_pct']
+            prox_sign = "+" if prox >= 0 else ""
+            prox_html = f"{prox_sign}{prox:.2f}%"
+            vol_ratio = r['volume_ratio']
+            dvol = fmt_dollar_vol(r['avg_dollar_volume'])
+            sector = r.get('sector') or '—'
+            return (
+                f'<tr class="stock-row {section_class}" {row_data_attrs(r)}>'
+                f'<td><b>{r["ticker"]}</b></td>'
+                f'<td>${r["price"]:.2f}</td>'
+                f'<td class="buy-point">{buy_point_html}</td>'
+                f'<td>{stage2_dots(int(r["stage2_score"]))}</td>'
+                f'<td>{setup_badges(r)}</td>'
+                f'<td class="{proximity_class(prox)}">{prox_html}</td>'
+                f'<td class="{vol_class(vol_ratio)}">{vol_ratio:.1f}x</td>'
+                f'<td class="dvol">{dvol}</td>'
+                f'<td>{r["rs_from_high"]:.1f}%</td>'
+                f'<td><span class="badge badge-sector">{sector}</span></td>'
+                f'<td class="toggle-detail" onclick="this.closest(\'tr\').nextElementSibling.classList.toggle(\'open\')">▼</td>'
+                f'</tr>'
+                f'<tr class="detail-row">'
+                f'<td colspan="11" class="detail-cell">{ma_row(r)}</td>'
+                f'</tr>'
+            )
+
+        def section_html(title: str, icon: str, rows: List[Dict], css_class: str) -> str:
+            if not rows:
+                return ""
+            header = (
+                '<tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th>'
+                '<th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th>'
+                '<th>RS from High</th><th>Sector</th><th></th></tr>'
+            )
+            body = "".join(ticker_row(r, css_class) for r in rows)
+            return (
+                f'<div class="section">'
+                f'<div class="section-title">{icon} {title} <span class="count">{len(rows)}</span></div>'
+                f'<table>{header}{body}</table>'
+                f'</div>'
+            )
+
+        ready = [r for r in results if r.get('entry_ready') and r.get('setup_type') in ('pivot', 'volume')]
+        near = [r for r in results if r.get('entry_ready') and r.get('setup_type') == 'trend']
+        extended = [r for r in results if not r.get('entry_ready') and r.get('setup_type') != 'none']
+        no_setup = [r for r in results if not r.get('entry_ready') and r.get('setup_type') == 'none']
+
+        sections = "".join([
+            section_html("Ready Now", "🔥", ready, "row-ready"),
+            section_html("Near Pivot", "⏳", near, "row-near"),
+            section_html("Extended", "📈", extended, "row-extended"),
+            section_html("No Setup", "⏸️", no_setup, "row-nosetup"),
+        ])
+
+        html = f"""<!DOCTYPE html>
 <html>
 <head>
     <title>Trend Screener Results</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        .table {{ border-collapse: collapse; width: 100%; }}
-        .table th, .table td {{ border: 1px solid #ddd; padding: 8px; text-align: right; }}
-        .table th {{ background-color: #4CAF50; color: white; text-align: center; }}
-        .table tr:nth-child(even) {{ background-color: #f2f2f2; }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }}
+        h1 {{ font-size: 22px; font-weight: 600; margin-bottom: 4px; }}
+        .subtitle {{ color: #94a3b8; font-size: 13px; margin-bottom: 20px; }}
+        .summary {{ display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }}
+        .summary-item {{
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }}
+        .summary-item .num {{ font-size: 20px; font-weight: 700; display: block; }}
+        .summary-ready .num {{ color: #22c55e; }}
+        .summary-near .num {{ color: #eab308; }}
+        .summary-extended .num {{ color: #f97316; }}
+        .summary-none .num {{ color: #64748b; }}
+        .section {{ margin-bottom: 28px; }}
+        .section-title {{
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }}
+        .section-title .count {{ color: #64748b; font-weight: 400; font-size: 13px; }}
+        table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+        th {{
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }}
+        td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
+        .row-ready td {{ background: #052e16; }}
+        .row-near td {{ background: #422006; }}
+        .row-extended td {{ background: #431407; }}
+        .row-nosetup td {{ background: transparent; color: #475569; }}
+        .filters {{ display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }}
+        .filter-btn {{
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+            cursor: pointer; transition: all 0.15s;
+        }}
+        .filter-btn:hover {{ border-color: #60a5fa; color: #e2e8f0; }}
+        .filter-btn.active {{ background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }}
+        .filter-count {{ color: #64748b; font-size: 12px; }}
+        .badge {{
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }}
+        .badge-pivot {{ background: #1e3a5f; color: #60a5fa; }}
+        .badge-trend {{ background: #1a3a2a; color: #4ade80; }}
+        .badge-volume {{ background: #3a2a1a; color: #f97316; }}
+        .badge-pocket {{ background: #3a1a1a; color: #f87171; }}
+        .badge-none {{ background: #1a1d27; color: #64748b; }}
+        .badge-sector {{ background: #1a1d27; color: #94a3b8; font-size: 10px; }}
+        .signal-badge {{
+            display: inline-block; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 600; margin-right: 3px;
+        }}
+        .signal-pocket {{ background: #3a2a1a; color: #fbbf24; }}
+        .s2-dots {{ display: flex; gap: 2px; align-items: center; }}
+        .s2-dot {{ width: 6px; height: 6px; border-radius: 50%; }}
+        .s2-dot.on {{ background: #22c55e; }}
+        .s2-dot.off {{ background: #2a2d3a; }}
+        .vol-high {{ color: #22c55e; font-weight: 600; }}
+        .vol-ok {{ color: #e2e8f0; }}
+        .vol-low {{ color: #64748b; }}
+        .prox-close {{ color: #22c55e; }}
+        .prox-near {{ color: #eab308; }}
+        .prox-far {{ color: #f97316; }}
+        .dvol {{ color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }}
+        .buy-point {{ font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }}
+        .detail-row {{ display: none; }}
+        .detail-row.open {{ display: table-row; }}
+        .detail-cell {{
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }}
+        .detail-cell .ma-stack {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+        .detail-cell .ma-item span {{ color: #94a3b8; }}
+        .toggle-detail {{ cursor: pointer; color: #64748b; font-size: 11px; }}
+        .toggle-detail:hover {{ color: #e2e8f0; }}
+        .footer {{ margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }}
     </style>
 </head>
 <body>
-    <h1>Trend Screener Results - {datetime.now().strftime('%Y-%m-%d')}</h1>
-    {html}
-</body>
-</html>
-""")
 
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">{now} · {total} candidates</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="range20d" onclick="setFilter('range20d')">20d Range</button>
+    <button class="filter-btn" data-filter="volume" onclick="setFilter('volume')">Volume</button>
+    <button class="filter-btn" data-filter="pocket" onclick="setFilter('pocket')">Pocket</button>
+    <span class="filter-count" id="countDisplay">Showing {total} of {total}</span>
+</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready"><span class="num">{len(ready)}</span>🔥 Ready Now</div>
+    <div class="summary-item summary-near"><span class="num">{len(near)}</span>⏳ Near Pivot</div>
+    <div class="summary-item summary-extended"><span class="num">{len(extended)}</span>📈 Extended</div>
+    <div class="summary-item summary-none"><span class="num">{len(no_setup)}</span>⏸️ No Setup</div>
+</div>
+
+{sections}
+
+<div class="footer">Generated {now} · Click a filter to switch view · Stocks can qualify for multiple types</div>
+
+<script>
+    function setFilter(filter) {{
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.filter-btn[data-filter="' + filter + '"]').classList.add('active');
+        let visible = 0;
+        document.querySelectorAll('.stock-row').forEach(row => {{
+            const show = filter === 'all' || row.getAttribute('data-' + filter) === '1';
+            row.style.display = show ? 'table-row' : 'none';
+            const detail = row.nextElementSibling;
+            if (detail && detail.classList.contains('detail-row')) {{
+                detail.style.display = 'none';
+                detail.classList.remove('open');
+            }}
+            if (show) visible++;
+        }});
+        document.getElementById('countDisplay').textContent = 'Showing ' + visible + ' of ' + {total};
+    }}
+</script>
+
+</body>
+</html>"""
+
+        with open(path, 'w') as f:
+            f.write(html)
         print(f"Exported {len(results)} results to {path}")
         return path
 
@@ -655,20 +892,12 @@ Examples:
                              'Add custom profiles as YAML blocks in screener_config.yaml.')
 
     # Entry timing
-    parser.add_argument('--entry-mode', choices=['any', 'vcp', 'pocket', 'pivot', 'volume'], default='any',
-                        help='Entry timing mode (default: any; any tries vcp, pocket, pivot, volume in order)')
+    parser.add_argument('--entry-mode', choices=['any', 'pocket', 'pivot', 'volume'], default='any',
+                        help='Entry timing mode (default: any; any tries pocket, pivot, volume in order)')
     parser.add_argument('--pivot-proximity', type=float, default=5,
                         help='Max %% from pivot (default: 5)')
     parser.add_argument('--min-volume-ratio', type=float, default=1.5,
                         help='Min volume vs 50-day avg for volume mode (default: 1.5)')
-
-    # VCP specific
-    parser.add_argument('--vcp-min-contractions', type=int, default=2,
-                        help='Min contractions for VCP mode (default: 2)')
-    parser.add_argument('--vcp-reversal-threshold', type=float, default=0.05,
-                        help='Min %% reversal to detect swing (default: 5%%)')
-    parser.add_argument('--detect-vcp', action='store_true',
-                        help='Detect and display VCP pattern (sets --entry-mode vcp)')
 
     # Ranking and display
     parser.add_argument('--rank-by', choices=['setup', 'rs'], default='setup',
@@ -833,8 +1062,6 @@ Examples:
     if universe_size > 50:
         print("   Note: structural filters (MA stacking, RS, liquidity) will further reduce this list.")
 
-    entry_mode = 'vcp' if args.detect_vcp else args.entry_mode
-
     filters = {
         'min_price': effective_min_price,
         'min_price_vs_10ma': effective_min_price_vs_10ma,
@@ -844,12 +1071,9 @@ Examples:
         'exclude_etfs': args.exclude_etfs,
         'min_volume_dollar': effective_min_dollar_vol,
         'min_volume_shares': effective_min_share_vol,
-        'entry_mode': entry_mode,
+        'entry_mode': args.entry_mode,
         'pivot_proximity': args.pivot_proximity,
         'min_volume_ratio': args.min_volume_ratio,
-        'vcp_min_contractions': args.vcp_min_contractions,
-        'vcp_reversal_threshold': args.vcp_reversal_threshold,
-        'vcp_require_volume': True,
         'min_stage2_score': effective_min_stage2,
     }
 
@@ -873,6 +1097,8 @@ Examples:
 
     import time
     screener = TrendScreener()
+
+    entry_mode = args.entry_mode
 
     print(f"\n📈 Scanning for trending setups...")
     start_scan = time.time()
