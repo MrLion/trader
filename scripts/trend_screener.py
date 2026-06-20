@@ -232,7 +232,9 @@ class TrendScreener:
             if pocket_signal is None:
                 return False
             pivot_proximity = ((pocket_signal.pivot_price - current) / pocket_signal.pivot_price) * 100
-            if pivot_proximity <= max_proximity:
+            # Only ready if within max_proximity% BELOW the pivot (breaking out)
+            # or slightly above (up to 3% past = still actionable)
+            if -3.0 <= pivot_proximity <= max_proximity:
                 entry_ready = True
                 setup_type = 'pp'
                 proximity_pct = pivot_proximity
@@ -245,7 +247,7 @@ class TrendScreener:
             nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if pivot_data_20d['valid']:
                 pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
-                if pivot_proximity <= max_proximity:
+                if -3.0 <= pivot_proximity <= max_proximity:
                     entry_ready = True
                     setup_type = '20d'
                     proximity_pct = pivot_proximity
@@ -258,7 +260,7 @@ class TrendScreener:
             nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if volume_ratio >= filters.get('min_volume_ratio', 1.5) and pivot_data_20d['valid']:
                 pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
-                if pivot_proximity <= max_proximity:
+                if -3.0 <= pivot_proximity <= max_proximity:
                     entry_ready = True
                     setup_type = '20d'
                     proximity_pct = pivot_proximity
@@ -654,7 +656,6 @@ class TrendScreener:
 
         def section_html(title: str, icon: str, rows: List[Dict], css_class: str, section_id: str) -> str:
             header = (
-                '<tr>'
                 '<th onclick="sortTable(\'table-{sid}\', 0, this)">Ticker <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 1, this)">Price <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>'
@@ -666,7 +667,6 @@ class TrendScreener:
                 '<th onclick="sortTable(\'table-{sid}\', 8, this)">RS from High <span class="sort-arrow">↕</span></th>'
                 '<th>Sector</th>'
                 '<th></th>'
-                '</tr>'
             ).format(sid=section_id)
             body = "".join(ticker_row(r, section_id, css_class) for r in rows)
             count = len(rows)
