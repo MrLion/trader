@@ -1,3 +1,29 @@
+## [0.6.19.18] — 2026-06-19 — Improvement — Trend screener UX overhaul: setup/buy point 1:1 pairing + interactive HTML
+
+### Changed
+- **`scripts/trend_screener.py`** — `--entry-mode` choices renamed from `any/pocket/pivot/volume` to `any/pp/20d`. Pocket pivot is now the default priority in `any` mode (pp → 20d range → volume → trend fallback).
+- **`scripts/trend_screener.py`** — Setup types merged: `pivot`, `volume`, and `trend` all use the same buy point (20-day range high), so they now render as a single `20d` badge. Only `pp` (pocket pivot) has a distinct buy point.
+- **`scripts/trend_screener.py`** — `_try_pocket_pivot_setup()` now sets `pivot_price` to the pocket pivot price. Previously this was missing, causing the Buy Point column to show "—" for pocket pivot stocks.
+- **`scripts/trend_screener.py`** — Section classification includes `pp` stocks in Ready Now (was excluded — only `pivot` and `volume` qualified).
+- **`scripts/trend_screener.py`** — HTML export rewritten to match the approved mockup design:
+  - Two badges only: `pp` (red) and `20d` (blue). No secondary pocket badge.
+  - Section-aligned filter tabs: `All | Ready Now | Near Pivot | Extended | No Setup` (replaces orthogonal setup-type tabs).
+  - `data-section` attribute on each row for section-based filtering.
+  - Clickable summary bar with live-updating counts.
+  - Active-filter banner with "Show all" link.
+  - Detail rows survive filtering (only hidden stocks' details close).
+  - URL hash persistence (`#ready`, `#near`, etc.).
+  - Sortable columns with blue arrow indicator.
+  - Dynamic denominator (reads from DOM, not hardcoded).
+  - No Setup section always rendered with empty state.
+  - Removed unused CSS classes (badge-pivot/trend/volume/pocket, signal-badge/pocket).
+- **`tests/test_trend_screener.py`** — Updated pocket mode tests for `setup_type='pp'` and `pivot_price` fix. Updated any-mode test to assert pocket pivot is now primary. Added test for `--entry-mode 20d`. Added `TestHtmlOutput` class verifying badges, no secondary pocket badge, and `data-section` attributes.
+
+### Added
+- **`plans/trend-screener-ux-overhaul.md`** — Implementation plan documenting the setup/buy point 1:1 pairing design, entry mode changes, HTML UX improvements, and testing requirements.
+
+---
+
 ## [0.6.19.17] — 2026-06-19 — Fix — Pocket pivot as signal overlay, VCP removed, rich HTML export restored
 
 ### Fixed
