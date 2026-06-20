@@ -228,14 +228,15 @@ class TrendScreener:
 
         def _try_pocket_pivot_setup() -> bool:
             """Use the pre-detected pocket pivot signal as the primary setup."""
-            nonlocal entry_ready, setup_type, proximity_pct
+            nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if pocket_signal is None:
                 return False
             pivot_proximity = ((pocket_signal.pivot_price - current) / pocket_signal.pivot_price) * 100
             if pivot_proximity <= max_proximity:
                 entry_ready = True
-                setup_type = 'pocket'
+                setup_type = 'pp'
                 proximity_pct = pivot_proximity
+                pivot_price = round(pocket_signal.pivot_price, 2)
                 return True
             return False
 
@@ -246,7 +247,7 @@ class TrendScreener:
                 pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
                 if pivot_proximity <= max_proximity:
                     entry_ready = True
-                    setup_type = 'pivot'
+                    setup_type = '20d'
                     proximity_pct = pivot_proximity
                     pivot_price = round(pivot_data_20d['pivot_high'], 2)
                     return True
@@ -259,22 +260,19 @@ class TrendScreener:
                 pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
                 if pivot_proximity <= max_proximity:
                     entry_ready = True
-                    setup_type = 'volume'
+                    setup_type = '20d'
                     proximity_pct = pivot_proximity
                     pivot_price = round(pivot_data_20d['pivot_high'], 2)
                     return True
             return False
 
-        if entry_mode == 'pocket':
+        if entry_mode == 'pp':
             _try_pocket_pivot_setup()
-        elif entry_mode == 'pivot':
-            _try_range_pivot()
-        elif entry_mode == 'volume':
-            _try_volume_pivot()
-        elif entry_mode == 'any':
-            # Primary setup priority: 20-day range -> volume. Pocket pivot is
-            # detected separately as a signal overlay, not a primary setup type.
+        elif entry_mode == '20d':
             _try_range_pivot() or _try_volume_pivot()
+        elif entry_mode == 'any':
+            # Priority: pocket pivot → 20d range → volume → trend fallback.
+            _try_pocket_pivot_setup() or _try_range_pivot() or _try_volume_pivot()
 
         if entry_mode == 'any' and not entry_ready:
             entry_ready = True
@@ -596,26 +594,19 @@ class TrendScreener:
             return f'<div class="s2-dots">{dots}</div>'
 
         def setup_badges(r: Dict) -> str:
+            """Two badges only: pp and 20d. 1:1 with Buy Point. No secondary badges."""
             setup = r.get('setup_type', 'none')
+            # trend renders as 20d (same buy point)
+            if setup in ('pivot', 'volume', 'trend'):
+                setup = '20d'
             badge_class = {
-                'pivot': 'badge-pivot',
-                'volume': 'badge-volume',
-                'trend': 'badge-trend',
-                'pocket': 'badge-pocket',
+                'pp': 'badge-pp',
+                '20d': 'badge-20d',
             }.get(setup, 'badge-none')
-            html = f'<span class="badge {badge_class}">{setup}</span>'
-            if r.get('has_pocket_pivot'):
-                pp_price = r.get('pocket_pivot_price')
-                label = f"pocket ${pp_price:.2f}" if pp_price else "pocket"
-                html += f' <span class="signal-badge signal-pocket">{label}</span>'
-            return html
+            return f'<span class="badge {badge_class}">{setup}</span>'
 
-        def row_data_attrs(r: Dict) -> str:
-            return (
-                f'data-range20d="{"1" if r.get("setup_type") == "pivot" else "0"}" '
-                f'data-volume="{"1" if r.get("setup_type") == "volume" else "0"}" '
-                f'data-pocket="{"1" if r.get("has_pocket_pivot") else "0"}"'
-            )
+        def row_data_attrs(r: Dict, section: str) -> str:
+            return f'data-section="{section}"'
 
         def ma_row(r: Dict) -> str:
             ma150 = r.get('ma150')
@@ -633,7 +624,7 @@ class TrendScreener:
                 f'</div>'
             )
 
-        def ticker_row(r: Dict, section_class: str) -> str:
+        def ticker_row(r: Dict, section: str, css_class: str) -> str:
             buy_point = r.get('pivot_price')
             buy_point_html = f"${buy_point:.2f}" if buy_point else "—"
             prox = r['proximity_pct']
@@ -643,7 +634,7 @@ class TrendScreener:
             dvol = fmt_dollar_vol(r['avg_dollar_volume'])
             sector = r.get('sector') or '—'
             return (
-                f'<tr class="stock-row {section_class}" {row_data_attrs(r)}>'
+                f'<tr class="stock-row {css_class}" {row_data_attrs(r, section)}>'
                 f'<td><b>{r["ticker"]}</b></td>'
                 f'<td>${r["price"]:.2f}</td>'
                 f'<td class="buy-point">{buy_point_html}</td>'
@@ -654,132 +645,166 @@ class TrendScreener:
                 f'<td class="dvol">{dvol}</td>'
                 f'<td>{r["rs_from_high"]:.1f}%</td>'
                 f'<td><span class="badge badge-sector">{sector}</span></td>'
-                f'<td class="toggle-detail" onclick="this.closest(\'tr\').nextElementSibling.classList.toggle(\'open\')">▼</td>'
+                f'<td class="toggle-detail" onclick="toggleDetail(this)">▼</td>'
                 f'</tr>'
                 f'<tr class="detail-row">'
                 f'<td colspan="11" class="detail-cell">{ma_row(r)}</td>'
                 f'</tr>'
             )
 
-        def section_html(title: str, icon: str, rows: List[Dict], css_class: str) -> str:
-            if not rows:
-                return ""
+        def section_html(title: str, icon: str, rows: List[Dict], css_class: str, section_id: str) -> str:
             header = (
-                '<tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th>'
-                '<th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th>'
-                '<th>RS from High</th><th>Sector</th><th></th></tr>'
-            )
-            body = "".join(ticker_row(r, css_class) for r in rows)
+                '<tr>'
+                '<th onclick="sortTable(\'table-{sid}\', 0, this)">Ticker <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 1, this)">Price <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>'
+                '<th>Setup</th>'
+                '<th onclick="sortTable(\'table-{sid}\', 5, this)">To Pivot <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 8, this)">RS from High <span class="sort-arrow">↕</span></th>'
+                '<th>Sector</th>'
+                '<th></th>'
+                '</tr>'
+            ).format(sid=section_id)
+            body = "".join(ticker_row(r, section_id, css_class) for r in rows)
+            count = len(rows)
+            empty_html = ""
+            table_style = ""
+            if count == 0:
+                empty_html = f'<div class="empty-state" id="{section_id}Empty">🎉 No stocks in this category.</div>'
+                table_style = ' style="display:none;"'
             return (
-                f'<div class="section">'
-                f'<div class="section-title">{icon} {title} <span class="count">{len(rows)}</span></div>'
-                f'<table>{header}{body}</table>'
+                f'<div class="section" id="section-{section_id}">'
+                f'<div class="section-title">{icon} {title} <span class="count">{count}</span>'
+                f'<span class="live-count" id="{section_id}Live"></span></div>'
+                f'{empty_html}'
+                f'<table id="table-{section_id}"{table_style}>'
+                f'<thead><tr>{header}</tr></thead>'
+                f'<tbody id="tbody-{section_id}">{body}</tbody>'
+                f'</table>'
                 f'</div>'
             )
 
-        ready = [r for r in results if r.get('entry_ready') and r.get('setup_type') in ('pivot', 'volume')]
+        ready = [r for r in results if r.get('entry_ready') and r.get('setup_type') in ('pp', '20d')]
         near = [r for r in results if r.get('entry_ready') and r.get('setup_type') == 'trend']
         extended = [r for r in results if not r.get('entry_ready') and r.get('setup_type') != 'none']
-        no_setup = [r for r in results if not r.get('entry_ready') and r.get('setup_type') == 'none']
+        no_setup = [r for r in results if r.get('setup_type') == 'none']
 
         sections = "".join([
-            section_html("Ready Now", "🔥", ready, "row-ready"),
-            section_html("Near Pivot", "⏳", near, "row-near"),
-            section_html("Extended", "📈", extended, "row-extended"),
-            section_html("No Setup", "⏸️", no_setup, "row-nosetup"),
+            section_html("Ready Now", "🔥", ready, "row-ready", "ready"),
+            section_html("Near Pivot", "⏳", near, "row-near", "near"),
+            section_html("Extended", "📈", extended, "row-extended", "extended"),
+            section_html("No Setup", "⏸️", no_setup, "row-nosetup", "nosetup"),
         ])
 
         html = f"""<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Trend Screener Results</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f1117;
-            color: #e2e8f0;
-            padding: 24px 32px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }}
-        h1 {{ font-size: 22px; font-weight: 600; margin-bottom: 4px; }}
-        .subtitle {{ color: #94a3b8; font-size: 13px; margin-bottom: 20px; }}
-        .summary {{ display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }}
-        .summary-item {{
-            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
-            background: #1a1d27; border: 1px solid #2a2d3a;
-        }}
-        .summary-item .num {{ font-size: 20px; font-weight: 700; display: block; }}
-        .summary-ready .num {{ color: #22c55e; }}
-        .summary-near .num {{ color: #eab308; }}
-        .summary-extended .num {{ color: #f97316; }}
-        .summary-none .num {{ color: #64748b; }}
-        .section {{ margin-bottom: 28px; }}
-        .section-title {{
-            font-size: 15px; font-weight: 600; margin-bottom: 10px;
-            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
-        }}
-        .section-title .count {{ color: #64748b; font-weight: 400; font-size: 13px; }}
-        table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
-        th {{
-            text-align: left; padding: 8px 10px; font-weight: 500;
-            color: #94a3b8; font-size: 11px; text-transform: uppercase;
-            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
-        }}
-        td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
-        .row-ready td {{ background: #052e16; }}
-        .row-near td {{ background: #422006; }}
-        .row-extended td {{ background: #431407; }}
-        .row-nosetup td {{ background: transparent; color: #475569; }}
-        .filters {{ display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }}
-        .filter-btn {{
-            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
-            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
-            cursor: pointer; transition: all 0.15s;
-        }}
-        .filter-btn:hover {{ border-color: #60a5fa; color: #e2e8f0; }}
-        .filter-btn.active {{ background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }}
-        .filter-count {{ color: #64748b; font-size: 12px; }}
-        .badge {{
-            display: inline-block; padding: 2px 8px; border-radius: 4px;
-            font-size: 11px; font-weight: 500;
-        }}
-        .badge-pivot {{ background: #1e3a5f; color: #60a5fa; }}
-        .badge-trend {{ background: #1a3a2a; color: #4ade80; }}
-        .badge-volume {{ background: #3a2a1a; color: #f97316; }}
-        .badge-pocket {{ background: #3a1a1a; color: #f87171; }}
-        .badge-none {{ background: #1a1d27; color: #64748b; }}
-        .badge-sector {{ background: #1a1d27; color: #94a3b8; font-size: 10px; }}
-        .signal-badge {{
-            display: inline-block; padding: 2px 6px; border-radius: 3px;
-            font-size: 10px; font-weight: 600; margin-right: 3px;
-        }}
-        .signal-pocket {{ background: #3a2a1a; color: #fbbf24; }}
-        .s2-dots {{ display: flex; gap: 2px; align-items: center; }}
-        .s2-dot {{ width: 6px; height: 6px; border-radius: 50%; }}
-        .s2-dot.on {{ background: #22c55e; }}
-        .s2-dot.off {{ background: #2a2d3a; }}
-        .vol-high {{ color: #22c55e; font-weight: 600; }}
-        .vol-ok {{ color: #e2e8f0; }}
-        .vol-low {{ color: #64748b; }}
-        .prox-close {{ color: #22c55e; }}
-        .prox-near {{ color: #eab308; }}
-        .prox-far {{ color: #f97316; }}
-        .dvol {{ color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }}
-        .buy-point {{ font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }}
-        .detail-row {{ display: none; }}
-        .detail-row.open {{ display: table-row; }}
-        .detail-cell {{
-            padding: 8px 10px 12px 10px; background: #0a0c12;
-            font-size: 12px; color: #64748b;
-        }}
-        .detail-cell .ma-stack {{ display: flex; gap: 16px; flex-wrap: wrap; }}
-        .detail-cell .ma-item span {{ color: #94a3b8; }}
-        .toggle-detail {{ cursor: pointer; color: #64748b; font-size: 11px; }}
-        .toggle-detail:hover {{ color: #e2e8f0; }}
-        .footer {{ margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }}
-    </style>
+<meta charset="UTF-8">
+<title>Trend Screener Results</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f1117; color: #e2e8f0; padding: 24px 32px; max-width: 1200px; margin: 0 auto;
+}}
+h1 {{ font-size: 22px; font-weight: 600; margin-bottom: 4px; }}
+.subtitle {{ color: #94a3b8; font-size: 13px; margin-bottom: 20px; }}
+
+.summary {{ display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }}
+.summary-item {{
+  padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  background: #1a1d27; border: 1px solid #2a2d3a; cursor: pointer;
+  transition: all 0.15s; user-select: none;
+}}
+.summary-item:hover {{ border-color: #60a5fa; transform: translateY(-1px); }}
+.summary-item.active {{ border-color: #60a5fa; box-shadow: 0 0 0 1px #60a5fa; }}
+.summary-item .num {{ font-size: 20px; font-weight: 700; display: block; }}
+.summary-ready .num {{ color: #22c55e; }}
+.summary-near .num {{ color: #eab308; }}
+.summary-extended .num {{ color: #f97316; }}
+.summary-none .num {{ color: #64748b; }}
+
+.filters {{ display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }}
+.filter-btn {{
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+  cursor: pointer; transition: all 0.15s;
+}}
+.filter-btn:hover {{ border-color: #60a5fa; color: #e2e8f0; }}
+.filter-btn.active {{ background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }}
+.filter-count {{ color: #64748b; font-size: 12px; margin-left: 4px; }}
+
+.filter-banner {{
+  display: none; align-items: center; gap: 12px;
+  padding: 8px 14px; margin-bottom: 16px; border-radius: 6px;
+  background: #1e3a5f; border: 1px solid #3b82f6; font-size: 13px;
+}}
+.filter-banner.visible {{ display: flex; }}
+.filter-banner .clear-link {{ color: #60a5fa; cursor: pointer; font-weight: 500; margin-left: auto; }}
+.filter-banner .clear-link:hover {{ color: #93c5fd; text-decoration: underline; }}
+
+.section {{ margin-bottom: 28px; }}
+.section-title {{
+  font-size: 15px; font-weight: 600; margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid #2a2d3a;
+  position: sticky; top: 0; background: #0f1117; z-index: 10; padding-top: 4px;
+}}
+.section-title .count {{ color: #64748b; font-weight: 400; font-size: 13px; }}
+.section-title .live-count {{ color: #94a3b8; font-size: 12px; font-weight: 400; margin-left: 8px; }}
+
+.empty-state {{
+  padding: 24px; text-align: center; color: #475569; font-size: 13px;
+  border: 1px dashed #2a2d3a; border-radius: 8px;
+}}
+
+table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+th {{
+  text-align: left; padding: 8px 10px; font-weight: 500; color: #94a3b8;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid #2a2d3a; cursor: pointer; user-select: none; white-space: nowrap;
+}}
+th:hover {{ color: #e2e8f0; }}
+th .sort-arrow {{ font-size: 10px; margin-left: 3px; opacity: 0.4; }}
+th.sorted .sort-arrow {{ opacity: 1; color: #60a5fa; }}
+td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
+.row-ready td {{ background: #052e16; }}
+.row-near td {{ background: #422006; }}
+.row-extended td {{ background: #431407; }}
+.row-nosetup td {{ background: transparent; color: #475569; }}
+
+.badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }}
+.badge-20d {{ background: #1e3a5f; color: #60a5fa; }}
+.badge-pp {{ background: #3a1a1a; color: #f87171; }}
+.badge-none {{ background: #1a1d27; color: #64748b; }}
+.badge-sector {{ background: #1a1d27; color: #94a3b8; font-size: 10px; }}
+
+.s2-dots {{ display: flex; gap: 2px; align-items: center; }}
+.s2-dot {{ width: 6px; height: 6px; border-radius: 50%; }}
+.s2-dot.on {{ background: #22c55e; }}
+.s2-dot.off {{ background: #2a2d3a; }}
+
+.vol-high {{ color: #22c55e; font-weight: 600; }}
+.vol-ok {{ color: #e2e8f0; }}
+.vol-low {{ color: #64748b; }}
+.prox-close {{ color: #22c55e; }}
+.prox-near {{ color: #eab308; }}
+.prox-far {{ color: #f97316; }}
+.dvol {{ color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }}
+.buy-point {{ font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }}
+
+.detail-row {{ display: none; }}
+.detail-row.open {{ display: table-row; }}
+.detail-cell {{ padding: 8px 10px 12px 10px; background: #0a0c12; font-size: 12px; color: #64748b; }}
+.detail-cell .ma-stack {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+.detail-cell .ma-item span {{ color: #94a3b8; }}
+.toggle-detail {{ cursor: pointer; color: #64748b; font-size: 11px; }}
+.toggle-detail:hover {{ color: #e2e8f0; }}
+
+.footer {{ margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }}
+</style>
 </head>
 <body>
 
@@ -788,40 +813,132 @@ class TrendScreener:
 
 <div class="filters">
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
-    <button class="filter-btn" data-filter="range20d" onclick="setFilter('range20d')">20d Range</button>
-    <button class="filter-btn" data-filter="volume" onclick="setFilter('volume')">Volume</button>
-    <button class="filter-btn" data-filter="pocket" onclick="setFilter('pocket')">Pocket</button>
-    <span class="filter-count" id="countDisplay">Showing {total} of {total}</span>
+    <button class="filter-btn" data-filter="ready" onclick="setFilter('ready')">🔥 Ready Now</button>
+    <button class="filter-btn" data-filter="near" onclick="setFilter('near')">⏳ Near Pivot</button>
+    <button class="filter-btn" data-filter="extended" onclick="setFilter('extended')">📈 Extended</button>
+    <button class="filter-btn" data-filter="nosetup" onclick="setFilter('nosetup')">⏸️ No Setup</button>
+    <span class="filter-count" id="countDisplay">{total} of {total} shown</span>
 </div>
 
-<div class="summary">
-    <div class="summary-item summary-ready"><span class="num">{len(ready)}</span>🔥 Ready Now</div>
-    <div class="summary-item summary-near"><span class="num">{len(near)}</span>⏳ Near Pivot</div>
-    <div class="summary-item summary-extended"><span class="num">{len(extended)}</span>📈 Extended</div>
-    <div class="summary-item summary-none"><span class="num">{len(no_setup)}</span>⏸️ No Setup</div>
+<div class="filter-banner" id="filterBanner">
+  🔍 Filtered: <span id="bannerLabel"></span> <span id="bannerCount"></span>
+  <span class="clear-link" onclick="setFilter('all')">✕ Show all</span>
+</div>
+
+<div class="summary" id="summaryBar">
+    <div class="summary-item summary-ready active" data-section="ready" onclick="scrollToSection('ready')">
+      <span class="num" id="readyCount">{len(ready)}</span>🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near" data-section="near" onclick="scrollToSection('near')">
+      <span class="num" id="nearCount">{len(near)}</span>⏳ Near Pivot
+    </div>
+    <div class="summary-item summary-extended" data-section="extended" onclick="scrollToSection('extended')">
+      <span class="num" id="extendedCount">{len(extended)}</span>📈 Extended
+    </div>
+    <div class="summary-item summary-none" data-section="nosetup" onclick="scrollToSection('nosetup')">
+      <span class="num" id="nosetupCount">{len(no_setup)}</span>⏸️ No Setup
+    </div>
 </div>
 
 {sections}
 
-<div class="footer">Generated {now} · Click a filter to switch view · Stocks can qualify for multiple types</div>
+<div class="footer">
+  Generated {now} · Click section tabs or summary cards to filter · Click column headers to sort · <span id="footerTotal">{total}</span> total candidates
+</div>
 
 <script>
-    function setFilter(filter) {{
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('.filter-btn[data-filter="' + filter + '"]').classList.add('active');
-        let visible = 0;
-        document.querySelectorAll('.stock-row').forEach(row => {{
-            const show = filter === 'all' || row.getAttribute('data-' + filter) === '1';
-            row.style.display = show ? 'table-row' : 'none';
-            const detail = row.nextElementSibling;
-            if (detail && detail.classList.contains('detail-row')) {{
-                detail.style.display = 'none';
-                detail.classList.remove('open');
-            }}
-            if (show) visible++;
-        }});
-        document.getElementById('countDisplay').textContent = 'Showing ' + visible + ' of ' + {total};
+let currentFilter = 'all';
+const TOTAL_STOCKS = document.querySelectorAll('.stock-row').length;
+
+function setFilter(filter) {{
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.filter-btn[data-filter="' + filter + '"]');
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.summary-item').forEach(i => {{
+    i.classList.remove('active');
+    if (i.dataset.section === filter) i.classList.add('active');
+  }});
+  let vis = 0;
+  const sc = {{ready: 0, near: 0, extended: 0, nosetup: 0}};
+  document.querySelectorAll('.stock-row').forEach(row => {{
+    const sec = row.dataset.section;
+    const show = filter === 'all' || sec === filter;
+    row.style.display = show ? 'table-row' : 'none';
+    const d = row.nextElementSibling;
+    if (d && d.classList.contains('detail-row') && !show) {{
+      d.style.display = 'none';
+      d.classList.remove('open');
     }}
+    if (show) {{ vis++; sc[sec] = (sc[sec] || 0) + 1; }}
+  }});
+  document.getElementById('countDisplay').textContent = vis + ' of ' + TOTAL_STOCKS + ' shown';
+  document.getElementById('readyCount').textContent = sc.ready;
+  document.getElementById('nearCount').textContent = sc.near;
+  document.getElementById('extendedCount').textContent = sc.extended;
+  document.getElementById('nosetupCount').textContent = sc.nosetup;
+  for (const sec of ['ready', 'near', 'extended', 'nosetup']) {{
+    const el = document.getElementById(sec + 'Live');
+    if (el) el.textContent = filter === 'all' ? '' : '(' + sc[sec] + ' visible)';
+  }}
+  const banner = document.getElementById('filterBanner');
+  if (filter === 'all') {{
+    banner.classList.remove('visible');
+  }} else {{
+    const labels = {{ready: '🔥 Ready Now', near: '⏳ Near Pivot', extended: '📈 Extended', nosetup: '⏸️ No Setup'}};
+    document.getElementById('bannerLabel').textContent = labels[filter] || filter;
+    document.getElementById('bannerCount').textContent = '(' + vis + ' of ' + TOTAL_STOCKS + ')';
+    banner.classList.add('visible');
+  }}
+  if (filter === 'all') {{
+    history.replaceState(null, '', window.location.pathname);
+  }} else {{
+    history.replaceState(null, '', '#' + filter);
+  }}
+}}
+
+function scrollToSection(sec) {{
+  const el = document.getElementById('section-' + sec);
+  if (el) el.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+}}
+
+function toggleDetail(el) {{
+  const d = el.closest('tr').nextElementSibling;
+  if (d && d.classList.contains('detail-row')) d.classList.toggle('open');
+}}
+
+const sortState = {{}};
+function parseValue(txt, ci) {{
+  const r = txt.replace(/[$,%MB]/g, '').trim();
+  if (ci === 5) return parseFloat(r) || 0;
+  if (ci === 6) return parseFloat(r.replace('x', '')) || 0;
+  if (ci === 7) {{ let v = parseFloat(r) || 0; if (txt.includes('B')) v *= 1000; return v; }}
+  const n = parseFloat(r);
+  return isNaN(n) ? r.toLowerCase() : n;
+}}
+function sortTable(tid, ci, th) {{
+  const tbody = document.getElementById(tid.replace('table-', 'tbody-'));
+  const rows = Array.from(tbody.querySelectorAll('tr.stock-row'));
+  const key = tid + '-' + ci;
+  sortState[key] = sortState[key] === 'asc' ? 'desc' : 'asc';
+  const dir = sortState[key];
+  document.querySelectorAll('#' + tid + ' th').forEach(t => t.classList.remove('sorted'));
+  if (th) th.classList.add('sorted');
+  rows.sort((a, b) => {{
+    const av = parseValue(a.cells[ci].textContent, ci);
+    const bv = parseValue(b.cells[ci].textContent, ci);
+    if (typeof av === 'string') return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return dir === 'asc' ? av - bv : bv - av;
+  }});
+  rows.forEach(r => {{
+    const d = r.nextElementSibling;
+    tbody.appendChild(r);
+    if (d && d.classList.contains('detail-row')) tbody.appendChild(d);
+  }});
+}}
+
+const hash = window.location.hash.replace('#', '');
+if (hash && ['ready', 'near', 'extended', 'nosetup'].includes(hash)) setFilter(hash);
 </script>
 
 </body>
@@ -851,7 +968,10 @@ Examples:
   python3 %(prog)s --profile large-cap --rank-by setup --top 20
 
   # Rank watchlist by entry readiness
-  python3 %(prog)s --ticker-file data/watchlist.csv --rank-by setup --entry-mode pivot
+  python3 %(prog)s --ticker-file data/watchlist.csv --rank-by setup --entry-mode 20d
+
+  # Pocket pivot mode
+  python3 %(prog)s --ticker-file data/watchlist.csv --rank-by setup --entry-mode pp
 
   # Single ticker with MA details
   python3 %(prog)s --tickers AAPL MSFT --show-ma-data
@@ -892,8 +1012,10 @@ Examples:
                              'Add custom profiles as YAML blocks in screener_config.yaml.')
 
     # Entry timing
-    parser.add_argument('--entry-mode', choices=['any', 'pocket', 'pivot', 'volume'], default='any',
-                        help='Entry timing mode (default: any; any tries pocket, pivot, volume in order)')
+    parser.add_argument('--entry-mode', choices=['any', 'pp', '20d'], default='any',
+                        help='Entry timing mode (default: any). '
+                             'pp = pocket pivot only, 20d = 20-day range high only, '
+                             'any = pocket pivot first, then 20d range, then volume, then trend fallback')
     parser.add_argument('--pivot-proximity', type=float, default=5,
                         help='Max %% from pivot (default: 5)')
     parser.add_argument('--min-volume-ratio', type=float, default=1.5,

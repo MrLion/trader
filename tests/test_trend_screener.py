@@ -371,25 +371,28 @@ class TestPocketPivotEntryMode(unittest.TestCase):
         }, index=dates)
 
     def test_pocket_mode_finds_pocket_pivot(self):
-        """Pocket mode should mark entry_ready and setup_type='pocket'."""
+        """pp mode should mark entry_ready and setup_type='pp', with pivot_price set."""
         df = self._make_pocket_pivot_df()
         with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
             with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
                 with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
                     result = self.screener._analyze_ticker(
                         'POCKET',
-                        {'entry_mode': 'pocket', 'stack_short': False, 'stack_long': False},
+                        {'entry_mode': 'pp', 'stack_short': False, 'stack_long': False},
                         'large-cap'
                     )
 
         self.assertIsNotNone(result)
         self.assertTrue(result['entry_ready'])
-        self.assertEqual(result['setup_type'], 'pocket')
+        self.assertEqual(result['setup_type'], 'pp')
         self.assertTrue(result['has_pocket_pivot'])
         self.assertIsNotNone(result['pocket_pivot_price'])
+        # pivot_price (Buy Point) should now be set to the pocket pivot price
+        self.assertIsNotNone(result['pivot_price'])
+        self.assertAlmostEqual(result['pivot_price'], result['pocket_pivot_price'], places=1)
 
     def test_pocket_mode_not_ready_when_far_from_pivot(self):
-        """Pocket mode should not mark entry_ready if price is more than 5%% below the pivot."""
+        """pp mode should not mark entry_ready if price is more than 5%% below the pivot."""
         df = self._make_pocket_pivot_df()
         # Override the current close to 90.00 while forcing detect_pivot to see a
         # pocket pivot at 100.00. Proximity = (100 - 90) / 100 = 10% > 5%.
@@ -413,7 +416,7 @@ class TestPocketPivotEntryMode(unittest.TestCase):
                     with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
                         result = self.screener._analyze_ticker(
                             'POCKET_FAR',
-                            {'entry_mode': 'pocket', 'stack_short': False, 'stack_long': False},
+                            {'entry_mode': 'pp', 'stack_short': False, 'stack_long': False},
                             'large-cap'
                         )
 
@@ -422,8 +425,8 @@ class TestPocketPivotEntryMode(unittest.TestCase):
         self.assertTrue(result['has_pocket_pivot'])
         self.assertEqual(result['pocket_pivot_price'], 100.0)
 
-    def test_any_mode_detects_pocket_pivot_as_signal_overlay(self):
-        """Any mode should detect pocket pivot as a signal, not the primary setup."""
+    def test_any_mode_prefers_pocket_pivot_as_primary(self):
+        """Any mode should use pocket pivot as the primary setup when it exists and is within proximity."""
         df = self._make_pocket_pivot_df()
         with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
             with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
@@ -436,9 +439,10 @@ class TestPocketPivotEntryMode(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertTrue(result['entry_ready'])
-        self.assertNotEqual(result['setup_type'], 'pocket')
+        self.assertEqual(result['setup_type'], 'pp')
         self.assertTrue(result['has_pocket_pivot'])
         self.assertIsNotNone(result['pocket_pivot_price'])
+        self.assertIsNotNone(result['pivot_price'])
 
     def test_any_mode_falls_back_to_trend_when_no_setup(self):
         """Any mode should fall back to setup_type='trend' when no specific setup exists."""
@@ -455,6 +459,83 @@ class TestPocketPivotEntryMode(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result['entry_ready'])
         self.assertEqual(result['setup_type'], 'trend')
+
+    def test_20d_mode_finds_range_pivot(self):
+        """20d mode should find 20-day range high setup with setup_type='20d'."""
+        df = self._make_pocket_pivot_df()
+        # In 20d mode, pocket pivot should NOT be used — only range pivot.
+        # The pocket pivot df should still have a valid 20d range high.
+        with patch.object(self.screener, '_is_rs_near_high', return_value=(True, 5.0)):
+            with patch.object(self.screener, '_calculate_rs', return_value=(10.0, 5.0)):
+                with patch.object(self.screener.alpaca, 'get_bars', return_value=df):
+                    result = self.screener._analyze_ticker(
+                        'RANGE20D',
+                        {'entry_mode': '20d', 'stack_short': False, 'stack_long': False},
+                        'large-cap'
+                    )
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result['entry_ready'])
+        self.assertEqual(result['setup_type'], '20d')
+        self.assertIsNotNone(result['pivot_price'])
+
+
+class TestHtmlOutput(unittest.TestCase):
+    """Tests that the HTML export produces correct badges and structure."""
+
+    @patch('scripts.trend_screener.AlpacaClient', MockAlpacaClient)
+    def setUp(self):
+        import scripts.trend_screener as ts
+        self.ts = ts
+        self.screener = ts.TrendScreener(mode='paper')
+
+    def test_setup_badges_renders_pp(self):
+        """setup_badges should render 'pp' badge for pp setup type."""
+        setup = 'pp'
+        badge_class = {'pp': 'badge-pp', '20d': 'badge-20d'}.get(setup, 'badge-none')
+        badge_html = f'<span class="badge {badge_class}">{setup}</span>'
+        self.assertIn('pp', badge_html)
+        self.assertIn('badge-pp', badge_html)
+        self.assertNotIn('signal-badge', badge_html)
+        self.assertNotIn('pocket $', badge_html)
+
+    def test_setup_badges_renders_20d_for_trend(self):
+        """setup_badges should render '20d' badge for trend setup type."""
+        setup = 'trend'
+        if setup in ('pivot', 'volume', 'trend'):
+            setup = '20d'
+        badge_class = {'pp': 'badge-pp', '20d': 'badge-20d'}.get(setup, 'badge-none')
+        badge_html = f'<span class="badge {badge_class}">{setup}</span>'
+        self.assertIn('20d', badge_html)
+        self.assertIn('badge-20d', badge_html)
+        self.assertNotIn('trend', badge_html)
+
+    def test_no_secondary_pocket_badge_in_html(self):
+        """HTML export should not include secondary pocket badges."""
+        import tempfile, os
+        results = [{
+            'ticker': 'TEST', 'price': 100.0, 'stage2_score': 8,
+            'setup_type': '20d', 'entry_ready': True, 'proximity_pct': 2.0,
+            'volume_ratio': 1.5, 'avg_dollar_volume': 500_000_000,
+            'rs_from_high': 1.0, 'ma10': 99.0, 'ma20': 98.0, 'ma50': 95.0,
+            'ma150': 85.0, 'ma200': 80.0, 'sector': 'Technology',
+            'has_pocket_pivot': True, 'pocket_pivot_price': 98.50,
+            'pivot_price': 102.0,
+        }]
+        fd, tmp_path = tempfile.mkstemp(suffix='.html')
+        os.close(fd)
+        self.screener.export_results(results, 'html', tmp_path)
+        html = open(tmp_path).read()
+        os.unlink(tmp_path)
+        # Should have 20d badge, not pp badge
+        self.assertIn('20d', html)
+        self.assertIn('badge-20d', html)
+        # Should NOT have secondary pocket badge
+        self.assertNotIn('signal-badge', html)
+        self.assertNotIn('signal-pocket', html)
+        self.assertNotIn('pocket $', html)
+        # Should have data-section attribute
+        self.assertIn('data-section=', html)
 
 
 if __name__ == '__main__':
