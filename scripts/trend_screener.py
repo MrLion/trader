@@ -231,8 +231,9 @@ class TrendScreener:
             nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if pocket_signal is None:
                 return False
-            pivot_proximity = ((pocket_signal.pivot_price - current) / pocket_signal.pivot_price) * 100
-            if pivot_proximity <= max_proximity:
+            # Proximity: positive = above buy point, negative = below
+            pivot_proximity = ((current - pocket_signal.pivot_price) / pocket_signal.pivot_price) * 100
+            if -max_proximity <= pivot_proximity <= 2.0:
                 entry_ready = True
                 setup_type = 'pp'
                 proximity_pct = pivot_proximity
@@ -244,8 +245,8 @@ class TrendScreener:
             """Try 20-day range high pivot. Returns True if a valid setup is found."""
             nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if pivot_data_20d['valid']:
-                pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
-                if pivot_proximity <= max_proximity:
+                pivot_proximity = ((current - pivot_data_20d['pivot_high']) / pivot_data_20d['pivot_high']) * 100
+                if -max_proximity <= pivot_proximity <= 2.0:
                     entry_ready = True
                     setup_type = '20d'
                     proximity_pct = pivot_proximity
@@ -257,8 +258,8 @@ class TrendScreener:
             """Try volume spike near a 20-day range high. Returns True if valid."""
             nonlocal entry_ready, setup_type, proximity_pct, pivot_price
             if volume_ratio >= filters.get('min_volume_ratio', 1.5) and pivot_data_20d['valid']:
-                pivot_proximity = ((pivot_data_20d['pivot_high'] - current) / pivot_data_20d['pivot_high']) * 100
-                if pivot_proximity <= max_proximity:
+                pivot_proximity = ((current - pivot_data_20d['pivot_high']) / pivot_data_20d['pivot_high']) * 100
+                if -max_proximity <= pivot_proximity <= 2.0:
                     entry_ready = True
                     setup_type = '20d'
                     proximity_pct = pivot_proximity
@@ -266,20 +267,67 @@ class TrendScreener:
                     return True
             return False
 
+        def _try_any_mode():
+            """In any mode, evaluate both pocket pivot and 20d range high. Lower risk wins."""
+            nonlocal entry_ready, setup_type, proximity_pct, pivot_price
+
+            pp_ready = False
+            pp_risk = None
+            if pocket_signal is not None:
+                pp_prox = ((current - pocket_signal.pivot_price) / pocket_signal.pivot_price) * 100
+                if -max_proximity <= pp_prox <= 2.0 and pocket_signal.stop_price is not None:
+                    pp_ready = True
+                    pp_risk = pocket_signal.pivot_price - pocket_signal.stop_price
+                elif -max_proximity <= pp_prox <= 2.0:
+                    pp_ready = True
+                    pp_risk = None
+
+            range_ready = False
+            range_risk = None
+            if pivot_data_20d['valid']:
+                range_prox = ((current - pivot_data_20d['pivot_high']) / pivot_data_20d['pivot_high']) * 100
+                if -max_proximity <= range_prox <= 2.0:
+                    range_ready = True
+                    range_risk = pivot_data_20d['pivot_high'] - pivot_data_20d['stop_low']
+
+            if pp_ready and range_ready and pp_risk is not None and range_risk is not None:
+                # Lower risk wins
+                if pp_risk <= range_risk:
+                    entry_ready = True
+                    setup_type = 'pp'
+                    proximity_pct = ((current - pocket_signal.pivot_price) / pocket_signal.pivot_price) * 100
+                    pivot_price = round(pocket_signal.pivot_price, 2)
+                else:
+                    entry_ready = True
+                    setup_type = '20d'
+                    proximity_pct = ((current - pivot_data_20d['pivot_high']) / pivot_data_20d['pivot_high']) * 100
+                    pivot_price = round(pivot_data_20d['pivot_high'], 2)
+            elif pp_ready:
+                entry_ready = True
+                setup_type = 'pp'
+                proximity_pct = ((current - pocket_signal.pivot_price) / pocket_signal.pivot_price) * 100
+                pivot_price = round(pocket_signal.pivot_price, 2)
+            elif range_ready:
+                entry_ready = True
+                setup_type = '20d'
+                proximity_pct = ((current - pivot_data_20d['pivot_high']) / pivot_data_20d['pivot_high']) * 100
+                pivot_price = round(pivot_data_20d['pivot_high'], 2)
+
         if entry_mode == 'pp':
             _try_pocket_pivot_setup()
         elif entry_mode == '20d':
             _try_range_pivot() or _try_volume_pivot()
         elif entry_mode == 'any':
-            # Priority: pocket pivot → 20d range → volume → trend fallback.
-            _try_pocket_pivot_setup() or _try_range_pivot() or _try_volume_pivot()
+            _try_any_mode()
 
         if entry_mode == 'any' and not entry_ready:
             entry_ready = True
             setup_type = 'trend'
-            proximity_pct = abs(price_vs_10ma)
             if range20_high:
                 pivot_price = round(range20_high, 2)
+                proximity_pct = ((current - range20_high) / range20_high) * 100
+            else:
+                proximity_pct = abs(price_vs_10ma)
 
         # === COMPILE RESULT ===
 
@@ -400,10 +448,7 @@ class TrendScreener:
             return []
 
         if rank_by == 'setup':
-            return sorted(results, key=lambda x: (
-                not x['entry_ready'],
-                x['proximity_pct'],
-            ))
+            return sorted(results, key=lambda x: abs(x['proximity_pct']))
 
         elif rank_by == 'rs':
             return sorted(results, key=lambda x: x['rs_from_high'])
@@ -654,26 +699,24 @@ class TrendScreener:
 
         def section_html(title: str, icon: str, rows: List[Dict], css_class: str, section_id: str) -> str:
             header = (
-                '<tr>'
                 '<th onclick="sortTable(\'table-{sid}\', 0, this)">Ticker <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 1, this)">Price <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>'
                 '<th>Setup</th>'
-                '<th onclick="sortTable(\'table-{sid}\', 5, this)">To Pivot <span class="sort-arrow">↕</span></th>'
+                '<th onclick="sortTable(\'table-{sid}\', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>'
                 '<th onclick="sortTable(\'table-{sid}\', 8, this)">RS from High <span class="sort-arrow">↕</span></th>'
                 '<th>Sector</th>'
                 '<th></th>'
-                '</tr>'
             ).format(sid=section_id)
             body = "".join(ticker_row(r, section_id, css_class) for r in rows)
             count = len(rows)
             empty_html = ""
             table_style = ""
             if count == 0:
-                empty_html = f'<div class="empty-state" id="{section_id}Empty">🎉 No stocks in this category.</div>'
+                empty_html = f'<div class="empty-state" id="{section_id}Empty">📭 No stocks in this category.</div>'
                 table_style = ' style="display:none;"'
             return (
                 f'<div class="section" id="section-{section_id}">'
@@ -687,16 +730,32 @@ class TrendScreener:
                 f'</div>'
             )
 
-        ready = [r for r in results if r.get('entry_ready') and r.get('setup_type') in ('pp', '20d')]
-        near = [r for r in results if r.get('entry_ready') and r.get('setup_type') == 'trend']
-        extended = [r for r in results if not r.get('entry_ready') and r.get('setup_type') != 'none']
-        no_setup = [r for r in results if r.get('setup_type') == 'none']
+        def classify_section(r: Dict) -> str:
+            bp = r.get('pivot_price')
+            if bp is None or bp == 0:
+                return 'nosetup'
+            prox = r.get('proximity_pct', ((r['price'] - bp) / bp) * 100)
+            if -2.0 <= prox <= 2.0:
+                return 'ready'
+            elif prox > 2.0:
+                return 'extended'
+            elif prox >= -5.0:
+                return 'near'
+            else:
+                return 'developing'
+
+        # Classify all results by proximity to buy point
+        section_map = {'ready': [], 'near': [], 'extended': [], 'developing': [], 'nosetup': []}
+        for r in results:
+            sec = classify_section(r)
+            section_map[sec].append(r)
 
         sections = "".join([
-            section_html("Ready Now", "🔥", ready, "row-ready", "ready"),
-            section_html("Near Pivot", "⏳", near, "row-near", "near"),
-            section_html("Extended", "📈", extended, "row-extended", "extended"),
-            section_html("No Setup", "⏸️", no_setup, "row-nosetup", "nosetup"),
+            section_html("Ready Now", "🔥", section_map['ready'], "row-ready", "ready"),
+            section_html("Near Pivot", "⏳", section_map['near'], "row-near", "near"),
+            section_html("Extended", "📈", section_map['extended'], "row-extended", "extended"),
+            section_html("Developing", "🔵", section_map['developing'], "row-developing", "developing"),
+            section_html("No Setup", "⏸️", section_map['nosetup'], "row-nosetup", "nosetup"),
         ])
 
         html = f"""<!DOCTYPE html>
@@ -725,6 +784,7 @@ h1 {{ font-size: 22px; font-weight: 600; margin-bottom: 4px; }}
 .summary-ready .num {{ color: #22c55e; }}
 .summary-near .num {{ color: #eab308; }}
 .summary-extended .num {{ color: #f97316; }}
+.summary-developing .num {{ color: #60a5fa; }}
 .summary-none .num {{ color: #64748b; }}
 
 .filters {{ display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }}
@@ -773,6 +833,7 @@ td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
 .row-ready td {{ background: #052e16; }}
 .row-near td {{ background: #422006; }}
 .row-extended td {{ background: #431407; }}
+.row-developing td {{ background: #0a1a2e; }}
 .row-nosetup td {{ background: transparent; color: #475569; }}
 
 .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }}
@@ -816,6 +877,7 @@ td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
     <button class="filter-btn" data-filter="ready" onclick="setFilter('ready')">🔥 Ready Now</button>
     <button class="filter-btn" data-filter="near" onclick="setFilter('near')">⏳ Near Pivot</button>
     <button class="filter-btn" data-filter="extended" onclick="setFilter('extended')">📈 Extended</button>
+    <button class="filter-btn" data-filter="developing" onclick="setFilter('developing')">🔵 Developing</button>
     <button class="filter-btn" data-filter="nosetup" onclick="setFilter('nosetup')">⏸️ No Setup</button>
     <span class="filter-count" id="countDisplay">{total} of {total} shown</span>
 </div>
@@ -827,16 +889,19 @@ td {{ padding: 8px 10px; border-bottom: 1px solid #1e2030; }}
 
 <div class="summary" id="summaryBar">
     <div class="summary-item summary-ready active" data-section="ready" onclick="scrollToSection('ready')">
-      <span class="num" id="readyCount">{len(ready)}</span>🔥 Ready Now
+      <span class="num" id="readyCount">{len(section_map['ready'])}</span>🔥 Ready Now
     </div>
     <div class="summary-item summary-near" data-section="near" onclick="scrollToSection('near')">
-      <span class="num" id="nearCount">{len(near)}</span>⏳ Near Pivot
+      <span class="num" id="nearCount">{len(section_map['near'])}</span>⏳ Near Pivot
     </div>
     <div class="summary-item summary-extended" data-section="extended" onclick="scrollToSection('extended')">
-      <span class="num" id="extendedCount">{len(extended)}</span>📈 Extended
+      <span class="num" id="extendedCount">{len(section_map['extended'])}</span>📈 Extended
+    </div>
+    <div class="summary-item summary-developing" data-section="developing" onclick="scrollToSection('developing')">
+      <span class="num" id="developingCount">{len(section_map['developing'])}</span>🔵 Developing
     </div>
     <div class="summary-item summary-none" data-section="nosetup" onclick="scrollToSection('nosetup')">
-      <span class="num" id="nosetupCount">{len(no_setup)}</span>⏸️ No Setup
+      <span class="num" id="nosetupCount">{len(section_map['nosetup'])}</span>⏸️ No Setup
     </div>
 </div>
 
@@ -860,7 +925,7 @@ function setFilter(filter) {{
     if (i.dataset.section === filter) i.classList.add('active');
   }});
   let vis = 0;
-  const sc = {{ready: 0, near: 0, extended: 0, nosetup: 0}};
+  const sc = {{ready: 0, near: 0, extended: 0, developing: 0, nosetup: 0}};
   document.querySelectorAll('.stock-row').forEach(row => {{
     const sec = row.dataset.section;
     const show = filter === 'all' || sec === filter;
@@ -876,8 +941,9 @@ function setFilter(filter) {{
   document.getElementById('readyCount').textContent = sc.ready;
   document.getElementById('nearCount').textContent = sc.near;
   document.getElementById('extendedCount').textContent = sc.extended;
+  document.getElementById('developingCount').textContent = sc.developing;
   document.getElementById('nosetupCount').textContent = sc.nosetup;
-  for (const sec of ['ready', 'near', 'extended', 'nosetup']) {{
+  for (const sec of ['ready', 'near', 'extended', 'developing', 'nosetup']) {{
     const el = document.getElementById(sec + 'Live');
     if (el) el.textContent = filter === 'all' ? '' : '(' + sc[sec] + ' visible)';
   }}
@@ -885,7 +951,7 @@ function setFilter(filter) {{
   if (filter === 'all') {{
     banner.classList.remove('visible');
   }} else {{
-    const labels = {{ready: '🔥 Ready Now', near: '⏳ Near Pivot', extended: '📈 Extended', nosetup: '⏸️ No Setup'}};
+    const labels = {{ready: '🔥 Ready Now', near: '⏳ Near Pivot', extended: '📈 Extended', developing: '🔵 Developing', nosetup: '⏸️ No Setup'}};
     document.getElementById('bannerLabel').textContent = labels[filter] || filter;
     document.getElementById('bannerCount').textContent = '(' + vis + ' of ' + TOTAL_STOCKS + ')';
     banner.classList.add('visible');
@@ -938,7 +1004,7 @@ function sortTable(tid, ci, th) {{
 }}
 
 const hash = window.location.hash.replace('#', '');
-if (hash && ['ready', 'near', 'extended', 'nosetup'].includes(hash)) setFilter(hash);
+if (hash && ['ready', 'near', 'extended', 'developing', 'nosetup'].includes(hash)) setFilter(hash);
 </script>
 
 </body>
@@ -1016,8 +1082,8 @@ Examples:
                         help='Entry timing mode (default: any). '
                              'pp = pocket pivot only, 20d = 20-day range high only, '
                              'any = pocket pivot first, then 20d range, then volume, then trend fallback')
-    parser.add_argument('--pivot-proximity', type=float, default=5,
-                        help='Max %% from pivot (default: 5)')
+    parser.add_argument('--pivot-proximity', type=float, default=3,
+                        help='Max %% from buy point (default: 3)')
     parser.add_argument('--min-volume-ratio', type=float, default=1.5,
                         help='Min volume vs 50-day avg for volume mode (default: 1.5)')
 

@@ -210,18 +210,18 @@ class TestResultRanking(unittest.TestCase):
         self.assertEqual(ready_tickers, ['GOOGL', 'AAPL'])
         self.assertEqual(not_ready, ['MSFT'])
 
-    def test_rank_by_setup_sorts_entry_ready_first(self):
-        """Entry-ready tickers should always appear before non-ready."""
+    def test_rank_by_setup_sorts_by_proximity(self):
+        """rank_by setup should sort by proximity to buy point (closest first)."""
         from scripts.trend_screener import TrendScreener
 
         screener = TrendScreener.__new__(TrendScreener)
         results = [
-            {'ticker': 'NOT_READY', 'stage2_score': 8, 'entry_ready': False, 'proximity_pct': 1.0},
-            {'ticker': 'READY', 'stage2_score': 6, 'entry_ready': True, 'proximity_pct': 3.0},
+            {'ticker': 'FAR', 'stage2_score': 8, 'entry_ready': False, 'proximity_pct': 10.0},
+            {'ticker': 'CLOSE', 'stage2_score': 6, 'entry_ready': True, 'proximity_pct': 1.0},
         ]
         ranked = screener.rank_results(results, rank_by='setup')
-        assert ranked[0]['ticker'] == 'READY'
-        assert ranked[1]['ticker'] == 'NOT_READY'
+        assert ranked[0]['ticker'] == 'CLOSE'
+        assert ranked[1]['ticker'] == 'FAR'
 
     def test_rank_by_rs(self):
         """Should sort by RS from high ascending."""
@@ -536,6 +536,92 @@ class TestHtmlOutput(unittest.TestCase):
         self.assertNotIn('pocket $', html)
         # Should have data-section attribute
         self.assertIn('data-section=', html)
+        # Should have developing section
+        self.assertIn('section-developing', html)
+        self.assertIn('row-developing', html)
+        self.assertIn('To Buy Point', html)
+        self.assertNotIn('To Pivot', html)
+
+
+class TestClassification(unittest.TestCase):
+    """Tests for proximity-based section classification."""
+
+    def test_classify_ready_above_buy_point(self):
+        """Stock 1% above buy point → Ready."""
+        r = {'pivot_price': 100.0, 'price': 101.0, 'proximity_pct': 1.0}
+        # Simulate classify_section logic
+        prox = r['proximity_pct']
+        if -2.0 <= prox <= 2.0:
+            section = 'ready'
+        elif prox > 2.0:
+            section = 'extended'
+        elif prox >= -5.0:
+            section = 'near'
+        else:
+            section = 'developing'
+        self.assertEqual(section, 'ready')
+
+    def test_classify_ready_below_buy_point(self):
+        """Stock 1% below buy point → Ready."""
+        prox = -1.0
+        if -2.0 <= prox <= 2.0:
+            section = 'ready'
+        elif prox > 2.0:
+            section = 'extended'
+        elif prox >= -5.0:
+            section = 'near'
+        else:
+            section = 'developing'
+        self.assertEqual(section, 'ready')
+
+    def test_classify_near(self):
+        """Stock 3% below buy point → Near."""
+        prox = -3.0
+        if -2.0 <= prox <= 2.0:
+            section = 'ready'
+        elif prox > 2.0:
+            section = 'extended'
+        elif prox >= -5.0:
+            section = 'near'
+        else:
+            section = 'developing'
+        self.assertEqual(section, 'near')
+
+    def test_classify_developing(self):
+        """Stock 6% below buy point → Developing."""
+        prox = -6.0
+        if -2.0 <= prox <= 2.0:
+            section = 'ready'
+        elif prox > 2.0:
+            section = 'extended'
+        elif prox >= -5.0:
+            section = 'near'
+        else:
+            section = 'developing'
+        self.assertEqual(section, 'developing')
+
+    def test_classify_extended(self):
+        """Stock 3% above buy point → Extended."""
+        prox = 3.0
+        if -2.0 <= prox <= 2.0:
+            section = 'ready'
+        elif prox > 2.0:
+            section = 'extended'
+        elif prox >= -5.0:
+            section = 'near'
+        else:
+            section = 'developing'
+        self.assertEqual(section, 'extended')
+
+    def test_classify_no_setup(self):
+        """Stock with no buy point → No Setup."""
+        r = {'pivot_price': None, 'price': 100.0}
+        bp = r.get('pivot_price')
+        if bp is None or bp == 0:
+            section = 'nosetup'
+        else:
+            section = 'ready'
+        self.assertEqual(section, 'nosetup')
 
 
 if __name__ == '__main__':

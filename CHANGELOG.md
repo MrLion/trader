@@ -1,3 +1,26 @@
+## [0.6.19.19] — 2026-06-20 — Fix — Proximity-based section classification + lower-risk entry selection
+
+### Fixed
+- **`scripts/trend_screener.py`** — Section classification rewritten from `entry_ready + setup_type` proxy to proximity-based logic. Stocks now classified by actual distance to buy point: Ready (±2%), Near (2-5% below), Extended (>2% above), Developing (>5% below), No Setup (no buy point). Previous logic dumped all 87 stocks into Ready Now when pocket pivot became default priority.
+- **`scripts/trend_screener.py`** — Proximity check fixed in all three setup detectors. Previous `proximity <= 5` passed for any negative value (stocks 18% above buy point classified as Ready). Now uses `-max_proximity <= proximity <= 2.0`.
+- **`scripts/trend_screener.py`** — Proximity sign flipped from `((buy_point - current) / buy_point) * 100` to `((current - buy_point) / buy_point) * 100`. Positive = above buy point, negative = below. Reads naturally like price changes.
+- **`scripts/trend_screener.py`** — `any` mode now evaluates both pocket pivot and 20d range high, computes risk for each (`buy_point - stop_price`), and selects the entry with lower risk. Previously pocket pivot intercepted all 87 stocks blindly.
+- **`scripts/trend_screener.py`** — Double `<tr>` bug in thead fixed (pre-existing from v0.6.19.18).
+- **`scripts/trend_screener.py`** — Trend fallback proximity now computes from buy point instead of 10-day MA.
+- **`scripts/trend_screener.py`** — `rank_results` now sorts by `abs(proximity_pct)` (closest to buy point first) instead of `entry_ready`.
+
+### Changed
+- **`scripts/trend_screener.py`** — `--pivot-proximity` default changed from 5 to 3.
+- **`scripts/trend_screener.py`** — Column label "To Pivot" → "To Buy Point".
+- **`scripts/trend_screener.py`** — HTML template: 5 sections (Ready Now → Near Pivot → Extended → Developing → No Setup), blue color for Developing, filter tabs and summary cards updated, all sections always rendered with empty states, JavaScript updated for 5 sections.
+- **`AGENTS.md`** — Entry protocol: "Within 1-2% of buy point. >3% past = PASS" → "Within ±2% of buy point. >2% past = PASS".
+- **`tests/test_trend_screener.py`** — Updated ranking test for proximity-based sort. Added `TestClassification` with 6 boundary tests. Updated HTML output test for Developing section and "To Buy Point" label.
+
+### Added
+- **`plans/classification-logic-fix.md`** — Implementation plan documenting proximity-based classification, lower-risk entry selection, and all design decisions.
+
+---
+
 ## [0.6.19.18] — 2026-06-19 — Improvement — Trend screener UX overhaul: setup/buy point 1:1 pairing + interactive HTML
 
 ### Changed

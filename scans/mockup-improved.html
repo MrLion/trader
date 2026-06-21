@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trend Screener</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f1117; color: #e2e8f0; padding: 24px 32px; max-width: 1200px; margin: 0 auto;
+}
+h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+.summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-item {
+  padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  background: #1a1d27; border: 1px solid #2a2d3a; cursor: pointer;
+  transition: all 0.15s; user-select: none;
+}
+.summary-item:hover { border-color: #60a5fa; transform: translateY(-1px); }
+.summary-item.active { border-color: #60a5fa; box-shadow: 0 0 0 1px #60a5fa; }
+.summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+.summary-ready .num { color: #22c55e; }
+.summary-near .num { color: #eab308; }
+.summary-developing .num { color: #60a5fa; }
+.summary-extended .num { color: #f97316; }
+.summary-none .num { color: #64748b; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+.filter-btn {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+  cursor: pointer; transition: all 0.15s;
+}
+.filter-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+.filter-btn.active { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+.filter-count { color: #64748b; font-size: 12px; margin-left: 4px; }
+
+.filter-banner {
+  display: none; align-items: center; gap: 12px;
+  padding: 8px 14px; margin-bottom: 16px; border-radius: 6px;
+  background: #1e3a5f; border: 1px solid #3b82f6; font-size: 13px;
+}
+.filter-banner.visible { display: flex; }
+.filter-banner .clear-link { color: #60a5fa; cursor: pointer; font-weight: 500; margin-left: auto; }
+.filter-banner .clear-link:hover { color: #93c5fd; text-decoration: underline; }
+
+.section { margin-bottom: 28px; }
+.section-title {
+  font-size: 15px; font-weight: 600; margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid #2a2d3a;
+  position: sticky; top: 0; background: #0f1117; z-index: 10; padding-top: 4px;
+}
+.section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+.section-title .live-count { color: #94a3b8; font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+.empty-state {
+  padding: 24px; text-align: center; color: #475569; font-size: 13px;
+  border: 1px dashed #2a2d3a; border-radius: 8px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 8px 10px; font-weight: 500; color: #94a3b8;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid #2a2d3a; cursor: pointer; user-select: none; white-space: nowrap;
+}
+th:hover { color: #e2e8f0; }
+th .sort-arrow { font-size: 10px; margin-left: 3px; opacity: 0.4; }
+th.sorted .sort-arrow { opacity: 1; color: #60a5fa; }
+td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+.row-ready td { background: #052e16; }
+.row-near td { background: #422006; }
+.row-developing td { background: #0a1a2e; }
+.row-extended td { background: #431407; }
+.row-nosetup td { background: transparent; color: #475569; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.badge-20d { background: #1e3a5f; color: #60a5fa; }
+.badge-pp { background: #3a1a1a; color: #f87171; }
+.badge-none { background: #1a1d27; color: #64748b; }
+.badge-sector { background: #1a1d27; color: #94a3b8; font-size: 10px; }
+
+.s2-dots { display: flex; gap: 2px; align-items: center; }
+.s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+.s2-dot.on { background: #22c55e; }
+.s2-dot.off { background: #2a2d3a; }
+
+.vol-high { color: #22c55e; font-weight: 600; }
+.vol-ok { color: #e2e8f0; }
+.vol-low { color: #64748b; }
+.prox-close { color: #22c55e; }
+.prox-near { color: #eab308; }
+.prox-far { color: #f97316; }
+.dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+.buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+.detail-row { display: none; }
+.detail-row.open { display: table-row; }
+.detail-cell { padding: 8px 10px 12px 10px; background: #0a0c12; font-size: 12px; color: #64748b; }
+.detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+.detail-cell .ma-item span { color: #94a3b8; }
+.toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+.toggle-detail:hover { color: #e2e8f0; }
+
+.footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+</style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-20 19:10 ET · 87 candidates</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="ready" onclick="setFilter('ready')">🔥 Ready Now</button>
+    <button class="filter-btn" data-filter="near" onclick="setFilter('near')">⏳ Near Pivot</button>
+    
+    <button class="filter-btn" data-filter="extended" onclick="setFilter('extended')">📈 Extended</button>
+    <button class="filter-btn" data-filter="developing" onclick="setFilter('developing')">🔵 Developing</button>
+    <button class="filter-btn" data-filter="nosetup" onclick="setFilter('nosetup')">⏸️ No Setup</button>
+    <span class="filter-count" id="countDisplay">87 of 87 shown</span>
+</div>
+
+<div class="filter-banner" id="filterBanner">
+  🔍 Filtered: <span id="bannerLabel"></span> <span id="bannerCount"></span>
+  <span class="clear-link" onclick="setFilter('all')">✕ Show all</span>
+</div>
+
+<div class="summary" id="summaryBar">
+    <div class="summary-item summary-ready active" data-section="ready" onclick="scrollToSection('ready')">
+      <span class="num" id="readyCount">60</span>🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near" data-section="near" onclick="scrollToSection('near')">
+      <span class="num" id="nearCount">9</span>⏳ Near Pivot
+    </div>
+    
+    <div class="summary-item summary-extended" data-section="extended" onclick="scrollToSection('extended')">
+      <span class="num" id="extendedCount">18</span>📈 Extended
+    </div>
+    <div class="summary-item summary-developing" data-section="developing" onclick="scrollToSection('developing')">
+      <span class="num" id="developingCount">0</span>🔵 Developing
+    </div>
+    <div class="summary-item summary-none" data-section="nosetup" onclick="scrollToSection('nosetup')">
+      <span class="num" id="nosetupCount">0</span>⏸️ No Setup
+    </div>
+</div>
+
+<div class="section" id="section-ready">
+  <div class="section-title">🔥 Ready Now <span class="count">60</span><span class="live-count" id="readyLive"></span></div>
+  <table id="table-ready">
+    <thead><tr>
+      <th onclick="sortTable('table-ready', 0, this)">Ticker <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 1, this)">Price <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>
+      <th>Setup</th>
+      <th onclick="sortTable('table-ready', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-ready', 8, this)">RS from High <span class="sort-arrow">↕</span></th>
+      <th>Sector</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="tbody-ready"></tbody>
+  </table>
+</div>
+
+<div class="section" id="section-near">
+  <div class="section-title">⏳ Near Pivot <span class="count">9</span><span class="live-count" id="nearLive"></span></div>
+  <table id="table-near">
+    <thead><tr>
+      <th onclick="sortTable('table-near', 0, this)">Ticker <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 1, this)">Price <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>
+      <th>Setup</th>
+      <th onclick="sortTable('table-near', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-near', 8, this)">RS from High <span class="sort-arrow">↕</span></th>
+      <th>Sector</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="tbody-near"></tbody>
+  </table>
+</div>
+
+<div class="section" id="section-extended">
+  <div class="section-title">📈 Extended <span class="count">18</span><span class="live-count" id="extendedLive"></span></div>
+  <table id="table-extended">
+    <thead><tr>
+      <th onclick="sortTable('table-extended', 0, this)">Ticker <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 1, this)">Price <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>
+      <th>Setup</th>
+      <th onclick="sortTable('table-extended', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-extended', 8, this)">RS from High <span class="sort-arrow">↕</span></th>
+      <th>Sector</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="tbody-extended"></tbody>
+  </table>
+</div>
+
+<div class="section" id="section-developing">
+  <div class="section-title">🔵 Developing <span class="count">0</span><span class="live-count" id="developingLive"></span></div>
+  <div class="empty-state" id="developingEmpty">📭 No developing setups today.</div>
+  <table id="table-developing" style="display:none;">
+    <thead><tr>
+      <th onclick="sortTable('table-developing', 0, this)">Ticker <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 1, this)">Price <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>
+      <th>Setup</th>
+      <th onclick="sortTable('table-developing', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-developing', 8, this)">RS from High <span class="sort-arrow">↕</span></th>
+      <th>Sector</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="tbody-developing"></tbody>
+  </table>
+</div>
+
+<div class="section" id="section-nosetup">
+  <div class="section-title">⏸️ No Setup <span class="count">0</span><span class="live-count" id="nosetupLive"></span></div>
+  <div class="empty-state" id="nosetupEmpty">🎉 No stocks without setups today. Clean scan.</div>
+  <table id="table-nosetup" style="display:none;">
+    <thead><tr>
+      <th onclick="sortTable('table-nosetup', 0, this)">Ticker <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 1, this)">Price <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 2, this)">Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 3, this)">Stage 2 <span class="sort-arrow">↕</span></th>
+      <th>Setup</th>
+      <th onclick="sortTable('table-nosetup', 5, this)">To Buy Point <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 6, this)">Vol Ratio <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 7, this)">Dollar Vol <span class="sort-arrow">↕</span></th>
+      <th onclick="sortTable('table-nosetup', 8, this)">RS from High <span class="sort-arrow">↕</span></th>
+      <th>Sector</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="tbody-nosetup"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  Generated 2026-06-20 19:10 ET · Click section tabs or summary cards to filter · Click column headers to sort · <span id="footerTotal">87</span> total candidates
+</div>
+
+<script>
+const STOCKS = [
+{"ticker":"CRDO","price":"271.83","buy_point":"229.00","s2_score":10,"setup_type":"pp","proximity":"+18.70%","prox_class":"far","vol_ratio":"1.1","vol_class":"low","dollar_vol":"2.2B","rs_from_high":"0.0%","sector":"Technology","section":"extended","mas":{"MA10":"243.65","MA20":"231.84","MA50":"197.33","MA150":"153.61","MA200":"153.60"}},
+{"ticker":"AEHR","price":"115.30","buy_point":"97.36","s2_score":10,"setup_type":"pp","proximity":"+18.43%","prox_class":"far","vol_ratio":"0.5","vol_class":"low","dollar_vol":"331M","rs_from_high":"1.1%","sector":"Technology","section":"extended","mas":{"MA10":"104.18","MA20":"103.60","MA50":"94.47","MA150":"51.21","MA200":"45.23"}},
+{"ticker":"MU","price":"1133.99","buy_point":"971.00","s2_score":10,"setup_type":"pp","proximity":"+16.79%","prox_class":"far","vol_ratio":"1.3","vol_class":"low","dollar_vol":"56.4B","rs_from_high":"0.0%","sector":"Technology","section":"extended","mas":{"MA10":"990.45","MA20":"965.58","MA50":"732.80","MA150":"472.07","MA200":"400.62"}},
+{"ticker":"SNDK","price":"2184.75","buy_point":"1881.51","s2_score":10,"setup_type":"pp","proximity":"+16.12%","prox_class":"far","vol_ratio":"0.9","vol_class":"low","dollar_vol":"30.1B","rs_from_high":"0.0%","sector":"Technology","section":"extended","mas":{"MA10":"1859.57","MA20":"1760.08","MA50":"1399.86","MA150":"772.27","MA200":"613.26"}},
+{"ticker":"BTSG","price":"66.25","buy_point":"61.68","s2_score":10,"setup_type":"pp","proximity":"+7.41%","prox_class":"far","vol_ratio":"2.4","vol_class":"low","dollar_vol":"199M","rs_from_high":"0.0%","sector":"Healthcare","section":"extended","mas":{"MA10":"62.34","MA20":"61.04","MA50":"54.90","MA150":"44.17","MA200":"40.52"}},
+{"ticker":"BNY","price":"143.63","buy_point":"134.99","s2_score":10,"setup_type":"pp","proximity":"+6.40%","prox_class":"far","vol_ratio":"1.9","vol_class":"low","dollar_vol":"534M","rs_from_high":"1.7%","sector":"Financial Services","section":"extended","mas":{"MA10":"142.99","MA20":"141.86","MA50":"136.74","MA150":"122.80","MA200":"117.98"}},
+{"ticker":"RY","price":"201.56","buy_point":"189.53","s2_score":10,"setup_type":"pp","proximity":"+6.35%","prox_class":"far","vol_ratio":"1.4","vol_class":"low","dollar_vol":"317M","rs_from_high":"0.0%","sector":"Financial Services","section":"extended","mas":{"MA10":"198.61","MA20":"194.41","MA50":"184.80","MA150":"170.45","MA200":"163.79"}},
+{"ticker":"RRX","price":"226.78","buy_point":"213.30","s2_score":10,"setup_type":"pp","proximity":"+6.32%","prox_class":"far","vol_ratio":"0.9","vol_class":"low","dollar_vol":"245M","rs_from_high":"2.0%","sector":"Industrials","section":"extended","mas":{"MA10":"214.17","MA20":"210.22","MA50":"208.64","MA150":"183.41","MA200":"173.03"}},
+{"ticker":"STT","price":"168.31","buy_point":"158.52","s2_score":10,"setup_type":"pp","proximity":"+6.18%","prox_class":"far","vol_ratio":"3.3","vol_class":"low","dollar_vol":"369M","rs_from_high":"1.7%","sector":"Financial Services","section":"extended","mas":{"MA10":"165.92","MA20":"161.83","MA50":"154.24","MA150":"135.00","MA200":"129.49"}},
+{"ticker":"C","price":"143.06","buy_point":"135.15","s2_score":10,"setup_type":"pp","proximity":"+5.85%","prox_class":"far","vol_ratio":"2.5","vol_class":"low","dollar_vol":"1.7B","rs_from_high":"0.5%","sector":"Financial Services","section":"extended","mas":{"MA10":"138.28","MA20":"133.07","MA50":"129.38","MA150":"117.34","MA200":"112.47"}},
+{"ticker":"VIK","price":"97.17","buy_point":"92.55","s2_score":10,"setup_type":"pp","proximity":"+4.99%","prox_class":"near","vol_ratio":"0.8","vol_class":"low","dollar_vol":"310M","rs_from_high":"0.0%","sector":"Consumer Cyclical","section":"extended","mas":{"MA10":"92.40","MA20":"90.84","MA50":"85.41","MA150":"75.93","MA200":"72.16"}},
+{"ticker":"AMKR","price":"90.46","buy_point":"86.55","s2_score":10,"setup_type":"pp","proximity":"+4.52%","prox_class":"near","vol_ratio":"1.0","vol_class":"low","dollar_vol":"497M","rs_from_high":"0.0%","sector":"Technology","section":"extended","mas":{"MA10":"78.16","MA20":"74.74","MA50":"71.60","MA150":"53.62","MA200":"47.69"}},
+{"ticker":"BAC","price":"56.20","buy_point":"53.89","s2_score":8,"setup_type":"pp","proximity":"+4.29%","prox_class":"near","vol_ratio":"1.9","vol_class":"low","dollar_vol":"2.0B","rs_from_high":"1.1%","sector":"Financial Services","section":"extended","mas":{"MA10":"55.30","MA20":"53.49","MA50":"52.64","MA150":"52.06","MA200":"51.70"}},
+{"ticker":"SPG","price":"211.33","buy_point":"203.43","s2_score":10,"setup_type":"pp","proximity":"+3.88%","prox_class":"near","vol_ratio":"2.2","vol_class":"low","dollar_vol":"347M","rs_from_high":"3.5%","sector":"Real Estate","section":"extended","mas":{"MA10":"212.38","MA20":"207.61","MA50":"203.12","MA150":"190.50","MA200":"186.44"}},
+{"ticker":"UDOW","price":"67.53","buy_point":"65.07","s2_score":10,"setup_type":"pp","proximity":"+3.78%","prox_class":"near","vol_ratio":"0.6","vol_class":"low","dollar_vol":"201M","rs_from_high":"2.8%","sector":"Financial Services","section":"extended","mas":{"MA10":"66.03","MA20":"65.62","MA50":"62.03","MA150":"58.99","MA200":"57.59"}},
+{"ticker":"TJX","price":"163.81","buy_point":"159.21","s2_score":10,"setup_type":"pp","proximity":"+2.89%","prox_class":"near","vol_ratio":"1.6","vol_class":"low","dollar_vol":"912M","rs_from_high":"2.7%","sector":"Consumer Cyclical","section":"extended","mas":{"MA10":"165.13","MA20":"160.78","MA50":"157.57","MA150":"155.24","MA200":"151.60"}},
+{"ticker":"MNST","price":"91.34","buy_point":"89.10","s2_score":10,"setup_type":"pp","proximity":"+2.51%","prox_class":"near","vol_ratio":"2.2","vol_class":"low","dollar_vol":"492M","rs_from_high":"2.0%","sector":"Consumer Defensive","section":"extended","mas":{"MA10":"91.34","MA20":"89.71","MA50":"83.52","MA150":"79.21","MA200":"76.14"}},
+{"ticker":"VSXY","price":"81.98","buy_point":"80.06","s2_score":10,"setup_type":"pp","proximity":"+2.40%","prox_class":"near","vol_ratio":"1.1","vol_class":"low","dollar_vol":"193M","rs_from_high":"0.0%","sector":"Consumer Cyclical","section":"extended","mas":{"MA10":"77.64","MA20":"69.67","MA50":"57.87","MA150":"54.10","MA200":"48.03"}},
+{"ticker":"NTRS","price":"172.11","buy_point":"169.15","s2_score":10,"setup_type":"pp","proximity":"+1.75%","prox_class":"close","vol_ratio":"2.4","vol_class":"low","dollar_vol":"198M","rs_from_high":"1.6%","sector":"Financial Services","section":"ready","mas":{"MA10":"171.60","MA20":"169.72","MA50":"164.68","MA150":"147.64","MA200":"142.51"}},
+{"ticker":"ASML","price":"1929.68","buy_point":"1899.48","s2_score":10,"setup_type":"pp","proximity":"+1.59%","prox_class":"close","vol_ratio":"1.2","vol_class":"low","dollar_vol":"3.7B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"1815.98","MA20":"1732.55","MA50":"1579.34","MA150":"1366.39","MA200":"1264.89"}},
+{"ticker":"LIN","price":"512.15","buy_point":"506.03","s2_score":10,"setup_type":"pp","proximity":"+1.21%","prox_class":"close","vol_ratio":"2.2","vol_class":"low","dollar_vol":"1.1B","rs_from_high":"2.2%","sector":"Basic Materials","section":"ready","mas":{"MA10":"514.12","MA20":"509.49","MA50":"504.66","MA150":"468.71","MA200":"464.60"}},
+{"ticker":"WBS","price":"75.62","buy_point":"75.01","s2_score":10,"setup_type":"pp","proximity":"+0.81%","prox_class":"close","vol_ratio":"1.0","vol_class":"low","dollar_vol":"241M","rs_from_high":"0.0%","sector":"Financial Services","section":"ready","mas":{"MA10":"73.60","MA20":"73.08","MA50":"72.35","MA150":"67.80","MA200":"65.28"}},
+{"ticker":"ROST","price":"232.80","buy_point":"231.28","s2_score":10,"setup_type":"pp","proximity":"+0.66%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"658M","rs_from_high":"3.0%","sector":"Consumer Cyclical","section":"ready","mas":{"MA10":"233.48","MA20":"231.15","MA50":"225.70","MA150":"202.91","MA200":"190.36"}},
+{"ticker":"GS","price":"1096.56","buy_point":"1092.61","s2_score":10,"setup_type":"pp","proximity":"+0.36%","prox_class":"close","vol_ratio":"2.1","vol_class":"low","dollar_vol":"2.4B","rs_from_high":"0.2%","sector":"Financial Services","section":"ready","mas":{"MA10":"1057.79","MA20":"1040.41","MA50":"970.90","MA150":"902.51","MA200":"869.20"}},
+{"ticker":"EVRG","price":"82.50","buy_point":"82.27","s2_score":9,"setup_type":"pp","proximity":"+0.28%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"163M","rs_from_high":"2.0%","sector":"Utilities","section":"ready","mas":{"MA10":"82.95","MA20":"82.71","MA50":"81.94","MA150":"78.31","MA200":"77.10"}},
+{"ticker":"VTEB","price":"50.45","buy_point":"50.34","s2_score":9,"setup_type":"pp","proximity":"+0.22%","prox_class":"close","vol_ratio":"0.6","vol_class":"low","dollar_vol":"352M","rs_from_high":"0.2%","sector":"Financial Services","section":"ready","mas":{"MA10":"50.33","MA20":"50.22","MA50":"50.09","MA150":"49.87","MA200":"49.65"}},
+{"ticker":"HWM","price":"277.66","buy_point":"277.42","s2_score":10,"setup_type":"pp","proximity":"+0.09%","prox_class":"close","vol_ratio":"1.8","vol_class":"low","dollar_vol":"686M","rs_from_high":"2.0%","sector":"Industrials","section":"ready","mas":{"MA10":"264.31","MA20":"260.09","MA50":"256.28","MA150":"233.51","MA200":"223.34"}},
+{"ticker":"JCI","price":"144.82","buy_point":"144.82","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"537M","rs_from_high":"1.8%","sector":"Industrials","section":"ready","mas":{"MA10":"144.16","MA20":"141.57","MA50":"141.31","MA150":"130.30","MA200":"125.08"}},
+{"ticker":"EXPD","price":"161.32","buy_point":"161.32","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.1","vol_class":"low","dollar_vol":"195M","rs_from_high":"3.2%","sector":"Industrials","section":"ready","mas":{"MA10":"163.72","MA20":"161.19","MA50":"154.03","MA150":"150.86","MA200":"143.51"}},
+{"ticker":"DAL","price":"84.18","buy_point":"84.18","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.8","vol_class":"low","dollar_vol":"688M","rs_from_high":"0.0%","sector":"Industrials","section":"ready","mas":{"MA10":"81.38","MA20":"80.58","MA50":"74.12","MA150":"69.03","MA200":"66.40"}},
+{"ticker":"D","price":"68.41","buy_point":"68.41","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.2","vol_class":"low","dollar_vol":"504M","rs_from_high":"0.1%","sector":"Utilities","section":"ready","mas":{"MA10":"67.31","MA20":"66.88","MA50":"64.28","MA150":"61.44","MA200":"60.67"}},
+{"ticker":"CSX","price":"45.63","buy_point":"45.63","s2_score":9,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.7","vol_class":"low","dollar_vol":"570M","rs_from_high":"4.1%","sector":"Industrials","section":"ready","mas":{"MA10":"46.82","MA20":"46.42","MA50":"45.16","MA150":"40.34","MA200":"38.86"}},
+{"ticker":"CFG","price":"67.08","buy_point":"67.08","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.7","vol_class":"low","dollar_vol":"301M","rs_from_high":"0.8%","sector":"Financial Services","section":"ready","mas":{"MA10":"66.09","MA20":"64.32","MA50":"63.89","MA150":"60.56","MA200":"58.10"}},
+{"ticker":"BNS","price":"87.03","buy_point":"87.03","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.3","vol_class":"low","dollar_vol":"198M","rs_from_high":"0.0%","sector":"Financial Services","section":"ready","mas":{"MA10":"83.50","MA20":"81.80","MA50":"78.50","MA150":"73.74","MA200":"71.08"}},
+{"ticker":"ARM","price":"439.46","buy_point":"439.46","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.3","vol_class":"low","dollar_vol":"5.1B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"371.19","MA20":"362.30","MA50":"264.53","MA150":"171.76","MA200":"167.83"}},
+{"ticker":"ADI","price":"434.46","buy_point":"434.46","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.7","vol_class":"low","dollar_vol":"1.9B","rs_from_high":"0.7%","sector":"Technology","section":"ready","mas":{"MA10":"412.50","MA20":"413.02","MA50":"400.01","MA150":"332.31","MA200":"308.93"}},
+{"ticker":"CAT","price":"985.82","buy_point":"985.82","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.3","vol_class":"low","dollar_vol":"2.6B","rs_from_high":"0.0%","sector":"Industrials","section":"ready","mas":{"MA10":"922.01","MA20":"909.49","MA50":"872.73","MA150":"726.58","MA200":"668.62"}},
+{"ticker":"GH","price":"131.78","buy_point":"131.78","s2_score":9,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.5","vol_class":"low","dollar_vol":"307M","rs_from_high":"1.1%","sector":"Healthcare","section":"ready","mas":{"MA10":"129.19","MA20":"127.93","MA50":"105.79","MA150":"102.29","MA200":"93.91"}},
+{"ticker":"TGT","price":"130.74","buy_point":"130.74","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"684M","rs_from_high":"3.3%","sector":"Consumer Defensive","section":"ready","mas":{"MA10":"129.41","MA20":"127.54","MA50":"125.87","MA150":"111.84","MA200":"105.83"}},
+{"ticker":"GE","price":"357.64","buy_point":"357.64","s2_score":8,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.3","vol_class":"low","dollar_vol":"2.1B","rs_from_high":"0.0%","sector":"Industrials","section":"ready","mas":{"MA10":"337.59","MA20":"327.07","MA50":"307.73","MA150":"307.52","MA200":"304.98"}},
+{"ticker":"FITB","price":"52.74","buy_point":"52.74","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.8","vol_class":"low","dollar_vol":"351M","rs_from_high":"3.6%","sector":"Financial Services","section":"ready","mas":{"MA10":"52.92","MA20":"51.38","MA50":"50.29","MA150":"48.31","MA200":"46.94"}},
+{"ticker":"KLAC","price":"259.56","buy_point":"259.56","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.3","vol_class":"low","dollar_vol":"2.9B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"231.90","MA20":"214.90","MA50":"193.60","MA150":"156.20","MA200":"144.12"}},
+{"ticker":"DRI","price":"213.45","buy_point":"213.45","s2_score":8,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.7","vol_class":"low","dollar_vol":"234M","rs_from_high":"1.6%","sector":"Consumer Cyclical","section":"ready","mas":{"MA10":"206.36","MA20":"203.71","MA50":"199.48","MA150":"196.10","MA200":"193.88"}},
+{"ticker":"LNT","price":"73.00","buy_point":"73.00","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.6","vol_class":"low","dollar_vol":"176M","rs_from_high":"1.4%","sector":"Utilities","section":"ready","mas":{"MA10":"72.89","MA20":"72.50","MA50":"72.32","MA150":"69.11","MA200":"68.10"}},
+{"ticker":"LRCX","price":"389.04","buy_point":"389.04","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.2","vol_class":"low","dollar_vol":"3.9B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"352.56","MA20":"337.02","MA50":"297.96","MA150":"233.95","MA200":"209.70"}},
+{"ticker":"MAR","price":"396.20","buy_point":"396.20","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"574M","rs_from_high":"1.6%","sector":"Consumer Cyclical","section":"ready","mas":{"MA10":"395.37","MA20":"386.33","MA50":"370.06","MA150":"335.59","MA200":"318.17"}},
+{"ticker":"MRVL","price":"310.58","buy_point":"310.58","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"5.3","vol_class":"low","dollar_vol":"13.8B","rs_from_high":"1.9%","sector":"Technology","section":"ready","mas":{"MA10":"281.99","MA20":"257.60","MA50":"197.94","MA150":"123.44","MA200":"113.00"}},
+{"ticker":"NBIS","price":"286.69","buy_point":"286.69","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.7","vol_class":"low","dollar_vol":"5.1B","rs_from_high":"0.0%","sector":"Communication Services","section":"ready","mas":{"MA10":"242.50","MA20":"238.50","MA50":"197.19","MA150":"130.54","MA200":"125.05"}},
+{"ticker":"ONTO","price":"333.76","buy_point":"333.76","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.5","vol_class":"low","dollar_vol":"388M","rs_from_high":"0.7%","sector":"Technology","section":"ready","mas":{"MA10":"299.78","MA20":"283.40","MA50":"281.07","MA150":"218.00","MA200":"195.46"}},
+{"ticker":"AMAT","price":"617.11","buy_point":"617.11","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.1","vol_class":"low","dollar_vol":"4.9B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"542.53","MA20":"501.92","MA50":"445.37","MA150":"353.82","MA200":"317.19"}},
+{"ticker":"MKSI","price":"406.37","buy_point":"406.37","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.8","vol_class":"low","dollar_vol":"481M","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"347.10","MA20":"336.35","MA50":"306.80","MA150":"237.37","MA200":"210.63"}},
+{"ticker":"INTC","price":"133.99","buy_point":"133.99","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.6","vol_class":"low","dollar_vol":"18.8B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"116.59","MA20":"116.34","MA50":"101.43","MA150":"62.71","MA200":"55.51"}},
+{"ticker":"TSM","price":"462.12","buy_point":"462.12","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"6.4B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"428.20","MA20":"426.41","MA50":"404.96","MA150":"351.61","MA200":"333.88"}},
+{"ticker":"TTMI","price":"216.44","buy_point":"216.44","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.1","vol_class":"low","dollar_vol":"522M","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"189.86","MA20":"186.94","MA50":"161.70","MA150":"111.57","MA200":"97.93"}},
+{"ticker":"SEI","price":"82.88","buy_point":"82.88","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"196M","rs_from_high":"0.0%","sector":"Energy","section":"ready","mas":{"MA10":"74.69","MA20":"73.50","MA50":"71.82","MA150":"58.36","MA200":"54.52"}},
+{"ticker":"STX","price":"1070.23","buy_point":"1070.23","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"4.4B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"937.18","MA20":"909.32","MA50":"760.78","MA150":"485.65","MA200":"421.16"}},
+{"ticker":"VSH","price":"64.90","buy_point":"64.90","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.8","vol_class":"low","dollar_vol":"410M","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"59.41","MA20":"56.62","MA50":"40.65","MA150":"24.73","MA200":"22.44"}},
+{"ticker":"WDC","price":"746.23","buy_point":"746.23","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.1","vol_class":"low","dollar_vol":"5.7B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"593.16","MA20":"564.88","MA50":"479.89","MA150":"314.10","MA200":"265.96"}},
+{"ticker":"TER","price":"437.92","buy_point":"437.92","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"3.4","vol_class":"low","dollar_vol":"1.7B","rs_from_high":"0.0%","sector":"Technology","section":"ready","mas":{"MA10":"392.23","MA20":"386.73","MA50":"372.14","MA150":"290.34","MA200":"253.24"}},
+{"ticker":"USB","price":"58.14","buy_point":"58.14","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.4","vol_class":"low","dollar_vol":"528M","rs_from_high":"3.2%","sector":"Financial Services","section":"ready","mas":{"MA10":"57.32","MA20":"55.93","MA50":"55.66","MA150":"53.81","MA200":"52.05"}},
+{"ticker":"SN","price":"140.84","buy_point":"140.84","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.2","vol_class":"low","dollar_vol":"292M","rs_from_high":"0.0%","sector":"Consumer Cyclical","section":"ready","mas":{"MA10":"130.80","MA20":"124.82","MA50":"117.80","MA150":"113.94","MA200":"110.62"}},
+{"ticker":"ATI","price":"201.34","buy_point":"201.34","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.7","vol_class":"low","dollar_vol":"364M","rs_from_high":"0.0%","sector":"Industrials","section":"ready","mas":{"MA10":"191.64","MA20":"182.10","MA50":"167.35","MA150":"141.16","MA200":"127.06"}},
+{"ticker":"APH","price":"163.96","buy_point":"163.96","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.3","vol_class":"low","dollar_vol":"1.7B","rs_from_high":"1.2%","sector":"Technology","section":"ready","mas":{"MA10":"153.44","MA20":"147.84","MA50":"142.66","MA150":"139.70","MA200":"136.26"}},
+{"ticker":"IBKR","price":"96.00","buy_point":"96.00","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.5","vol_class":"low","dollar_vol":"482M","rs_from_high":"0.0%","sector":"Financial Services","section":"ready","mas":{"MA10":"90.01","MA20":"87.52","MA50":"83.42","MA150":"73.71","MA200":"72.05"}},
+{"ticker":"TD","price":"119.29","buy_point":"119.29","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"251M","rs_from_high":"0.0%","sector":"Financial Services","section":"ready","mas":{"MA10":"116.34","MA20":"114.41","MA50":"109.26","MA150":"97.63","MA200":"92.71"}},
+{"ticker":"FTNT","price":"144.73","buy_point":"144.73","s2_score":10,"setup_type":"pp","proximity":"+0.00%","prox_class":"close","vol_ratio":"2.7","vol_class":"low","dollar_vol":"950M","rs_from_high":"3.3%","sector":"Technology","section":"ready","mas":{"MA10":"144.17","MA20":"141.34","MA50":"114.05","MA150":"92.07","MA200":"89.90"}},
+{"ticker":"NUVL","price":"123.43","buy_point":"123.45","s2_score":9,"setup_type":"pp","proximity":"-0.02%","prox_class":"close","vol_ratio":"2.0","vol_class":"low","dollar_vol":"285M","rs_from_high":"0.0%","sector":"Healthcare","section":"ready","mas":{"MA10":"116.63","MA20":"108.51","MA50":"105.64","MA150":"103.87","MA200":"99.67"}},
+{"ticker":"MTB","price":"225.12","buy_point":"225.43","s2_score":10,"setup_type":"pp","proximity":"-0.14%","prox_class":"close","vol_ratio":"2.8","vol_class":"low","dollar_vol":"236M","rs_from_high":"4.1%","sector":"Financial Services","section":"ready","mas":{"MA10":"225.94","MA20":"220.07","MA50":"215.96","MA150":"209.32","MA200":"203.62"}},
+{"ticker":"JBL","price":"371.88","buy_point":"373.16","s2_score":10,"setup_type":"pp","proximity":"-0.34%","prox_class":"close","vol_ratio":"2.2","vol_class":"low","dollar_vol":"466M","rs_from_high":"3.6%","sector":"Technology","section":"ready","mas":{"MA10":"370.16","MA20":"369.41","MA50":"348.61","MA150":"276.79","MA200":"260.61"}},
+{"ticker":"HLT","price":"348.84","buy_point":"350.22","s2_score":10,"setup_type":"pp","proximity":"-0.39%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"564M","rs_from_high":"0.4%","sector":"Consumer Cyclical","section":"ready","mas":{"MA10":"344.78","MA20":"337.61","MA50":"329.31","MA150":"306.68","MA200":"296.34"}},
+{"ticker":"EA","price":"202.15","buy_point":"203.40","s2_score":8,"setup_type":"pp","proximity":"-0.61%","prox_class":"close","vol_ratio":"3.1","vol_class":"low","dollar_vol":"380M","rs_from_high":"1.1%","sector":"Communication Services","section":"ready","mas":{"MA10":"202.95","MA20":"202.32","MA50":"202.01","MA150":"202.00","MA200":"198.92"}},
+{"ticker":"BIIB","price":"196.58","buy_point":"197.95","s2_score":10,"setup_type":"pp","proximity":"-0.69%","prox_class":"close","vol_ratio":"1.5","vol_class":"low","dollar_vol":"225M","rs_from_high":"3.9%","sector":"Healthcare","section":"ready","mas":{"MA10":"197.08","MA20":"195.50","MA50":"190.48","MA150":"183.95","MA200":"174.70"}},
+{"ticker":"BEN","price":"33.05","buy_point":"33.29","s2_score":10,"setup_type":"pp","proximity":"-0.72%","prox_class":"close","vol_ratio":"1.9","vol_class":"low","dollar_vol":"160M","rs_from_high":"0.7%","sector":"Financial Services","section":"ready","mas":{"MA10":"32.16","MA20":"31.67","MA50":"30.10","MA150":"26.22","MA200":"25.34"}},
+{"ticker":"MS","price":"223.17","buy_point":"224.96","s2_score":10,"setup_type":"pp","proximity":"-0.80%","prox_class":"close","vol_ratio":"2.0","vol_class":"low","dollar_vol":"1.3B","rs_from_high":"0.8%","sector":"Financial Services","section":"ready","mas":{"MA10":"215.47","MA20":"211.29","MA50":"197.86","MA150":"180.08","MA200":"174.13"}},
+{"ticker":"ALL","price":"221.17","buy_point":"223.40","s2_score":9,"setup_type":"pp","proximity":"-1.00%","prox_class":"close","vol_ratio":"3.1","vol_class":"low","dollar_vol":"358M","rs_from_high":"1.0%","sector":"Financial Services","section":"ready","mas":{"MA10":"220.55","MA20":"215.14","MA50":"215.08","MA150":"208.02","MA200":"205.75"}},
+{"ticker":"AFL","price":"115.47","buy_point":"117.41","s2_score":8,"setup_type":"pp","proximity":"-1.65%","prox_class":"close","vol_ratio":"2.5","vol_class":"low","dollar_vol":"292M","rs_from_high":"2.3%","sector":"Financial Services","section":"ready","mas":{"MA10":"116.65","MA20":"115.72","MA50":"114.76","MA150":"111.39","MA200":"110.45"}},
+{"ticker":"STM","price":"78.39","buy_point":"79.71","s2_score":10,"setup_type":"pp","proximity":"-1.66%","prox_class":"close","vol_ratio":"1.4","vol_class":"low","dollar_vol":"1.0B","rs_from_high":"1.7%","sector":"Technology","section":"ready","mas":{"MA10":"75.05","MA20":"73.34","MA50":"60.61","MA150":"39.66","MA200":"36.45"}},
+{"ticker":"ARMK","price":"53.33","buy_point":"54.39","s2_score":9,"setup_type":"pp","proximity":"-1.95%","prox_class":"close","vol_ratio":"0.9","vol_class":"low","dollar_vol":"156M","rs_from_high":"2.2%","sector":"Industrials","section":"ready","mas":{"MA10":"53.75","MA20":"53.41","MA50":"49.18","MA150":"42.32","MA200":"41.30"}},
+{"ticker":"PNC","price":"232.04","buy_point":"237.66","s2_score":10,"setup_type":"pp","proximity":"-2.36%","prox_class":"near","vol_ratio":"2.4","vol_class":"low","dollar_vol":"470M","rs_from_high":"3.6%","sector":"Financial Services","section":"near","mas":{"MA10":"232.24","MA20":"226.24","MA50":"222.26","MA150":"213.37","MA200":"207.27"}},
+{"ticker":"PLD","price":"140.54","buy_point":"144.05","s2_score":8,"setup_type":"pp","proximity":"-2.44%","prox_class":"near","vol_ratio":"1.8","vol_class":"low","dollar_vol":"507M","rs_from_high":"4.8%","sector":"Real Estate","section":"near","mas":{"MA10":"144.53","MA20":"143.65","MA50":"141.75","MA150":"133.55","MA200":"129.05"}},
+{"ticker":"KO","price":"79.39","buy_point":"81.39","s2_score":8,"setup_type":"pp","proximity":"-2.46%","prox_class":"near","vol_ratio":"2.9","vol_class":"low","dollar_vol":"1.3B","rs_from_high":"4.4%","sector":"Consumer Defensive","section":"near","mas":{"MA10":"80.65","MA20":"79.91","MA50":"78.45","MA150":"74.88","MA200":"72.76"}},
+{"ticker":"JPM","price":"325.22","buy_point":"333.46","s2_score":7,"setup_type":"pp","proximity":"-2.47%","prox_class":"near","vol_ratio":"2.3","vol_class":"low","dollar_vol":"2.8B","rs_from_high":"2.5%","sector":"Financial Services","section":"near","mas":{"MA10":"318.88","MA20":"310.47","MA50":"308.86","MA150":"305.85","MA200":"305.19"}},
+{"ticker":"CVS","price":"98.32","buy_point":"101.96","s2_score":10,"setup_type":"pp","proximity":"-3.57%","prox_class":"near","vol_ratio":"2.5","vol_class":"low","dollar_vol":"829M","rs_from_high":"3.6%","sector":"Healthcare","section":"near","mas":{"MA10":"98.94","MA20":"95.45","MA50":"88.61","MA150":"80.49","MA200":"79.27"}},
+{"ticker":"ROKU","price":"138.07","buy_point":"143.66","s2_score":10,"setup_type":"pp","proximity":"-3.89%","prox_class":"near","vol_ratio":"5.9","vol_class":"low","dollar_vol":"569M","rs_from_high":"3.9%","sector":"Communication Services","section":"near","mas":{"MA10":"130.12","MA20":"128.83","MA50":"122.44","MA150":"106.93","MA200":"105.04"}},
+{"ticker":"FCX","price":"68.68","buy_point":"71.72","s2_score":10,"setup_type":"pp","proximity":"-4.24%","prox_class":"near","vol_ratio":"1.2","vol_class":"low","dollar_vol":"996M","rs_from_high":"4.2%","sector":"Basic Materials","section":"near","mas":{"MA10":"66.64","MA20":"66.47","MA50":"64.61","MA150":"58.34","MA200":"54.17"}},
+{"ticker":"DOCN","price":"173.27","buy_point":"181.29","s2_score":10,"setup_type":"pp","proximity":"-4.42%","prox_class":"near","vol_ratio":"1.0","vol_class":"low","dollar_vol":"669M","rs_from_high":"4.4%","sector":"Technology","section":"near","mas":{"MA10":"173.07","MA20":"168.36","MA50":"137.62","MA150":"85.02","MA200":"73.45"}},
+{"ticker":"TRP","price":"67.70","buy_point":"70.91","s2_score":9,"setup_type":"pp","proximity":"-4.53%","prox_class":"near","vol_ratio":"2.1","vol_class":"low","dollar_vol":"161M","rs_from_high":"4.5%","sector":"Energy","section":"near","mas":{"MA10":"68.62","MA20":"68.53","MA50":"66.05","MA150":"60.58","MA200":"58.21"}}
+];
+
+
+const TOTAL_STOCKS = STOCKS.length;
+
+function s2Dots(score) {
+  let h = '<div class="s2-dots">';
+  for (let i = 0; i < 10; i++) h += `<span class="s2-dot ${i < score ? 'on' : 'off'}"></span>`;
+  return h + '</div>';
+}
+
+function setupBadges(s) {
+  const map = {pp:'badge-pp','20d':'badge-20d'};
+  return `<span class="badge ${map[s.setup_type]||'badge-none'}">${s.setup_type}</span>`;
+}
+
+function renderStockRow(s) {
+  const rc = {ready:'row-ready',near:'row-near',developing:'row-developing',extended:'row-extended',nosetup:'row-nosetup'}[s.section];
+  const pc = {close:'prox-close',near:'prox-near',far:'prox-far'}[s.prox_class];
+  const vc = {high:'vol-high',ok:'vol-ok',low:'vol-low'}[s.vol_class];
+  let h = `<tr class="stock-row ${rc}" data-section="${s.section}">`;
+  h += `<td><b>${s.ticker}</b></td><td>${s.price}</td><td class="buy-point">${s.buy_point}</td>`;
+  h += `<td>${s2Dots(s.s2_score)}</td><td>${setupBadges(s)}</td>`;
+  h += `<td class="${pc}">${s.proximity}</td><td class="${vc}">${s.vol_ratio}x</td>`;
+  h += `<td class="dvol">${s.dollar_vol}</td><td>${s.rs_from_high}</td>`;
+  h += `<td><span class="badge badge-sector">${s.sector}</span></td>`;
+  h += `<td class="toggle-detail" onclick="toggleDetail(this)">▼</td></tr>`;
+  if (s.mas) {
+    h += `<tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack">`;
+    for (const [k,v] of Object.entries(s.mas)) h += `<span class="ma-item">${k}: <span>${v}</span></span>`;
+    h += `</div></td></tr>`;
+  }
+  return h;
+}
+
+function populateTables() {
+  const secs = {ready:[],near:[],developing:[],extended:[],nosetup:[]};
+  STOCKS.forEach(s => secs[s.section].push(s));
+  for (const [sec,stocks] of Object.entries(secs)) {
+    const tbody = document.getElementById('tbody-'+sec);
+    tbody.innerHTML = stocks.map(renderStockRow).join('');
+    const tbl = document.getElementById('table-'+sec);
+    if (stocks.length === 0) {
+      tbl.style.display = 'none';
+      const empty = document.getElementById(sec+'Empty');
+      if (empty) empty.style.display = '';
+    } else {
+      tbl.style.display = '';
+      const empty = document.getElementById(sec+'Empty');
+      if (empty) empty.style.display = 'none';
+    }
+  }
+  document.getElementById('footerTotal').textContent = TOTAL_STOCKS;
+}
+
+let currentFilter = 'all';
+function setFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.filter-btn[data-filter="${filter}"]`); if(btn) btn.classList.add('active');
+  document.querySelectorAll('.summary-item').forEach(i => { i.classList.remove('active'); if(i.dataset.section===filter) i.classList.add('active'); });
+  let vis=0; const sc={ready:0,near:0,developing:0,extended:0,nosetup:0};
+  document.querySelectorAll('.stock-row').forEach(row => {
+    const sec = row.dataset.section;
+    const show = filter==='all' || sec===filter;
+    row.style.display = show?'table-row':'none';
+    const d = row.nextElementSibling;
+    if(d && d.classList.contains('detail-row') && !show) { d.style.display='none'; d.classList.remove('open'); }
+    if(show) { vis++; sc[sec]=(sc[sec]||0)+1; }
+  });
+  document.getElementById('countDisplay').textContent = `${vis} of ${TOTAL_STOCKS} shown`;
+  document.getElementById('readyCount').textContent = sc.ready;
+  document.getElementById('nearCount').textContent = sc.near;
+  document.getElementById('developingCount').textContent = sc.developing;
+  document.getElementById('extendedCount').textContent = sc.extended;
+  document.getElementById('nosetupCount').textContent = sc.nosetup;
+  for (const sec of ['ready','near','developing','extended','nosetup']) {
+    const el = document.getElementById(sec+'Live');
+    if(el) el.textContent = filter==='all'?'':`(${sc[sec]} visible)`;
+  }
+  const banner = document.getElementById('filterBanner');
+  if(filter==='all') banner.classList.remove('visible');
+  else {
+    const labels = {ready:'🔥 Ready Now',near:'⏳ Near Pivot',developing:'🔵 Developing',extended:'📈 Extended',nosetup:'⏸️ No Setup'};
+    document.getElementById('bannerLabel').textContent = labels[filter]||filter;
+    document.getElementById('bannerCount').textContent = `(${vis} of ${TOTAL_STOCKS})`;
+    banner.classList.add('visible');
+  }
+  history.replaceState(null,'',filter==='all'?window.location.pathname:'#'+filter);
+}
+
+function scrollToSection(sec) {
+  const el = document.getElementById('section-'+sec);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function toggleDetail(el) {
+  const d = el.closest('tr').nextElementSibling;
+  if(d && d.classList.contains('detail-row')) d.classList.toggle('open');
+}
+
+const sortState = {};
+function parseValue(txt,ci) {
+  const r = txt.replace(/[$,%MB]/g,'').trim();
+  if(ci===5) return parseFloat(r)||0;
+  if(ci===6) return parseFloat(r.replace('x',''))||0;
+  if(ci===7) { let v=parseFloat(r)||0; if(txt.includes('B')) v*=1000; return v; }
+  const n=parseFloat(r); return isNaN(n)?r.toLowerCase():n;
+}
+function sortTable(tid,ci,th) {
+  const tbody = document.getElementById(tid.replace('table-','tbody-'));
+  const rows = Array.from(tbody.querySelectorAll('tr.stock-row'));
+  const key = tid+'-'+ci; sortState[key]=sortState[key]==='asc'?'desc':'asc'; const dir=sortState[key];
+  document.querySelectorAll(`#${tid} th`).forEach(t=>t.classList.remove('sorted')); if(th) th.classList.add('sorted');
+  rows.sort((a,b)=>{const av=parseValue(a.cells[ci].textContent,ci),bv=parseValue(b.cells[ci].textContent,ci); return typeof av==='string'?(dir==='asc'?av.localeCompare(bv):bv.localeCompare(av)):(dir==='asc'?av-bv:bv-av);});
+  rows.forEach(r=>{const d=r.nextElementSibling; tbody.appendChild(r); if(d&&d.classList.contains('detail-row')) tbody.appendChild(d);});
+}
+
+populateTables();
+const hash = window.location.hash.replace('#','');
+if(hash && ['ready','near','developing','extended','nosetup'].includes(hash)) setFilter(hash);
+document.getElementById('footerTotal').textContent = TOTAL_STOCKS;
+</script>
+</body>
+</html>

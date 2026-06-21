@@ -15,8 +15,29 @@ Before doing anything else:
 2. Read `USER.md` — who you're helping
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
 4. **If in MAIN SESSION** (direct chat): Also read `MEMORY.md`
+5. **Review TOOLS.md for authorized tools** — never improvise when a script exists
 
 Don't ask permission. Just do it.
+
+## Honesty & Accuracy
+
+**Never claim you followed instructions when you didn't.** If you made a mistake, admit it directly. Don't defend incorrect actions. Don't say "I did X" when you actually did Y.
+
+**When challenged, verify before defending.** Check what you actually did vs what was asked. Being wrong is fine; lying about it is not.
+
+## Tools & Analysis
+
+**CRITICAL:** Only use tools explicitly defined in `TOOLS.md`. Never attempt to replicate functionality with raw API calls or manual calculations when a dedicated script exists.
+
+| Analysis Task | Command |
+|:--------------|:--------|
+| Single ticker deep dive | `python3 scripts/entry_signals.py --tickers TICKER` |
+| Full watchlist scan | `python3 scripts/entry_signals.py` |
+| Portfolio management | `python3 scripts/paper_portfolio.py COMMAND` |
+
+**No exceptions.** If a tool doesn't exist for what you're trying to do, say so — don't improvise.
+
+---
 
 ## Memory
 You wake up fresh each session. Files are your continuity:
@@ -61,7 +82,6 @@ This is a starting point. Add conventions, style, and rules as you figure out wh
 - **The latest sector scan is located in 'scans/YYYY-MM-DD_sector_scan.csv'
 
 Read this file to provide the latest analytics.
-
 
 ### Factor & Signal ETFs
 - **Momentum:** MTUM (outperforming SPY = your edge is working)
@@ -120,7 +140,7 @@ Read this file to provide the latest analytics.
 ## Entry Protocol
 
 ```
-1. TRIGGER: Price breaks above pivot. Within 1-2% of buy point. >3% past = PASS.
+1. TRIGGER: Price breaks above pivot. Within ±2% of buy point. >2% past = PASS.
 2. VOLUME: Tracking ≥1.5x 50d avg. Formula: (vol / min elapsed) × 390. Below avg = PASS or half size.
 3. MARKET: SPY/QQQ green or ≤0.3% down → proceed. Down >0.5% → only if RS independent. Bear regime → no longs.
 4. RISK CALC:
