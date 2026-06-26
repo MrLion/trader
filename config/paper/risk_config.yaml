@@ -54,10 +54,10 @@ stop_loss:
 
   # Hard limits on stop distance (safety rails)
   min_stop_distance_pct: 0.03   # Minimum 3% stop (tighter stops = larger positions)
-  max_stop_distance_pct: 0.07   # Maximum 10% stop (rejects wide stops)
+  max_stop_distance_pct: 0.07   # Maximum 7% stop (rejects wide stops)
 
   # Fallback if calculation fails
-  fallback_pct: 0.05  # 7% below entry
+  fallback_pct: 0.05  # 5% below entry
 
 # =============================================================================
 # MA SUPPORT STOP CONFIGURATION
@@ -255,7 +255,7 @@ cooldown:
   min_loss_to_trigger_cooldown_pct: 0.0
 
   # Maximum cooldown cap after consecutive losses
-  max_cooldown_minutes: 360  # 4 hours
+  max_cooldown_minutes: 360  # 6 hours
 
   # Multiply cooldown by this factor after each consecutive losing trade
   # Example: 120min -> 240min -> 480min (capped)

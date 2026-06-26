@@ -10,12 +10,16 @@
 - **`scripts/paper_engine_alpaca.py`** — `_rebuild_cooldown_state` cutoff widened from 6h to `max(max_cooldown_minutes, stopped_entry_memory_minutes)` so stopped entries survive restart for their full 72h lifetime.
 - **`scripts/paper_engine_alpaca.py`** — Daily reset prunes stopped entries by memory window instead of clearing them entirely. Stopped entries survive overnight.
 - **`scripts/paper_engine_alpaca.py`** — Profit clears stopped entries — a realized win means the level works now. Mirrors the existing `consecutive_losses` profit-reset pattern.
+- **`scripts/paper_engine_alpaca.py`** — `_rebuild_cooldown_state` now skips `_meta.partial_exit` records so a losing scale-out (position still open) doesn't create a false stopped_entry or inflate `consecutive_losses` after restart.
+- **`scripts/paper_engine_alpaca.py`** — Stopped-entry memory only cleared on a realized profit (`realized_pnl > 0`), not a zero-PnL scratch exit, so a break-even exit no longer lifts the same-level block.
 
 ### Changed
 - **`scripts/paper_engine_alpaca.py`** — `_record_position_exit` now takes optional `entry_price=0.0` kwarg. Existing 2-arg callers unaffected. Warning logged if same-level enabled and entry_price not passed.
+- **`config/paper/risk_config.yaml`** — Stop-loss and cooldown parameters tightened (paper-only): `stop_loss.fixed_pct` 7% to 5%, `stop_loss.max_stop_distance_pct` 10% to 7%, `stop_loss.fallback_pct` 7% to 5%, `cooldown.reentry_cooldown_minutes` 60 to 120, `cooldown.max_cooldown_minutes` 240 to 360. Tighter stops increase position size (more dollars at risk per trade). Live config (`config/risk_config.yaml`, `config/live/risk_config.yaml`) and `CooldownConfig`/`StopLossConfig` dataclass defaults remain unchanged at 7%/10%.
 
 ### Tests
 - **`tests/test_paper_engine_fills.py`** — Added `TestSameLevelRejection` class with 10 tests: loss records entry, loss without price warns, profit clears, rejection blocks entry, rejection allows different price, disabled config, prune old, prune recent, multiple entries append, get_active_blocks returns count.
+- **`tests/test_cooldown_rebuild.py`** — Added `test_rebuild_ignores_partial_exits`; mock helper updated for new cooldown attrs (`stopped_entry_memory_minutes`, `same_level_rejection_pct`); `test_rebuild_ignores_old_exits` fixture bumped from 500min to 5000min to match the widened 4320min rebuild window.
 
 ---
 

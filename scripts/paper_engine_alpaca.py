@@ -723,8 +723,8 @@ class AlpacaPaperEngine:
                 del self.consecutive_losses[ticker]
                 print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
 
-            # Profit clears stopped entries — a realized win means the level works now
-            if ticker in self.stopped_entries:
+            # A realized profit (not a scratch/zero-PnL exit) clears stopped entries
+            if realized_pnl > 0 and ticker in self.stopped_entries:
                 del self.stopped_entries[ticker]
                 print(f"   ⏱️  {ticker}: Stopped-entry memory cleared (profit), "
                       f"same-level rejection reset")
@@ -921,6 +921,11 @@ class AlpacaPaperEngine:
                     if self.state._is_test_trade(trade):
                         continue
                     if trade.get('event') != 'EXIT':
+                        continue
+
+                    # Scale-out partial exits don't close the position; skip them so a
+                    # losing scale-out doesn't create a false stopped_entry on rebuild.
+                    if (trade.get('_meta') or {}).get('partial_exit'):
                         continue
 
                     ts_str = trade.get('timestamp', '')

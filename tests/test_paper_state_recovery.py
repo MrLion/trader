@@ -112,7 +112,7 @@ class TestMissingAccountFile(unittest.TestCase):
                 with patch('traderlib.paper_state.POSITIONS_FILE', positions_file):
                     with patch('traderlib.paper_state.DAILY_TRACKER_FILE', daily_tracker):
                         with patch('traderlib.paper_state.TRADES_FILE', trades_file):
-                            with patch('traderlib.paper_state.VALIDATION', {'MAX_ENTRY_PRICE': 5000.0, 'MAX_SHARES': 500, 'MAX_POSITION_VALUE': 50000.0, 'MAX_PNL_ABS': 10000.0, 'SKIP_VALIDATION': True}):
+                            with patch('traderlib.paper_state.VALIDATION', {'MAX_ENTRY_PRICE': 5000.0, 'MAX_POSITION_VALUE': 50000.0, 'MAX_PNL_ABS': 10000.0, 'SKIP_VALIDATION': True}):
                                 state = PaperState(initial_capital=100000.0)
 
                                 # Trade log reconciliation may or may not set entries_today
@@ -250,7 +250,7 @@ class TestZeroEquityHandling(unittest.TestCase):
                     with patch('traderlib.paper_state.DAILY_TRACKER_FILE', data_dir / 'daily_tracker.json'):
                         with patch('traderlib.paper_state.TRADES_FILE', data_dir / 'paper_trades.jsonl'):
                             # Skip validation to test large P&L values
-                            with patch('traderlib.paper_state.VALIDATION', {'MAX_ENTRY_PRICE': 5000.0, 'MAX_SHARES': 500, 'MAX_POSITION_VALUE': 50000.0, 'MAX_PNL_ABS': 100000.0, 'SKIP_VALIDATION': True}):
+                            with patch('traderlib.paper_state.VALIDATION', {'MAX_ENTRY_PRICE': 5000.0, 'MAX_POSITION_VALUE': 50000.0, 'MAX_PNL_ABS': 100000.0, 'SKIP_VALIDATION': True}):
                                 state = PaperState(initial_capital=100000.0)
 
                                 # Enter large position
