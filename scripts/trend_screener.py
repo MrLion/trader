@@ -9,7 +9,7 @@ Usage:
     python3 scripts/trend_screener.py --profile large-cap --top 20
 
     # Entry timing - rank existing watchlist by setup readiness
-    python3 scripts/trend_screener.py --ticker-file data/watchlist.csv --rank-by setup --entry-mode pivot
+    python3 scripts/trend_screener.py --ticker-file data/watchlist.csv --rank-by setup --entry-mode 20d
 
     # Single ticker detail with MA data
     python3 scripts/trend_screener.py --tickers AAPL --show-ma-data
@@ -511,7 +511,7 @@ class TrendScreener:
             table.add_column("Ticker", style=row_style, no_wrap=True)
             table.add_column("Price", justify="right")
             table.add_column("Stage2", justify="right")
-            table.add_column("To Pivot", justify="right")
+            table.add_column("To Buy Point", justify="right")
             table.add_column("Vol Ratio", justify="right")
             if show_entry_col:
                 table.add_column("Entry", justify="center")
@@ -547,7 +547,7 @@ class TrendScreener:
             print(f"\n{icon} {grade_name} — {len(group)} candidates")
             print(f"{'=' * 80}")
             header = (f"{'Ticker':<8} {'Price':>8} {'Stage2':>6} "
-                      f"{'To Pivot':>8} {'Vol Ratio':>9}")
+                      f"{'To Buy Point':>8} {'Vol Ratio':>9}")
             if show_entry_col:
                 header += f" {'Entry':>6}"
             print(header)

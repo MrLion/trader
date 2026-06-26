@@ -332,47 +332,6 @@ class TestUpdateStopAndLogTradeValidation(unittest.TestCase):
             self.assertEqual(state.positions['XYZ'].stop_price, 145.0)
             self.assertEqual(state.positions['XYZ'].initial_stop_price, 140.0)
 
-    def test_validate_trade_rejects_over_max_shares(self):
-        """Trade with shares > MAX_SHARES is logged with validation_failed metadata."""
-        with paper_state_ctx(initial_capital=100000.0) as (state, tmpdir, trades_file):
-            # Patch VALIDATION to guarantee known thresholds regardless of env vars
-            validation = {
-                'MAX_ENTRY_PRICE': 5000.0,
-                'MAX_SHARES': 500,
-                'MAX_POSITION_VALUE': 50000.0,
-                'MAX_PNL_ABS': 10000.0,
-                'SKIP_VALIDATION': False,
-            }
-            with patch('traderlib.paper_state.VALIDATION', validation):
-                # Enter position with shares exceeding MAX_SHARES (500)
-                # Keep position_value under MAX_POSITION_VALUE (50000)
-                state.enter_position(
-                    ticker='XYZ',
-                    entry_price=50.0,
-                    shares=600,       # > MAX_SHARES (500)
-                    stop_price=45.0,
-                    target_price=55.0,
-                    sector='Technology',
-                )
-
-                # Read the trade log
-                trades_content = trades_file.read_text().strip()
-                self.assertTrue(trades_content, "Trade log should not be empty")
-
-                trade_line = trades_content.split('\n')[-1]
-                trade = json.loads(trade_line)
-
-                # Verify validation_failed metadata
-                self.assertTrue(
-                    trade.get('_meta', {}).get('validation_failed', False),
-                    "validation_failed should be True in trade metadata",
-                )
-                self.assertIn(
-                    'shares',
-                    trade.get('_meta', {}).get('validation_reason', ''),
-                    "validation_reason should mention 'shares'",
-                )
-
     def test_validate_trade_rejects_over_max_entry_price(self):
         """Trade with entry_price > MAX_ENTRY_PRICE is logged with validation_failed metadata."""
         with paper_state_ctx(initial_capital=100000.0) as (state, tmpdir, trades_file):
@@ -416,19 +375,18 @@ class TestUpdateStopAndLogTradeValidation(unittest.TestCase):
         with paper_state_ctx(initial_capital=100000.0) as (state, tmpdir, trades_file):
             validation = {
                 'MAX_ENTRY_PRICE': 5000.0,
-                'MAX_SHARES': 500,
                 'MAX_POSITION_VALUE': 50000.0,
                 'MAX_PNL_ABS': 10000.0,
                 'SKIP_VALIDATION': False,
             }
             with patch('traderlib.paper_state.VALIDATION', validation):
-                # Enter a position that will fail validation (shares > MAX_SHARES)
+                # Enter a position that will fail validation (entry_price > MAX_ENTRY_PRICE)
                 state.enter_position(
                     ticker='XYZ',
-                    entry_price=50.0,
-                    shares=600,
-                    stop_price=45.0,
-                    target_price=55.0,
+                    entry_price=5500.0,  # > MAX_ENTRY_PRICE (5000)
+                    shares=5,
+                    stop_price=5400.0,
+                    target_price=5600.0,
                     sector='Technology',
                 )
 

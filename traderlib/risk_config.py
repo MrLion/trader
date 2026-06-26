@@ -216,6 +216,13 @@ class CooldownConfig:
     # Increase cooldown multiplier after each consecutive loss on same ticker
     consecutive_loss_multiplier: float = 2.0
 
+    # Reject re-entry if new entry price is within this % of a previous stopped-out entry
+    # 0.0 = disabled
+    same_level_rejection_pct: float = 2.0  # within 2% of previous stopped entry
+
+    # How long to remember stopped-out entry prices for same-level check (in minutes)
+    stopped_entry_memory_minutes: int = 4320  # 3 trading days (72h)
+
 
 @dataclass
 class RiskConfig:

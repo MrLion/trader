@@ -53,6 +53,8 @@ def _make_risk_config():
     mock_config.cooldown.max_cooldown_minutes = 240
     mock_config.cooldown.consecutive_loss_multiplier = 2.0
     mock_config.cooldown.min_loss_to_trigger_cooldown_pct = 0.0
+    mock_config.cooldown.stopped_entry_memory_minutes = 4320
+    mock_config.cooldown.same_level_rejection_pct = 2.0
     return mock_config
 
 
@@ -78,6 +80,7 @@ def cooldown_engine(trades_file):
     engine.risk_config = risk_config
     engine.last_exit_time = {}
     engine.consecutive_losses = {}
+    engine.stopped_entries = {}
     engine.signaled_tickers = set()
     engine.last_signal_reset = datetime.now().strftime('%Y-%m-%d')
 
@@ -119,11 +122,11 @@ class TestRebuildFromTradeLog:
         assert 'TSLA' not in engine.consecutive_losses
 
     def test_rebuild_ignores_old_exits(self, cooldown_engine):
-        """EXIT events outside max_cooldown_minutes window are skipped."""
+        """EXIT events outside the rebuild window are skipped."""
         engine, trades_file = cooldown_engine
         now = datetime.now()
-        # Exit 500 minutes ago (well beyond the 240min max_cooldown window)
-        old_trade = _make_trade('EXIT', 'AAPL', (now - timedelta(minutes=500)).isoformat(), realized_pnl=-100.0)
+        # Exit 5000 minutes ago (well beyond the 4320min rebuild window)
+        old_trade = _make_trade('EXIT', 'AAPL', (now - timedelta(minutes=5000)).isoformat(), realized_pnl=-100.0)
         # Recent exit within window
         recent_trade = _make_trade('EXIT', 'TSLA', (now - timedelta(minutes=30)).isoformat(), realized_pnl=-50.0)
         _write_trades(trades_file, [old_trade, recent_trade])
@@ -132,6 +135,22 @@ class TestRebuildFromTradeLog:
 
         assert 'TSLA' in engine.last_exit_time
         assert 'AAPL' not in engine.last_exit_time
+
+    def test_rebuild_ignores_partial_exits(self, cooldown_engine):
+        """Scale-out partial exits (position still open) must not create stopped entries."""
+        engine, trades_file = cooldown_engine
+        now = datetime.now()
+        partial = _make_trade('EXIT', 'MXL', (now - timedelta(minutes=30)).isoformat(),
+                              realized_pnl=-50.0)
+        partial['_meta']['partial_exit'] = True
+        _write_trades(trades_file, [partial])
+
+        engine._rebuild_cooldown_state()
+
+        # A losing scale-out is not a stop-out: no stopped entry, no cooldown state.
+        assert 'MXL' not in engine.stopped_entries
+        assert 'MXL' not in engine.consecutive_losses
+        assert 'MXL' not in engine.last_exit_time
 
     def test_rebuild_ignores_test_trades(self, cooldown_engine):
         """Trades with _meta.test_mode: true are skipped."""

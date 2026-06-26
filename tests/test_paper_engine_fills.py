@@ -467,5 +467,112 @@ class TestSellFillProcessing(unittest.TestCase):
             f"Expected exit fill message, got: {printed}"
 
 
+class TestSameLevelRejection(unittest.TestCase):
+    """Tests for same-level re-entry rejection."""
+
+    def test_loss_records_stopped_entry(self):
+        """Recording a loss with entry_price should store it in stopped_entries."""
+        engine, _ = make_alpaca_engine()
+        engine._record_position_exit('MXL', -500.0, entry_price=92.0)
+        assert 'MXL' in engine.stopped_entries
+        assert len(engine.stopped_entries['MXL']) == 1
+        assert engine.stopped_entries['MXL'][0][1] == 92.0
+
+    def test_loss_without_entry_price_warns(self):
+        """Recording a loss without entry_price should warn but not crash."""
+        engine, _ = make_alpaca_engine()
+        engine._record_position_exit('AAPL', -100.0)  # 2-arg legacy call
+        assert 'AAPL' not in engine.stopped_entries
+
+    def test_profit_clears_stopped_entries(self):
+        """A profitable exit should clear stopped entries for that ticker."""
+        engine, _ = make_alpaca_engine()
+        engine._record_position_exit('MXL', -500.0, entry_price=92.0)
+        assert 'MXL' in engine.stopped_entries
+        engine._record_position_exit('MXL', 300.0, entry_price=95.0)
+        assert 'MXL' not in engine.stopped_entries
+
+    def test_same_level_rejection_blocks_entry(self):
+        """Entry within 2% of a stopped entry should be rejected."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        # Simulate a stopped-out trade at $92
+        engine.stopped_entries['MXL'] = [(datetime.now(), 92.0)]
+        # Mock _execute_entry dependencies
+        engine.signaled_tickers = set()
+        engine.order_manager = Mock()
+        engine.order_manager.has_pending_order.return_value = False
+        analysis = {
+            'ticker': 'MXL', 'current': 92.5, 'stop': 87.0, 'target': 105,
+            'sector': 'Tech',
+        }
+        # Capture prints
+        with patch('builtins.print') as mock_print:
+            engine._execute_entry(analysis)
+        printed = ' '.join(str(c) for c in mock_print.call_args_list)
+        assert 'Rejected' in printed or '⛔' in printed
+
+    def test_same_level_rejection_allows_different_price(self):
+        """Entry outside 2% of a stopped entry should proceed."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        engine.stopped_entries['MXL'] = [(datetime.now(), 92.0)]
+        engine.signaled_tickers = set()
+        engine.order_manager = Mock()
+        engine.order_manager.has_pending_order.return_value = False
+        analysis = {
+            'ticker': 'MXL', 'current': 100.0, 'stop': 95.0, 'target': 110,
+            'sector': 'Tech',
+        }
+        with patch('builtins.print') as mock_print:
+            engine._execute_entry(analysis)
+        printed = ' '.join(str(c) for c in mock_print.call_args_list)
+        assert 'Rejected' not in printed and '⛔' not in printed
+
+    def test_same_level_disabled_when_pct_zero(self):
+        """When same_level_rejection_pct=0.0, no blocks should apply."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        engine.risk_config.cooldown.same_level_rejection_pct = 0.0
+        engine.stopped_entries['MXL'] = [(datetime.now(), 92.0)]
+        assert engine._get_active_blocks() == {}
+
+    def test_prune_stopped_entries_removes_old(self):
+        """Entries older than the memory window should be pruned."""
+        from datetime import datetime, timedelta
+        engine, _ = make_alpaca_engine()
+        # Old entry (beyond 72h window)
+        old_time = datetime.now() - timedelta(minutes=5000)
+        engine.stopped_entries['MXL'] = [(old_time, 92.0)]
+        engine._prune_stopped_entries('MXL')
+        assert engine.stopped_entries.get('MXL', []) == []
+
+    def test_prune_stopped_entries_keeps_recent(self):
+        """Entries within the memory window should be kept."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        engine.stopped_entries['MXL'] = [(datetime.now(), 92.0)]
+        engine._prune_stopped_entries('MXL')
+        assert len(engine.stopped_entries['MXL']) == 1
+
+    def test_multiple_stopped_entries_append(self):
+        """Multiple losses should append to the stopped_entries list."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        engine._record_position_exit('MXL', -500.0, entry_price=92.0)
+        engine._record_position_exit('MXL', -300.0, entry_price=85.0)
+        assert len(engine.stopped_entries['MXL']) == 2
+
+    def test_get_active_blocks_returns_count(self):
+        """_get_active_blocks should return count of active stopped entries."""
+        from datetime import datetime
+        engine, _ = make_alpaca_engine()
+        engine.stopped_entries['MXL'] = [(datetime.now(), 92.0), (datetime.now(), 85.0)]
+        engine.stopped_entries['VRT'] = [(datetime.now(), 300.0)]
+        blocks = engine._get_active_blocks()
+        assert blocks['MXL'] == 2
+        assert blocks['VRT'] == 1
+
+
 if __name__ == '__main__':
     unittest.main()

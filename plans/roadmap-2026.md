@@ -1,8 +1,8 @@
 # Product Roadmap 2026
 
 **Created:** 2026-04-26
-**Updated:** 2026-06-20
-**Latest Shipped:** 0.6.19.19
+**Updated:** 2026-06-26
+**Latest Shipped:** 0.6.19.20
 
 ---
 
@@ -19,6 +19,7 @@
 | **0.6.19.0** | ✅ Shipped | **Cleanup + Reliability** | VCP strategy plugin removal + dashboard hardening | — | [plan](plans/plan-remove-vcp-strategy.md) · [CHANGELOG](../CHANGELOG.md) |
 | **0.6.19.18** | ✅ Shipped | **UX** | Trend screener setup/buy point 1:1 pairing + interactive HTML | [mockup](scans/mockup-improved.html) | [plan](plans/trend-screener-ux-overhaul.md) · [CHANGELOG](../CHANGELOG.md) |
 | **0.6.19.19** | ✅ Shipped | **Fix** | Proximity-based section classification + lower-risk entry selection | [mockup](scans/mockup-improved.html) | [plan](plans/classification-logic-fix.md) · [CHANGELOG](../CHANGELOG.md) |
+| **0.6.19.20** | ✅ Shipped | **Fix** | Same-level re-entry rejection for repeat losing trades | — | [plan](plans/prevent-repeat-losing-trades.md) · [CHANGELOG](../CHANGELOG.md) |
 | 0.6.20.0 | TBD | **Insight** | Analytics & journaling | — | — |
 | 0.6.21.0 | TBD | **Config** | Configurable engine rules | — | — |
 | 0.6.22.0 | TBD | **Accessibility** | Web dashboard | — | — |
