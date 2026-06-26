@@ -121,6 +121,10 @@ class AlpacaPaperEngine:
         # Format: {ticker: consecutive_loss_count}
         self.consecutive_losses: Dict[str, int] = {}
 
+        # Track stopped-out entry prices for same-level rejection
+        # Format: {ticker: [(exit_time, entry_price), ...]}
+        self.stopped_entries: Dict[str, list] = {}
+
         # Rebuild cooldown state from trade log after restart
         self._rebuild_cooldown_state()
 
@@ -671,12 +675,23 @@ class AlpacaPaperEngine:
 
         return True, None
 
-    def _record_position_exit(self, ticker: str, realized_pnl: float):
+    def _prune_stopped_entries(self, ticker: str):
+        """Remove stopped entries older than the memory window."""
+        memory_cutoff = datetime.now() - timedelta(
+            minutes=self.risk_config.cooldown.stopped_entry_memory_minutes)
+        self.stopped_entries[ticker] = [
+            (t, p) for t, p in self.stopped_entries.get(ticker, [])
+            if t >= memory_cutoff
+        ]
+
+    def _record_position_exit(self, ticker: str, realized_pnl: float, entry_price: float = 0.0):
         """Record position exit for cooldown tracking.
 
         Args:
             ticker: Ticker symbol that was exited
             realized_pnl: P&L from the trade (positive = profit, negative = loss)
+            entry_price: Entry price of the stopped-out trade (for same-level rejection).
+                         0.0 = not passed (legacy caller); warning logged if same-level enabled.
         """
         cooldown_cfg = self.risk_config.cooldown
 
@@ -694,11 +709,25 @@ class AlpacaPaperEngine:
             self.consecutive_losses[ticker] = current_count + 1
             print(f"   ⏱️  {ticker}: Exit recorded (loss ${realized_pnl:.2f}), "
                   f"consecutive losses: {self.consecutive_losses[ticker]}")
+
+            # Record stopped-out entry price for same-level rejection
+            if entry_price > 0.0:
+                self.stopped_entries.setdefault(ticker, []).append((datetime.now(), entry_price))
+                self._prune_stopped_entries(ticker)
+            elif cooldown_cfg.same_level_rejection_pct > 0:
+                print(f"   ⚠️  {ticker}: entry_price not passed to _record_position_exit, "
+                      f"same-level rejection may not work")
         else:
             # Reset consecutive loss count on profit
             if ticker in self.consecutive_losses:
                 del self.consecutive_losses[ticker]
                 print(f"   ⏱️  {ticker}: Exit recorded (profit ${realized_pnl:.2f}), cooldown reset")
+
+            # Profit clears stopped entries — a realized win means the level works now
+            if ticker in self.stopped_entries:
+                del self.stopped_entries[ticker]
+                print(f"   ⏱️  {ticker}: Stopped-entry memory cleared (profit), "
+                      f"same-level rejection reset")
 
 
 
@@ -754,7 +783,6 @@ class AlpacaPaperEngine:
         print(f"   📤 Scale-out filled: {order.ticker} {shares_sold} shares "
               f"@ ${fill_price:.2f} ({order.reason})")
         print(f"   📤 {position.shares} shares remain | P&L: ${realized_pnl:+.2f}")
-
     def _get_active_cooldowns(self) -> Dict[str, float]:
         """Return active cooldowns for dashboard display.
 
@@ -763,6 +791,7 @@ class AlpacaPaperEngine:
         """
         active = {}
         cooldown_cfg = self.risk_config.cooldown
+
         for ticker, last_exit in self.last_exit_time.items():
             elapsed_minutes = (datetime.now() - last_exit).total_seconds() / 60
             consecutive_count = self.consecutive_losses.get(ticker, 0)
@@ -775,6 +804,23 @@ class AlpacaPaperEngine:
             remaining = effective_cooldown - elapsed_minutes
             if remaining > 0:
                 active[ticker] = remaining
+        return active
+
+    def _get_active_blocks(self) -> Dict[str, int]:
+        """Return tickers blocked by same-level rejection for dashboard display.
+
+        Returns:
+            Dict mapping ticker -> count of active stopped entries.
+        """
+        if self.risk_config.cooldown.same_level_rejection_pct <= 0:
+            return {}
+        active = {}
+        memory_cutoff = datetime.now() - timedelta(
+            minutes=self.risk_config.cooldown.stopped_entry_memory_minutes)
+        for ticker, entries in self.stopped_entries.items():
+            active_count = sum(1 for t, _ in entries if t >= memory_cutoff)
+            if active_count > 0:
+                active[ticker] = active_count
         return active
 
     def _get_today_trade_stats(self) -> Dict[str, Any]:
@@ -845,18 +891,21 @@ class AlpacaPaperEngine:
     def _rebuild_cooldown_state(self):
         """Rebuild cooldown state from trade log after engine restart.
 
-        Reads paper_trades.jsonl to reconstruct last_exit_time and
-        consecutive_losses dicts. Mirrors the _reconcile_counters_from_log
-        pattern in PaperState.
+        Reads paper_trades.jsonl to reconstruct last_exit_time,
+        consecutive_losses, and stopped_entries dicts.
         """
-        cutoff = datetime.now() - timedelta(
-            minutes=self.risk_config.cooldown.max_cooldown_minutes)
+        # Widen cutoff to cover the longest persistence duration
+        rebuild_window = max(
+            self.risk_config.cooldown.max_cooldown_minutes,
+            self.risk_config.cooldown.stopped_entry_memory_minutes,
+        )
+        cutoff = datetime.now() - timedelta(minutes=rebuild_window)
 
         if not self.state.trades_file.exists():
             return
 
-        # Collect EXIT events within cooldown window, grouped by ticker
-        ticker_exits = {}  # ticker -> [(timestamp, pnl), ...]
+        # Collect EXIT events within window, grouped by ticker
+        ticker_exits = {}  # ticker -> [(timestamp, pnl, entry_price), ...]
 
         try:
             with open(self.state.trades_file, 'r') as f:
@@ -888,7 +937,8 @@ class AlpacaPaperEngine:
                         continue
 
                     pnl = trade.get('realized_pnl')
-                    ticker_exits.setdefault(ticker, []).append((ts, pnl))
+                    entry_price = trade.get('entry_price', 0.0)
+                    ticker_exits.setdefault(ticker, []).append((ts, pnl, entry_price))
         except Exception as e:
             print(f"⚠️  Could not read trade log for cooldown rebuild: {e}")
             return
@@ -904,7 +954,7 @@ class AlpacaPaperEngine:
 
             # Count consecutive losses from most recent exit backwards
             consecutive = 0
-            for _, pnl in exits:
+            for _, pnl, _ in exits:
                 if pnl is not None and pnl < 0:
                     consecutive += 1
                 else:
@@ -912,6 +962,14 @@ class AlpacaPaperEngine:
 
             if consecutive > 0:
                 self.consecutive_losses[ticker] = consecutive
+
+            # Rebuild stopped_entries from loss exits
+            for ts, pnl, entry_price in exits:
+                if pnl is not None and pnl < 0 and entry_price and entry_price > 0:
+                    self.stopped_entries.setdefault(ticker, []).append((ts, entry_price))
+
+            if self.stopped_entries.get(ticker):
+                self._prune_stopped_entries(ticker)
 
             rebuilt += 1
 
@@ -1141,6 +1199,20 @@ class AlpacaPaperEngine:
         target_price = analysis['target']
         sector = analysis['sector']
 
+        # Check same-level rejection (prevents repeat losses at same price level)
+        same_level_pct = self.risk_config.cooldown.same_level_rejection_pct
+        if same_level_pct > 0 and ticker in self.stopped_entries:
+            memory_cutoff = datetime.now() - timedelta(
+                minutes=self.risk_config.cooldown.stopped_entry_memory_minutes)
+            for exit_time, prev_entry_price in self.stopped_entries.get(ticker, []):
+                if exit_time < memory_cutoff:
+                    continue
+                price_diff_pct = abs(entry_price - prev_entry_price) / prev_entry_price * 100
+                if price_diff_pct <= same_level_pct:
+                    print(f"   ⛔ {ticker}: Rejected — entry ${entry_price:.2f} within "
+                          f"{same_level_pct:.1f}% of previous stopped entry ${prev_entry_price:.2f}")
+                    return
+
         # Calculate position size with triple constraint system (risk, position cap, cash)
         prices = self._get_current_prices_map()
         equity = self.state.get_equity(prices)
@@ -1344,7 +1416,8 @@ class AlpacaPaperEngine:
 
                             # Record exit for cooldown tracking (FLY case study)
                             realized_pnl = position.realized_pnl or 0.0
-                            self._record_position_exit(order.ticker, realized_pnl)
+                            self._record_position_exit(order.ticker, realized_pnl,
+                                                        entry_price=position.entry_price)
 
     def _reset_daily_signals(self):
         """Reset entry signals for new day."""
@@ -1363,6 +1436,12 @@ class AlpacaPaperEngine:
             for ticker in expired_tickers:
                 self.last_exit_time.pop(ticker, None)
                 self.consecutive_losses.pop(ticker, None)
+
+            # Prune stopped entries (only remove expired, keep active)
+            for ticker in list(self.stopped_entries.keys()):
+                self._prune_stopped_entries(ticker)
+                if not self.stopped_entries.get(ticker):
+                    self.stopped_entries.pop(ticker, None)
 
             print(f"\n📅 New day: Reset entry signals and cooldown tracking")
 
@@ -1450,6 +1529,7 @@ class AlpacaPaperEngine:
             "next_scan_seconds": 30,
             "market_close_seconds": market_close_seconds,
             "cooldowns": active_cooldowns,
+            "blocked_tickers": self._get_active_blocks(),
             "today_stats": today_stats,
             "regime": regime,
             # T1: Pre-fetched portfolio history fields (flat keys)

@@ -45,7 +45,7 @@ stop_loss:
   # (method key removed — stop method is now chosen per-strategy in config/strategies/)
 
   # When method is "percent"
-  fixed_pct: 0.07  # 7% below entry
+  fixed_pct: 0.05  # 5% below entry
 
   # ATR settings (when method uses ATR)
   atr:
@@ -54,10 +54,10 @@ stop_loss:
 
   # Hard limits on stop distance (safety rails)
   min_stop_distance_pct: 0.03   # Minimum 3% stop (tighter stops = larger positions)
-  max_stop_distance_pct: 0.10   # Maximum 10% stop (rejects wide stops)
+  max_stop_distance_pct: 0.07   # Maximum 10% stop (rejects wide stops)
 
   # Fallback if calculation fails
-  fallback_pct: 0.07  # 7% below entry
+  fallback_pct: 0.05  # 7% below entry
 
 # =============================================================================
 # MA SUPPORT STOP CONFIGURATION
@@ -247,19 +247,27 @@ market:
 # See: memory/2026-04-11-fly-reentry-lesson.md
 cooldown:
   # Minutes to wait before re-entering same ticker after exit
-  # Default: 60 minutes (1 hour) - prevents FLY-style double loss
-  reentry_cooldown_minutes: 60
+  # Default: 120 minutes (2 hour) - prevents FLY-style double loss
+  reentry_cooldown_minutes: 120
 
   # Minimum loss % to trigger cooldown (0.0 = any loss triggers cooldown)
   # Set to 0.01 to only cooldown after 1%+ losses
   min_loss_to_trigger_cooldown_pct: 0.0
 
   # Maximum cooldown cap after consecutive losses
-  max_cooldown_minutes: 240  # 4 hours
+  max_cooldown_minutes: 360  # 4 hours
 
   # Multiply cooldown by this factor after each consecutive losing trade
-  # Example: 60min -> 120min -> 240min (capped)
+  # Example: 120min -> 240min -> 480min (capped)
   consecutive_loss_multiplier: 2.0
+
+  # Reject re-entry if new entry price is within this % of a previous stopped-out entry
+  # Prevents repeat losses at the same price level (e.g., MXL cycled 3x at $91-93)
+  # 0.0 = disabled
+  same_level_rejection_pct: 2.0  # within 2% of previous stopped entry
+
+  # How long to remember stopped-out entry prices for same-level check
+  stopped_entry_memory_minutes: 4320  # 3 trading days (72h)
 
 # =============================================================================
 # PRESET RISK PROFILES

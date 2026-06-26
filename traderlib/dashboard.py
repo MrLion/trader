@@ -697,10 +697,19 @@ class Dashboard:
         else:
             cd_str = ""
 
+        # Blocked tickers (same-level rejection)
+        blocked = state.get("blocked_tickers", {})
+        if blocked:
+            blk_parts = [f"{t}({n} lvl)" for t, n in sorted(blocked.items())]
+            blk_str = "  |  BLOCKED: " + "  |  ".join(blk_parts)
+        else:
+            blk_str = ""
+
         return Text.assemble(
             "  Next scan: ", (f"{next_scan}s", "white"), "    ",
             "Market closes in: ", (close_str, close_color), "    ",
             "WebSocket: ", (ws, ws_color), "    ",
             "Rate limit: ", (rate_str, rate_color),
             (cd_str, "dim") if cd_str else "",
+            (blk_str, "dim") if blk_str else "",
         )

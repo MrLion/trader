@@ -1,3 +1,24 @@
+## [0.6.19.20] — 2026-06-26 — Fix — Same-level re-entry rejection for repeat losing trades
+
+### Added
+- **`traderlib/risk_config.py`** — New `CooldownConfig` settings: `same_level_rejection_pct` (2.0% default) and `stopped_entry_memory_minutes` (72h default). When a stock is stopped out, its entry price is remembered. If a new entry signal comes at a price within 2% of a previous stopped-out entry, the trade is rejected. Prevents repeat losses at the same price level (e.g., MXL cycled 3x at $91-93, lost $1,154).
+- **`scripts/paper_engine_alpaca.py`** — `stopped_entries` state tracking, `_prune_stopped_entries` helper, same-level check in `_execute_entry`, `entry_price` optional kwarg on `_record_position_exit` (backward compatible with existing 2-arg callers).
+- **`traderlib/dashboard.py`** — BLOCKED segment in footer showing tickers blocked by same-level rejection.
+- **`config/paper/risk_config.yaml`** — New cooldown settings documented.
+
+### Fixed
+- **`scripts/paper_engine_alpaca.py`** — `_rebuild_cooldown_state` cutoff widened from 6h to `max(max_cooldown_minutes, stopped_entry_memory_minutes)` so stopped entries survive restart for their full 72h lifetime.
+- **`scripts/paper_engine_alpaca.py`** — Daily reset prunes stopped entries by memory window instead of clearing them entirely. Stopped entries survive overnight.
+- **`scripts/paper_engine_alpaca.py`** — Profit clears stopped entries — a realized win means the level works now. Mirrors the existing `consecutive_losses` profit-reset pattern.
+
+### Changed
+- **`scripts/paper_engine_alpaca.py`** — `_record_position_exit` now takes optional `entry_price=0.0` kwarg. Existing 2-arg callers unaffected. Warning logged if same-level enabled and entry_price not passed.
+
+### Tests
+- **`tests/test_paper_engine_fills.py`** — Added `TestSameLevelRejection` class with 10 tests: loss records entry, loss without price warns, profit clears, rejection blocks entry, rejection allows different price, disabled config, prune old, prune recent, multiple entries append, get_active_blocks returns count.
+
+---
+
 ## [0.6.19.19] — 2026-06-20 — Fix — Proximity-based section classification + lower-risk entry selection
 
 ### Fixed
