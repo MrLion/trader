@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mockup A — Quick Fixes</title>
+    <style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117; color: #e2e8f0; padding: 24px 32px;
+            max-width: 1200px; margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+        .summary { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-item {
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }
+        .summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+        .summary-ready .num { color: #22c55e; }
+        .summary-near .num { color: #eab308; }
+        .summary-extended .num { color: #f97316; }
+        .summary-none .num { color: #64748b; }
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }
+        .section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+        .row-ready td { background: #052e16; }
+        .row-near td { background: #422006; }
+        .row-extended td { background: #431407; }
+        .row-nosetup td { background: transparent; color: #475569; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .badge-20d { background: #1e3a5f; color: #60a5fa; }
+        .badge-trend { background: #1a3a2a; color: #4ade80; }
+        .badge-volume { background: #3a2a1a; color: #f97316; }
+        .badge-pocket { background: #3a1a1a; color: #f87171; }
+        .badge-none { background: #1a1d27; color: #64748b; }
+        .badge-sector { background: #1a1d27; color: #94a3b8; font-size: 10px; }
+        .signal-badge {
+            display: inline-block; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 600; margin-right: 3px;
+        }
+        .signal-pocket { background: #3a2a1a; color: #fbbf24; }
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok { color: #e2e8f0; }
+        .vol-low { color: #64748b; }
+        .prox-close { color: #22c55e; }
+        .prox-near { color: #eab308; }
+        .prox-far { color: #f97316; }
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; }
+        .buy-point .bp-source { font-size: 9px; color: #64748b; text-transform: uppercase; margin-right: 3px; }
+        .buy-point .bp-price { color: #60a5fa; }
+        .buy-point .bp-sep { color: #3a3d4a; margin: 0 4px; }
+        .buy-point .bp-pocket { color: #fbbf24; font-size: 11px; }
+        .detail-row { display: none; }
+        .detail-row.open { display: table-row; }
+        .detail-cell {
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }
+        .detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+        .detail-cell .ma-item span { color: #94a3b8; }
+        .toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+        .toggle-detail:hover { color: #e2e8f0; }
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+
+
+        .summary-item { cursor: pointer; transition: all 0.15s; }
+        .summary-item:hover { border-color: #60a5fa; transform: translateY(-1px); }
+        .summary-item.active { border-color: #60a5fa; background: #1e293b; }
+        .section.hidden-section { display: none; }
+        .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filter-chip {
+            padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .filter-chip:hover { border-color: #60a5fa; color: #e2e8f0; }
+        .filter-chip.active { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+        .filter-chip .chip-count { color: #64748b; font-size: 11px; margin-left: 4px; }
+        .filter-chip.active .chip-count { color: #93c5fd; }
+        .filter-label { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener <span style="color:#64748b;font-size:14px;font-weight:400;">— Mockup A</span></h1>
+<div class="subtitle">2026-06-19 15:17 ET · 87 candidates</div>
+
+<div style="background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#94a3b8;">
+    <b>Changes:</b> clickable summary cards · dynamic counts · empty sections collapse · "Trend" filter added · buy points labeled by source (20d / pp)
+</div>
+
+<div class="filter-bar">
+    <span class="filter-label">Setup type:</span>
+    <button class="filter-chip active" data-type="all" onclick="filterBySetup('all')">All<span class="chip-count">87</span></button>
+    <button class="filter-chip" data-type="20d" onclick="filterBySetup('20d')">20d<span class="chip-count">75</span></button>
+    <button class="filter-chip" data-type="volume" onclick="filterBySetup('volume')">Volume<span class="chip-count">0</span></button>
+    <button class="filter-chip" data-type="trend" onclick="filterBySetup('trend')">Trend<span class="chip-count">12</span></button>
+    <button class="filter-chip" data-type="pocket" onclick="filterBySetup('pocket')">Pocket Pivot<span class="chip-count">87</span></button>
+    <span class="filter-count" id="countDisplay" style="margin-left:auto;">Showing 87 of 87</span>
+</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready" data-group="ready" onclick="filterByProximity('ready')">
+        <span class="num">18</span>🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near" data-group="near" onclick="filterByProximity('near')">
+        <span class="num">62</span>⏳ Near Pivot
+    </div>
+    <div class="summary-item summary-extended" data-group="extended" onclick="filterByProximity('extended')">
+        <span class="num">7</span>📈 Extended
+    </div>
+    <div class="summary-item summary-none" data-group="nosetup" onclick="filterByProximity('nosetup')">
+        <span class="num">0</span>⏸️ No Setup
+    </div>
+</div>
+
+
+            <div class="section" id="section-row-ready">
+                <div class="section-title">🔥 Ready Now <span class="count">18</span></div>
+                <table><tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>VTEB</b></td>
+                    <td>$50.45</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$50.47</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$48.37</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.04%</td>
+                    <td class="vol-low">0.6x</td>
+                    <td class="dvol">$352M</td>
+                    <td>0.2%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>DOCN</b></td>
+                    <td>$173.27</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$187.50</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$172.78</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.11%</td>
+                    <td class="vol-ok">1.0x</td>
+                    <td class="dvol">$669M</td>
+                    <td>4.4%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>NUVL</b></td>
+                    <td>$123.43</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$123.62</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$115.77</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.15%</td>
+                    <td class="vol-high">2.0x</td>
+                    <td class="dvol">$285M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Healthcare</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>SNDK</b></td>
+                    <td>$2184.75</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$2191.69</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$2045.71</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.32%</td>
+                    <td class="vol-ok">0.9x</td>
+                    <td class="dvol">$30.1B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>JBL</b></td>
+                    <td>$371.88</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$428.93</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$413.57</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.46%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$466M</td>
+                    <td>3.6%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MKSI</b></td>
+                    <td>$406.37</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$408.87</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$392.76</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.61%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$481M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>WBS</b></td>
+                    <td>$75.62</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$76.10</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$74.09</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.63%</td>
+                    <td class="vol-ok">1.0x</td>
+                    <td class="dvol">$241M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>TER</b></td>
+                    <td>$437.92</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$440.75</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$407.79</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.64%</td>
+                    <td class="vol-high">3.4x</td>
+                    <td class="dvol">$1.7B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BTSG</b></td>
+                    <td>$66.25</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$66.69</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$63.04</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.66%</td>
+                    <td class="vol-high">2.4x</td>
+                    <td class="dvol">$199M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Healthcare</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>RY</b></td>
+                    <td>$201.56</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$202.90</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$187.03</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.66%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$317M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>TSM</b></td>
+                    <td>$462.12</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$465.22</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$434.11</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.67%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$6.4B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ASML</b></td>
+                    <td>$1929.68</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$1942.87</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$1846.35</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.68%</td>
+                    <td class="vol-ok">1.2x</td>
+                    <td class="dvol">$3.7B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>SN</b></td>
+                    <td>$140.84</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$141.81</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$130.69</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.68%</td>
+                    <td class="vol-ok">1.2x</td>
+                    <td class="dvol">$292M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>TTMI</b></td>
+                    <td>$216.44</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$217.94</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$203.10</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.69%</td>
+                    <td class="vol-ok">1.1x</td>
+                    <td class="dvol">$522M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>TD</b></td>
+                    <td>$119.29</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$120.27</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$115.34</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.81%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$251M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>CAT</b></td>
+                    <td>$985.82</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$994.49</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$947.45</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.87%</td>
+                    <td class="vol-high">2.3x</td>
+                    <td class="dvol">$2.6B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BNS</b></td>
+                    <td>$87.03</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$87.80</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$81.94</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+0.88%</td>
+                    <td class="vol-ok">1.3x</td>
+                    <td class="dvol">$198M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>EA</b></td>
+                    <td>$202.15</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$204.20</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$195.08</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.00%</td>
+                    <td class="vol-high">3.1x</td>
+                    <td class="dvol">$380M</td>
+                    <td>1.1%</td>
+                    <td><span class="badge badge-sector">Communication Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr></table>
+            </div>
+            <div class="section" id="section-row-near">
+                <div class="section-title">⏳ Near Pivot <span class="count">62</span></div>
+                <table><tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+                <tr class="stock-row row-near" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>TGT</b></td>
+                    <td>$130.74</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$137.87</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$133.54</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.03%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$684M</td>
+                    <td>3.3%</td>
+                    <td><span class="badge badge-sector">Consumer Defensive</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>INTC</b></td>
+                    <td>$133.99</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$135.48</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$124.69</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.10%</td>
+                    <td class="vol-high">1.6x</td>
+                    <td class="dvol">$18.8B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ATI</b></td>
+                    <td>$201.34</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$203.59</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$197.15</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.11%</td>
+                    <td class="vol-high">1.7x</td>
+                    <td class="dvol">$364M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>CRDO</b></td>
+                    <td>$271.83</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$274.90</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$264.42</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.12%</td>
+                    <td class="vol-ok">1.1x</td>
+                    <td class="dvol">$2.2B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ADI</b></td>
+                    <td>$434.46</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$439.70</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$413.50</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.19%</td>
+                    <td class="vol-high">2.7x</td>
+                    <td class="dvol">$1.9B</td>
+                    <td>0.7%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>D</b></td>
+                    <td>$68.41</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$69.28</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$64.38</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.26%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$504M</td>
+                    <td>0.1%</td>
+                    <td><span class="badge badge-sector">Utilities</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MU</b></td>
+                    <td>$1133.99</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$1149.43</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$1123.49</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.34%</td>
+                    <td class="vol-ok">1.3x</td>
+                    <td class="dvol">$56.4B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>TRP</b></td>
+                    <td>$67.70</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$71.47</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$67.20</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.34%</td>
+                    <td class="vol-high">2.1x</td>
+                    <td class="dvol">$161M</td>
+                    <td>4.5%</td>
+                    <td><span class="badge badge-sector">Energy</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>APH</b></td>
+                    <td>$163.96</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$166.35</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$153.97</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.44%</td>
+                    <td class="vol-ok">1.3x</td>
+                    <td class="dvol">$1.7B</td>
+                    <td>1.2%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ALL</b></td>
+                    <td>$221.17</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$225.26</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$208.55</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.82%</td>
+                    <td class="vol-high">3.1x</td>
+                    <td class="dvol">$358M</td>
+                    <td>1.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>VIK</b></td>
+                    <td>$97.17</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$99.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$96.11</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.85%</td>
+                    <td class="vol-ok">0.8x</td>
+                    <td class="dvol">$310M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>IBKR</b></td>
+                    <td>$96.00</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$97.81</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$93.53</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.85%</td>
+                    <td class="vol-high">1.5x</td>
+                    <td class="dvol">$482M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>GE</b></td>
+                    <td>$357.64</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$364.70</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$353.19</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-close">+1.94%</td>
+                    <td class="vol-ok">1.3x</td>
+                    <td class="dvol">$2.1B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>LNT</b></td>
+                    <td>$73.00</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$74.67</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$71.97</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.23%</td>
+                    <td class="vol-high">1.6x</td>
+                    <td class="dvol">$176M</td>
+                    <td>1.4%</td>
+                    <td><span class="badge badge-sector">Utilities</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>VSXY</b></td>
+                    <td>$81.98</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$83.92</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$79.91</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.31%</td>
+                    <td class="vol-ok">1.1x</td>
+                    <td class="dvol">$193M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>GH</b></td>
+                    <td>$131.78</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$135.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$132.08</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.38%</td>
+                    <td class="vol-high">1.5x</td>
+                    <td class="dvol">$307M</td>
+                    <td>1.1%</td>
+                    <td><span class="badge badge-sector">Healthcare</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>USB</b></td>
+                    <td>$58.14</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$59.56</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$56.15</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.38%</td>
+                    <td class="vol-high">2.4x</td>
+                    <td class="dvol">$528M</td>
+                    <td>3.2%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>CFG</b></td>
+                    <td>$67.08</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$68.75</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$65.53</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.43%</td>
+                    <td class="vol-high">1.7x</td>
+                    <td class="dvol">$301M</td>
+                    <td>0.8%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>RRX</b></td>
+                    <td>$226.78</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$232.64</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$225.61</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.52%</td>
+                    <td class="vol-ok">0.9x</td>
+                    <td class="dvol">$245M</td>
+                    <td>2.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>GS</b></td>
+                    <td>$1096.56</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$1125.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$1076.75</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.53%</td>
+                    <td class="vol-high">2.1x</td>
+                    <td class="dvol">$2.4B</td>
+                    <td>0.2%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>HLT</b></td>
+                    <td>$348.84</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$358.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$347.87</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.56%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$564M</td>
+                    <td>0.4%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>LIN</b></td>
+                    <td>$512.15</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$525.87</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$502.02</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.61%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$1.1B</td>
+                    <td>2.2%</td>
+                    <td><span class="badge badge-sector">Basic Materials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>DRI</b></td>
+                    <td>$213.45</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$219.38</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$211.10</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.70%</td>
+                    <td class="vol-high">1.7x</td>
+                    <td class="dvol">$234M</td>
+                    <td>2.5%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MNST</b></td>
+                    <td>$91.34</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$93.92</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$86.66</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.75%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$492M</td>
+                    <td>2.0%</td>
+                    <td><span class="badge badge-sector">Consumer Defensive</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>NTRS</b></td>
+                    <td>$172.11</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$176.99</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$165.25</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.76%</td>
+                    <td class="vol-high">2.4x</td>
+                    <td class="dvol">$198M</td>
+                    <td>1.6%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>PLD</b></td>
+                    <td>$140.54</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$149.09</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$139.75</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.76%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$507M</td>
+                    <td>4.8%</td>
+                    <td><span class="badge badge-sector">Real Estate</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>AFL</b></td>
+                    <td>$115.47</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$118.83</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$109.89</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.83%</td>
+                    <td class="vol-high">2.5x</td>
+                    <td class="dvol">$292M</td>
+                    <td>2.3%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>KLAC</b></td>
+                    <td>$259.56</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$267.17</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$249.53</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.85%</td>
+                    <td class="vol-high">2.3x</td>
+                    <td class="dvol">$2.9B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ARMK</b></td>
+                    <td>$53.33</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$54.93</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$50.87</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.91%</td>
+                    <td class="vol-ok">0.9x</td>
+                    <td class="dvol">$156M</td>
+                    <td>2.2%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ARM</b></td>
+                    <td>$439.46</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$452.70</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$424.03</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.92%</td>
+                    <td class="vol-high">2.3x</td>
+                    <td class="dvol">$5.1B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>LRCX</b></td>
+                    <td>$389.04</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$401.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$384.21</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+2.98%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$3.9B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>EVRG</b></td>
+                    <td>$82.50</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$85.09</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$80.15</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.04%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$163M</td>
+                    <td>2.0%</td>
+                    <td><span class="badge badge-sector">Utilities</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BNY</b></td>
+                    <td>$143.63</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$148.13</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$139.57</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.04%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$534M</td>
+                    <td>1.7%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>JCI</b></td>
+                    <td>$144.82</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$149.38</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$139.31</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.05%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$537M</td>
+                    <td>1.8%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BAC</b></td>
+                    <td>$56.20</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$57.98</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$54.27</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.07%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$2.0B</td>
+                    <td>1.1%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MS</b></td>
+                    <td>$223.17</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$230.47</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$224.98</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.17%</td>
+                    <td class="vol-high">2.0x</td>
+                    <td class="dvol">$1.3B</td>
+                    <td>0.8%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>PNC</b></td>
+                    <td>$232.04</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$239.84</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$229.98</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.25%</td>
+                    <td class="vol-high">2.4x</td>
+                    <td class="dvol">$470M</td>
+                    <td>3.6%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BEN</b></td>
+                    <td>$33.05</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$34.17</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$32.69</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.29%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$160M</td>
+                    <td>0.7%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>C</b></td>
+                    <td>$143.06</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$147.96</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$137.64</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.31%</td>
+                    <td class="vol-high">2.5x</td>
+                    <td class="dvol">$1.7B</td>
+                    <td>0.5%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>BIIB</b></td>
+                    <td>$196.58</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$203.45</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$196.07</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.38%</td>
+                    <td class="vol-high">1.5x</td>
+                    <td class="dvol">$225M</td>
+                    <td>3.9%</td>
+                    <td><span class="badge badge-sector">Healthcare</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>AMAT</b></td>
+                    <td>$617.11</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$638.90</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$594.05</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.41%</td>
+                    <td class="vol-high">2.1x</td>
+                    <td class="dvol">$4.9B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MTB</b></td>
+                    <td>$225.12</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$233.23</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$219.88</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.48%</td>
+                    <td class="vol-high">2.8x</td>
+                    <td class="dvol">$236M</td>
+                    <td>4.1%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>FTNT</b></td>
+                    <td>$144.73</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$150.07</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$146.97</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.56%</td>
+                    <td class="vol-high">2.7x</td>
+                    <td class="dvol">$950M</td>
+                    <td>3.3%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>MAR</b></td>
+                    <td>$396.20</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$410.98</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$393.88</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.60%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$574M</td>
+                    <td>1.6%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>STT</b></td>
+                    <td>$168.31</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$174.66</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$166.52</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.64%</td>
+                    <td class="vol-high">3.3x</td>
+                    <td class="dvol">$369M</td>
+                    <td>1.7%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>TJX</b></td>
+                    <td>$163.81</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$170.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$163.38</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.64%</td>
+                    <td class="vol-high">1.6x</td>
+                    <td class="dvol">$912M</td>
+                    <td>2.7%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>DAL</b></td>
+                    <td>$84.18</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$87.39</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$84.82</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.67%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$688M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>STM</b></td>
+                    <td>$78.39</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$81.42</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$78.70</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.72%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$1.0B</td>
+                    <td>1.7%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>JPM</b></td>
+                    <td>$325.22</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$338.09</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$315.69</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.81%</td>
+                    <td class="vol-high">2.3x</td>
+                    <td class="dvol">$2.8B</td>
+                    <td>2.5%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>SEI</b></td>
+                    <td>$82.88</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$86.19</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$79.46</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+3.84%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$196M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Energy</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>NBIS</b></td>
+                    <td>$286.69</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$298.80</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$280.55</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.05%</td>
+                    <td class="vol-high">1.7x</td>
+                    <td class="dvol">$5.1B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Communication Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ROST</b></td>
+                    <td>$232.80</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$242.81</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$227.29</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.12%</td>
+                    <td class="vol-ok">1.4x</td>
+                    <td class="dvol">$658M</td>
+                    <td>3.0%</td>
+                    <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>SPG</b></td>
+                    <td>$211.33</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$220.44</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$205.60</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.13%</td>
+                    <td class="vol-high">2.2x</td>
+                    <td class="dvol">$347M</td>
+                    <td>3.5%</td>
+                    <td><span class="badge badge-sector">Real Estate</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>UDOW</b></td>
+                    <td>$67.53</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$70.50</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$68.85</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.21%</td>
+                    <td class="vol-low">0.6x</td>
+                    <td class="dvol">$201M</td>
+                    <td>2.8%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>EXPD</b></td>
+                    <td>$161.32</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$168.52</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$163.90</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.27%</td>
+                    <td class="vol-high">2.1x</td>
+                    <td class="dvol">$195M</td>
+                    <td>3.2%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>ONTO</b></td>
+                    <td>$333.76</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$348.76</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$327.44</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.30%</td>
+                    <td class="vol-high">1.5x</td>
+                    <td class="dvol">$388M</td>
+                    <td>0.7%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>CVS</b></td>
+                    <td>$98.32</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$102.77</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$98.59</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.33%</td>
+                    <td class="vol-high">2.5x</td>
+                    <td class="dvol">$829M</td>
+                    <td>3.6%</td>
+                    <td><span class="badge badge-sector">Healthcare</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>HWM</b></td>
+                    <td>$277.66</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$290.63</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$274.28</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.46%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$686M</td>
+                    <td>2.0%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>FITB</b></td>
+                    <td>$52.74</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$55.30</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$53.91</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.63%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$351M</td>
+                    <td>3.6%</td>
+                    <td><span class="badge badge-sector">Financial Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>KO</b></td>
+                    <td>$79.39</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$83.50</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$79.12</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.92%</td>
+                    <td class="vol-high">2.9x</td>
+                    <td class="dvol">$1.3B</td>
+                    <td>4.4%</td>
+                    <td><span class="badge badge-sector">Consumer Defensive</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>FCX</b></td>
+                    <td>$68.68</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$72.28</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$67.65</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+4.97%</td>
+                    <td class="vol-ok">1.2x</td>
+                    <td class="dvol">$996M</td>
+                    <td>4.2%</td>
+                    <td><span class="badge badge-sector">Basic Materials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-trend="0" data-pocket="1">
+                    <td><b>CSX</b></td>
+                    <td>$45.63</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$48.03</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$44.90</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+                    <td><span class="badge badge-20d">20d</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-near">+5.00%</td>
+                    <td class="vol-high">1.7x</td>
+                    <td class="dvol">$570M</td>
+                    <td>4.1%</td>
+                    <td><span class="badge badge-sector">Industrials</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr></table>
+            </div>
+            <div class="section" id="section-row-extended">
+                <div class="section-title">📈 Extended <span class="count">7</span></div>
+                <table><tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>ROKU</b></td>
+                    <td>$138.07</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$148.88</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$141.98</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+6.11%</td>
+                    <td class="vol-high">5.9x</td>
+                    <td class="dvol">$569M</td>
+                    <td>3.9%</td>
+                    <td><span class="badge badge-sector">Communication Services</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>VSH</b></td>
+                    <td>$64.90</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$69.47</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$65.01</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+9.24%</td>
+                    <td class="vol-high">1.8x</td>
+                    <td class="dvol">$410M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>MRVL</b></td>
+                    <td>$310.58</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$329.88</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$315.06</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+10.14%</td>
+                    <td class="vol-high">5.3x</td>
+                    <td class="dvol">$13.8B</td>
+                    <td>1.9%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>AEHR</b></td>
+                    <td>$115.30</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$126.62</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$123.31</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+10.67%</td>
+                    <td class="vol-low">0.5x</td>
+                    <td class="dvol">$331M</td>
+                    <td>1.1%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>STX</b></td>
+                    <td>$1070.23</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$1145.00</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$1080.84</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+14.20%</td>
+                    <td class="vol-high">1.9x</td>
+                    <td class="dvol">$4.4B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>AMKR</b></td>
+                    <td>$90.46</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$96.68</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$90.22</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+15.74%</td>
+                    <td class="vol-ok">1.0x</td>
+                    <td class="dvol">$497M</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-trend="1" data-pocket="1">
+                    <td><b>WDC</b></td>
+                    <td>$746.23</td>
+                    <td class="buy-point"><span class="bp-source">20d</span><span class="bp-price">$799.87</span><span class="bp-sep">·</span><span class="bp-source">pp</span><span class="bp-pocket">$783.75</span></td>
+                    <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+                    <td><span class="badge badge-trend">trend</span> <span class="signal-badge signal-pocket">pp</span></td>
+                    <td class="prox-far">+25.80%</td>
+                    <td class="vol-high">2.1x</td>
+                    <td class="dvol">$5.7B</td>
+                    <td>0.0%</td>
+                    <td><span class="badge badge-sector">Technology</span></td>
+                    <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+                </tr>
+                <tr class="detail-row">
+                    <td colspan="11" class="detail-cell">
+                        <div class="ma-stack">
+                            <span class="ma-item">MA10/20/50/150/200 would expand here</span>
+                        </div>
+                    </td>
+                </tr></table>
+            </div>
+            <div class="section" id="section-row-nosetup">
+                <div class="section-title">⏸️ No Setup <span class="count">0</span></div>
+                <div style="color:#475569;padding:12px 0;font-size:13px;">No stocks in this group</div>
+            </div>
+
+<div class="footer">Generated 2026-06-19 15:17 ET · Click summary cards to filter by proximity · Click setup chips to filter by entry type · Counts update live</div>
+
+<script>
+
+    let activeProximity = null;
+    let activeSetup = 'all';
+
+    function filterByProximity(group) {
+        activeProximity = (activeProximity === group) ? null : group;
+        document.querySelectorAll('.summary-item').forEach(el => el.classList.remove('active'));
+        if (activeProximity) {
+            document.querySelector(`.summary-item[data-group="${activeProximity}"]`).classList.add('active');
+        }
+        applyFilters();
+    }
+
+    function filterBySetup(type) {
+        activeSetup = type;
+        document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.filter-chip[data-type="${type}"]`).classList.add('active');
+        applyFilters();
+    }
+
+    function applyFilters() {
+        let totalVisible = 0;
+        const groupCounts = {};
+
+        document.querySelectorAll('.section').forEach(section => {
+            let sectionVisible = 0;
+            const rows = section.querySelectorAll('.stock-row');
+            rows.forEach(row => {
+                let show = true;
+                if (activeSetup === '20d') show = row.getAttribute('data-range20d') === '1';
+                else if (activeSetup === 'volume') show = row.getAttribute('data-volume') === '1';
+                else if (activeSetup === 'pocket') show = row.getAttribute('data-pocket') === '1';
+                else if (activeSetup === 'trend') show = row.getAttribute('data-trend') === '1';
+
+                row.style.display = show ? 'table-row' : 'none';
+                const detail = row.nextElementSibling;
+                if (detail && detail.classList.contains('detail-row')) {
+                    detail.style.display = 'none';
+                    detail.classList.remove('open');
+                }
+                if (show) { sectionVisible++; totalVisible++; }
+            });
+
+            const sectionId = section.id;
+            groupCounts[sectionId] = sectionVisible;
+
+            if (sectionVisible === 0) {
+                section.classList.add('hidden-section');
+            } else {
+                section.classList.remove('hidden-section');
+            }
+
+            const countEl = section.querySelector('.count');
+            if (countEl) countEl.textContent = sectionVisible;
+        });
+
+        document.querySelectorAll('.summary-item').forEach(card => {
+            const group = card.getAttribute('data-group');
+            const sectionId = 'section-row-' + group;
+            const count = groupCounts[sectionId] || 0;
+            card.querySelector('.num').textContent = count;
+        });
+
+        document.getElementById('countDisplay').textContent = 'Showing ' + totalVisible + ' of 87';
+    }
+
+</script>
+
+</body>
+</html>

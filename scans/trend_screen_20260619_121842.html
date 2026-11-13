@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Screener Results</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+        /* Summary bar */
+        .summary { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-item {
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }
+        .summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+        .summary-ready   .num { color: #22c55e; }
+        .summary-near    .num { color: #eab308; }
+        .summary-extended .num { color: #f97316; }
+        .summary-none    .num { color: #64748b; }
+
+        /* Section */
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }
+        .section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+
+        /* Tier row colors */
+        .row-ready td { background: #052e16; }
+        .row-near td  { background: #422006; }
+        .row-extended td { background: #431407; }
+        .row-nosetup td { background: transparent; color: #475569; }
+
+        /* Badges */
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .badge-pivot  { background: #1e3a5f; color: #60a5fa; }
+        .badge-trend  { background: #1a3a2a; color: #4ade80; }
+        .badge-vcp    { background: #3a1a3a; color: #c084fc; }
+        .badge-none   { background: #1a1d27; color: #64748b; }
+
+        .badge-sector {
+            background: #1a1d27; color: #94a3b8; font-size: 10px;
+        }
+
+        /* Stage 2 dots */
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on  { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+
+        /* Volume ratio */
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok   { color: #e2e8f0; }
+        .vol-low  { color: #64748b; }
+
+        /* Proximity */
+        .prox-close { color: #22c55e; }
+        .prox-near  { color: #eab308; }
+        .prox-far   { color: #f97316; }
+
+        /* Dollar volume */
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+        /* Buy point */
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+        /* Detail row (collapsible) */
+        .detail-row { display: none; }
+        .detail-row.open { display: table-row; }
+        .detail-cell {
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }
+        .detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+        .detail-cell .ma-item span { color: #94a3b8; }
+        .toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+        .toggle-detail:hover { color: #e2e8f0; }
+
+        /* Footer */
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-19 12:18 ET &middot; 0 candidates</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready">
+        <span class="num">0</span>
+        🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near">
+        <span class="num">0</span>
+        ⏳ Near Pivot
+    </div>
+    <div class="summary-item summary-extended">
+        <span class="num">0</span>
+        📈 Extended
+    </div>
+    <div class="summary-item summary-none">
+        <span class="num">0</span>
+        ⏸️ No Setup
+    </div>
+</div>
+
+
+
+
+
+
+<div class="footer">
+    Generated 2026-06-19 12:18 ET &middot; Buy Point = pivot price from setup detection &middot; Click ▼ to expand MA details
+</div>
+
+</body>
+</html>

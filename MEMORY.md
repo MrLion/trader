@@ -267,3 +267,18 @@ The roadmap lives in `plans/roadmap-2026.md`. It tracks **version-level mileston
 - **On ship:** update `Latest Shipped` in the header, mark status. If partially shipped, note what remains.
 - **Version narratives follow who-why-what-how:** who it's for (the trader), why it matters (the pain point), what's being built, and how (the approach). Keep each section to 2-3 sentences. The table is the index; the sections carry the context.
 - **When adding a new version:** write the plan first (in `docs/superpowers/plans/`), then add the row to the roadmap with links. Aspirational rows (no plan yet) are allowed as north-star direction — mark Design and Plan as `—` and keep them at the bottom of the table.
+
+## Promoted From Short-Term Memory (2026-07-14)
+
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:21:21 -->
+- Conversation Summary: Sender (untrusted metadata): [score=0.893 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:21-21]
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:31:31 -->
+- Conversation Summary: Conversation context (untrusted, chronological, selected for current message): [score=0.893 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:31-31]
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:38:40 -->
+- Conversation Summary: assistant: [assistant turn failed before producing content] assistant: ⚠️ Something went wrong while processing your request. Please try again, or use /new to start a fresh session. user: What happened to post market cron job? [score=0.893 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:38-40]
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:3:5 -->
+- Session: 2026-07-09 16:29:02 EDT: **Session Key**: agent:trader:telegram:direct:47258942; **Session ID**: 940d7c56-970d-4c33-bf8d-2c01e8b8f1b2; **Source**: telegram [score=0.861 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:3-5]
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:9:9 -->
+- Conversation Summary: user: Conversation info (untrusted metadata): [score=0.861 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:9-9]
+<!-- openclaw-memory-promotion:memory:memory/2026-07-09-1629.md:34:37 -->
+- Conversation Summary: What happened to post market cron job? assistant: [assistant turn failed before producing content] assistant: [assistant turn failed before producing content] assistant: [assistant turn failed before producing content] [score=0.861 recalls=0 avg=0.620 source=memory/2026-07-09-1629.md:34-37]

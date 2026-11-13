@@ -1,4 +1,7 @@
 #!/bin/bash
-export FMP_API_KEY=VrkrfljAVCtE6xCzECcZQDmaHsEr1mAu
-cd /Users/mintmrlion/.openclaw/workspaces/trader
-python3 scripts/premarket_report.py --html --output /Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_$(date +%Y-%m-%d).html
+set -a
+[ -f "$(dirname "$0")/.env" ] && . "$(dirname "$0")/.env"
+set +a
+cd "$(dirname "$0")"
+mkdir -p reports
+python3 scripts/premarket_report.py --html --output reports/premarket_report_$(date +%Y-%m-%d).html

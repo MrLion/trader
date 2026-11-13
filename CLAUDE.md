@@ -44,11 +44,11 @@ This is a tool for traders, not developers. Every plan, every line of code, ever
 - **For Python trading/engineering code involving async/await: always verify sync-to-async boundaries, check for blocking calls in async functions, and confirm event loop handling before claiming fixes are complete.
 
 ### External Communications
-- **Telegram Posting:** Use `openclaw message send --channel telegram --account trader --target [ID] --message "[TEXT]"`
+- **Telegram Posting:** Use `python3 scripts/deliver_report.py --chat-id [ID] --caption "[TEXT]" --file [PATH]`
     - Sandbox: `-4872065090`
     - Channel: `-1002556195363`
     - Discussion: `-1002652699578`
-- **Media Attachments:** Use `--media /path/to/file --force-document` for charts and HTML reports.
+- **Media Attachments:** pass charts and HTML reports via `--file`; they are sent as documents.
 
 ### Scheduled Automation
 - **Sector Scan:** Daily at 7:50 AM ET (weekdays) — runs `python3 scripts/sector_scan_comprehensive.py` to generate sector rankings before premarket report

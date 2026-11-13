@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Screener — Mockup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+        /* Summary bar */
+        .summary {
+            display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+        }
+        .summary-item {
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }
+        .summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+        .summary-item.ready   .num { color: #22c55e; }
+        .summary-item.near    .num { color: #eab308; }
+        .summary-item.extended .num { color: #f97316; }
+        .summary-item.none    .num { color: #64748b; }
+
+        /* Section */
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }
+        .section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+
+        /* Tier row colors */
+        .row-ready td { background: #052e16; }
+        .row-near td  { background: #422006; }
+        .row-extended td { background: #431407; }
+        .row-nosetup td { background: transparent; color: #475569; }
+
+        /* Badges */
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .badge-pivot  { background: #1e3a5f; color: #60a5fa; }
+        .badge-trend  { background: #1a3a2a; color: #4ade80; }
+        .badge-vcp    { background: #3a1a3a; color: #c084fc; }
+        .badge-none   { background: #1a1d27; color: #64748b; }
+
+        .badge-sector {
+            background: #1a1d27; color: #94a3b8; font-size: 10px;
+        }
+
+        /* Stage 2 dots */
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on  { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+
+        /* Volume ratio */
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok   { color: #e2e8f0; }
+        .vol-low  { color: #64748b; }
+
+        /* Proximity */
+        .prox-close { color: #22c55e; }
+        .prox-near  { color: #eab308; }
+        .prox-far   { color: #f97316; }
+
+        /* Dollar volume */
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+        /* Buy point */
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+        /* Detail row (collapsible) */
+        .detail-row { display: none; }
+        .detail-row.open { display: table-row; }
+        .detail-cell {
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }
+        .detail-cell .ma-stack { display: flex; gap: 16px; }
+        .detail-cell .ma-item span { color: #94a3b8; }
+        .toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+        .toggle-detail:hover { color: #e2e8f0; }
+
+        /* Footer */
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-18 &middot; Profile: large-cap &middot; 80 candidates</div>
+
+<!-- Summary bar -->
+<div class="summary">
+    <div class="summary-item ready">
+        <span class="num">12</span>
+        🔥 Ready Now
+    </div>
+    <div class="summary-item near">
+        <span class="num">34</span>
+        ⏳ Near Pivot
+    </div>
+    <div class="summary-item extended">
+        <span class="num">18</span>
+        📈 Extended
+    </div>
+    <div class="summary-item none">
+        <span class="num">16</span>
+        ⏸️ No Setup
+    </div>
+</div>
+
+<!-- ===== READY NOW ===== -->
+<div class="section">
+    <div class="section-title">🔥 READY NOW <span class="count">12</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+
+        <tr class="row-ready">
+            <td><b>VTEB</b></td>
+            <td>$50.45</td>
+            <td class="buy-point">$50.43</td>
+            <td><div class="s2-dots">●●●●●●●●●○</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-close">+0.04%</td>
+            <td class="vol-low">0.6x</td>
+            <td class="dvol">$352M</td>
+            <td>0.2%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span>MA10: <span>$50.33</span></span>
+                    <span>MA20: <span>$50.22</span></span>
+                    <span>MA50: <span>$50.09</span></span>
+                    <span>MA150: <span>$49.87</span></span>
+                    <span>MA200: <span>$49.65</span></span>
+                </div>
+            </td>
+        </tr>
+
+        <tr class="row-ready">
+            <td><b>NUVL</b></td>
+            <td>$123.43</td>
+            <td class="buy-point">$123.24</td>
+            <td><div class="s2-dots">●●●●●●●●●○</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-close">+0.15%</td>
+            <td class="vol-high">2.0x ✓</td>
+            <td class="dvol">$285M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+
+        <tr class="row-ready">
+            <td><b>SNDK</b></td>
+            <td>$2,184.75</td>
+            <td class="buy-point">$2,177.78</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-close">+0.32%</td>
+            <td class="vol-low">0.9x</td>
+            <td class="dvol">$30.1B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+    </table>
+</div>
+
+<!-- ===== NEAR PIVOT ===== -->
+<div class="section">
+    <div class="section-title">⏳ NEAR PIVOT <span class="count">34</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+
+        <tr class="row-near">
+            <td><b>MKSI</b></td>
+            <td>$406.37</td>
+            <td class="buy-point">$403.91</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-near">+0.61%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$481M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+
+        <tr class="row-near">
+            <td><b>WBS</b></td>
+            <td>$75.62</td>
+            <td class="buy-point">$75.14</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-near">+0.63%</td>
+            <td class="vol-ok">1.2x</td>
+            <td class="dvol">$242M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+
+        <tr class="row-near">
+            <td><b>TER</b></td>
+            <td>$437.92</td>
+            <td class="buy-point">$435.14</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-near">+0.64%</td>
+            <td class="vol-high">4.4x ✓</td>
+            <td class="dvol">$1.8B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+    </table>
+</div>
+
+<!-- ===== EXTENDED ===== -->
+<div class="section">
+    <div class="section-title">📈 EXTENDED <span class="count">18</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+
+        <tr class="row-extended">
+            <td><b>KLAC</b></td>
+            <td>$259.56</td>
+            <td class="buy-point">$252.37</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-far">+2.85%</td>
+            <td class="vol-high">2.4x ✓</td>
+            <td class="dvol">$2.9B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+
+        <tr class="row-extended">
+            <td><b>ARM</b></td>
+            <td>$439.46</td>
+            <td class="buy-point">$426.99</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-pivot">pivot</span></td>
+            <td class="prox-far">+2.92%</td>
+            <td class="vol-high">2.9x ✓</td>
+            <td class="dvol">$5.2B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+    </table>
+</div>
+
+<!-- ===== NO SETUP ===== -->
+<div class="section">
+    <div class="section-title">⏸️ NO SETUP <span class="count">16</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+
+        <tr class="row-nosetup">
+            <td><b>TGT</b></td>
+            <td>$130.74</td>
+            <td class="buy-point">—</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-none">none</span></td>
+            <td>—</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$684M</td>
+            <td>3.3%</td>
+            <td><span class="badge badge-sector">Consumer Defensive</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+
+        <tr class="row-nosetup">
+            <td><b>MRVL</b></td>
+            <td>$310.58</td>
+            <td class="buy-point">—</td>
+            <td><div class="s2-dots">●●●●●●●●●●</div></td>
+            <td><span class="badge badge-none">none</span></td>
+            <td>—</td>
+            <td class="vol-high">5.6x ✓</td>
+            <td class="dvol">$13.9B</td>
+            <td>1.9%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail">▼</td>
+        </tr>
+    </table>
+</div>
+
+<div class="footer">
+    Generated 2026-06-18 18:59 ET &middot; Buy Point = pivot price from setup detection &middot; Click ▼ to expand MA details
+</div>
+
+</body>
+</html>

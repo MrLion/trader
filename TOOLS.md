@@ -389,10 +389,7 @@ python3 scripts/premarket_report.py --html --output ~/Desktop/premarket.html
 Post the HTML report with a summary:
 
 ```bash
-openclaw message send --channel telegram --account trader --target -4872065090 \
-  --message "🌅 Pre-Market Report — $(date +%Y-%m-%d)\n\nRegime: 🔴 Bear (0/4 signals)\nTier 1 Ready: NVDA, TSLA\n\nFull report attached." \
-  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/premarket_report_$(date +%Y-%m-%d).html \
-  --force-document
+python3 scripts/deliver_report.py --chat-id -4872065090 --file reports/premarket_report_$(date +%Y-%m-%d).html --caption "🌅 Pre-Market Report — $(date +%Y-%m-%d)\n\nSummary here. Full report attached."
 ```
 
 ---
@@ -577,16 +574,7 @@ python3 scripts/postmarket_report.py --html --output reports/postmarket_$(date +
 Post the HTML report with summary:
 
 ```bash
-openclaw message send --channel telegram --account trader --target -4872065090 \
-  --message "🌙 Post-Market Report — $(date +%Y-%m-%d)
-
-Market: BEAR day (3/3 indices red)
-Gaps >3%: 5 stocks
-VIX: Elevated at 27.34
-
-Full report attached." \
-  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/postmarket_report_$(date +%Y%m%d).html \
-  --force-document
+python3 scripts/deliver_report.py --chat-id -4872065090 --file reports/postmarket_report_$(date +%Y%m%d).html --caption "🌙 Post-Market Report — $(date +%Y-%m-%d)\n\nSummary here. Full report attached."
 ```
 
 ---
@@ -596,14 +584,10 @@ Full report attached." \
 **For EOD/Pre-market reports:** Attach the HTML file alongside the text summary.
 
 ```bash
-# Post EOD report with HTML attachment to your DM
-openclaw message send --channel telegram --account trader --target 47258942 \
-  --message "📊 EOD Report — April 6, 2026\n\nRegime: Neutral with bearish tilt\nA-Tier: TSEM, DOCN, LITE, CIEN\n\nFull report attached." \
-  --media /Users/mintmrlion/.openclaw/workspaces/trader/reports/EOD_Report_2026-04-06.html \
-  --force-document
+python3 scripts/deliver_report.py --chat-id 47258942 --file reports/EOD_Report_2026-04-06.html --caption "📊 EOD Report — $(date +%Y-%m-%d)\n\nSummary here. Full report attached."
 ```
 
-**Note:** Use `--force-document` for HTML files so Telegram doesn't try to preview them as images.
+**Note:** HTML files are delivered as document attachments by `deliver_report.py`.
 
 ---
 
@@ -1233,14 +1217,12 @@ pytest summary, conftest safety-net line, grep result (`0` matches for
 
 **Command:**
 ```bash
-openclaw message send --channel telegram --account trader --target -4872065090 \
-  --message "Your analysis here"
+python3 scripts/deliver_report.py --chat-id -4872065090 --caption "Your analysis here" --file reports/premarket_report_$(date +%Y-%m-%d).html
 ```
 
 **With media:**
 ```bash
-openclaw message send --channel telegram --account trader --target -4872065090 \
-  --media /path/to/chart.png --force-document
+python3 scripts/deliver_report.py --chat-id -4872065090 --file /path/to/chart.png --caption "Chart"
 ```
 
 ### When to Post

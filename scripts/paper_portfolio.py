@@ -2,7 +2,7 @@
 """CLI tool for paper/live trading portfolio management and monitoring.
 
 Supports both paper and live modes via --mode flag. Data paths are resolved
-to mode-specific subdirectories under ~/.openclaw/workspaces/trader/data/.
+to mode-specific subdirectories under the project data/ directory.
 """
 
 import argparse

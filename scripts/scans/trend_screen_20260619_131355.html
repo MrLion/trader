@@ -1,0 +1,2300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Screener Results</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+        /* Summary bar */
+        .summary { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-item {
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }
+        .summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+        .summary-ready   .num { color: #22c55e; }
+        .summary-near    .num { color: #eab308; }
+        .summary-extended .num { color: #f97316; }
+        .summary-none    .num { color: #64748b; }
+
+        /* Section */
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }
+        .section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+
+        /* Row visibility for interactive filters */
+        .stock-row { display: table-row; }
+        .stock-row.hidden { display: none; }
+
+        /* Tier row colors */
+        .row-ready td { background: #052e16; }
+        .row-near td  { background: #422006; }
+        .row-extended td { background: #431407; }
+        .row-nosetup td { background: transparent; color: #475569; }
+
+        /* Filter bar */
+        .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filter-btn {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+        .filter-btn.active { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+        .filter-count { color: #64748b; font-size: 12px; }
+
+        /* Badges */
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .badge-pivot  { background: #1e3a5f; color: #60a5fa; }
+        .badge-trend  { background: #1a3a2a; color: #4ade80; }
+        .badge-vcp    { background: #3a1a3a; color: #c084fc; }
+        .badge-none   { background: #1a1d27; color: #64748b; }
+
+        .badge-sector {
+            background: #1a1d27; color: #94a3b8; font-size: 10px;
+        }
+
+        /* Signal badges */
+        .signal-badge {
+            display: inline-block; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 600; margin-right: 3px;
+        }
+        .signal-pocket { background: #3a2a1a; color: #fbbf24; }
+
+        /* Stage 2 dots */
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on  { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+
+        /* Volume ratio */
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok   { color: #e2e8f0; }
+        .vol-low  { color: #64748b; }
+
+        /* Proximity */
+        .prox-close { color: #22c55e; }
+        .prox-near  { color: #eab308; }
+        .prox-far   { color: #f97316; }
+
+        /* Dollar volume */
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+        /* Buy point */
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+        /* Detail row (collapsible) */
+        .detail-row { display: none; }
+        .detail-row.open { display: table-row; }
+        .detail-cell {
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }
+        .detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+        .detail-cell .ma-item span { color: #94a3b8; }
+        .toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+        .toggle-detail:hover { color: #e2e8f0; }
+
+        /* Footer */
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-19 13:13 ET &middot; 87 candidates</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="range20d" onclick="setFilter('range20d')">20d Range</button>
+    <button class="filter-btn" data-filter="vcp" onclick="setFilter('vcp')">VCP</button>
+    <button class="filter-btn" data-filter="volume" onclick="setFilter('volume')">Volume</button>
+    <button class="filter-btn" data-filter="pocket" onclick="setFilter('pocket')">Pocket</button>
+    <span class="filter-count" id="countDisplay">Showing 87 of 87</span>
+</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready">
+        <span class="num">17</span>
+        🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near">
+        <span class="num">63</span>
+        ⏳ Near Pivot
+    </div>
+    <div class="summary-item summary-extended">
+        <span class="num">7</span>
+        📈 Extended
+    </div>
+    <div class="summary-item summary-none">
+        <span class="num">0</span>
+        ⏸️ No Setup
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">🔥 Ready Now <span class="count">17</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+        <tr class="stock-row row-ready" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>DOCN</b></td>
+            <td>$173.27</td>
+            <td class="buy-point">$173.08</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $181.29</span></td>
+            <td class="prox-close">+0.11%</td>
+            <td class="vol-ok">1.0x</td>
+            <td class="dvol">$669M</td>
+            <td>4.4%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$173.07</span></span>
+                    <span class="ma-item">MA20: <span>$168.36</span></span>
+                    <span class="ma-item">MA50: <span>$137.62</span></span>
+                    <span class="ma-item">MA150: <span>$85.02</span></span>
+                    <span class="ma-item">MA200: <span>$73.45</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>SNDK</b></td>
+            <td>$2,184.75</td>
+            <td class="buy-point">$2177.78</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $1881.51</span></td>
+            <td class="prox-close">+0.32%</td>
+            <td class="vol-low">0.9x</td>
+            <td class="dvol">$30.1B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$1859.57</span></span>
+                    <span class="ma-item">MA20: <span>$1760.08</span></span>
+                    <span class="ma-item">MA50: <span>$1399.86</span></span>
+                    <span class="ma-item">MA150: <span>$772.27</span></span>
+                    <span class="ma-item">MA200: <span>$613.26</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>JBL</b></td>
+            <td>$371.88</td>
+            <td class="buy-point">$370.18</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $373.16</span></td>
+            <td class="prox-close">+0.46%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$466M</td>
+            <td>3.6%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$370.16</span></span>
+                    <span class="ma-item">MA20: <span>$369.41</span></span>
+                    <span class="ma-item">MA50: <span>$348.61</span></span>
+                    <span class="ma-item">MA150: <span>$276.79</span></span>
+                    <span class="ma-item">MA200: <span>$260.61</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>MKSI</b></td>
+            <td>$406.37</td>
+            <td class="buy-point">$403.91</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $406.37</span></td>
+            <td class="prox-close">+0.61%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$481M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$347.10</span></span>
+                    <span class="ma-item">MA20: <span>$336.35</span></span>
+                    <span class="ma-item">MA50: <span>$306.80</span></span>
+                    <span class="ma-item">MA150: <span>$237.37</span></span>
+                    <span class="ma-item">MA200: <span>$210.63</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>WBS</b></td>
+            <td>$75.62</td>
+            <td class="buy-point">$75.15</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $75.01</span></td>
+            <td class="prox-close">+0.63%</td>
+            <td class="vol-ok">1.0x</td>
+            <td class="dvol">$241M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$73.60</span></span>
+                    <span class="ma-item">MA20: <span>$73.08</span></span>
+                    <span class="ma-item">MA50: <span>$72.35</span></span>
+                    <span class="ma-item">MA150: <span>$67.80</span></span>
+                    <span class="ma-item">MA200: <span>$65.28</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>TER</b></td>
+            <td>$437.92</td>
+            <td class="buy-point">$435.14</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $437.92</span></td>
+            <td class="prox-close">+0.64%</td>
+            <td class="vol-high">3.4x ✓</td>
+            <td class="dvol">$1.7B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$392.23</span></span>
+                    <span class="ma-item">MA20: <span>$386.73</span></span>
+                    <span class="ma-item">MA50: <span>$372.14</span></span>
+                    <span class="ma-item">MA150: <span>$290.34</span></span>
+                    <span class="ma-item">MA200: <span>$253.24</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>BTSG</b></td>
+            <td>$66.25</td>
+            <td class="buy-point">$65.82</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $61.68</span></td>
+            <td class="prox-close">+0.66%</td>
+            <td class="vol-high">2.4x ✓</td>
+            <td class="dvol">$199M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$62.34</span></span>
+                    <span class="ma-item">MA20: <span>$61.04</span></span>
+                    <span class="ma-item">MA50: <span>$54.90</span></span>
+                    <span class="ma-item">MA150: <span>$44.17</span></span>
+                    <span class="ma-item">MA200: <span>$40.52</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>RY</b></td>
+            <td>$201.56</td>
+            <td class="buy-point">$200.24</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $189.53</span></td>
+            <td class="prox-close">+0.66%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$317M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$198.61</span></span>
+                    <span class="ma-item">MA20: <span>$194.41</span></span>
+                    <span class="ma-item">MA50: <span>$184.80</span></span>
+                    <span class="ma-item">MA150: <span>$170.45</span></span>
+                    <span class="ma-item">MA200: <span>$163.79</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>TSM</b></td>
+            <td>$462.12</td>
+            <td class="buy-point">$459.04</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $462.12</span></td>
+            <td class="prox-close">+0.67%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$6.4B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$428.20</span></span>
+                    <span class="ma-item">MA20: <span>$426.41</span></span>
+                    <span class="ma-item">MA50: <span>$404.96</span></span>
+                    <span class="ma-item">MA150: <span>$351.61</span></span>
+                    <span class="ma-item">MA200: <span>$333.88</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>ASML</b></td>
+            <td>$1,929.68</td>
+            <td class="buy-point">$1916.65</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $1899.48</span></td>
+            <td class="prox-close">+0.68%</td>
+            <td class="vol-ok">1.2x</td>
+            <td class="dvol">$3.7B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$1815.98</span></span>
+                    <span class="ma-item">MA20: <span>$1732.55</span></span>
+                    <span class="ma-item">MA50: <span>$1579.34</span></span>
+                    <span class="ma-item">MA150: <span>$1366.39</span></span>
+                    <span class="ma-item">MA200: <span>$1264.89</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>SN</b></td>
+            <td>$140.84</td>
+            <td class="buy-point">$139.89</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $140.84</span></td>
+            <td class="prox-close">+0.68%</td>
+            <td class="vol-ok">1.2x</td>
+            <td class="dvol">$292M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$130.80</span></span>
+                    <span class="ma-item">MA20: <span>$124.82</span></span>
+                    <span class="ma-item">MA50: <span>$117.80</span></span>
+                    <span class="ma-item">MA150: <span>$113.94</span></span>
+                    <span class="ma-item">MA200: <span>$110.62</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>TTMI</b></td>
+            <td>$216.44</td>
+            <td class="buy-point">$214.96</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $216.44</span></td>
+            <td class="prox-close">+0.69%</td>
+            <td class="vol-ok">1.1x</td>
+            <td class="dvol">$522M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$189.86</span></span>
+                    <span class="ma-item">MA20: <span>$186.94</span></span>
+                    <span class="ma-item">MA50: <span>$161.70</span></span>
+                    <span class="ma-item">MA150: <span>$111.57</span></span>
+                    <span class="ma-item">MA200: <span>$97.93</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>TD</b></td>
+            <td>$119.29</td>
+            <td class="buy-point">$118.33</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $119.29</span></td>
+            <td class="prox-close">+0.81%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$251M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$116.34</span></span>
+                    <span class="ma-item">MA20: <span>$114.41</span></span>
+                    <span class="ma-item">MA50: <span>$109.26</span></span>
+                    <span class="ma-item">MA150: <span>$97.63</span></span>
+                    <span class="ma-item">MA200: <span>$92.71</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>CAT</b></td>
+            <td>$985.82</td>
+            <td class="buy-point">$977.32</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $985.82</span></td>
+            <td class="prox-close">+0.87%</td>
+            <td class="vol-high">2.3x ✓</td>
+            <td class="dvol">$2.6B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$922.01</span></span>
+                    <span class="ma-item">MA20: <span>$909.49</span></span>
+                    <span class="ma-item">MA50: <span>$872.73</span></span>
+                    <span class="ma-item">MA150: <span>$726.58</span></span>
+                    <span class="ma-item">MA200: <span>$668.62</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>BNS</b></td>
+            <td>$87.03</td>
+            <td class="buy-point">$86.27</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $87.03</span></td>
+            <td class="prox-close">+0.88%</td>
+            <td class="vol-ok">1.3x</td>
+            <td class="dvol">$198M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$83.50</span></span>
+                    <span class="ma-item">MA20: <span>$81.80</span></span>
+                    <span class="ma-item">MA50: <span>$78.50</span></span>
+                    <span class="ma-item">MA150: <span>$73.74</span></span>
+                    <span class="ma-item">MA200: <span>$71.08</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>VTEB</b></td>
+            <td>$50.45</td>
+            <td class="buy-point">$50.43</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $50.34</span></td>
+            <td class="prox-close">+0.04%</td>
+            <td class="vol-low">0.6x</td>
+            <td class="dvol">$352M</td>
+            <td>0.2%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$50.33</span></span>
+                    <span class="ma-item">MA20: <span>$50.22</span></span>
+                    <span class="ma-item">MA50: <span>$50.09</span></span>
+                    <span class="ma-item">MA150: <span>$49.87</span></span>
+                    <span class="ma-item">MA200: <span>$49.65</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-ready" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>NUVL</b></td>
+            <td>$123.43</td>
+            <td class="buy-point">$123.25</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $123.45</span></td>
+            <td class="prox-close">+0.15%</td>
+            <td class="vol-high">2.0x ✓</td>
+            <td class="dvol">$285M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$116.63</span></span>
+                    <span class="ma-item">MA20: <span>$108.51</span></span>
+                    <span class="ma-item">MA50: <span>$105.64</span></span>
+                    <span class="ma-item">MA150: <span>$103.87</span></span>
+                    <span class="ma-item">MA200: <span>$99.67</span></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+<div class="section">
+    <div class="section-title">⏳ Near Pivot <span class="count">63</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+        <tr class="stock-row row-near" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>TGT</b></td>
+            <td>$130.74</td>
+            <td class="buy-point">$129.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $130.74</span></td>
+            <td class="prox-near">+1.03%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$684M</td>
+            <td>3.3%</td>
+            <td><span class="badge badge-sector">Consumer Defensive</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$129.41</span></span>
+                    <span class="ma-item">MA20: <span>$127.54</span></span>
+                    <span class="ma-item">MA50: <span>$125.87</span></span>
+                    <span class="ma-item">MA150: <span>$111.84</span></span>
+                    <span class="ma-item">MA200: <span>$105.83</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>INTC</b></td>
+            <td>$133.99</td>
+            <td class="buy-point">$132.53</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $133.99</span></td>
+            <td class="prox-near">+1.10%</td>
+            <td class="vol-high">1.6x ✓</td>
+            <td class="dvol">$18.8B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$116.59</span></span>
+                    <span class="ma-item">MA20: <span>$116.34</span></span>
+                    <span class="ma-item">MA50: <span>$101.43</span></span>
+                    <span class="ma-item">MA150: <span>$62.71</span></span>
+                    <span class="ma-item">MA200: <span>$55.51</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>ATI</b></td>
+            <td>$201.34</td>
+            <td class="buy-point">$199.13</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $201.34</span></td>
+            <td class="prox-near">+1.11%</td>
+            <td class="vol-high">1.7x ✓</td>
+            <td class="dvol">$364M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$191.64</span></span>
+                    <span class="ma-item">MA20: <span>$182.10</span></span>
+                    <span class="ma-item">MA50: <span>$167.35</span></span>
+                    <span class="ma-item">MA150: <span>$141.16</span></span>
+                    <span class="ma-item">MA200: <span>$127.06</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>CRDO</b></td>
+            <td>$271.83</td>
+            <td class="buy-point">$268.82</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $229.00</span></td>
+            <td class="prox-near">+1.12%</td>
+            <td class="vol-ok">1.1x</td>
+            <td class="dvol">$2.2B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$243.65</span></span>
+                    <span class="ma-item">MA20: <span>$231.84</span></span>
+                    <span class="ma-item">MA50: <span>$197.33</span></span>
+                    <span class="ma-item">MA150: <span>$153.61</span></span>
+                    <span class="ma-item">MA200: <span>$153.60</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>ADI</b></td>
+            <td>$434.46</td>
+            <td class="buy-point">$429.35</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $434.46</span></td>
+            <td class="prox-near">+1.19%</td>
+            <td class="vol-high">2.7x ✓</td>
+            <td class="dvol">$1.9B</td>
+            <td>0.7%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$412.50</span></span>
+                    <span class="ma-item">MA20: <span>$413.02</span></span>
+                    <span class="ma-item">MA50: <span>$400.01</span></span>
+                    <span class="ma-item">MA150: <span>$332.31</span></span>
+                    <span class="ma-item">MA200: <span>$308.93</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>D</b></td>
+            <td>$68.41</td>
+            <td class="buy-point">$67.56</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $68.41</span></td>
+            <td class="prox-near">+1.26%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$504M</td>
+            <td>0.1%</td>
+            <td><span class="badge badge-sector">Utilities</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$67.31</span></span>
+                    <span class="ma-item">MA20: <span>$66.88</span></span>
+                    <span class="ma-item">MA50: <span>$64.28</span></span>
+                    <span class="ma-item">MA150: <span>$61.44</span></span>
+                    <span class="ma-item">MA200: <span>$60.67</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>MU</b></td>
+            <td>$1,133.99</td>
+            <td class="buy-point">$1119.00</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $971.00</span></td>
+            <td class="prox-near">+1.34%</td>
+            <td class="vol-ok">1.3x</td>
+            <td class="dvol">$56.4B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$990.45</span></span>
+                    <span class="ma-item">MA20: <span>$965.58</span></span>
+                    <span class="ma-item">MA50: <span>$732.80</span></span>
+                    <span class="ma-item">MA150: <span>$472.07</span></span>
+                    <span class="ma-item">MA200: <span>$400.62</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>APH</b></td>
+            <td>$163.96</td>
+            <td class="buy-point">$161.63</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $163.96</span></td>
+            <td class="prox-near">+1.44%</td>
+            <td class="vol-ok">1.3x</td>
+            <td class="dvol">$1.7B</td>
+            <td>1.2%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$153.44</span></span>
+                    <span class="ma-item">MA20: <span>$147.84</span></span>
+                    <span class="ma-item">MA50: <span>$142.66</span></span>
+                    <span class="ma-item">MA150: <span>$139.70</span></span>
+                    <span class="ma-item">MA200: <span>$136.26</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>VIK</b></td>
+            <td>$97.17</td>
+            <td class="buy-point">$95.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $92.55</span></td>
+            <td class="prox-near">+1.85%</td>
+            <td class="vol-low">0.8x</td>
+            <td class="dvol">$310M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$92.40</span></span>
+                    <span class="ma-item">MA20: <span>$90.84</span></span>
+                    <span class="ma-item">MA50: <span>$85.41</span></span>
+                    <span class="ma-item">MA150: <span>$75.93</span></span>
+                    <span class="ma-item">MA200: <span>$72.16</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>IBKR</b></td>
+            <td>$96.00</td>
+            <td class="buy-point">$94.26</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $96.00</span></td>
+            <td class="prox-near">+1.85%</td>
+            <td class="vol-ok">1.5x</td>
+            <td class="dvol">$482M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$90.01</span></span>
+                    <span class="ma-item">MA20: <span>$87.52</span></span>
+                    <span class="ma-item">MA50: <span>$83.42</span></span>
+                    <span class="ma-item">MA150: <span>$73.71</span></span>
+                    <span class="ma-item">MA200: <span>$72.05</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>LNT</b></td>
+            <td>$73.00</td>
+            <td class="buy-point">$71.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $73.00</span></td>
+            <td class="prox-near">+2.23%</td>
+            <td class="vol-high">1.6x ✓</td>
+            <td class="dvol">$176M</td>
+            <td>1.4%</td>
+            <td><span class="badge badge-sector">Utilities</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$72.89</span></span>
+                    <span class="ma-item">MA20: <span>$72.50</span></span>
+                    <span class="ma-item">MA50: <span>$72.32</span></span>
+                    <span class="ma-item">MA150: <span>$69.11</span></span>
+                    <span class="ma-item">MA200: <span>$68.10</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>VSXY</b></td>
+            <td>$81.98</td>
+            <td class="buy-point">$80.13</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $80.06</span></td>
+            <td class="prox-near">+2.31%</td>
+            <td class="vol-ok">1.1x</td>
+            <td class="dvol">$193M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$77.64</span></span>
+                    <span class="ma-item">MA20: <span>$69.67</span></span>
+                    <span class="ma-item">MA50: <span>$57.87</span></span>
+                    <span class="ma-item">MA150: <span>$54.10</span></span>
+                    <span class="ma-item">MA200: <span>$48.03</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>USB</b></td>
+            <td>$58.14</td>
+            <td class="buy-point">$56.79</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $58.14</span></td>
+            <td class="prox-near">+2.38%</td>
+            <td class="vol-high">2.4x ✓</td>
+            <td class="dvol">$528M</td>
+            <td>3.2%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$57.32</span></span>
+                    <span class="ma-item">MA20: <span>$55.93</span></span>
+                    <span class="ma-item">MA50: <span>$55.66</span></span>
+                    <span class="ma-item">MA150: <span>$53.81</span></span>
+                    <span class="ma-item">MA200: <span>$52.05</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>CFG</b></td>
+            <td>$67.08</td>
+            <td class="buy-point">$65.49</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $67.08</span></td>
+            <td class="prox-near">+2.43%</td>
+            <td class="vol-high">1.7x ✓</td>
+            <td class="dvol">$301M</td>
+            <td>0.8%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$66.09</span></span>
+                    <span class="ma-item">MA20: <span>$64.32</span></span>
+                    <span class="ma-item">MA50: <span>$63.89</span></span>
+                    <span class="ma-item">MA150: <span>$60.56</span></span>
+                    <span class="ma-item">MA200: <span>$58.10</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>RRX</b></td>
+            <td>$226.78</td>
+            <td class="buy-point">$221.21</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $213.30</span></td>
+            <td class="prox-near">+2.52%</td>
+            <td class="vol-low">0.9x</td>
+            <td class="dvol">$245M</td>
+            <td>2.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$214.17</span></span>
+                    <span class="ma-item">MA20: <span>$210.22</span></span>
+                    <span class="ma-item">MA50: <span>$208.64</span></span>
+                    <span class="ma-item">MA150: <span>$183.41</span></span>
+                    <span class="ma-item">MA200: <span>$173.03</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>GS</b></td>
+            <td>$1,096.56</td>
+            <td class="buy-point">$1069.50</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $1092.61</span></td>
+            <td class="prox-near">+2.53%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$2.4B</td>
+            <td>0.2%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$1057.79</span></span>
+                    <span class="ma-item">MA20: <span>$1040.41</span></span>
+                    <span class="ma-item">MA50: <span>$970.90</span></span>
+                    <span class="ma-item">MA150: <span>$902.51</span></span>
+                    <span class="ma-item">MA200: <span>$869.20</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>HLT</b></td>
+            <td>$348.84</td>
+            <td class="buy-point">$340.13</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $350.22</span></td>
+            <td class="prox-near">+2.56%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$564M</td>
+            <td>0.4%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$344.78</span></span>
+                    <span class="ma-item">MA20: <span>$337.61</span></span>
+                    <span class="ma-item">MA50: <span>$329.31</span></span>
+                    <span class="ma-item">MA150: <span>$306.68</span></span>
+                    <span class="ma-item">MA200: <span>$296.34</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>LIN</b></td>
+            <td>$512.15</td>
+            <td class="buy-point">$499.12</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $506.03</span></td>
+            <td class="prox-near">+2.61%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$1.1B</td>
+            <td>2.2%</td>
+            <td><span class="badge badge-sector">Basic Materials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$514.12</span></span>
+                    <span class="ma-item">MA20: <span>$509.49</span></span>
+                    <span class="ma-item">MA50: <span>$504.66</span></span>
+                    <span class="ma-item">MA150: <span>$468.71</span></span>
+                    <span class="ma-item">MA200: <span>$464.60</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>MNST</b></td>
+            <td>$91.34</td>
+            <td class="buy-point">$88.90</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $89.10</span></td>
+            <td class="prox-near">+2.75%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$492M</td>
+            <td>2.0%</td>
+            <td><span class="badge badge-sector">Consumer Defensive</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$91.34</span></span>
+                    <span class="ma-item">MA20: <span>$89.71</span></span>
+                    <span class="ma-item">MA50: <span>$83.52</span></span>
+                    <span class="ma-item">MA150: <span>$79.21</span></span>
+                    <span class="ma-item">MA200: <span>$76.14</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>NTRS</b></td>
+            <td>$172.11</td>
+            <td class="buy-point">$167.49</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $169.15</span></td>
+            <td class="prox-near">+2.76%</td>
+            <td class="vol-high">2.4x ✓</td>
+            <td class="dvol">$198M</td>
+            <td>1.6%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$171.60</span></span>
+                    <span class="ma-item">MA20: <span>$169.72</span></span>
+                    <span class="ma-item">MA50: <span>$164.68</span></span>
+                    <span class="ma-item">MA150: <span>$147.64</span></span>
+                    <span class="ma-item">MA200: <span>$142.51</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>KLAC</b></td>
+            <td>$259.56</td>
+            <td class="buy-point">$252.37</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $259.56</span></td>
+            <td class="prox-near">+2.85%</td>
+            <td class="vol-high">2.3x ✓</td>
+            <td class="dvol">$2.9B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$231.90</span></span>
+                    <span class="ma-item">MA20: <span>$214.90</span></span>
+                    <span class="ma-item">MA50: <span>$193.60</span></span>
+                    <span class="ma-item">MA150: <span>$156.20</span></span>
+                    <span class="ma-item">MA200: <span>$144.12</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>ARM</b></td>
+            <td>$439.46</td>
+            <td class="buy-point">$426.99</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $439.46</span></td>
+            <td class="prox-near">+2.92%</td>
+            <td class="vol-high">2.3x ✓</td>
+            <td class="dvol">$5.1B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$371.19</span></span>
+                    <span class="ma-item">MA20: <span>$362.30</span></span>
+                    <span class="ma-item">MA50: <span>$264.53</span></span>
+                    <span class="ma-item">MA150: <span>$171.76</span></span>
+                    <span class="ma-item">MA200: <span>$167.83</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>LRCX</b></td>
+            <td>$389.04</td>
+            <td class="buy-point">$377.78</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $389.04</span></td>
+            <td class="prox-near">+2.98%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$3.9B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$352.56</span></span>
+                    <span class="ma-item">MA20: <span>$337.02</span></span>
+                    <span class="ma-item">MA50: <span>$297.96</span></span>
+                    <span class="ma-item">MA150: <span>$233.95</span></span>
+                    <span class="ma-item">MA200: <span>$209.70</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>BNY</b></td>
+            <td>$143.63</td>
+            <td class="buy-point">$139.39</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $134.99</span></td>
+            <td class="prox-near">+3.04%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$534M</td>
+            <td>1.7%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$142.99</span></span>
+                    <span class="ma-item">MA20: <span>$141.86</span></span>
+                    <span class="ma-item">MA50: <span>$136.74</span></span>
+                    <span class="ma-item">MA150: <span>$122.80</span></span>
+                    <span class="ma-item">MA200: <span>$117.98</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>JCI</b></td>
+            <td>$144.82</td>
+            <td class="buy-point">$140.53</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $144.82</span></td>
+            <td class="prox-near">+3.05%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$537M</td>
+            <td>1.8%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$144.16</span></span>
+                    <span class="ma-item">MA20: <span>$141.57</span></span>
+                    <span class="ma-item">MA50: <span>$141.31</span></span>
+                    <span class="ma-item">MA150: <span>$130.30</span></span>
+                    <span class="ma-item">MA200: <span>$125.08</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>MS</b></td>
+            <td>$223.17</td>
+            <td class="buy-point">$216.31</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $224.96</span></td>
+            <td class="prox-near">+3.17%</td>
+            <td class="vol-high">2.0x ✓</td>
+            <td class="dvol">$1.3B</td>
+            <td>0.8%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$215.47</span></span>
+                    <span class="ma-item">MA20: <span>$211.29</span></span>
+                    <span class="ma-item">MA50: <span>$197.86</span></span>
+                    <span class="ma-item">MA150: <span>$180.08</span></span>
+                    <span class="ma-item">MA200: <span>$174.13</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>PNC</b></td>
+            <td>$232.04</td>
+            <td class="buy-point">$224.74</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $237.66</span></td>
+            <td class="prox-near">+3.25%</td>
+            <td class="vol-high">2.4x ✓</td>
+            <td class="dvol">$470M</td>
+            <td>3.6%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$232.24</span></span>
+                    <span class="ma-item">MA20: <span>$226.24</span></span>
+                    <span class="ma-item">MA50: <span>$222.26</span></span>
+                    <span class="ma-item">MA150: <span>$213.37</span></span>
+                    <span class="ma-item">MA200: <span>$207.27</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>BEN</b></td>
+            <td>$33.05</td>
+            <td class="buy-point">$32.00</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $33.29</span></td>
+            <td class="prox-near">+3.29%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$160M</td>
+            <td>0.7%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$32.16</span></span>
+                    <span class="ma-item">MA20: <span>$31.67</span></span>
+                    <span class="ma-item">MA50: <span>$30.10</span></span>
+                    <span class="ma-item">MA150: <span>$26.22</span></span>
+                    <span class="ma-item">MA200: <span>$25.34</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>C</b></td>
+            <td>$143.06</td>
+            <td class="buy-point">$138.48</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $135.15</span></td>
+            <td class="prox-near">+3.31%</td>
+            <td class="vol-high">2.5x ✓</td>
+            <td class="dvol">$1.7B</td>
+            <td>0.5%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$138.28</span></span>
+                    <span class="ma-item">MA20: <span>$133.07</span></span>
+                    <span class="ma-item">MA50: <span>$129.38</span></span>
+                    <span class="ma-item">MA150: <span>$117.34</span></span>
+                    <span class="ma-item">MA200: <span>$112.47</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>BIIB</b></td>
+            <td>$196.58</td>
+            <td class="buy-point">$190.15</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $197.95</span></td>
+            <td class="prox-near">+3.38%</td>
+            <td class="vol-high">1.5x ✓</td>
+            <td class="dvol">$225M</td>
+            <td>3.9%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$197.08</span></span>
+                    <span class="ma-item">MA20: <span>$195.50</span></span>
+                    <span class="ma-item">MA50: <span>$190.48</span></span>
+                    <span class="ma-item">MA150: <span>$183.95</span></span>
+                    <span class="ma-item">MA200: <span>$174.70</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>AMAT</b></td>
+            <td>$617.11</td>
+            <td class="buy-point">$596.76</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $617.11</span></td>
+            <td class="prox-near">+3.41%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$4.9B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$542.53</span></span>
+                    <span class="ma-item">MA20: <span>$501.92</span></span>
+                    <span class="ma-item">MA50: <span>$445.37</span></span>
+                    <span class="ma-item">MA150: <span>$353.82</span></span>
+                    <span class="ma-item">MA200: <span>$317.19</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>MTB</b></td>
+            <td>$225.12</td>
+            <td class="buy-point">$217.55</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $225.43</span></td>
+            <td class="prox-near">+3.48%</td>
+            <td class="vol-high">2.8x ✓</td>
+            <td class="dvol">$236M</td>
+            <td>4.1%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$225.94</span></span>
+                    <span class="ma-item">MA20: <span>$220.07</span></span>
+                    <span class="ma-item">MA50: <span>$215.96</span></span>
+                    <span class="ma-item">MA150: <span>$209.32</span></span>
+                    <span class="ma-item">MA200: <span>$203.62</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>FTNT</b></td>
+            <td>$144.73</td>
+            <td class="buy-point">$139.75</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $144.73</span></td>
+            <td class="prox-near">+3.56%</td>
+            <td class="vol-high">2.7x ✓</td>
+            <td class="dvol">$950M</td>
+            <td>3.3%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$144.17</span></span>
+                    <span class="ma-item">MA20: <span>$141.34</span></span>
+                    <span class="ma-item">MA50: <span>$114.05</span></span>
+                    <span class="ma-item">MA150: <span>$92.07</span></span>
+                    <span class="ma-item">MA200: <span>$89.90</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>MAR</b></td>
+            <td>$396.20</td>
+            <td class="buy-point">$382.43</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $396.20</span></td>
+            <td class="prox-near">+3.60%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$574M</td>
+            <td>1.6%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$395.37</span></span>
+                    <span class="ma-item">MA20: <span>$386.33</span></span>
+                    <span class="ma-item">MA50: <span>$370.06</span></span>
+                    <span class="ma-item">MA150: <span>$335.59</span></span>
+                    <span class="ma-item">MA200: <span>$318.17</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>STT</b></td>
+            <td>$168.31</td>
+            <td class="buy-point">$162.40</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $158.52</span></td>
+            <td class="prox-near">+3.64%</td>
+            <td class="vol-high">3.3x ✓</td>
+            <td class="dvol">$369M</td>
+            <td>1.7%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$165.92</span></span>
+                    <span class="ma-item">MA20: <span>$161.83</span></span>
+                    <span class="ma-item">MA50: <span>$154.24</span></span>
+                    <span class="ma-item">MA150: <span>$135.00</span></span>
+                    <span class="ma-item">MA200: <span>$129.49</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>TJX</b></td>
+            <td>$163.81</td>
+            <td class="buy-point">$158.06</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $159.21</span></td>
+            <td class="prox-near">+3.64%</td>
+            <td class="vol-high">1.6x ✓</td>
+            <td class="dvol">$912M</td>
+            <td>2.7%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$165.13</span></span>
+                    <span class="ma-item">MA20: <span>$160.78</span></span>
+                    <span class="ma-item">MA50: <span>$157.57</span></span>
+                    <span class="ma-item">MA150: <span>$155.24</span></span>
+                    <span class="ma-item">MA200: <span>$151.60</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>DAL</b></td>
+            <td>$84.18</td>
+            <td class="buy-point">$81.20</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $84.18</span></td>
+            <td class="prox-near">+3.67%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$688M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$81.38</span></span>
+                    <span class="ma-item">MA20: <span>$80.58</span></span>
+                    <span class="ma-item">MA50: <span>$74.12</span></span>
+                    <span class="ma-item">MA150: <span>$69.03</span></span>
+                    <span class="ma-item">MA200: <span>$66.40</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>STM</b></td>
+            <td>$78.39</td>
+            <td class="buy-point">$75.58</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $79.71</span></td>
+            <td class="prox-near">+3.72%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$1.0B</td>
+            <td>1.7%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$75.05</span></span>
+                    <span class="ma-item">MA20: <span>$73.34</span></span>
+                    <span class="ma-item">MA50: <span>$60.61</span></span>
+                    <span class="ma-item">MA150: <span>$39.66</span></span>
+                    <span class="ma-item">MA200: <span>$36.45</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>SEI</b></td>
+            <td>$82.88</td>
+            <td class="buy-point">$79.82</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $82.88</span></td>
+            <td class="prox-near">+3.84%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$196M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Energy</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$74.69</span></span>
+                    <span class="ma-item">MA20: <span>$73.50</span></span>
+                    <span class="ma-item">MA50: <span>$71.82</span></span>
+                    <span class="ma-item">MA150: <span>$58.36</span></span>
+                    <span class="ma-item">MA200: <span>$54.52</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>NBIS</b></td>
+            <td>$286.69</td>
+            <td class="buy-point">$275.53</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $286.69</span></td>
+            <td class="prox-near">+4.05%</td>
+            <td class="vol-high">1.7x ✓</td>
+            <td class="dvol">$5.1B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Communication Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$242.50</span></span>
+                    <span class="ma-item">MA20: <span>$238.50</span></span>
+                    <span class="ma-item">MA50: <span>$197.19</span></span>
+                    <span class="ma-item">MA150: <span>$130.54</span></span>
+                    <span class="ma-item">MA200: <span>$125.05</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>ROST</b></td>
+            <td>$232.80</td>
+            <td class="buy-point">$223.59</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $231.28</span></td>
+            <td class="prox-near">+4.12%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$658M</td>
+            <td>3.0%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$233.48</span></span>
+                    <span class="ma-item">MA20: <span>$231.15</span></span>
+                    <span class="ma-item">MA50: <span>$225.70</span></span>
+                    <span class="ma-item">MA150: <span>$202.91</span></span>
+                    <span class="ma-item">MA200: <span>$190.36</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>SPG</b></td>
+            <td>$211.33</td>
+            <td class="buy-point">$202.95</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $203.43</span></td>
+            <td class="prox-near">+4.13%</td>
+            <td class="vol-high">2.2x ✓</td>
+            <td class="dvol">$347M</td>
+            <td>3.5%</td>
+            <td><span class="badge badge-sector">Real Estate</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$212.38</span></span>
+                    <span class="ma-item">MA20: <span>$207.61</span></span>
+                    <span class="ma-item">MA50: <span>$203.12</span></span>
+                    <span class="ma-item">MA150: <span>$190.50</span></span>
+                    <span class="ma-item">MA200: <span>$186.44</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>UDOW</b></td>
+            <td>$67.53</td>
+            <td class="buy-point">$64.80</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $65.07</span></td>
+            <td class="prox-near">+4.21%</td>
+            <td class="vol-low">0.6x</td>
+            <td class="dvol">$201M</td>
+            <td>2.8%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$66.03</span></span>
+                    <span class="ma-item">MA20: <span>$65.62</span></span>
+                    <span class="ma-item">MA50: <span>$62.03</span></span>
+                    <span class="ma-item">MA150: <span>$58.99</span></span>
+                    <span class="ma-item">MA200: <span>$57.59</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>EXPD</b></td>
+            <td>$161.32</td>
+            <td class="buy-point">$154.71</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $161.32</span></td>
+            <td class="prox-near">+4.27%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$195M</td>
+            <td>3.2%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$163.72</span></span>
+                    <span class="ma-item">MA20: <span>$161.19</span></span>
+                    <span class="ma-item">MA50: <span>$154.03</span></span>
+                    <span class="ma-item">MA150: <span>$150.86</span></span>
+                    <span class="ma-item">MA200: <span>$143.51</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>ONTO</b></td>
+            <td>$333.76</td>
+            <td class="buy-point">$320.00</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $333.76</span></td>
+            <td class="prox-near">+4.30%</td>
+            <td class="vol-high">1.5x ✓</td>
+            <td class="dvol">$388M</td>
+            <td>0.7%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$299.78</span></span>
+                    <span class="ma-item">MA20: <span>$283.40</span></span>
+                    <span class="ma-item">MA50: <span>$281.07</span></span>
+                    <span class="ma-item">MA150: <span>$218.00</span></span>
+                    <span class="ma-item">MA200: <span>$195.46</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>CVS</b></td>
+            <td>$98.32</td>
+            <td class="buy-point">$94.24</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $101.96</span></td>
+            <td class="prox-near">+4.33%</td>
+            <td class="vol-high">2.5x ✓</td>
+            <td class="dvol">$829M</td>
+            <td>3.6%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$98.94</span></span>
+                    <span class="ma-item">MA20: <span>$95.45</span></span>
+                    <span class="ma-item">MA50: <span>$88.61</span></span>
+                    <span class="ma-item">MA150: <span>$80.49</span></span>
+                    <span class="ma-item">MA200: <span>$79.27</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>HWM</b></td>
+            <td>$277.66</td>
+            <td class="buy-point">$265.81</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $277.42</span></td>
+            <td class="prox-near">+4.46%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$686M</td>
+            <td>2.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$264.31</span></span>
+                    <span class="ma-item">MA20: <span>$260.09</span></span>
+                    <span class="ma-item">MA50: <span>$256.28</span></span>
+                    <span class="ma-item">MA150: <span>$233.51</span></span>
+                    <span class="ma-item">MA200: <span>$223.34</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>FITB</b></td>
+            <td>$52.74</td>
+            <td class="buy-point">$50.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $52.74</span></td>
+            <td class="prox-near">+4.63%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$351M</td>
+            <td>3.6%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$52.92</span></span>
+                    <span class="ma-item">MA20: <span>$51.38</span></span>
+                    <span class="ma-item">MA50: <span>$50.29</span></span>
+                    <span class="ma-item">MA150: <span>$48.31</span></span>
+                    <span class="ma-item">MA200: <span>$46.94</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>FCX</b></td>
+            <td>$68.68</td>
+            <td class="buy-point">$65.43</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $71.72</span></td>
+            <td class="prox-near">+4.97%</td>
+            <td class="vol-ok">1.2x</td>
+            <td class="dvol">$996M</td>
+            <td>4.2%</td>
+            <td><span class="badge badge-sector">Basic Materials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$66.64</span></span>
+                    <span class="ma-item">MA20: <span>$66.47</span></span>
+                    <span class="ma-item">MA50: <span>$64.61</span></span>
+                    <span class="ma-item">MA150: <span>$58.34</span></span>
+                    <span class="ma-item">MA200: <span>$54.17</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>TRP</b></td>
+            <td>$67.70</td>
+            <td class="buy-point">$66.80</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $70.91</span></td>
+            <td class="prox-near">+1.34%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$161M</td>
+            <td>4.5%</td>
+            <td><span class="badge badge-sector">Energy</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$68.62</span></span>
+                    <span class="ma-item">MA20: <span>$68.53</span></span>
+                    <span class="ma-item">MA50: <span>$66.05</span></span>
+                    <span class="ma-item">MA150: <span>$60.58</span></span>
+                    <span class="ma-item">MA200: <span>$58.21</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>ALL</b></td>
+            <td>$221.17</td>
+            <td class="buy-point">$217.22</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $223.40</span></td>
+            <td class="prox-near">+1.82%</td>
+            <td class="vol-high">3.1x ✓</td>
+            <td class="dvol">$358M</td>
+            <td>1.0%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$220.55</span></span>
+                    <span class="ma-item">MA20: <span>$215.14</span></span>
+                    <span class="ma-item">MA50: <span>$215.08</span></span>
+                    <span class="ma-item">MA150: <span>$208.02</span></span>
+                    <span class="ma-item">MA200: <span>$205.75</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>GH</b></td>
+            <td>$131.78</td>
+            <td class="buy-point">$128.72</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $131.78</span></td>
+            <td class="prox-near">+2.38%</td>
+            <td class="vol-ok">1.5x</td>
+            <td class="dvol">$307M</td>
+            <td>1.1%</td>
+            <td><span class="badge badge-sector">Healthcare</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$129.19</span></span>
+                    <span class="ma-item">MA20: <span>$127.93</span></span>
+                    <span class="ma-item">MA50: <span>$105.79</span></span>
+                    <span class="ma-item">MA150: <span>$102.29</span></span>
+                    <span class="ma-item">MA200: <span>$93.91</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>ARMK</b></td>
+            <td>$53.33</td>
+            <td class="buy-point">$51.82</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $54.39</span></td>
+            <td class="prox-near">+2.91%</td>
+            <td class="vol-low">0.9x</td>
+            <td class="dvol">$156M</td>
+            <td>2.2%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$53.75</span></span>
+                    <span class="ma-item">MA20: <span>$53.41</span></span>
+                    <span class="ma-item">MA50: <span>$49.18</span></span>
+                    <span class="ma-item">MA150: <span>$42.32</span></span>
+                    <span class="ma-item">MA200: <span>$41.30</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>EVRG</b></td>
+            <td>$82.50</td>
+            <td class="buy-point">$80.07</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $82.27</span></td>
+            <td class="prox-near">+3.04%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$163M</td>
+            <td>2.0%</td>
+            <td><span class="badge badge-sector">Utilities</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$82.95</span></span>
+                    <span class="ma-item">MA20: <span>$82.71</span></span>
+                    <span class="ma-item">MA50: <span>$81.94</span></span>
+                    <span class="ma-item">MA150: <span>$78.31</span></span>
+                    <span class="ma-item">MA200: <span>$77.10</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>CSX</b></td>
+            <td>$45.63</td>
+            <td class="buy-point">$43.46</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $45.63</span></td>
+            <td class="prox-near">+5.00%</td>
+            <td class="vol-high">1.7x ✓</td>
+            <td class="dvol">$570M</td>
+            <td>4.1%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$46.82</span></span>
+                    <span class="ma-item">MA20: <span>$46.42</span></span>
+                    <span class="ma-item">MA50: <span>$45.16</span></span>
+                    <span class="ma-item">MA150: <span>$40.34</span></span>
+                    <span class="ma-item">MA200: <span>$38.86</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>EA</b></td>
+            <td>$202.15</td>
+            <td class="buy-point">$200.15</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $203.40</span></td>
+            <td class="prox-near">+1.00%</td>
+            <td class="vol-high">3.1x ✓</td>
+            <td class="dvol">$380M</td>
+            <td>1.1%</td>
+            <td><span class="badge badge-sector">Communication Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$202.95</span></span>
+                    <span class="ma-item">MA20: <span>$202.32</span></span>
+                    <span class="ma-item">MA50: <span>$202.01</span></span>
+                    <span class="ma-item">MA150: <span>$202.00</span></span>
+                    <span class="ma-item">MA200: <span>$198.92</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>GE</b></td>
+            <td>$357.64</td>
+            <td class="buy-point">$350.83</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $357.64</span></td>
+            <td class="prox-near">+1.94%</td>
+            <td class="vol-ok">1.3x</td>
+            <td class="dvol">$2.1B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Industrials</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$337.59</span></span>
+                    <span class="ma-item">MA20: <span>$327.07</span></span>
+                    <span class="ma-item">MA50: <span>$307.73</span></span>
+                    <span class="ma-item">MA150: <span>$307.52</span></span>
+                    <span class="ma-item">MA200: <span>$304.98</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>DRI</b></td>
+            <td>$213.45</td>
+            <td class="buy-point">$207.84</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $213.45</span></td>
+            <td class="prox-near">+2.70%</td>
+            <td class="vol-high">1.7x ✓</td>
+            <td class="dvol">$234M</td>
+            <td>2.5%</td>
+            <td><span class="badge badge-sector">Consumer Cyclical</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$206.36</span></span>
+                    <span class="ma-item">MA20: <span>$203.71</span></span>
+                    <span class="ma-item">MA50: <span>$199.48</span></span>
+                    <span class="ma-item">MA150: <span>$196.10</span></span>
+                    <span class="ma-item">MA200: <span>$193.88</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>PLD</b></td>
+            <td>$140.54</td>
+            <td class="buy-point">$136.77</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $144.05</span></td>
+            <td class="prox-near">+2.76%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$507M</td>
+            <td>4.8%</td>
+            <td><span class="badge badge-sector">Real Estate</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$144.53</span></span>
+                    <span class="ma-item">MA20: <span>$143.65</span></span>
+                    <span class="ma-item">MA50: <span>$141.75</span></span>
+                    <span class="ma-item">MA150: <span>$133.55</span></span>
+                    <span class="ma-item">MA200: <span>$129.05</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>AFL</b></td>
+            <td>$115.47</td>
+            <td class="buy-point">$112.29</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $117.41</span></td>
+            <td class="prox-near">+2.83%</td>
+            <td class="vol-high">2.5x ✓</td>
+            <td class="dvol">$292M</td>
+            <td>2.3%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$116.65</span></span>
+                    <span class="ma-item">MA20: <span>$115.72</span></span>
+                    <span class="ma-item">MA50: <span>$114.76</span></span>
+                    <span class="ma-item">MA150: <span>$111.39</span></span>
+                    <span class="ma-item">MA200: <span>$110.45</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>BAC</b></td>
+            <td>$56.20</td>
+            <td class="buy-point">$54.53</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $53.89</span></td>
+            <td class="prox-near">+3.07%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$2.0B</td>
+            <td>1.1%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$55.30</span></span>
+                    <span class="ma-item">MA20: <span>$53.49</span></span>
+                    <span class="ma-item">MA50: <span>$52.64</span></span>
+                    <span class="ma-item">MA150: <span>$52.06</span></span>
+                    <span class="ma-item">MA200: <span>$51.70</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>KO</b></td>
+            <td>$79.39</td>
+            <td class="buy-point">$75.67</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $81.39</span></td>
+            <td class="prox-near">+4.92%</td>
+            <td class="vol-high">2.9x ✓</td>
+            <td class="dvol">$1.3B</td>
+            <td>4.4%</td>
+            <td><span class="badge badge-sector">Consumer Defensive</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$80.65</span></span>
+                    <span class="ma-item">MA20: <span>$79.91</span></span>
+                    <span class="ma-item">MA50: <span>$78.45</span></span>
+                    <span class="ma-item">MA150: <span>$74.88</span></span>
+                    <span class="ma-item">MA200: <span>$72.76</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-near" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="1">
+            <td><b>JPM</b></td>
+            <td>$325.22</td>
+            <td class="buy-point">$313.28</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+            <td><span class="badge badge-pivot">pivot</span><span class="signal-badge signal-pocket">pocket $333.46</span></td>
+            <td class="prox-near">+3.81%</td>
+            <td class="vol-high">2.3x ✓</td>
+            <td class="dvol">$2.8B</td>
+            <td>2.5%</td>
+            <td><span class="badge badge-sector">Financial Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$318.88</span></span>
+                    <span class="ma-item">MA20: <span>$310.47</span></span>
+                    <span class="ma-item">MA50: <span>$308.86</span></span>
+                    <span class="ma-item">MA150: <span>$305.85</span></span>
+                    <span class="ma-item">MA200: <span>$305.19</span></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+<div class="section">
+    <div class="section-title">📈 Extended <span class="count">7</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+        <tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>ROKU</b></td>
+            <td>$138.07</td>
+            <td class="buy-point">$130.12</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $143.66</span></td>
+            <td class="prox-far">+6.11%</td>
+            <td class="vol-high">5.9x ✓</td>
+            <td class="dvol">$569M</td>
+            <td>3.9%</td>
+            <td><span class="badge badge-sector">Communication Services</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$130.12</span></span>
+                    <span class="ma-item">MA20: <span>$128.83</span></span>
+                    <span class="ma-item">MA50: <span>$122.44</span></span>
+                    <span class="ma-item">MA150: <span>$106.93</span></span>
+                    <span class="ma-item">MA200: <span>$105.04</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>VSH</b></td>
+            <td>$64.90</td>
+            <td class="buy-point">$59.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $64.90</span></td>
+            <td class="prox-far">+9.24%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$410M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$59.41</span></span>
+                    <span class="ma-item">MA20: <span>$56.62</span></span>
+                    <span class="ma-item">MA50: <span>$40.65</span></span>
+                    <span class="ma-item">MA150: <span>$24.73</span></span>
+                    <span class="ma-item">MA200: <span>$22.44</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>MRVL</b></td>
+            <td>$310.58</td>
+            <td class="buy-point">$281.99</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $310.58</span></td>
+            <td class="prox-far">+10.14%</td>
+            <td class="vol-high">5.3x ✓</td>
+            <td class="dvol">$13.8B</td>
+            <td>1.9%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$281.99</span></span>
+                    <span class="ma-item">MA20: <span>$257.60</span></span>
+                    <span class="ma-item">MA50: <span>$197.94</span></span>
+                    <span class="ma-item">MA150: <span>$123.44</span></span>
+                    <span class="ma-item">MA200: <span>$113.00</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>AEHR</b></td>
+            <td>$115.30</td>
+            <td class="buy-point">$104.18</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $97.36</span></td>
+            <td class="prox-far">+10.67%</td>
+            <td class="vol-low">0.5x</td>
+            <td class="dvol">$331M</td>
+            <td>1.1%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$104.18</span></span>
+                    <span class="ma-item">MA20: <span>$103.60</span></span>
+                    <span class="ma-item">MA50: <span>$94.47</span></span>
+                    <span class="ma-item">MA150: <span>$51.21</span></span>
+                    <span class="ma-item">MA200: <span>$45.23</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>STX</b></td>
+            <td>$1,070.23</td>
+            <td class="buy-point">$937.15</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $1070.23</span></td>
+            <td class="prox-far">+14.20%</td>
+            <td class="vol-high">1.9x ✓</td>
+            <td class="dvol">$4.4B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$937.18</span></span>
+                    <span class="ma-item">MA20: <span>$909.32</span></span>
+                    <span class="ma-item">MA50: <span>$760.78</span></span>
+                    <span class="ma-item">MA150: <span>$485.65</span></span>
+                    <span class="ma-item">MA200: <span>$421.16</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>AMKR</b></td>
+            <td>$90.46</td>
+            <td class="buy-point">$78.16</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $86.55</span></td>
+            <td class="prox-far">+15.74%</td>
+            <td class="vol-low">1.0x</td>
+            <td class="dvol">$497M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$78.16</span></span>
+                    <span class="ma-item">MA20: <span>$74.74</span></span>
+                    <span class="ma-item">MA50: <span>$71.60</span></span>
+                    <span class="ma-item">MA150: <span>$53.62</span></span>
+                    <span class="ma-item">MA200: <span>$47.69</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>WDC</b></td>
+            <td>$746.23</td>
+            <td class="buy-point">$593.19</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $746.23</span></td>
+            <td class="prox-far">+25.80%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$5.7B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$593.16</span></span>
+                    <span class="ma-item">MA20: <span>$564.88</span></span>
+                    <span class="ma-item">MA50: <span>$479.89</span></span>
+                    <span class="ma-item">MA150: <span>$314.10</span></span>
+                    <span class="ma-item">MA200: <span>$265.96</span></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+<div class="footer">
+    Generated 2026-06-19 13:13 ET &middot; Click a filter to switch view &middot; Stocks can qualify for multiple types
+</div>
+
+<script>
+function setFilter(mode) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-filter="${mode}"]`).classList.add('active');
+    let visible = 0;
+    document.querySelectorAll('.stock-row').forEach(row => {
+        if (mode === 'all') {
+            row.classList.remove('hidden'); visible++;
+        } else {
+            const val = row.getAttribute('data-' + mode);
+            if (val === '1') { row.classList.remove('hidden'); visible++; }
+            else { row.classList.add('hidden'); }
+        }
+    });
+    document.getElementById('countDisplay').textContent = `Showing ${visible} of ${document.querySelectorAll('.stock-row').length}`;
+}
+</script>
+
+</body>
+</html>

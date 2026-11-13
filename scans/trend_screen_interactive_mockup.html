@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Screener — Interactive</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+        /* Filter bar */
+        .filters {
+            display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+        .filter-btn.active {
+            background: #1e3a5f; border-color: #60a5fa; color: #60a5fa;
+        }
+        .filter-count { color: #64748b; font-size: 12px; margin-left: 20px; align-self: center; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+
+        /* Row visibility */
+        .stock-row { display: table-row; }
+        .stock-row.hidden { display: none; }
+
+        /* Entry signal badges */
+        .signal-badge {
+            display: inline-block; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 600; margin-right: 3px;
+        }
+        .signal-range20d { background: #1e3a5f; color: #60a5fa; }
+        .signal-vcp    { background: #3a1a3a; color: #c084fc; }
+        .signal-volume { background: #1a3a2a; color: #4ade80; }
+        .signal-pocket { background: #3a2a1a; color: #fbbf24; }
+        .signal-none   { background: transparent; color: #475569; }
+
+        .badge-sector { background: #1a1d27; color: #94a3b8; font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+
+        /* Stage 2 dots */
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on  { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok   { color: #e2e8f0; }
+        .vol-low  { color: #64748b; }
+        .prox-close { color: #22c55e; }
+        .prox-near  { color: #eab308; }
+        .prox-far   { color: #f97316; }
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-18 &middot; 87 candidates &middot; Click a filter to switch entry mode</div>
+
+<!-- Filter bar -->
+<div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="range20d" onclick="setFilter('range20d')">20d Range</button>
+    <button class="filter-btn" data-filter="vcp" onclick="setFilter('vcp')">VCP</button>
+    <button class="filter-btn" data-filter="volume" onclick="setFilter('volume')">Volume</button>
+    <button class="filter-btn" data-filter="pocket" onclick="setFilter('pocket')">Pocket</button>
+    <span class="filter-count" id="countDisplay">Showing 87 of 87</span>
+</div>
+
+<table>
+    <tr>
+        <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th>
+        <th>Signals</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th>
+    </tr>
+
+    <!-- Row data attributes:
+         data-range20d: within 5% of 20-day high
+         data-vcp: has VCP pattern
+         data-volume: volume >= 1.5x AND within 5% of 20-day high -->
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="0">
+        <td><b>VTEB</b></td>
+        <td>$50.45</td>
+        <td class="buy-point">$50.43</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span></td>
+        <td class="prox-close">+0.04%</td>
+        <td class="vol-low">0.6x</td>
+        <td class="dvol">$352M</td>
+        <td>0.2%</td>
+        <td><span class="badge-sector">Financial Services</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="0">
+        <td><b>NUVL</b></td>
+        <td>$123.43</td>
+        <td class="buy-point">$123.24</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span><span class="signal-badge signal-volume">volume</span></td>
+        <td class="prox-close">+0.15%</td>
+        <td class="vol-high">2.0x ✓</td>
+        <td class="dvol">$285M</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Healthcare</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="0">
+        <td><b>SNDK</b></td>
+        <td>$2,184.75</td>
+        <td class="buy-point">$2,177.78</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span></td>
+        <td class="prox-close">+0.32%</td>
+        <td class="vol-low">0.9x</td>
+        <td class="dvol">$30.1B</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="0">
+        <td><b>MKSI</b></td>
+        <td>$406.37</td>
+        <td class="buy-point">$403.91</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span><span class="signal-badge signal-volume">volume</span></td>
+        <td class="prox-near">+0.61%</td>
+        <td class="vol-high">1.8x ✓</td>
+        <td class="dvol">$481M</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="0" data-pocket="0">
+        <td><b>WBS</b></td>
+        <td>$75.62</td>
+        <td class="buy-point">$75.15</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span></td>
+        <td class="prox-near">+0.63%</td>
+        <td class="vol-ok">1.2x</td>
+        <td class="dvol">$242M</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Financial Services</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="1" data-vcp="0" data-volume="1" data-pocket="0">
+        <td><b>TER</b></td>
+        <td>$437.92</td>
+        <td class="buy-point">$435.14</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-range20d">20d range</span><span class="signal-badge signal-volume">volume</span></td>
+        <td class="prox-near">+0.64%</td>
+        <td class="vol-high">4.4x ✓</td>
+        <td class="dvol">$1.8B</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <!-- Stocks with pocket pivot signals (would show under --entry-mode pocket) -->
+    <tr class="stock-row" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+        <td><b>VSH</b></td>
+        <td>$64.90</td>
+        <td class="buy-point">$64.90</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-pocket">pocket</span></td>
+        <td class="prox-far">+6.58%</td>
+        <td class="vol-high">1.8x ✓</td>
+        <td class="dvol">$410M</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+        <td><b>TGT</b></td>
+        <td>$130.74</td>
+        <td class="buy-point">$130.76</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-pocket">pocket</span></td>
+        <td class="prox-far">+5.17%</td>
+        <td class="vol-ok">1.4x</td>
+        <td class="dvol">$684M</td>
+        <td>3.3%</td>
+        <td><span class="badge-sector">Consumer Defensive</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+        <td><b>MRVL</b></td>
+        <td>$310.58</td>
+        <td class="buy-point">$310.58</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-pocket">pocket</span></td>
+        <td class="prox-far">+5.85%</td>
+        <td class="vol-high">5.3x ✓</td>
+        <td class="dvol">$13.9B</td>
+        <td>1.9%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+        <td><b>WDC</b></td>
+        <td>$746.23</td>
+        <td class="buy-point">$746.23</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+        <td><span class="signal-badge signal-pocket">pocket</span></td>
+        <td class="prox-far">+6.71%</td>
+        <td class="vol-high">2.1x ✓</td>
+        <td class="dvol">$5.7B</td>
+        <td>0.0%</td>
+        <td><span class="badge-sector">Technology</span></td>
+    </tr>
+
+    <tr class="stock-row" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="0">
+        <td><b>PLD</b></td>
+        <td>$140.54</td>
+        <td class="buy-point">—</td>
+        <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+        <td><span class="signal-badge signal-none">—</span></td>
+        <td class="prox-far">+5.73%</td>
+        <td class="vol-high">1.8x ✓</td>
+        <td class="dvol">$507M</td>
+        <td>4.8%</td>
+        <td><span class="badge-sector">Real Estate</span></td>
+    </tr>
+</table>
+
+<div class="footer">
+    Click a filter to see which stocks qualify &middot; Stocks can qualify for multiple types
+</div>
+
+<script>
+function setFilter(mode) {
+    // Update button styles
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-filter="${mode}"]`).classList.add('active');
+
+    // Show/hide rows
+    let visible = 0;
+    document.querySelectorAll('.stock-row').forEach(row => {
+        if (mode === 'all') {
+            row.classList.remove('hidden');
+            visible++;
+        } else {
+            const val = row.getAttribute('data-' + mode);
+            if (val === '1') {
+                row.classList.remove('hidden');
+                visible++;
+            } else {
+                row.classList.add('hidden');
+            }
+        }
+    });
+
+    // Update count
+    const total = document.querySelectorAll('.stock-row').length;
+    document.getElementById('countDisplay').textContent = `Showing ${visible} of ${total}`;
+}
+</script>
+
+</body>
+</html>

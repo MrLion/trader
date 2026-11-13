@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trend Screener — Current (with issues annotated)</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f1117; color: #e2e8f0; padding: 24px 32px; max-width: 1200px; margin: 0 auto;
+}
+h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+.summary { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.summary-item { padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; background: #1a1d27; border: 1px solid #2a2d3a; }
+.summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+.summary-ready .num { color: #22c55e; }
+.summary-near .num { color: #eab308; }
+.summary-extended .num { color: #f97316; }
+.summary-none .num { color: #64748b; }
+.section { margin-bottom: 28px; }
+.section-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #2a2d3a; }
+.section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 8px 10px; font-weight: 500; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a; }
+td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+.row-ready td { background: #052e16; }
+.row-near td { background: #422006; }
+.row-extended td { background: #431407; }
+.row-nosetup td { background: transparent; color: #475569; }
+.filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+.filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8; cursor: pointer; transition: all 0.15s; }
+.filter-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+.filter-btn.active { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+.filter-count { color: #64748b; font-size: 12px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.badge-pivot { background: #1e3a5f; color: #60a5fa; }
+.badge-trend { background: #1a3a2a; color: #4ade80; }
+.badge-volume { background: #3a2a1a; color: #f97316; }
+.badge-pocket { background: #3a1a1a; color: #f87171; }
+.badge-none { background: #1a1d27; color: #64748b; }
+.badge-sector { background: #1a1d27; color: #94a3b8; font-size: 10px; }
+.signal-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 3px; }
+.signal-pocket { background: #3a2a1a; color: #fbbf24; }
+.s2-dots { display: flex; gap: 2px; align-items: center; }
+.s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+.s2-dot.on { background: #22c55e; }
+.s2-dot.off { background: #2a2d3a; }
+.vol-high { color: #22c55e; font-weight: 600; }
+.vol-ok { color: #e2e8f0; }
+.vol-low { color: #64748b; }
+.prox-close { color: #22c55e; }
+.prox-near { color: #eab308; }
+.prox-far { color: #f97316; }
+.dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+.buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+.detail-row { display: none; }
+.detail-row.open { display: table-row; }
+.detail-cell { padding: 8px 10px 12px 10px; background: #0a0c12; font-size: 12px; color: #64748b; }
+.detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+.detail-cell .ma-item span { color: #94a3b8; }
+.toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+.toggle-detail:hover { color: #e2e8f0; }
+.footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+
+/* Annotation styles */
+.annotation {
+  position: relative;
+  margin: 8px 0 16px 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.annotation.issue { background: #3a1a1a; border-left: 3px solid #f87171; color: #fca5a5; }
+.annotation.issue::before { content: "⚠️ ISSUE: "; font-weight: 700; color: #f87171; }
+.annotation.note { background: #1a2a3a; border-left: 3px solid #60a5fa; color: #93c5fd; }
+.annotation.note::before { content: "ℹ️ NOTE: "; font-weight: 700; color: #60a5fa; }
+</style>
+</head>
+<body>
+
+<h1>📊 Trend Screener — Current Design</h1>
+<div class="subtitle">2026-06-19 15:17 ET · 87 candidates · <span style="color:#f87171">Annotated with usability issues</span></div>
+
+<div class="annotation issue">
+  <strong>Issue #2: Tabs vs Sections are orthogonal.</strong> The filter tabs below filter by signal TYPE (20d Range, Volume, Pocket), but the report body is organized by proximity-to-pivot SECTIONS (Ready Now, Near Pivot, Extended). These two dimensions never reconcile. Clicking a tab hides rows within sections but section headers still show original counts.
+</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="range20d">20d Range</button>
+    <button class="filter-btn" data-filter="volume" style="position:relative">
+      Volume
+      <span style="position:absolute;top:-6px;right:-6px;background:#f87171;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;">0</span>
+    </button>
+    <button class="filter-btn" data-filter="pocket">Pocket</button>
+    <span class="filter-count" id="countDisplay">Showing 87 of 87</span>
+</div>
+
+<div class="annotation issue">
+  <strong>Issue #1: Dead tab.</strong> The "Volume" tab has a red "0" badge because <em>zero</em> stocks in this report have a volume signal. Clicking it produces an empty table. A tab that never shows results erodes trust.
+</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready"><span class="num">18</span>🔥 Ready Now</div>
+    <div class="summary-item summary-near"><span class="num">62</span>⏳ Near Pivot</div>
+    <div class="summary-item summary-extended"><span class="num">7</span>📈 Extended</div>
+    <div class="summary-item summary-none"><span class="num">0</span>⏸️ No Setup</div>
+</div>
+
+<div class="annotation issue">
+  <strong>Issue #3: Summary bar never updates.</strong> These counts are static HTML. After clicking "20d Range" (which hides 12 stocks), the summary still says "18 Ready Now" even though only 16 are visible. The numbers lie.
+</div>
+
+<div class="annotation issue">
+  <strong>Issue #4: Missing section.</strong> Summary promises "0 ⏸️ No Setup" but there's no corresponding section in the HTML. When count is 0, the section is omitted entirely — layout changes day to day.
+</div>
+
+<!-- READY NOW SECTION -->
+<div class="section">
+  <div class="section-title">🔥 Ready Now <span class="count">18</span></div>
+  <table>
+    <tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+    <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-pocket="1">
+      <td><b>VTEB</b></td><td>$50.45</td><td class="buy-point">$50.47</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-close">+0.04%</td><td class="vol-low">0.6x</td><td class="dvol">$352M</td><td>0.2%</td>
+      <td><span class="badge badge-sector">Financial Services</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$50.33</span></span><span class="ma-item">MA20: <span>$50.22</span></span><span class="ma-item">MA50: <span>$50.09</span></span><span class="ma-item">MA150: <span>$49.87</span></span><span class="ma-item">MA200: <span>$49.65</span></span></div></td></tr>
+    <tr class="stock-row row-ready" data-range20d="0" data-volume="0" data-pocket="1">
+      <td><b>DOCN</b></td><td>$173.27</td><td class="buy-point">$187.50</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-close">+0.11%</td><td class="vol-low">0.4x</td><td class="dvol">$1.2B</td><td>0.5%</td>
+      <td><span class="badge badge-sector">Technology</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$172.80</span></span><span class="ma-item">MA20: <span>$170.15</span></span><span class="ma-item">MA50: <span>$165.40</span></span><span class="ma-item">MA150: <span>$158.20</span></span><span class="ma-item">MA200: <span>$152.75</span></span></div></td></tr>
+    <tr class="stock-row row-ready" data-range20d="1" data-volume="0" data-pocket="1">
+      <td><b>NUVL</b></td><td>$123.43</td><td class="buy-point">$123.62</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-close">+0.15%</td><td class="vol-ok">1.1x</td><td class="dvol">$89M</td><td>1.8%</td>
+      <td><span class="badge badge-sector">Healthcare</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$122.90</span></span><span class="ma-item">MA20: <span>$121.50</span></span><span class="ma-item">MA50: <span>$118.30</span></span><span class="ma-item">MA150: <span>$112.80</span></span><span class="ma-item">MA200: <span>$108.50</span></span></div></td></tr>
+    <tr><td colspan="11" style="text-align:center;color:#64748b;padding:12px;font-size:12px;">+15 more in Ready Now</td></tr>
+  </table>
+</div>
+
+<!-- NEAR PIVOT SECTION -->
+<div class="section">
+  <div class="section-title">⏳ Near Pivot <span class="count">62</span></div>
+  <table>
+    <tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+    <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-pocket="1">
+      <td><b>TGT</b></td><td>$118.21</td><td class="buy-point">$121.50</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-near">-2.71%</td><td class="vol-low">0.7x</td><td class="dvol">$412M</td><td>3.1%</td>
+      <td><span class="badge badge-sector">Consumer Defensive</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$119.80</span></span><span class="ma-item">MA20: <span>$120.50</span></span><span class="ma-item">MA50: <span>$116.20</span></span><span class="ma-item">MA150: <span>$110.40</span></span><span class="ma-item">MA200: <span>$106.80</span></span></div></td></tr>
+    <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-pocket="1">
+      <td><b>INTC</b></td><td>$42.15</td><td class="buy-point">$43.80</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-near">-3.77%</td><td class="vol-ok">1.2x</td><td class="dvol">$1.8B</td><td>5.2%</td>
+      <td><span class="badge badge-sector">Technology</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$42.80</span></span><span class="ma-item">MA20: <span>$43.20</span></span><span class="ma-item">MA50: <span>$40.50</span></span><span class="ma-item">MA150: <span>$38.20</span></span><span class="ma-item">MA200: <span>$36.80</span></span></div></td></tr>
+    <tr class="stock-row row-near" data-range20d="1" data-volume="0" data-pocket="1">
+      <td><b>ATI</b></td><td>$68.90</td><td class="buy-point">$71.20</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-near">-3.23%</td><td class="vol-low">0.5x</td><td class="dvol">$210M</td><td>4.1%</td>
+      <td><span class="badge badge-sector">Industrials</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$69.50</span></span><span class="ma-item">MA20: <span>$70.10</span></span><span class="ma-item">MA50: <span>$66.80</span></span><span class="ma-item">MA150: <span>$62.40</span></span><span class="ma-item">MA200: <span>$58.90</span></span></div></td></tr>
+    <tr><td colspan="11" style="text-align:center;color:#64748b;padding:12px;font-size:12px;">+59 more in Near Pivot</td></tr>
+  </table>
+</div>
+
+<!-- EXTENDED SECTION -->
+<div class="section">
+  <div class="section-title">📈 Extended <span class="count">7</span></div>
+  <table>
+    <tr><th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th><th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th></tr>
+    <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-pocket="1">
+      <td><b>ROKU</b></td><td>$118.50</td><td class="buy-point">$105.20</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-far">+12.64%</td><td class="vol-ok">1.3x</td><td class="dvol">$580M</td><td>0.8%</td>
+      <td><span class="badge badge-sector">Communication Services</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$112.30</span></span><span class="ma-item">MA20: <span>$108.50</span></span><span class="ma-item">MA50: <span>$102.80</span></span><span class="ma-item">MA150: <span>$95.20</span></span><span class="ma-item">MA200: <span>$88.60</span></span></div></td></tr>
+    <tr class="stock-row row-extended" data-range20d="0" data-volume="0" data-pocket="1">
+      <td><b>VSH</b></td><td>$32.80</td><td class="buy-point">$28.50</td>
+      <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot off"></span><span class="s2-dot off"></span></div></td>
+      <td><span class="badge badge-pivot">pivot</span> <span class="signal-badge signal-pocket">pocket</span></td>
+      <td class="prox-far">+15.09%</td><td class="vol-low">0.8x</td><td class="dvol">$95M</td><td>2.3%</td>
+      <td><span class="badge badge-sector">Technology</span></td>
+      <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+    </tr>
+    <tr class="detail-row"><td colspan="11" class="detail-cell"><div class="ma-stack"><span class="ma-item">MA10: <span>$31.20</span></span><span class="ma-item">MA20: <span>$29.80</span></span><span class="ma-item">MA50: <span>$27.50</span></span><span class="ma-item">MA150: <span>$24.80</span></span><span class="ma-item">MA200: <span>$22.40</span></span></div></td></tr>
+    <tr><td colspan="11" style="text-align:center;color:#64748b;padding:12px;font-size:12px;">+5 more in Extended</td></tr>
+  </table>
+</div>
+
+<div class="annotation note">
+  <strong>Issue #5: Filtering destroys detail rows.</strong> Try this: expand VTEB's ▼ to see its MA stack, then click "20d Range". The detail row collapses. The setFilter() function forcibly closes ALL detail rows regardless of whether the parent row is still visible.
+</div>
+
+<div class="annotation note">
+  <strong>Issue #6: No filter state persistence.</strong> Refresh this page — you're back to "All". No URL hash, no localStorage. Can't bookmark a filtered view.
+</div>
+
+<div class="annotation note">
+  <strong>Issue #7: Hardcoded denominator.</strong> The counter says "of 87" even though it's hardcoded in JS. If tomorrow's report has 50 stocks, it would still say "of 87".
+</div>
+
+<div class="footer">Generated 2026-06-19 15:17 ET · Click a filter to switch view · Stocks can qualify for multiple types</div>
+
+<script>
+function setFilter(filter) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.filter-btn[data-filter="' + filter + '"]').classList.add('active');
+    let visible = 0;
+    document.querySelectorAll('.stock-row').forEach(row => {
+        const show = filter === 'all' || row.getAttribute('data-' + filter) === '1';
+        row.style.display = show ? 'table-row' : 'none';
+        const detail = row.nextElementSibling;
+        if (detail && detail.classList.contains('detail-row')) {
+            detail.style.display = 'none';
+            detail.classList.remove('open');
+        }
+        if (show) visible++;
+    });
+    document.getElementById('countDisplay').textContent = 'Showing ' + visible + ' of ' + 87;
+}
+</script>
+
+</body>
+</html>

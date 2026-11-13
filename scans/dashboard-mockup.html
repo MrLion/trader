@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Engine Dashboard — Mockup</title>
+<style>
+:root {
+  --bg: #0a0c12;
+  --panel: #11141c;
+  --border: #1e2130;
+  --text: #e2e8f0;
+  --dim: #64748b;
+  --green: #22c55e;
+  --red: #ef4444;
+  --yellow: #eab308;
+  --orange: #f97316;
+  --blue: #60a5fa;
+  --cyan: #06b6d4;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'SF Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  background: var(--bg); color: var(--text); padding: 16px; max-width: 1200px; margin: 0 auto;
+  font-size: 13px;
+}
+
+/* Top bar */
+.topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.topbar .title { font-size: 15px; font-weight: 600; }
+.topbar .time { color: var(--dim); font-size: 12px; }
+.topbar .spacer { flex: 1; }
+.topbar .pill {
+  padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+}
+.pill-open { background: #052e16; color: var(--green); }
+.pill-neutral { background: #1e2130; color: var(--dim); }
+.pill .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+
+/* Account cards */
+.account-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.acct-card {
+  flex: 1; min-width: 160px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px;
+}
+.acct-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dim); margin-bottom: 4px; }
+.acct-card .value { font-size: 20px; font-weight: 700; }
+.acct-card .sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+.acct-card .delta { font-size: 13px; font-weight: 600; }
+.acct-card .bar { height: 3px; border-radius: 2px; margin-top: 8px; background: var(--border); }
+.acct-card .bar-fill { height: 100%; border-radius: 2px; }
+.green-text { color: var(--green); }
+.red-text { color: var(--red); }
+.yellow-text { color: var(--yellow); }
+
+/* Today summary */
+.today-bar {
+  display: flex; gap: 16px; padding: 10px 16px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px;
+  font-size: 13px;
+}
+.today-bar .item { display: flex; gap: 6px; align-items: center; }
+.today-bar .item .lbl { color: var(--dim); font-size: 11px; }
+
+/* Positions table */
+.section-title {
+  font-size: 12px; font-weight: 600; color: var(--dim); text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px; padding-left: 4px;
+}
+.table-wrap {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; margin-bottom: 16px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; padding: 8px 12px; font-weight: 600; color: var(--dim);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+th.right { text-align: right; }
+td { padding: 7px 12px; border-bottom: 1px solid var(--border); }
+td.right { text-align: right; }
+td.mono { font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(96,165,250,0.04); }
+.type-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+}
+.type-H { background: #3a1a1a; color: var(--red); }
+.type-T { background: #1e3a5f; color: var(--blue); }
+.type-B { background: #1a2e1a; color: var(--green); }
+.type-E { background: #431407; color: var(--orange); }
+
+/* Activity feed + Equity chart side by side */
+.bottom-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.bottom-panel {
+  flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.bottom-panel .header {
+  padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px;
+  font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.activity-list { padding: 8px 12px; }
+.activity-item { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; }
+.activity-item .icon { width: 16px; text-align: center; font-weight: 700; }
+.activity-item .ts { color: var(--dim); font-size: 11px; }
+.activity-item .ticker { font-weight: 600; }
+.activity-item .detail { color: var(--dim); }
+.activity-item .pnl { font-weight: 600; }
+.pnl-pos { color: var(--green); }
+.pnl-neg { color: var(--red); }
+
+/* Equity sparkline */
+.equity-chart { padding: 12px; }
+.sparkline {
+  display: flex; align-items: flex-end; gap: 2px; height: 60px;
+}
+.spark-bar {
+  flex: 1; min-width: 2px; border-radius: 1px 1px 0 0;
+  background: var(--border); transition: background 0.2s;
+}
+.spark-bar.up { background: var(--green); }
+.spark-bar.down { background: var(--red); }
+.spark-bar.muted { background: var(--dim); opacity: 0.4; }
+
+/* Sector bars */
+.sector-list { padding: 8px 12px; }
+.sector-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.sector-label { width: 140px; font-size: 11px; }
+.sector-bar { flex: 1; height: 14px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.sector-fill { height: 100%; border-radius: 3px; }
+.sector-pct { width: 50px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sector-count { width: 50px; text-align: right; font-size: 10px; color: var(--dim); }
+
+/* Cooldowns/blocked footer */
+.footer-bar {
+  display: flex; gap: 16px; padding: 8px 16px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 11px; color: var(--dim);
+}
+.footer-bar .seg { display: flex; gap: 6px; align-items: center; }
+.footer-bar .seg .lbl { font-weight: 600; }
+.footer-bar .cooldown-pill {
+  padding: 1px 6px; border-radius: 3px; background: var(--border); font-size: 10px;
+}
+.footer-bar .blocked-pill {
+  padding: 1px 6px; border-radius: 3px; background: #431407; color: var(--orange); font-size: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <span class="title">📊 Paper Engine</span>
+  <span class="time" id="clock">10:13 ET</span>
+  <span class="spacer"></span>
+  <span class="pill pill-open"><span class="dot" style="background:var(--green)"></span>MARKET OPEN</span>
+  <span class="pill pill-neutral">NEUTRAL</span>
+  <span class="pill pill-neutral">VIX 19.65</span>
+  <span class="pill pill-neutral">WS: connected</span>
+  <span class="pill pill-neutral">API: 21/10000</span>
+</div>
+
+<!-- Account cards -->
+<div class="account-row">
+  <div class="acct-card">
+    <div class="label">Account Value</div>
+    <div class="value">$104,739</div>
+    <div class="sub">Cash $29,244</div>
+  </div>
+  <div class="acct-card">
+    <div class="label">Day P&L</div>
+    <div class="value green-text">+$4,859</div>
+    <div class="sub">+4.7% today</div>
+  </div>
+  <div class="acct-card">
+    <div class="label">Unrealized</div>
+    <div class="value green-text">+$3,223</div>
+    <div class="sub">10 open positions</div>
+  </div>
+  <div class="acct-card">
+    <div class="label">YTD</div>
+    <div class="value green-text">+$4,859</div>
+    <div class="sub">+4.9%</div>
+  </div>
+  <div class="acct-card">
+    <div class="label">Heat</div>
+    <div class="value">5.0%</div>
+    <div class="bar"><div class="bar-fill" style="width:50%;background:var(--yellow)"></div></div>
+  </div>
+</div>
+
+<!-- Today summary -->
+<div class="today-bar">
+  <div class="item"><span class="lbl">TODAY:</span> <span>0W / 1L</span></div>
+  <div class="item"><span class="lbl">P&L:</span> <span class="red-text">-$855</span></div>
+  <div class="item"><span class="lbl">Avg:</span> <span class="red-text">-1.70R</span></div>
+  <div class="item"><span class="lbl">Win Rate:</span> <span>0%</span></div>
+</div>
+
+<!-- Positions -->
+<div class="section-title">Open Positions</div>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Ticker</th>
+      <th class="right">Entry</th>
+      <th class="right">Current</th>
+      <th class="right">Stop</th>
+      <th>Type</th>
+      <th class="right">Unrealized</th>
+      <th class="right">R</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>MNST</b></td>
+      <td class="right mono">88.91</td>
+      <td class="right mono green-text">96.92</td>
+      <td class="right mono">88.91</td>
+      <td><span class="type-badge type-B">B</span></td>
+      <td class="right mono green-text">+$641</td>
+      <td class="right mono green-text">+2.3R</td>
+    </tr>
+    <tr>
+      <td><b>NBIX</b></td>
+      <td class="right mono">159.20</td>
+      <td class="right mono green-text">169.10</td>
+      <td class="right mono">152.54</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono green-text">+$20</td>
+      <td class="right mono green-text">+1.5R</td>
+    </tr>
+    <tr>
+      <td><b>AXTA</b></td>
+      <td class="right mono">31.70</td>
+      <td class="right mono green-text">34.65</td>
+      <td class="right mono">31.70</td>
+      <td><span class="type-badge type-B">B</span></td>
+      <td class="right mono green-text">+$944</td>
+      <td class="right mono green-text">+1.8R</td>
+    </tr>
+    <tr>
+      <td><b>OSCR</b></td>
+      <td class="right mono">25.17</td>
+      <td class="right mono green-text">29.37</td>
+      <td class="right mono">28.05</td>
+      <td><span class="type-badge type-E">E</span></td>
+      <td class="right mono green-text">+$1,213</td>
+      <td class="right mono green-text">+2.8R</td>
+    </tr>
+    <tr>
+      <td><b>FIX</b></td>
+      <td class="right mono">1839.43</td>
+      <td class="right mono green-text">1921.34</td>
+      <td class="right mono">1839.43</td>
+      <td><span class="type-badge type-B">B</span></td>
+      <td class="right mono green-text">+$410</td>
+      <td class="right mono green-text">+0.9R</td>
+    </tr>
+    <tr>
+      <td><b>SN</b></td>
+      <td class="right mono">134.86</td>
+      <td class="right mono green-text">143.83</td>
+      <td class="right mono">128.05</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono green-text">+$45</td>
+      <td class="right mono green-text">+1.3R</td>
+    </tr>
+    <tr>
+      <td><b>INTC</b></td>
+      <td class="right mono">128.84</td>
+      <td class="right mono green-text">130.10</td>
+      <td class="right mono">122.37</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono green-text">+$101</td>
+      <td class="right mono green-text">+0.2R</td>
+    </tr>
+    <tr>
+      <td><b>PWR</b></td>
+      <td class="right mono">713.47</td>
+      <td class="right mono red-text">705.88</td>
+      <td class="right mono">677.84</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono red-text">-$76</td>
+      <td class="right mono red-text">-0.2R</td>
+    </tr>
+    <tr>
+      <td><b>GEV</b></td>
+      <td class="right mono">1101.33</td>
+      <td class="right mono red-text">1078.80</td>
+      <td class="right mono">1046.02</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono red-text">-$203</td>
+      <td class="right mono red-text">-0.4R</td>
+    </tr>
+    <tr>
+      <td><b>MXL</b></td>
+      <td class="right mono">92.70</td>
+      <td class="right mono green-text">93.87</td>
+      <td class="right mono">86.77</td>
+      <td><span class="type-badge type-T">T</span></td>
+      <td class="right mono green-text">+$129</td>
+      <td class="right mono green-text">+0.2R</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Bottom row: Activity + Equity + Sectors -->
+<div class="bottom-row">
+  <!-- Activity feed -->
+  <div class="bottom-panel" style="flex: 1.2;">
+    <div class="header">Activity</div>
+    <div class="activity-list">
+      <div class="activity-item">
+        <span class="icon green-text">+</span>
+        <span class="ts">09:32:49</span>
+        <span class="ticker">MXL</span>
+        <span class="detail">$92.70 ×110</span>
+        <span class="pnl"></span>
+      </div>
+      <div class="activity-item">
+        <span class="icon red-text">x</span>
+        <span class="ts">09:34:51</span>
+        <span class="ticker">VRT</span>
+        <span class="detail">$307.66 [STOP_HIT]</span>
+        <span class="pnl pnl-neg">-$855</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Equity sparkline -->
+  <div class="bottom-panel">
+    <div class="header">Equity (30D) — $105.8K</div>
+    <div class="equity-chart">
+      <div class="sparkline">
+        <div class="spark-bar" style="height:30%"></div>
+        <div class="spark-bar" style="height:35%"></div>
+        <div class="spark-bar" style="height:40%"></div>
+        <div class="spark-bar up" style="height:50%"></div>
+        <div class="spark-bar up" style="height:55%"></div>
+        <div class="spark-bar up" style="height:60%"></div>
+        <div class="spark-bar up" style="height:65%"></div>
+        <div class="spark-bar up" style="height:70%"></div>
+        <div class="spark-bar up" style="height:75%"></div>
+        <div class="spark-bar up" style="height:80%"></div>
+        <div class="spark-bar down" style="height:50%"></div>
+        <div class="spark-bar down" style="height:55%"></div>
+        <div class="spark-bar down" style="height:30%"></div>
+        <div class="spark-bar down" style="height:25%"></div>
+        <div class="spark-bar" style="height:40%"></div>
+        <div class="spark-bar down" style="height:25%"></div>
+        <div class="spark-bar up" style="height:60%"></div>
+        <div class="spark-bar" style="height:45%"></div>
+        <div class="spark-bar" style="height:40%"></div>
+        <div class="spark-bar up" style="height:60%"></div>
+        <div class="spark-bar up" style="height:65%"></div>
+        <div class="spark-bar up" style="height:70%"></div>
+        <div class="spark-bar down" style="height:30%"></div>
+        <div class="spark-bar down" style="height:25%"></div>
+        <div class="spark-bar" style="height:15%"></div>
+        <div class="spark-bar" style="height:20%"></div>
+        <div class="spark-bar up" style="height:50%"></div>
+        <div class="spark-bar down" style="height:35%"></div>
+        <div class="spark-bar up" style="height:55%"></div>
+        <div class="spark-bar up" style="height:72%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sector exposure -->
+  <div class="bottom-panel" style="flex: 1.2;">
+    <div class="header">Sector Exposure — % of Equity</div>
+    <div class="sector-list">
+      <div class="sector-row">
+        <span class="sector-label">Industrials</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:100%;background:#60a5fa"></div></div>
+        <span class="sector-pct">34.9%</span>
+        <span class="sector-count">3 pos</span>
+      </div>
+      <div class="sector-row">
+        <span class="sector-label">Technology</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:79%;background:#60a5fa"></div></div>
+        <span class="sector-pct">27.5%</span>
+        <span class="sector-count">2 pos</span>
+      </div>
+      <div class="sector-row">
+        <span class="sector-label">Basic Materials</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:42%;background:#60a5fa"></div></div>
+        <span class="sector-pct">14.7%</span>
+        <span class="sector-count">1 pos</span>
+      </div>
+      <div class="sector-row">
+        <span class="sector-label">Healthcare</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:33%;background:#60a5fa"></div></div>
+        <span class="sector-pct">11.7%</span>
+        <span class="sector-count">2 pos</span>
+      </div>
+      <div class="sector-row">
+        <span class="sector-label">Consumer Defensive</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:29%;background:#60a5fa"></div></div>
+        <span class="sector-pct">10.3%</span>
+        <span class="sector-count">1 pos</span>
+      </div>
+      <div class="sector-row">
+        <span class="sector-label">Consumer Cyclical</span>
+        <div class="sector-bar"><div class="sector-fill" style="width:3%;background:#60a5fa"></div></div>
+        <span class="sector-pct">1.0%</span>
+        <span class="sector-count">1 pos</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer: cooldowns + blocked + status -->
+<div class="footer-bar" style="margin-top:12px;">
+  <div class="seg"><span class="lbl">Next scan:</span> 19s</div>
+  <div class="seg"><span class="lbl">Market closes in:</span> 5h 47m</div>
+  <div class="seg"><span class="lbl">WebSocket:</span> connected</div>
+  <div class="seg"><span class="lbl">Rate limit:</span> 21/10000</div>
+  <div class="seg"><span class="lbl">COOLDOWNS:</span> <span class="cooldown-pill">VRT(201m)</span></div>
+</div>
+
+</body>
+</html>

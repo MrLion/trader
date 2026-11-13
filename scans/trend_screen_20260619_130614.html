@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Screener Results</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+        /* Summary bar */
+        .summary { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-item {
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a;
+        }
+        .summary-item .num { font-size: 20px; font-weight: 700; display: block; }
+        .summary-ready   .num { color: #22c55e; }
+        .summary-near    .num { color: #eab308; }
+        .summary-extended .num { color: #f97316; }
+        .summary-none    .num { color: #64748b; }
+
+        /* Section */
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 15px; font-weight: 600; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid #2a2d3a;
+        }
+        .section-title .count { color: #64748b; font-weight: 400; font-size: 13px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 8px 10px; font-weight: 500;
+            color: #94a3b8; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid #2a2d3a;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid #1e2030; }
+
+        /* Row visibility for interactive filters */
+        .stock-row { display: table-row; }
+        .stock-row.hidden { display: none; }
+
+        /* Tier row colors */
+        .row-ready td { background: #052e16; }
+        .row-near td  { background: #422006; }
+        .row-extended td { background: #431407; }
+        .row-nosetup td { background: transparent; color: #475569; }
+
+        /* Filter bar */
+        .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filter-btn {
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+            background: #1a1d27; border: 1px solid #2a2d3a; color: #94a3b8;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+        .filter-btn.active { background: #1e3a5f; border-color: #60a5fa; color: #60a5fa; }
+        .filter-count { color: #64748b; font-size: 12px; }
+
+        /* Badges */
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+        }
+        .badge-pivot  { background: #1e3a5f; color: #60a5fa; }
+        .badge-trend  { background: #1a3a2a; color: #4ade80; }
+        .badge-vcp    { background: #3a1a3a; color: #c084fc; }
+        .badge-none   { background: #1a1d27; color: #64748b; }
+
+        .badge-sector {
+            background: #1a1d27; color: #94a3b8; font-size: 10px;
+        }
+
+        /* Signal badges */
+        .signal-badge {
+            display: inline-block; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 600; margin-right: 3px;
+        }
+        .signal-pocket { background: #3a2a1a; color: #fbbf24; }
+
+        /* Stage 2 dots */
+        .s2-dots { display: flex; gap: 2px; align-items: center; }
+        .s2-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .s2-dot.on  { background: #22c55e; }
+        .s2-dot.off { background: #2a2d3a; }
+
+        /* Volume ratio */
+        .vol-high { color: #22c55e; font-weight: 600; }
+        .vol-ok   { color: #e2e8f0; }
+        .vol-low  { color: #64748b; }
+
+        /* Proximity */
+        .prox-close { color: #22c55e; }
+        .prox-near  { color: #eab308; }
+        .prox-far   { color: #f97316; }
+
+        /* Dollar volume */
+        .dvol { color: #94a3b8; font-family: 'SF Mono', monospace; font-size: 12px; }
+
+        /* Buy point */
+        .buy-point { font-family: 'SF Mono', monospace; font-weight: 500; color: #60a5fa; }
+
+        /* Detail row (collapsible) */
+        .detail-row { display: none; }
+        .detail-row.open { display: table-row; }
+        .detail-cell {
+            padding: 8px 10px 12px 10px; background: #0a0c12;
+            font-size: 12px; color: #64748b;
+        }
+        .detail-cell .ma-stack { display: flex; gap: 16px; flex-wrap: wrap; }
+        .detail-cell .ma-item span { color: #94a3b8; }
+        .toggle-detail { cursor: pointer; color: #64748b; font-size: 11px; }
+        .toggle-detail:hover { color: #e2e8f0; }
+
+        /* Footer */
+        .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Trend Screener</h1>
+<div class="subtitle">2026-06-19 13:06 ET &middot; 4 candidates</div>
+
+<div class="filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="range20d" onclick="setFilter('range20d')">20d Range</button>
+    <button class="filter-btn" data-filter="vcp" onclick="setFilter('vcp')">VCP</button>
+    <button class="filter-btn" data-filter="volume" onclick="setFilter('volume')">Volume</button>
+    <button class="filter-btn" data-filter="pocket" onclick="setFilter('pocket')">Pocket</button>
+    <span class="filter-count" id="countDisplay">Showing 4 of 4</span>
+</div>
+
+<div class="summary">
+    <div class="summary-item summary-ready">
+        <span class="num">0</span>
+        🔥 Ready Now
+    </div>
+    <div class="summary-item summary-near">
+        <span class="num">1</span>
+        ⏳ Near Pivot
+    </div>
+    <div class="summary-item summary-extended">
+        <span class="num">3</span>
+        📈 Extended
+    </div>
+    <div class="summary-item summary-none">
+        <span class="num">0</span>
+        ⏸️ No Setup
+    </div>
+</div>
+
+
+<div class="section">
+    <div class="section-title">⏳ Near Pivot <span class="count">1</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+        <tr class="stock-row row-near" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>TGT</b></td>
+            <td>$130.74</td>
+            <td class="buy-point">$129.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $130.74</span></td>
+            <td class="prox-near">+1.03%</td>
+            <td class="vol-ok">1.4x</td>
+            <td class="dvol">$684M</td>
+            <td>3.3%</td>
+            <td><span class="badge badge-sector">Consumer Defensive</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$129.41</span></span>
+                    <span class="ma-item">MA20: <span>$127.54</span></span>
+                    <span class="ma-item">MA50: <span>$125.87</span></span>
+                    <span class="ma-item">MA150: <span>$111.84</span></span>
+                    <span class="ma-item">MA200: <span>$105.83</span></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+<div class="section">
+    <div class="section-title">📈 Extended <span class="count">3</span></div>
+    <table>
+        <tr>
+            <th>Ticker</th><th>Price</th><th>Buy Point</th><th>Stage 2</th><th>Setup</th>
+            <th>To Pivot</th><th>Vol Ratio</th><th>Dollar Vol</th><th>RS from High</th><th>Sector</th><th></th>
+        </tr>
+        <tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>VSH</b></td>
+            <td>$64.90</td>
+            <td class="buy-point">$59.41</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $64.90</span></td>
+            <td class="prox-far">+9.24%</td>
+            <td class="vol-high">1.8x ✓</td>
+            <td class="dvol">$410M</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$59.41</span></span>
+                    <span class="ma-item">MA20: <span>$56.62</span></span>
+                    <span class="ma-item">MA50: <span>$40.65</span></span>
+                    <span class="ma-item">MA150: <span>$24.73</span></span>
+                    <span class="ma-item">MA200: <span>$22.44</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>MRVL</b></td>
+            <td>$310.58</td>
+            <td class="buy-point">$281.99</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $310.58</span></td>
+            <td class="prox-far">+10.14%</td>
+            <td class="vol-high">5.3x ✓</td>
+            <td class="dvol">$13.8B</td>
+            <td>1.9%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$281.99</span></span>
+                    <span class="ma-item">MA20: <span>$257.60</span></span>
+                    <span class="ma-item">MA50: <span>$197.94</span></span>
+                    <span class="ma-item">MA150: <span>$123.44</span></span>
+                    <span class="ma-item">MA200: <span>$113.00</span></span>
+                </div>
+            </td>
+        </tr>
+<tr class="stock-row row-extended" data-range20d="0" data-vcp="0" data-volume="0" data-pocket="1">
+            <td><b>WDC</b></td>
+            <td>$746.23</td>
+            <td class="buy-point">$593.19</td>
+            <td><div class="s2-dots"><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span><span class="s2-dot on"></span></div></td>
+            <td><span class="badge badge-trend">trend</span><span class="signal-badge signal-pocket">pocket $746.23</span></td>
+            <td class="prox-far">+25.80%</td>
+            <td class="vol-high">2.1x ✓</td>
+            <td class="dvol">$5.7B</td>
+            <td>0.0%</td>
+            <td><span class="badge badge-sector">Technology</span></td>
+            <td class="toggle-detail" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">▼</td>
+        </tr>
+        <tr class="detail-row">
+            <td colspan="11" class="detail-cell">
+                <div class="ma-stack">
+                    <span class="ma-item">MA10: <span>$593.16</span></span>
+                    <span class="ma-item">MA20: <span>$564.88</span></span>
+                    <span class="ma-item">MA50: <span>$479.89</span></span>
+                    <span class="ma-item">MA150: <span>$314.10</span></span>
+                    <span class="ma-item">MA200: <span>$265.96</span></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+<div class="footer">
+    Generated 2026-06-19 13:06 ET &middot; Click a filter to switch view &middot; Stocks can qualify for multiple types
+</div>
+
+<script>
+function setFilter(mode) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-filter="${mode}"]`).classList.add('active');
+    let visible = 0;
+    document.querySelectorAll('.stock-row').forEach(row => {
+        if (mode === 'all') {
+            row.classList.remove('hidden'); visible++;
+        } else {
+            const val = row.getAttribute('data-' + mode);
+            if (val === '1') { row.classList.remove('hidden'); visible++; }
+            else { row.classList.add('hidden'); }
+        }
+    });
+    document.getElementById('countDisplay').textContent = `Showing ${visible} of ${document.querySelectorAll('.stock-row').length}`;
+}
+</script>
+
+</body>
+</html>

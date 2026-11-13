@@ -24,3 +24,8 @@ htmlcov/
 .context/
 *.egg-info/
 .worktrees/
+
+# runtime artifacts & agent tooling
+data/logs/
+*.backup
+.superpowers/
